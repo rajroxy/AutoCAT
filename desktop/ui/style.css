@@ -597,18 +597,29 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .hero-cats, .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
 .cats { margin-bottom: 0; }
 
-/* **The banner's own name sits in the top-left corner and everything under it is centred
-   in the left column.** `Spotlight` is the heading of the whole block, so it keeps the
-   corner — a step larger than the same kicker elsewhere — and the card's title (or the
-   drawn broadcast mark that stands in for it) and the tag chips that follow it sit on
-   the column's centre line. A stack of words pushed into the corner read as a stray
-   caption; a centred block under a corner label reads as a heading.
+/* **The banner's own name sits in the top-left corner and the title it heads sits on the
+   centre of the left column.** `Spotlight` is the heading of the whole block, so it keeps
+   the corner — a step larger than the same kicker elsewhere and out of the flow, so it
+   does not ride up and down as the artwork's height changes — while the card's title and
+   the tag chips that follow it are centred, across **and** down the column. A stack of
+   words pushed into the top of the column read as a stray caption and left the whole left
+   half empty; a block on the column's own centre line reads as the banner's heading.
    The **title page** wears this same banner (`.hero.title-hero`) but not these rules: its
    left column is a column of facts — overview, actions, genres — and left-aligned is
    what those want. The **live channel banner** (`.hero.live-hero`) keeps its column
    against the left edge for the same reason. */
-.hero:not(.title-hero):not(.live-hero) .hero-body { text-align: center; align-self: start; }
+.hero:not(.title-hero):not(.live-hero) .hero-body {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
 .hero:not(.title-hero):not(.live-hero) .hero-kicker {
+  position: absolute;
+  top: 0;
+  left: 0;
   text-align: left;
   font-size: 18px;
   /* **Capitals, not sentence case.** The banner's own name is a label over the whole
@@ -617,7 +628,9 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
-.hero:not(.title-hero):not(.live-hero) .hero-cats { justify-content: center; }
+/* The tag line is the last thing in the centred block, so its bottom margin would push
+   the block's own centre up: it is dropped, and the title and tags centre exactly. */
+.hero:not(.title-hero):not(.live-hero) .hero-cats { justify-content: center; margin-bottom: 0; }
 .hero.live-hero .hero-body { text-align: left; align-self: start; }
 .hero.live-hero .hero-cats { justify-content: flex-start; }
 
