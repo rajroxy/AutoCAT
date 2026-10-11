@@ -591,21 +591,6 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   text-transform: uppercase;
   color: var(--accent);
 }
-/* The drawn mark an On-the-Board banner wears in place of its two-word title. */
-.hero-title-mark { display: flex; align-items: center; }
-.hero-mark {
-  width: 104px;
-  height: 104px;
-  /* Down, and further down: the mark sat tight under the banner's own name. */
-  margin-top: 24px;
-  fill: none;
-  stroke: #f8f3e8;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.hero-mark path:last-child { fill: #f8f3e8; stroke: none; }
-
 .hero-title { margin: 0 0 10px; font-size: clamp(26px, 3.4vw, 44px); font-weight: 800; letter-spacing: -0.03em; }
 
 /* Catalog labels are clickable chips in the hero and on a collection. */
@@ -632,7 +617,6 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
-.hero:not(.title-hero):not(.live-hero) .hero-title-mark { justify-content: center; }
 .hero:not(.title-hero):not(.live-hero) .hero-cats { justify-content: center; }
 .hero.live-hero .hero-body { text-align: left; align-self: start; }
 .hero.live-hero .hero-cats { justify-content: flex-start; }

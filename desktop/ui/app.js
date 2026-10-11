@@ -2750,21 +2750,10 @@ function heroBlock() {
         // the smallest thing on the banner, and it sat where the eye arrives last.
         el("p", { class: "hero-kicker", text: "Spotlight" }),
         // **The card's own title**, not the name of the film that happens to be on
-        // the picture, and not a mix of every other card's labels — except for the
-        // **On the Board** card, which wears a drawn mark instead of the two words: it is
-        // the banner's own "what is on right now" row rather than one more collection, and
-        // saying so with the broadcast mark says it at a glance.
-        featured.key === "on-the-board"
-          ? el("h2", { class: "hero-title hero-title-mark", title: "On the Board" },
-              svgNode("svg", { class: "hero-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-                svgNode("path", { d: "M12 6.5v3" }),
-                svgNode("path", { d: "M8.5 9.5a5 5 0 0 1 7 0" }),
-                svgNode("path", { d: "M6 7a8.5 8.5 0 0 1 12 0" }),
-                svgNode("rect", { x: "3.5", y: "12.5", width: "17", height: "9", rx: "2.5" }),
-                svgNode("path", { d: "M10 14.6v4.8l4.6-2.4z" }),
-              ),
-            )
-          : el("h2", { class: "hero-title", text: featured.title }),
+        // the picture, and not a mix of every other card's labels — the **On the Board**
+        // card included: it used to wear a drawn broadcast mark in place of the two words,
+        // and it says what it is in the same words every other card uses for its name.
+        el("h2", { class: "hero-title", text: featured.title }),
         // Just this card's catalog labels, each one a link into that catalog —
         // clamped to two rows, because a big card carries eighty of them. Nothing
         // else goes on the banner: no Explore button, no other cards' tags.

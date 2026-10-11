@@ -284,8 +284,8 @@ strip is clipped to the frame's radius, so a photograph can never cross a card's
 **The name and its tags read on the left, the artwork frame on the right** — on the
 banner and on a card page alike. On the **home banner** that left column reads as the
 banner's own heading: its own name — **Spotlight** — keeps the top-left corner at a step
-larger than the same caption elsewhere, and the card's title (or the drawn broadcast mark
-that stands in for it) and the tag chips under it are **centred** in the column.
+larger than the same caption elsewhere, and the card's title and the tag chips under it are
+**centred** in the column.
 
 **Watchlist** is a real card with a real row. A shared addon cannot know your
 account, so the rows are served from the pins stored in `addon/watchlist.json`
@@ -903,9 +903,9 @@ gone**: the profile used to fetch the lineup and then a second request per categ
   the collection before the shot arrives).
   The banner is **its card**, and it says so: **Spotlight** above — in the column's
   top-left corner, a step larger than the same caption elsewhere — then the **card's
-  title** where the film's name used to be (the drawn broadcast mark on the On-the-Board
-  banner), then only that card's own tags. The title and the tags are **centred** in that
-  column; the live channel banner's column stays against the left edge. There is
+  title** where the film's name used to be, then only that card's own tags. The title and
+  the tags are **centred** in that column; the live channel banner's column stays against
+  the left edge. There is
   **no Explore button** and **no other cards' labels** on it, and the picture's
   rotation never overwrites the title with the name of whatever film is on screen.
   The frame wears **no generated vector scene at any point**: while the backdrop is on
