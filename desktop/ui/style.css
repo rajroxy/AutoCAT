@@ -1468,6 +1468,39 @@ button:focus-visible,
 .cal-count.empty { color: transparent; }
 .cal-detail { margin-bottom: 40px; }
 
+
+/* The Calendar's own heading — the title and what this profile's calendar holds.
+   Both profiles wear it, so the screen says which calendar you are looking at. */
+.cal-title { display: flex; flex-direction: column; gap: 4px; }
+
+/* ------------------------- calendar (Live TV & Sports) ------------------- */
+
+/* The live profile's calendar is not a month to navigate: it is the guide's own
+   schedule, grouped by the day it airs, so a day is a section heading rather than a
+   cell in a grid. */
+.cal-live-day {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin: 26px 0 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--faint);
+}
+.cal-live-count { letter-spacing: 0.06em; color: var(--accent); }
+.cal-live { display: flex; flex-direction: column; gap: 6px; }
+.cal-live-row {
+  display: grid; grid-template-columns: 148px 34px minmax(0, 1fr); align-items: center;
+  gap: 12px; padding: 9px 12px; border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px; background: var(--panel); color: inherit; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.cal-live-row:hover { border-color: rgba(var(--accent-rgb), 0.5); }
+.cal-live-time { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.cal-live-logo { width: 34px; height: 24px; object-fit: contain; border-radius: 5px; background: var(--panel-2); }
+.cal-live-logo.fallback { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--accent); }
+.cal-live-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-live-title { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-live-channel { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-actions { display: flex; gap: 10px; margin-top: 12px; }
+.cal-window { margin: 2px 0 6px; }
+
 /* A release on the calendar is a poster *and* its own Plan to Watch pin — the
    calendar pin is plan-only, and it is not the same thing as a watchlist row. */
 .grid-titles .cal-item { display: flex; flex-direction: column; gap: 8px; }

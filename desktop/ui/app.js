@@ -3925,7 +3925,17 @@ function calendarCard(m) {
   );
 }
 
+/**
+ * **The Calendar follows the profile.** The two profiles hold different things:
+ * one has *releases* — a title lands on a date — and the other has a *schedule*,
+ * where programmes are on at a time. So the screen is not one calendar drawn from
+ * two sources; each profile gets the calendar its own content can have.
+ */
 function renderCalendar() {
+  return liveProfile() ? renderLiveCalendar() : renderVodCalendar();
+}
+
+function renderVodCalendar() {
   const { month } = state.calendar;
   const [year, mon] = month.split("-").map(Number);
   const grid = el("div", { class: "cal-grid" });
@@ -4013,7 +4023,10 @@ function renderCalendar() {
     el(
       "header",
       { class: "cal-head" },
-      el("h1", { class: "view-title", text: "Calendar" }),
+      el("div", { class: "cal-title" },
+        el("h1", { class: "view-title", text: "Calendar" }),
+        el("p", { class: "view-hint", text: `Movies & series releasing this month${state.language ? ` · ${state.language}` : ""}` }),
+      ),
       el("div", { class: "cal-nav" },
         el("button", { class: "icon-btn focusable", type: "button", text: "‹", "aria-label": "Previous month", onclick: () => { state.calendar = { month: shiftMonth(month, -1), day: null }; render(); } }),
         el("span", { class: "cal-month", text: `${MONTH_NAMES[mon - 1]} ${year}` }),
@@ -4023,6 +4036,213 @@ function renderCalendar() {
     grid,
     detail,
   ];
+}
+
+/* ------------------------------------------------ calendar (Live TV & Sports) */
+
+/** A local-clock `YYYY-MM-DD` for a moment — the day a programme airs *here*. */
+function localDayKey(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** A day heading: `Today · Saturday 10 October`, `Tomorrow · …`, else the date. */
+function liveDayLabel(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  const long = new Date(y, m - 1, d).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+  if (key === localDayKey(Date.now())) return `Today · ${long}`;
+  if (key === localDayKey(Date.now() + 864e5)) return `Tomorrow · ${long}`;
+  return long;
+}
+
+/** How many programmes one day lists before it says how many are left. */
+const LIVE_CAL_PER_DAY = 60;
+
+/**
+ * The guide's programmes from now on, grouped by the day they air.
+ *
+ * **A calendar holds what is *coming*, and the Guide already holds what is *on*.**
+ * A chronological list that begins with every channel's mid-run block is a list you
+ * have to scroll past (a big lineup put tens of thousands of them ahead of the first
+ * programme that had not started yet) — so this keeps the programmes that
+ * start from now on, soonest first, and leaves "what is on this minute" to the Guide,
+ * where the grid draws it against the clock.
+ *
+ * **One guide id, one broadcast.** The lineup is a merge — the catalogue, your
+ * add-ons, the picked providers — and two entries can point at the same guide feed, so
+ * the same programme at the same minute would otherwise be listed twice. Keyed by that
+ * guide id and its start time it is listed once; the SD and HD feeds of one channel
+ * carry their own ids and stay apart, because they are genuinely two feeds.
+ */
+function liveCalDays() {
+  const guide = state.live.guide;
+  const byDay = new Map();
+  const seen = new Set();
+  if (!guide || !guide.programmes) return byDay;
+  const now = Date.now();
+  for (const channel of liveChannelsShown()) {
+    const epgKey = channel.epgId || channel.id;
+    for (const p of guide.programmes[epgKey] || []) {
+      if (!p || !p.start || p.start < now) continue;
+      // **Only inside the window the screen states.** The read keeps a little more
+      // than it promises (an hour either side, so a block straddling the edge is
+      // whole), and a day heading drawn from that overhang would contradict the line
+      // above it.
+      if (guide.end && p.start >= guide.end) continue;
+      const id = `${epgKey}|${p.start}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const key = localDayKey(p.start);
+      const list = byDay.get(key) || [];
+      list.push({ channel, p });
+      byDay.set(key, list);
+    }
+  }
+  for (const list of byDay.values()) {
+    // Earliest first; two on at once are ordered by channel so the list is stable.
+    list.sort((a, b) => a.p.start - b.p.start || String(a.channel.name || "").localeCompare(String(b.channel.name || "")));
+  }
+  return new Map([...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+}
+
+/** One programme on the live calendar: when it starts, which channel, and what. */
+function liveCalRow(channel, programme) {
+  return el(
+    "button",
+    {
+      class: "cal-live-row focusable",
+      type: "button",
+      title: `Open ${channel.name || "the channel"}`,
+      onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
+    },
+    el("span", { class: "cal-live-time", text: `${clockOf(programme.start)} – ${clockOf(programme.stop)}` }),
+    channel.logo
+      ? el("img", { class: "cal-live-logo", src: channel.logo, alt: "", loading: "lazy" })
+      : el("span", { class: "cal-live-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
+    el(
+      "span",
+      { class: "cal-live-what" },
+      el("span", { class: "cal-live-title", text: programme.title }),
+      el("span", { class: "cal-live-channel", text: [channel.name, channel.country].filter(Boolean).join(" · ") }),
+    ),
+  );
+}
+
+/**
+ * The Calendar on the Live TV & Sports profile: what is coming up, and on which
+ * channel.
+ *
+ * A month grid is not something a live playlist can fill — nothing is *released*, it
+ * is *scheduled* — so this profile's calendar is the schedule itself: the guide's own
+ * programmes, grouped by the day they air, under the profile's two rows (Live TV /
+ * Sports), exactly as its Home screen has them.
+ *
+ * It reads the **same** `/live/guide.json` the Guide reads — same hours, same picked
+ * countries — so the two screens can never disagree about what is on, and it states
+ * the window that came back rather than implying a month it cannot see. Opening the
+ * Calendar first (a link, a reload) reads the lineup and the guide itself instead of
+ * landing on an empty page.
+ */
+function renderLiveCalendar() {
+  if (!state.live.loaded && !state.live.loading) loadLive();
+  if (state.live.loaded && !state.live.guide && !state.live.guideLoading) loadGuide();
+
+  const guide = state.live.guide;
+  const channels = liveChannelsShown();
+  const sports = liveRowKey() === "sports";
+  const days = liveCalDays();
+  const nodes = [
+    el(
+      "header",
+      { class: "cal-head" },
+      el(
+        "div",
+        { class: "cal-title" },
+        el("h1", { class: "view-title", text: "Calendar" }),
+        el("p", {
+          class: "view-hint",
+          text: `${sports ? "Sport" : "Live TV"} · ${channels.length ? `${channels.length} channels` : "no channels yet"}`,
+        }),
+      ),
+      liveRowSwitch(),
+    ),
+  ];
+
+  // **The window is stated, not assumed.** The guide was read for a fixed number of
+  // hours, and the list can only hold what that read returned — so the line says the
+  // hours the data actually covers rather than a period the app would be guessing at.
+  const hours = guide && guide.end > guide.start ? Math.round((guide.end - guide.start) / 3600_000) : 0;
+  if (guide && guide.epg && hours) {
+    nodes.push(
+      el("p", {
+        class: "view-hint cal-window",
+        text: `The guide reaches ${clockOf(guide.start)} → ${clockOf(guide.end)} (the next ${hours} hours). Later days fill as your guide is refreshed.`,
+      }),
+    );
+  }
+
+  if (!guide) {
+    nodes.push(
+      ...(state.live.guideLoading
+        ? [el("p", { class: "view-hint", text: "Reading the guide…" })]
+        : [
+            el("p", { class: "empty", text: "The guide has not been read yet — reading it lists what is coming up." }),
+            state.live.guideError
+              ? el("p", { class: "view-hint", text: `The guide could not be read — ${state.live.guideError}` })
+              : null,
+            el("div", { class: "cal-actions" },
+              el("button", { class: "btn primary focusable", type: "button", text: "Read the guide", onclick: () => loadGuide() }),
+            ),
+          ]),
+    );
+    return nodes.filter(Boolean);
+  }
+
+  // **No EPG is an answer, not an error.** Without a guide there is no schedule to
+  // draw, and the screen says where the guide comes from instead of looking broken.
+  if (guide.epg === false) {
+    nodes.push(
+      el("p", {
+        class: "view-hint",
+        text: "No guide data — add an XMLTV (EPG) URL under Settings → Source and this lists real programmes.",
+      }),
+      guide.error ? el("p", { class: "view-hint", text: `The guide could not be read — ${guide.error}` }) : null,
+    );
+    return nodes.filter(Boolean);
+  }
+
+  if (!channels.length) {
+    nodes.push(
+      el("p", {
+        class: "view-hint",
+        text: "No channels yet — pick a source and countries under Settings → Source and this lists their schedule.",
+      }),
+    );
+    return nodes.filter(Boolean);
+  }
+
+  if (!days.size) {
+    nodes.push(el("p", { class: "empty", text: `Nothing else in the guide for the next ${hours || 6} hours.` }));
+    return nodes.filter(Boolean);
+  }
+
+  for (const [key, list] of days) {
+    // **The day counts what it holds**, so a heading says how much of a day the guide
+    // can actually see rather than leaving an empty-looking date.
+    nodes.push(
+      el("h3", { class: "cal-live-day" },
+        el("span", { text: liveDayLabel(key) }),
+        el("span", { class: "cal-live-count", text: `${list.length} starting` }),
+      ),
+    );
+    nodes.push(el("div", { class: "cal-live" }, ...list.slice(0, LIVE_CAL_PER_DAY).map(({ channel, p }) => liveCalRow(channel, p))));
+    if (list.length > LIVE_CAL_PER_DAY) {
+      nodes.push(
+        el("p", { class: "view-hint", text: `${list.length - LIVE_CAL_PER_DAY} more on this day — the Guide lists every programme.` }),
+      );
+    }
+  }
+  return nodes.filter(Boolean);
 }
 
 /* ----------------------------------------------------------------- sources */
@@ -8173,7 +8393,7 @@ function renderGuide() {
       ? null
       : el("p", {
           class: "view-hint",
-          text: "No guide data — add an XMLTV (EPG) URL in Settings → Guide & EPG and these rows fill with real programmes.",
+          text: "No guide data — add an XMLTV (EPG) URL under Settings → Source and these rows fill with real programmes.",
         }),
     el(
       "div",

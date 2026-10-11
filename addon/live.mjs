@@ -103,7 +103,7 @@ const READ_VERSION = 3;
 // 6: public free-to-air streams are married into the lineup (see
 // `publicStreamIndex`) — an older cached lineup has no stream URLs in it and has to be
 // rebuilt, not reused.
-const LINEUP_VERSION = 6;
+const LINEUP_VERSION = 7;
 const FETCH_TIMEOUT = 25_000;
 
 let cache = { at: 0, source: "", error: "", channels: [], groups: [], guide: null, countries: null, providers: null };
@@ -672,6 +672,18 @@ export async function liveChannels({ force = false } = {}) {
           : await dthChannels(live);
     if (mode === "dth") mergePremiumChannels(channels, countries);
     if (!channels.length) throw new Error("no channels in that lineup");
+    // **The lineup's own escapes, decoded once.** Every source is read above — an M3U
+    // export, an Xtream login, the DTH directory, the XMLTV feeds' own channels — and
+    // all of them can spell a name with the document's escaping in it. Done here,
+    // where they meet, rather than in each reader: the rows, the Guide and the channel
+    // page draw the same string and none of them should have to know about `&amp;`.
+    for (const channel of channels) {
+      const name = decodeEntities(channel.name).trim();
+      if (name) channel.name = name;
+      if (Array.isArray(channel.groups)) {
+        channel.groups = [...new Set(channel.groups.map((g) => decodeEntities(g).trim()).filter(Boolean))];
+      }
+    }
     cache = {
       at: Date.now(),
       source,
@@ -730,8 +742,27 @@ export function parseXMLTV(text, { from, to, limit = 4_000_000 } = {}) {
   return programmes;
 }
 
-/** XMLTV text → the plain string it wraps (CDATA and inline tags removed). */
-const cleanXML = (s) => String(s).replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, "").trim();
+/**
+ * The XML/HTML escapes a feed writes, decoded.
+ *
+ * A directory and an XMLTV feed both write `&amp;` and `&quot;` — that is what the
+ * document *means*, not what the channel is called — and every screen that drew the
+ * name showed the document's own escaping in the middle of it (`Stingray Classic
+ * R’n’B &amp; Soul`). Numeric escapes go first, so an escaped escape (`&amp;lt;`)
+ * comes out as the literal text it is meant to be.
+ */
+const XML_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+const fromCode = (code) => (code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "");
+export const decodeEntities = (value) =>
+  String(value ?? "")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => fromCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => fromCode(Number(dec)))
+    .replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (_, name) => XML_ENTITIES[name]);
+
+/** XMLTV text → the plain string it wraps: CDATA and inline tags removed, and the
+ *  document's own escapes decoded, so a title reads `Cars & Stars TV`. */
+const cleanXML = (s) =>
+  decodeEntities(String(s).replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, "")).trim();
 
 /**
  * One `<programme>` element → the grid's entry, or nothing when it falls outside the
