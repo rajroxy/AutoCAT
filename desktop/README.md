@@ -1,4 +1,4 @@
-# Nuvio Collections — desktop app
+# AutoCAT — desktop app
 
 An Electron shell around the collection covers and catalog rows. It boots the
 same server the web preview uses (`../serve.mjs`) on a random local port and

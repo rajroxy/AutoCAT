@@ -901,7 +901,7 @@ const buildCollections = (code = "") => {
   // it and its row is filled from `addon/customrows.json`.
   {
     key: "custom",
-    lines: ["Custom"],
+    lines: ["Library"],
     scene: "on-the-board",
     // **Six row slots, named per request.** The card's rows come from
     // `addon/customrows.mjs` (Settings → Custom Rows adds, renames, deletes and orders

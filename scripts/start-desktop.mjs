@@ -56,7 +56,7 @@ function electronReady() {
 
 if (!electronReady()) {
   console.log(
-    "Nuvio Collections — installing the desktop app's dependencies.\n" +
+    "AutoCAT — installing the desktop app's dependencies.\n" +
       "This downloads Electron (about 100MB) the first time only…",
   );
   const install = npm(["install", "--no-audit", "--no-fund"]);
@@ -117,7 +117,7 @@ if (!existsSync(CLI)) {
   process.exit(1);
 }
 
-console.log("Nuvio Collections — opening the desktop window…");
+console.log("AutoCAT — opening the desktop window…");
 
 // `node cli.js` instead of `.bin/electron`: identical on every platform and it
 // does not rely on the launcher keeping its executable bit.

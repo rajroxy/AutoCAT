@@ -1,4 +1,4 @@
-// Nuvio Collections — Electron main process.
+// AutoCAT — Electron main process.
 //
 // Boots the same gallery + catalog server the preview uses (imported from
 // ../serve.mjs), then opens a window on the shared web UI. Because the UI is
@@ -41,7 +41,7 @@ async function createWindow() {
     show: false,
     // The window is painted before the UI arrives, so it wears the app's own ink.
     backgroundColor: "#0B0B0B",
-    title: "Nuvio Collections",
+    title: "AutoCAT",
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -69,7 +69,7 @@ async function createWindow() {
       return;
     }
     dialog.showErrorBox(
-      "Nuvio Collections could not open",
+      "AutoCAT could not open",
       `The app window failed to load (${code} ${description}).\n\n${url}\n\n` +
         `The embedded server is on ${origin}.\n` +
         `Run "npm run start:web" and open ${home} in a browser to see the same app.`,
@@ -90,7 +90,7 @@ async function createWindow() {
     return { action: "deny" };
   });
 
-  console.log(`Nuvio Collections — window opened on ${home}`);
+  console.log(`AutoCAT — window opened on ${home}`);
 }
 
 app.whenReady().then(createWindow);

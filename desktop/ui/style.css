@@ -454,7 +454,11 @@ body {
   /* The app's panel, never a black band: a picture that does not fill its box, or a
      slot with nothing in it, reads as the card's own surface. */
   background: var(--panel-2);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  /* **No shadow.** Each poster used to wear `0 8px 20px rgba(0,0,0,0.45)`, and on the
+     dark card that dark halo hugged the picture's own edge all the way round — a bright
+     poster came with an outline drawn under it. The banner's tile never had one
+     (`.content-strip.backdrop` zeroes it), so the grid and the banner disagreed about
+     what a picture looks like; the card's pictures are flat now, like the banner's. */
 }
 @keyframes content-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -1737,10 +1741,8 @@ button:focus-visible,
 }
 .boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
 .boot[hidden] { display: none; }
-/* **The wordmark reads as one word.** "Auto", the letter C, then the last two — three
-   parts of one name, so there is no gap between them: they are letters of the same word,
-   not blocks standing beside each other the way the drawn mark needed. */
-.boot-brand { display: flex; align-items: center; }
+/* The wordmark and the mark sit side by side: "Auto" then the cat to its right. */
+.boot-brand { display: flex; align-items: center; gap: 4px; }
 /* The name and the progress line, stacked: the line is exactly as wide as the word. */
 .boot-name-col { display: flex; flex-direction: column; align-items: stretch; gap: 9px; }
 .boot-name {
@@ -1752,19 +1754,24 @@ button:focus-visible,
   color: #f8f3e8;
   text-shadow: 0 3px 22px rgba(var(--accent-rgb), 0.3);
 }
-/* **The C is a letter.** The mark used to be an animal — a real drawing of a cat curled
-   around an arc, with a head at its upper tip and a tail at its lower one — and it is the
-   plain letter now, in the wordmark's own face, size, weight and colour, so the name reads
-   straight through it. Nothing here is animated: the opening is the line filling and then
-   the last two letters arriving. */
-.boot-mark {
-  font-size: 42px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: #f8f3e8;
-  text-shadow: 0 3px 22px rgba(var(--accent-rgb), 0.3);
+/* **The mark is one drawing of the animal: the cat curled into the C.** The opening used
+   to swap a *second* drawing into this box — the cat sat up, tipped over and became this
+   one — and that pose, and every frame of it, is gone. What is left is the finished curl,
+   held in a fixed 76px box so nothing here can nudge the name beside it, and the initials
+   of the head and the tail that make it read as an animal and not as a letter with a cat
+   stuck on it. */
+.boot-mark { width: 76px; height: 76px; display: grid; place-items: center; }
+.boot-cat {
+  width: 76px;
+  height: 76px;
+  overflow: visible;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
 }
+.cat-c { transform-box: fill-box; transform-origin: 50% 52%; }
+/* The halo breathes behind the curl, so a boot that waits still looks alive rather than
+   stuck. With motion off it simply sits at its resting opacity. */
+.cat-glow { animation: boot-glow 3.8s ease-in-out infinite; }
+@keyframes boot-glow { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.85; } }
 /* **The boot sequence, in one pass.** The line fills from the left to the right and
    **stays full** — it used to fill and empty on a loop, so "loading" and "loaded" looked
    the same and the sweep restarted under a wordmark that had not changed. When it is full
@@ -1795,7 +1802,7 @@ button:focus-visible,
    it while the A is still settling, so the name completes left to right, the way it is read,
    rather than arriving as one block. */
 .boot-letters {
-  margin: 0;
+  margin: 0 0 0 -16px;
   font-size: 42px;
   font-weight: 900;
   line-height: 1;
@@ -3204,11 +3211,13 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
 
 /* A card that has nothing to show still draws its poster slots: an empty plate is
    the card's own shape, where a bare cover read as "this card holds nothing". */
-/* An empty slot: the card's own surface with a hairline outline, so "nothing in here
-   yet" reads as a slot waiting for a title and never as a picture that failed. */
+/* An empty slot: the card's own surface, a shade lighter than the panel — **no outline
+   round it any more**. A slot with nothing in it used to wear a 1px inset hairline, which
+   on a dark card read as a drawn frame around a picture that is not there; the fill alone
+   says "empty" without drawing a box on the card. */
 .content-tile.blank {
   background: rgba(255, 255, 255, 0.035);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 /* --------------------------------------------------------- the app's dropdown */

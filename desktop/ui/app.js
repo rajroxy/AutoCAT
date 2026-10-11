@@ -1,4 +1,4 @@
-// Nuvio Collections — renderer. Plain web code (no Node APIs), so this exact
+// AutoCAT — renderer. Plain web code (no Node APIs), so this exact
 // file runs under Electron, a browser, and a Capacitor Android TV build.
 //
 //   #/profiles                 switch profile — the screen the app starts on
