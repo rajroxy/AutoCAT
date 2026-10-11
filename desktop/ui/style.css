@@ -594,8 +594,8 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 /* The drawn mark an On-the-Board banner wears in place of its two-word title. */
 .hero-title-mark { display: flex; align-items: center; }
 .hero-mark {
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   fill: none;
   stroke: #f8f3e8;
   stroke-width: 1.6;
@@ -610,15 +610,22 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .hero-cats, .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
 .cats { margin-bottom: 0; }
 
-/* **The banner's words read down the middle of its left column**, not bunched against
-   the left edge: the kicker sits on the centre line, the title is centred under it and
-   the tag chips wrap around the same line — so the left half reads as the banner's own
-   heading rather than a stack pushed into the corner.
-   The **title page** wears this same banner (`.hero.title-hero`) but not this rule: its
+/* **The banner's own name sits in the top-left corner and everything under it is centred
+   in the left column.** `Spotlight` is the heading of the whole block, so it keeps the
+   corner — a step larger than the same kicker elsewhere — and the card's title (or the
+   drawn broadcast mark that stands in for it) and the tag chips that follow it sit on
+   the column's centre line. A stack of words pushed into the corner read as a stray
+   caption; a centred block under a corner label reads as a heading.
+   The **title page** wears this same banner (`.hero.title-hero`) but not these rules: its
    left column is a column of facts — overview, actions, genres — and left-aligned is
-   what those want. */
-.hero:not(.title-hero) .hero-body { text-align: left; align-self: start; }
-.hero:not(.title-hero) .hero-cats { justify-content: flex-start; }
+   what those want. The **live channel banner** (`.hero.live-hero`) keeps its column
+   against the left edge for the same reason. */
+.hero:not(.title-hero):not(.live-hero) .hero-body { text-align: center; align-self: start; }
+.hero:not(.title-hero):not(.live-hero) .hero-kicker { text-align: left; font-size: 16px; }
+.hero:not(.title-hero):not(.live-hero) .hero-title-mark { justify-content: center; }
+.hero:not(.title-hero):not(.live-hero) .hero-cats { justify-content: center; }
+.hero.live-hero .hero-body { text-align: left; align-self: start; }
+.hero.live-hero .hero-cats { justify-content: flex-start; }
 
 .hero-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 

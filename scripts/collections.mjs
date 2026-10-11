@@ -493,7 +493,7 @@ const countriesFor = (type) => COUNTRIES.filter(([name]) => countryHasContent(na
 /**
  * Global OTT rows: Top 10, then everything — for the six `GLOBAL_OTT` platforms.
  *
- * Only the ◆ Top 10 rows are capped; the `all` rows are uncapped, because a
+ * Only the `| Top 10` rows are capped; the `all` rows are uncapped, because a
  * `take` of 30/40 made an OTT card the one place in the app whose rows stopped
  * after a couple of screens while every other card kept scrolling — the reported
  * "OTT cards don't scroll" bug.
@@ -778,7 +778,7 @@ const buildCollections = (code = "") => {
   // Global OTT — Top 10, then everything, for each platform.
   {
     key: "global-ott-top-10",
-    lines: ["Global OTT", "◆ Top 10"],
+    lines: ["Global OTT", "| Top 10"],
     scene: "global-ott-top-10",
     catalogs: both(globalOtt.top10(TOP10)),
   },
@@ -796,7 +796,7 @@ const buildCollections = (code = "") => {
   // for a card that changes with the Region.
   {
     key: "regional-ott-top-10",
-    lines: ["Regional OTT", "◆ Top 10"],
+    lines: ["Regional OTT", "| Top 10"],
     scene: "regional-ott-top-10",
     titleOnly: true,
     catalogs: regionalOtt("top10", code),
