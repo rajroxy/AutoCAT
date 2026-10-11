@@ -250,7 +250,11 @@ letter-spacing (the result heads, the filter labels, the card subtitles, the gui
 corner, the calendar's weekday row) are bold sentence case now, which is what makes the
 screens read as one product instead of five.
 
-**Home opens on a boot screen** that fades out once the first screen is drawn, and the
+**Home opens on a boot screen** that fades out once the first screen is drawn. The
+opening spells **AutoCAT**, and its C is a **cat curled into it**: the animal resolves in
+out of an out-of-focus turn once the line under the name has filled, then keeps living —
+blinking and flicking its tail — while the last two letters arrive. Only the curl is
+drawn; the pose that used to sit up and fall over is gone. The banner — **Spotlight** — shows
 banner — **Spotlight** — shows **one landscape backdrop** drawn from the row that means
 *out now* (**Now Playing** on movies, **On the Air** on shows) and moves to another
 title **in that same catalog** every ten seconds, holding still while the cursor is on
@@ -806,10 +810,17 @@ It then appears in the Android TV **Apps** row (leanback launcher), and the D-pa
 
 The UI is Nuvio-shaped:
 
-- **Start-up** — the app opens on the **switch-profile screen** (`#/profiles`) with
-  the two profiles as tiles: **Movies & Shows** and **Live TV & Sports**. Picking one
-  enters Home; the **profile icon** in the top bar reopens the screen at any time
-  (the picker itself has no *Manage profiles* button). Each profile has an
+- **Start-up is two questions, in order: who, then how.** The app opens on the
+  **profile screen** (`#/profiles`) — *who is watching* — and the **mode screen**
+  (`#/modes`) follows it, *how you want to watch*, with **Movies & Shows** and
+  **Live TV & Sports** as tiles. Picking a mode enters Home. The **profile icon** in the
+  top bar reopens the profile screen at any time, and the mode screen carries a
+  **Switch profile** button back to it (the picker itself has no *Manage profiles*
+  button). A profile is a **name and a drawn mark, not an account** — no password,
+  nothing that leaves the machine — and it is made, renamed and removed **on the profile
+  screen itself**: a dashed **Add profile** slot sits after the tiles, the name is edited
+  in place inside its own tile, and *remove* is offered only while another profile is
+  left to enter with. Each profile has an
   **avatar** — a drawn mark, not a letter: a **clapperboard** for Movies & Shows, a
   **screen taking a signal** for Live TV & Sports, and a person for anything else, so
   a profile added later still gets one. The avatar is SVG in the SVG namespace

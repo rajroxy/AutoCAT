@@ -106,6 +106,23 @@ const WATCH_STATES = [
 // the thing you are looking at was an answer, not a choice.
 const PIN_STATES = WATCH_STATES.filter(([id]) => id === "planned");
 
+/**
+ * **The people are not the modes.**
+ *
+ * `PROFILES` below are the two ways to *watch* — on demand, and live. These are the
+ * people *watching*, and the app asks who before it asks how: the profile screen comes
+ * first, the mode screen second, and Home after that.
+ *
+ * A profile is a name and a mark. There is no account behind it, no password, and
+ * nothing about it leaves this machine — it is a label for the session, and it is kept
+ * in this browser alone.
+ */
+const PEOPLE_KEY = "nuvio.people";
+const WHO_KEY = "nuvio.who";
+const DEFAULT_PEOPLE = [{ id: "you", name: "You" }];
+/** An id nothing else will take, so two profiles can share a name without colliding. */
+const personId = () => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+
 // The profiles you can switch between. `IPTV` is the second one, and it is a
 // different app: its own two buttons, its own cards, its own settings.
 //
@@ -461,6 +478,12 @@ const state = {
   gen: 0,
   profile: profileName(localStorage.getItem(KEY.profile)),
   profiles: PROFILES,
+  // The people on this machine (the profile screen) and the one that is on. Kept in
+  // this browser only — a profile is a name, not an account.
+  people: readJSON(PEOPLE_KEY, DEFAULT_PEOPLE),
+  who: localStorage.getItem(WHO_KEY) || "",
+  // Which profile's name is being edited on the profile screen ("" = none).
+  renaming: "",
   // Live TV & Sports: which of its two rows is showing, and the channels, groups
   // and guide the server has answered with.
   liveRow: localStorage.getItem(KEY.liveRow) || "livetv",
@@ -1555,6 +1578,7 @@ function parseHash() {
   if (hash.startsWith("categories/")) return { view: "category", group: decodeURIComponent(hash.slice(11)) };
   if (hash === "categories") return { view: "categories" };
   if (hash === "profiles") return { view: "profiles" };
+  if (hash === "modes") return { view: "modes" };
   if (hash === "calendar") return { view: "calendar" };
   if (hash === "search") return { view: "search" };
   if (hash === "settings") return { view: "settings" };
@@ -1708,7 +1732,7 @@ function avatarNode(name) {
 function syncProfileMark() {
   const button = document.getElementById("profile");
   if (!button) return;
-  const title = `Switch mode — you are in ${state.profile}`;
+  const title = `${currentPerson().name} · ${state.profile} — switch profile`;
   button.title = title;
   button.setAttribute("aria-label", title);
   if (button.dataset.mark === state.profile) return;
@@ -1807,10 +1831,159 @@ function signInCard() {
 }
 
 /**
- * The switch-profile screen — the first thing the app shows, as Nuvio does.
- * Pick a profile to enter the app; `#/profiles` reopens it from the top bar.
+ * **Who is watching — the screen the app starts on.**
+ *
+ * The app used to open on the mode screen, which asks *how* you want to watch before it
+ * knows *who* is watching. The profile comes first now, and the mode screen follows it.
+ *
+ * **A profile is made here, not in Settings.** Adding, renaming and removing all live on
+ * this screen, because this is the screen about profiles: a name is edited in place
+ * (the tile keeps its shape and the field takes the name's place), and a profile can only
+ * be removed while another one is left to enter with.
  */
-function renderProfiles() {
+function renderPeople() {
+  const people = profileList();
+  const current = currentPerson();
+  const renaming = state.renaming || "";
+  return [
+    el(
+      "section",
+      { class: "profiles" },
+      el("p", { class: "hero-kicker", text: "Profiles" }),
+      el("h1", { class: "view-title", text: "Who's watching?" }),
+      el("p", { class: "view-hint", text: "Pick a profile to start. How you want to watch comes next." }),
+      el(
+        "div",
+        { class: "profile-grid" },
+        ...people.map((person) => personSlot(person, person.id === current.id, renaming === person.id, people.length)),
+        // **The slot that is not a profile yet.** Drawn dashed and named for what it
+        // does, so adding a profile is on the screen rather than hidden in Settings.
+        el(
+          "div",
+          { class: "profile-slot" },
+          el(
+            "button",
+            {
+              class: "profile-tile focusable add",
+              type: "button",
+              id: "profile-add",
+              title: "Add a profile",
+              onclick: addPerson,
+            },
+            el("span", { class: "avatar", "aria-hidden": "true" }, plusMark()),
+            el("span", { class: "profile-tile-name", text: "Add profile" }),
+            el("span", { class: "profile-tile-sub", text: "a new name and mark" }),
+          ),
+        ),
+      ),
+    ),
+  ];
+}
+
+/** The plus a new profile wears — the one mark in the app that means "make one". */
+const plusMark = () =>
+  svgNode("svg", { class: "plus-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
+    svgNode("path", { d: "M24 13v22M13 24h22" }));
+
+/** One profile on the picker: the tile you enter with, and the two tools under it. */
+function personSlot(person, active, editing, count) {
+  const tools = el(
+    "div",
+    { class: "profile-tools" },
+    el(
+      "button",
+      {
+        class: "profile-tool focusable",
+        type: "button",
+        title: `Rename ${person.name}`,
+        "aria-label": `Rename ${person.name}`,
+        onclick: () => { state.renaming = person.id; render(); },
+      },
+      svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+        svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
+        svgNode("path", { d: "M14.5 5.5l4 4" }),
+      ),
+    ),
+    count > 1
+      ? el(
+          "button",
+          {
+            class: "profile-tool danger focusable",
+            type: "button",
+            title: `Remove ${person.name}`,
+            "aria-label": `Remove ${person.name}`,
+            onclick: () => removePerson(person.id),
+          },
+          svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+            svgNode("path", { d: "M6 6l12 12M18 6L6 18" }),
+          ),
+        )
+      : null,
+  );
+  if (editing) {
+    const field = el("input", {
+      class: "profile-name-field",
+      type: "text",
+      maxlength: "24",
+      value: person.name,
+      "aria-label": `Name for ${person.name}`,
+    });
+    const commit = () => renamePerson(person.id, field.value);
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); commit(); }
+      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; render(); }
+    });
+    queueMicrotask(() => field.focus());
+    return el(
+      "div",
+      { class: "profile-slot editing" },
+      el(
+        "div",
+        { class: "profile-tile active" },
+        el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
+        field,
+        el(
+          "div",
+          { class: "profile-rename-actions" },
+          el("button", { class: "btn focusable", type: "button", text: "Save", onclick: commit }),
+          el("button", {
+            class: "btn subtle focusable",
+            type: "button",
+            text: "Cancel",
+            onclick: () => { state.renaming = ""; render(); },
+          }),
+        ),
+      ),
+      tools,
+    );
+  }
+  return el(
+    "div",
+    { class: `profile-slot${active ? " active" : ""}` },
+    el(
+      "button",
+      {
+        class: `profile-tile focusable${active ? " active" : ""}`,
+        type: "button",
+        "aria-current": active ? "true" : false,
+        onclick: () => choosePerson(person.id),
+      },
+      el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
+      el("span", { class: "profile-tile-name", text: person.name }),
+      el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
+    ),
+    tools,
+  );
+}
+
+/**
+ * The mode screen — the two ways to watch, asked *after* who is watching.
+ *
+ * It used to be the first screen and the only picker. It is the second one now, so it
+ * also carries the one way back: the profile it was entered as, and the way to change it.
+ */
+function renderModes() {
+  const watcher = currentPerson().name;
   return [
     el(
       "section",
@@ -1820,7 +1993,7 @@ function renderProfiles() {
       // mode picker.
       el("p", { class: "hero-kicker", text: "Modes" }),
       el("h1", { class: "view-title", text: "What do you want to watch?" }),
-      el("p", { class: "view-hint", text: "Pick a mode to start. Each one keeps its own settings." }),
+      el("p", { class: "view-hint", text: `Watching as ${watcher}. Each mode keeps its own settings.` }),
       el(
         "div",
         { class: "profile-grid" },
@@ -1839,8 +2012,83 @@ function renderProfiles() {
           ),
         ),
       ),
+      el("button", {
+        class: "btn subtle focusable",
+        type: "button",
+        id: "switch-profile",
+        text: `Switch profile — you are ${watcher}`,
+        onclick: () => go("#/profiles"),
+      }),
     ),
   ];
+}
+
+/* ------------------------------------------------------------ the profiles */
+
+/** The profiles that exist: the stored list, or the one every install starts with. */
+function profileList() {
+  const list = Array.isArray(state.people) ? state.people.filter((p) => p && p.id && p.name) : [];
+  return list.length ? list : DEFAULT_PEOPLE;
+}
+
+/** The profile that is on: the stored one, or the first that exists. */
+function currentPerson() {
+  const list = profileList();
+  return list.find((p) => p.id === state.who) || list[0];
+}
+
+function savePeople(list) {
+  state.people = list;
+  writeJSON(PEOPLE_KEY, list);
+}
+
+function saveWho(id) {
+  state.who = id;
+  localStorage.setItem(WHO_KEY, id);
+}
+
+/** Pick the person watching, then ask how they want to watch. */
+function choosePerson(id) {
+  saveWho(id);
+  state.renaming = "";
+  if (parseHash().view === "profiles") go("#/modes");
+  else render();
+}
+
+/**
+ * A new profile, straight into its name field.
+ *
+ * A tile called "Profile 3" is nobody's name, so the field opens with it selected rather
+ * than making the rename a second press.
+ */
+function addPerson() {
+  const list = profileList();
+  const taken = new Set(list.map((p) => p.name.toLowerCase()));
+  let n = list.length + 1;
+  while (taken.has(`profile ${n}`.toLowerCase())) n++;
+  const person = { id: personId(), name: `Profile ${n}` };
+  savePeople([...list, person]);
+  state.renaming = person.id;
+  render();
+}
+
+/** Rename a profile. An empty name is not a name: the edit is simply dropped. */
+function renamePerson(id, raw) {
+  const name = String(raw || "").replace(/\s+/g, " ").trim().slice(0, 24);
+  if (name) savePeople(profileList().map((p) => (p.id === id ? { ...p, name } : p)));
+  state.renaming = "";
+  render();
+}
+
+/** Remove a profile — never the last one, or there would be nobody to enter as. */
+function removePerson(id) {
+  const list = profileList();
+  if (list.length < 2) return;
+  const next = list.filter((p) => p.id !== id);
+  savePeople(next);
+  if (state.who === id) saveWho(next[0].id);
+  state.renaming = "";
+  render();
 }
 
 /* --------------------------------------- artwork drawn from a card's contents */
@@ -7771,7 +8019,7 @@ function setChromeLabel(text) {
 /** The profile button is an icon — the profile it stands for lives in its title. */
 function renderProfile() {
   const btn = document.getElementById("profile");
-  const label = `Profile: ${state.profile} — switch profile`;
+  const label = `${currentPerson().name} · ${state.profile} — switch profile`;
   btn.title = label;
   btn.setAttribute("aria-label", label);
 }
@@ -7845,9 +8093,10 @@ const bootShownAt = Date.now();
  * barely start to fill and the wordmark would never finish. So it is held for the length
  * of the opening (the fill, then the last two letters), and no longer.
  */
-// The opening is two beats — the line fills, then the A and the T arrive, at 1.45s and
-// 1.85s — so this is a little past its end, and a warm catalog cannot cut it short.
-const BOOT_MIN_MS = 2600;
+// The opening is three beats — the line fills, the cat resolves into the C, and the last
+// two letters arrive at 2.25s and 2.6s — so this is a little past its end, and a warm
+// catalog cannot cut it short.
+const BOOT_MIN_MS = 3200;
 
 /** A screen the page was linked to, to be taken once a mode has been chosen. */
 let pendingDeepLink = "";
@@ -7911,7 +8160,7 @@ async function render() {
   // are Home's now — the back arrow and the bar's own label are how you leave a card.
   const onHome = view === "home";
   document.getElementById("tabs").hidden = !browsing;
-  document.getElementById("back").hidden = view === "home" || view === "profiles";
+  document.getElementById("back").hidden = ["home", "profiles", "modes"].includes(view);
   // **The arrow's own rule.** Only the screens reached *from* a title page wear it —
   // the lists a name on a title opens (a credit, a studio, a network, a genre) and the
   // season screen — so the back arrow reads as the head of that page rather than one
@@ -7947,7 +8196,8 @@ async function render() {
   else if (view === "channel") nodes = renderChannel(id);
   else if (view === "title") nodes = await renderTitle(type, id);
   else if (view === "list") nodes = await renderList(kind, id, type, extra);
-  else if (view === "profiles") nodes = renderProfiles();
+  else if (view === "profiles") nodes = renderPeople();
+  else if (view === "modes") nodes = renderModes();
   else if (view === "card") nodes = await renderCard(key);
   else if (view === "explore") nodes = renderExplore(key, id);
   else if (view === "sources") nodes = renderSources(id, name);
