@@ -9,6 +9,10 @@ addon/settings.json
 # Runtime state written by the app (your pinned titles, not source)
 addon/watchlist.json
 
+# The account this machine signed in with — a name and an optional address, no password.
+# Private to the install, and not source.
+addon/account.json
+
 # Live TV's parsed playlist + guide (runtime cache, not source)
 addon/live-cache.json
 

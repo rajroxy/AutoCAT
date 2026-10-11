@@ -142,6 +142,12 @@ their ids keep resolving — they are simply not in the grid.
 | `/api/source` | POST `{type,url}` — reads an add-on's manifest or a repo's `repo.json` **server-side** |
 | `/calendar/{type}/{YYYY-MM}.json` | every title releasing that month, each with its date |
 | `/posters/check` | verifies the configured poster service returns an image |
+| `/auth/me` | who this browser is, if anyone: the user, what is configured, and the account this machine remembers |
+| `/auth/local` | **POST** `{name, email?}` — sign in on this machine. No name means "come back as the account you already are"; answers with the session cookie, like a provider's callback does |
+| `/auth/local/forget` | **POST** — take this machine's account off the machine, and end the session with it |
+| `/auth/signout` | **POST** — end the session, keeping the account |
+| `/auth/{provider}/start` | redirects to Google's or GitHub's consent page (a plain navigation — the handshake has to happen in the address bar) |
+| `/auth/{provider}/callback` | the provider's way back: the code is spent server-to-server and turned into a session cookie |
 | `/addon-status.json` | diagnostics (does it see a TMDB key, how many catalogs) |
 
 Each catalog that lives inside a card is published as its own row — the same names
@@ -471,11 +477,19 @@ saw on the grid and mean to get to — so it lives in its own row (`calendar-pla
 and is never published as a catalog. It therefore cannot appear in the Watchlist
 card, which is what "the calendar pin showed up in my watchlist" was.
 
-**The pin is a toggle, and the calendar no longer lists the plans.** A *Recently
-planned* shelf under the grid used to draw the last 30 days of pins; with the pin
-reduced to add-only, that shelf was a list you could add to and never prune. It is
-gone, and the pin removes its own plan again: a planned release says **planned**,
-and pressing it puts the plan back.
+**The pin is a toggle, and the shelf came back with it.** A *Recently planned*
+shelf under the grid was removed when the pin was add-only: a list you can add to
+and never prune is a list that only grows. The pin removes its own plan again — a
+planned release says **planned**, and pressing it puts the plan back — so the shelf
+is back under the grid as **Your plans** (the last 30 days, newest first).
+
+**It is drawn whatever day is open, including no day.** The plans used to be drawn
+only inside the selected day's detail, so deselecting the day — or turning to
+another month — took every plan off the screen while the pins were still stored,
+which reads as if they had been deleted. The day list and the plans list are two
+different things: one is a *view* of the grid, the other is what you planned. Each
+plan carries the date it was planned for (`Fri, October 2`), and the pin on it is
+the same toggle, so the shelf prunes itself.
 
 **There is no "add cards" row any more.** The Watchlist card is its three states
 and nothing else, the title modal offers the same three states, and no *Add cards
@@ -491,6 +505,44 @@ curl localhost:4173/customrows.json
 curl -X POST localhost:4173/customrows -H 'content-type: application/json' \
   -d '{"row":"add-cards","item":{"id":"tmdb:550","type":"movie","name":"Fight Club"}}'
 ```
+
+### Signing in
+
+**Settings → Profile** holds one card: the account, and how to make one. It used to
+be a sentence about environment variables and no controls at all — every caption in
+the app is hidden by its own "no subtext" rule, so what a fresh install showed was
+the words *Sign in* and **nothing to press**. That is a dead end, not a sign-in.
+
+**This machine's own account comes first.** A name and an optional address, kept in
+`addon/account.json` (runtime state, git-ignored; `NUVIO_ACCOUNT_FILE` moves it, which
+is how the tests stay out of the real one). No password, nothing verified, nothing
+sent anywhere — and it is the way in that works with nothing configured. The session
+it hands out is the same cookie a provider's sign-in sets and the same `/auth/me`, so
+nothing downstream can tell them apart; the one difference is that **it survives a
+restart**, because the file keeps the session id it has already accepted. Sign out
+ends the session and keeps the name; **Forget** takes the name and the address off the
+machine, which is the only way to stop the card offering them back.
+
+**Google and GitHub are the same card, when their keys are set.** That needs a client
+id and a secret per provider, and a public URL to come back to:
+
+```sh
+NUVIO_GOOGLE_CLIENT_ID=…  NUVIO_GOOGLE_CLIENT_SECRET=…
+NUVIO_GITHUB_CLIENT_ID=…  NUVIO_GITHUB_CLIENT_SECRET=…
+NUVIO_PUBLIC_URL=https://tv.example.com      # the preview origin works too
+```
+
+The callback to register with the provider is `<NUVIO_PUBLIC_URL>/auth/<provider>/callback`
+(without `NUVIO_PUBLIC_URL`, the origin the request arrived on is used — built from the
+request, never from a query parameter, which would be an open redirect). Working keys
+add **Continue with Google** / **Continue with GitHub** to the card; without them the
+card is the name field it always is, and says so rather than pretending.
+
+**What is never kept:** a password, or a provider token. The token is spent on one
+request (*who is this?*) and dropped; what comes back is a name, an address and a
+picture, behind an HttpOnly cookie the page cannot read. Provider sessions live in
+memory, so a server restart signs those out — that is the honest default for an app
+whose data is on this machine.
 
 ### Shuffle, and why it can look broken
 

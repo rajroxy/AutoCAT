@@ -533,6 +533,8 @@ const state = {
   // id → watch state, mirrored from the server so the modal can show the state
   // a title is already pinned in.
   watchlist: {},
+  // What was typed into the Sign in card, kept across the redraw that shows a refusal.
+  signInDraft: null,
   // Every pin, with its state and where it was made — the calendar needs to
   // tell its own plan-to-watch pins apart from the watchlist rows.
   watchItems: [],
@@ -597,6 +599,10 @@ const pinOf = (m) => ({
   poster: m.poster,
   background: m.background,
   releaseInfo: m.releaseInfo,
+  // **A calendar plan is a plan about a *date*.** The day is drawn from the calendar the
+  // pin was made on, and a stored plan that forgets it is a poster with no answer to
+  // "planned for when?" — so the date travels with the pin.
+  releaseDate: m.releaseDate,
   imdbRating: m.imdbRating,
   description: m.description,
   hasBetterPoster: Boolean(m.hasBetterPoster),
@@ -1742,24 +1748,38 @@ function syncProfileMark() {
 }
 
 /**
- * **Signing in — the account, and the two ways to make one.**
+ * **Signing in — the account, and however you want to make one.**
  *
- * The profile above is a *mode* on this machine; this is the person it belongs to. Nothing
- * here keeps a password or a provider token: pressing a button leaves this page for the
- * provider, and what comes back is a session cookie the page cannot read (see
- * `addon/auth.mjs`). When nothing is configured the card says which two variables to set —
- * a button that cannot finish is worse than a sentence explaining why.
+ * The app keeps an account of its own: a name and an optional address, on this machine
+ * (`addon/account.json`, no password, nothing verified, nothing sent anywhere) and that is
+ * the way in that works on a fresh install. Google and GitHub are still here as the two
+ * provider buttons that appear when their keys are set, and they go through the same
+ * session cookie and the same `/auth/me` — a provider sign-in and a local one are the same
+ * thing to everything downstream.
+ *
+ * **What was wrong with the card.** Every `.option-desc` in the app is hidden by the
+ * "no subtext" rule, so a card made only of an `.option-desc` was the word **Sign in** with
+ * nothing to press: on a machine with no provider keys it drew *zero* controls. What it
+ * draws now is the thing itself — a name, an address if you have one, and Continue.
  */
 function signInCard() {
   const account = state.account || {};
   const providers = Array.isArray(account.providers) ? account.providers : [];
-  // The provider's answer arrives on the hash (`#/settings?signin_error=…`), which is
-  // where this app's routes carry their own query.
-  const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error");
+  // What this machine remembers. It is what makes the card useful before anything is
+  // typed: the name is filled in, and the button says whose session it would resume.
+  const local = account.local || null;
+  const live = providers.filter((p) => p.configured);
+  // A provider's refusal comes back on the hash (`#/settings?signin_error=…`); this
+  // app's own comes back on the state, so it survives the redraw that shows it.
+  const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
+  // **What was typed is not thrown away.** The redraw that shows a refusal would
+  // otherwise clear the fields, so the name worth correcting is the name that is gone.
+  const draft = state.signInDraft || { name: local?.name || "", email: local?.email || "" };
 
   if (account.user) {
     const user = account.user;
-    const via = (providers.find((p) => p.key === user.provider) || {}).label || user.provider;
+    const via = (providers.find((p) => p.key === user.provider) || {}).label
+      || (user.provider === "local" ? "this device" : user.provider);
     return el(
       "div",
       { class: "provider", id: "account" },
@@ -1780,17 +1800,64 @@ function signInCard() {
           type: "button",
           id: "sign-out",
           text: "Sign out",
-          onclick: async () => {
-            await post("/auth/signout", {}).catch(() => {});
-            state.account = { ...account, user: null };
-            render();
-          },
+          title: "End this session. The account stays where it is.",
+          onclick: signOutAccount,
         }),
+        // **This machine's account can be taken off this machine.** A provider's cannot —
+        // that one is not ours to delete — so it gets Sign out and nothing more.
+        user.provider === "local"
+          ? el("button", {
+              class: "btn subtle focusable",
+              type: "button",
+              id: "account-forget",
+              text: "Forget",
+              title: `Remove ${user.name || "this account"} from this machine`,
+              onclick: forgetAccount,
+            })
+          : null,
       ),
     );
   }
 
-  const live = providers.filter((p) => p.configured);
+  const nameField = el("input", {
+    class: "text-input focusable",
+    type: "text",
+    id: "sign-in-name",
+    maxlength: "40",
+    value: draft.name,
+    placeholder: "Your name",
+    "aria-label": "Your name",
+  });
+  const emailField = el("input", {
+    class: "text-input focusable",
+    type: "email",
+    id: "sign-in-email",
+    maxlength: "120",
+    value: draft.email,
+    placeholder: "Email (optional)",
+    "aria-label": "Email (optional)",
+  });
+  const submit = () => signInOnThisMachine(nameField.value, emailField.value);
+  // Enter in either field is the button: this is a two-field form, and a form whose last
+  // press needs the mouse is a form that feels broken.
+  for (const field of [nameField, emailField]) {
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); submit(); }
+    });
+  }
+  const continueBtn = el("button", {
+    class: "btn primary focusable",
+    type: "button",
+    id: "sign-in-continue",
+    text: local ? `Continue as ${local.name}` : "Continue",
+    title: local ? `Come back as ${local.name}` : "Sign in on this machine — the name stays here",
+    onclick: submit,
+  });
+  // The button stops offering a name the moment the field stops holding it.
+  nameField.addEventListener("input", () => {
+    continueBtn.textContent = local && nameField.value.trim() === local.name ? `Continue as ${local.name}` : "Continue";
+  });
+
   return el(
     "div",
     { class: "provider", id: "account" },
@@ -1801,10 +1868,16 @@ function signInCard() {
         "div",
         {},
         el("span", { class: "option-title", text: "Sign in" }),
-        el("span", { class: "option-desc", text: "Google or GitHub. No password is kept here — the account stays with the provider, and this app is told only your name, your address and your picture." }),
+        el("span", {
+          class: "option-desc",
+          text: local
+            ? `This machine remembers ${local.name}. Continue as them, or type another name.`
+            : "A name is the whole account, and it stays on this machine — no password, and nothing sent anywhere.",
+        }),
       ),
     ),
-    said ? el("p", { class: "option-desc bad", text: said }) : null,
+    said ? el("p", { class: "signin-said", text: said }) : null,
+    el("div", { class: "account-row account-buttons" }, nameField, emailField, continueBtn),
     live.length
       ? el(
           "div",
@@ -1823,12 +1896,74 @@ function signInCard() {
             }),
           ),
         )
+      : null,
+    local
+      ? el("button", {
+          class: "btn subtle focusable",
+          type: "button",
+          id: "account-forget",
+          text: "Forget this account",
+          title: `Remove ${local.name} from this machine`,
+          onclick: forgetAccount,
+        })
+      : null,
+    live.length
+      ? null
       : el("p", {
           class: "option-desc",
-          text: "Not set up on this server yet. Set NUVIO_GOOGLE_CLIENT_ID and NUVIO_GOOGLE_CLIENT_SECRET, or NUVIO_GITHUB_CLIENT_ID and NUVIO_GITHUB_CLIENT_SECRET, and register <your app URL>/auth/google/callback (or /auth/github/callback) with the provider.",
+          text: "Google and GitHub are offered here as well, when NUVIO_GOOGLE_CLIENT_ID and NUVIO_GOOGLE_CLIENT_SECRET (or the GitHub pair) are set and <this app>/auth/<provider>/callback is registered as the redirect.",
         }),
   );
 }
+
+/** Sign out of the session. Whatever this machine remembers is left alone. */
+async function signOutAccount() {
+  await post("/auth/signout", {}).catch(() => { /* the session is gone either way */ });
+  state.account = { ...(state.account || {}), user: null, refused: "" };
+  state.signInDraft = null;
+  render();
+}
+
+/** Forget this machine's account — the name and the address, not just the session. */
+async function forgetAccount() {
+  await post("/auth/local/forget", {}).catch(() => { /* it is this machine's own file */ });
+  state.account = { ...(state.account || {}), user: null, local: null, refused: "" };
+  state.signInDraft = null;
+  render();
+}
+
+/**
+ * Sign in on this machine: a name, and an address if there is one.
+ *
+ * The answer is read here rather than through `post`, which turns a refusal into
+ * "HTTP 400" — and the refusal is the thing worth showing (a name is needed; an address
+ * that is not an address is not kept), so the sentence the server wrote goes on screen.
+ */
+async function signInOnThisMachine(name, email) {
+  state.signInDraft = { name, email };
+  let answer = {};
+  let status = 0;
+  try {
+    const res = await fetch(`${API}/auth/local`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name, email }),
+    });
+    status = res.status;
+    answer = await res.json().catch(() => ({}));
+  } catch (err) {
+    answer = { error: `The app server did not answer — ${err.message}` };
+  }
+  if (!answer.user) {
+    state.account = { ...(state.account || {}), refused: answer.error || `That name was not taken (HTTP ${status}).` };
+    render();
+    return;
+  }
+  state.signInDraft = null;
+  state.account = { ...(state.account || {}), user: answer.user, local: answer.local || (state.account || {}).local || null, refused: "" };
+  render();
+}
+
 
 /**
  * **Who is watching — the screen the app starts on.**
@@ -4150,7 +4285,14 @@ async function calendarUnplan(item) {
   render();
 }
 
-function calendarCard(m) {
+/** `2026-10-02` → `Fri, October 2`, put together the way the guide builds its day headings. */
+function planDayLabel(iso) {
+  const [y, m, d] = String(iso || "").split("-").map(Number);
+  if (!y || !m || !d) return "";
+  return new Date(y, m - 1, d).toLocaleDateString([], { weekday: "short", day: "numeric", month: "long" });
+}
+
+function calendarCard(m, opts = {}) {
   const planned = isCalendarPin(m);
   return el(
     "div",
@@ -4159,6 +4301,9 @@ function calendarCard(m) {
     // plate can carry sat on top of the artwork on every day of the grid; the date
     // cell and the poster itself already say what this is.
     posterCard(m, { kind: true, caption: false }),
+    // **The plan's own line.** The day list says it by being on that day; the plans list
+    // is not on a day, so it says which date the plan was made for.
+    opts.date && m.releaseDate ? el("span", { class: "cal-plan-date", text: planDayLabel(m.releaseDate) }) : null,
     // A calendar pin is a plan about a **date**, and it is a toggle: planning says
     // so, and pressing it again takes the plan back. It was briefly add-only, which
     // left a plan you had changed your mind about with no way off the calendar.
@@ -4189,6 +4334,11 @@ function renderVodCalendar() {
   const [year, mon] = month.split("-").map(Number);
   const grid = el("div", { class: "cal-grid" });
   const detail = el("div", { class: "cal-detail" });
+  // **The plans are their own section, not part of a day.** A pin is a plan about a date;
+  // which day is *open* is a view of the grid. The plans used to be drawn only inside the
+  // selected day, so deselecting it — or turning to another month — took every plan off
+  // the screen while the pins sat on the server, which reads as if they were deleted.
+  const plans = el("section", { class: "cal-recent" });
 
   // The month grid is drawn immediately; the titles arrive from the server.
   const daysInMonth = new Date(Date.UTC(year, mon, 0)).getUTCDate();
@@ -4240,8 +4390,25 @@ function renderVodCalendar() {
     );
   }
 
+  /**
+   * The calendar's own plans, newest first — **whatever day is open, or none.**
+   *
+   * Drawn empty as well as full: "nothing planned yet" is an answer, and a section that
+   * appears only once you have used it is a section you cannot find on the first visit.
+   */
+  function drawPlans() {
+    const items = calendarPins();
+    plans.replaceChildren(
+      el("h3", { class: "section-title", text: "Your plans" }),
+      items.length
+        ? el("div", { class: "grid-titles" }, ...items.map((m) => calendarCard(m, { date: true })))
+        : el("p", { class: "empty", text: "Nothing planned from the calendar yet — plan a release above." }),
+    );
+  }
+
   drawGrid();
   drawDetail();
+  drawPlans();
 
   // A day holds films *and* series, so both rows are read for the month.
   Promise.all(
@@ -4284,6 +4451,7 @@ function renderVodCalendar() {
     ),
     grid,
     detail,
+    plans,
   ];
 }
 

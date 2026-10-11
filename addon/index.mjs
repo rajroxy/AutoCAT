@@ -78,7 +78,7 @@ import { handleProxy } from "./proxy.mjs";
 import { guardState } from "./guards.mjs";
 import { browserUnavailableReason } from "../scraper/tier3.js";
 import { handleTorrentStream, prepareTorrent, torrentStatus, torrentState } from "./torrent.mjs";
-import { authConfigured, authProviders, clearCookie, finish, readSession, sessionCookie, signOut, startUrl } from "./auth.mjs";
+import { authConfigured, authProviders, clearCookie, finish, forgetLocal, localAccount, readSession, sessionCookie, signInLocal, signOut, startUrl } from "./auth.mjs";
 import { publicSites, addSite, updateSite, removeSite, detectSearchPattern, patternFromSample, addRepository, removeRepository, searchJob, startSearchOnPlay, listSites } from "./custom-sites.mjs";
 import { getPrefs, updatePrefs } from "./user-prefs.mjs";
 
@@ -1476,13 +1476,13 @@ export async function handleAddon(req, res, pathname, origin) {
         // (or picking a different poster service / provider) rewrites nothing until
         // those answers are dropped — which is exactly "enrichment does nothing".
         if (patch && ("enrich" in patch || "posters" in patch || "providers" in patch || "ratings" in patch)) clearTmdbCache();
-        json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: { configured: authConfigured(), providers: authProviders(), user: readSession(req) } });
+        json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: { configured: authConfigured(), providers: authProviders(), local: localAccount(), user: readSession(req) } });
       } catch (err) {
         json(res, 400, { error: String(err?.message || err) });
       }
       return true;
     }
-    json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: { configured: authConfigured(), providers: authProviders(), user: readSession(req) } });
+    json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: { configured: authConfigured(), providers: authProviders(), local: localAccount(), user: readSession(req) } });
     return true;
   }
 
@@ -1589,7 +1589,45 @@ export async function handleAddon(req, res, pathname, origin) {
   // the profile it names** — see `addon/auth.mjs` for what is stored (a name, an address,
   // a picture; never a token and never a password).
   if (pathname === "/auth/me") {
-    json(res, 200, { ok: true, configured: authConfigured(), providers: authProviders(), user: readSession(req) });
+    json(res, 200, { ok: true, configured: authConfigured(), providers: authProviders(), local: localAccount(), user: readSession(req) });
+    return true;
+  }
+
+  /**
+   * **This machine's own sign-in — the one that works with nothing set up.**
+   *
+   * A name (or nothing at all, to come back as the account this machine already has) and
+   * an optional address. It answers with the session cookie a provider's sign-in would
+   * have set, so everything downstream — `/auth/me`, the settings payload, sign-out — is
+   * the same path for both. `POST`, because it makes a session; a GET that signs somebody
+   * in is a link a page can be tricked into following.
+   */
+  if (pathname === "/auth/local" && req.method === "POST") {
+    try {
+      const body = await readBody(req);
+      const { user, sessionId } = signInLocal(body);
+      res.writeHead(200, {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-store",
+        "set-cookie": sessionCookie(sessionId, secureOrigin(origin)),
+      });
+      res.end(JSON.stringify({ ok: true, user, local: localAccount() }));
+    } catch (err) {
+      json(res, 400, { ok: false, error: String(err?.message || err) });
+    }
+    return true;
+  }
+
+  // **Forget it.** Signing out ends the session; this takes the account off the machine
+  // as well, which is the only way to stop the card offering the name back.
+  if (pathname === "/auth/local/forget" && req.method === "POST") {
+    forgetLocal();
+    res.writeHead(200, {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "set-cookie": clearCookie(secureOrigin(origin)),
+    });
+    res.end(JSON.stringify({ ok: true }));
     return true;
   }
 

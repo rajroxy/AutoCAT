@@ -1202,6 +1202,16 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .account-avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; object-fit: cover; display: grid; place-items: center; background: var(--panel-2); color: var(--accent); font-size: 17px; font-weight: 800; }
 .account-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .account-buttons { align-items: center; }
+/* **The one line on the card that has to be seen.** Every `.option-desc` is hidden
+   app-wide ("no subtext"), which is right for a caption and wrong for a refusal: a name
+   that was not taken, or an address that is not an address, has to say so. Same red the
+   source rows use when one of them fails. */
+.signin-said { margin: 10px 0 0; color: #e39a9a; font-size: 14px; }
+/* The two fields and the button are one row: the fields take the width, the button keeps
+   its own, and neither can squeeze the other off the card. */
+#account .account-buttons { flex-wrap: wrap; }
+#account .text-input { flex: 1 1 200px; min-width: 0; }
+#account .btn { flex: none; }
 
 .setting h3 {
   margin: 0 0 12px;
@@ -1579,6 +1589,9 @@ button:focus-visible,
 .cal-recent { margin-bottom: 60px; }
 .cal-recent .section-title { margin-bottom: 6px; }
 .cal-recent .view-hint { margin-bottom: 16px; }
+/* **The date a plan was made for**, under the poster in the plans list: the day grid says
+   it by being on that day, and this list is not on a day. */
+.cal-plan-date { font-size: 12px; color: var(--muted); letter-spacing: 0.01em; }
 
 /* ------------------------------------------------------------- watchlist */
 

@@ -51,6 +51,9 @@ export function cleanItem(item, state) {
     if (item[field]) out[field] = String(item[field]);
   }
   if (item.hasBetterPoster) out.hasBetterPoster = true;
+  // A calendar plan is a plan about a date, and the app draws the day under the poster —
+  // so the date is one of the fields worth keeping. It is absent on every other pin.
+  if (item.releaseDate) out.releaseDate = String(item.releaseDate);
   out.addedAt = item.addedAt || new Date().toISOString();
   out.updatedAt = new Date().toISOString();
   return out;

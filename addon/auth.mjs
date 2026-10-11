@@ -29,7 +29,12 @@
  * - Nothing here is used to *authorise* an API call to Google or GitHub. The token is spent
  *   on one request (who is this?) and dropped.
  */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const env = (name, fallback = "") => process.env[name] || fallback;
 /** `https://host/` → `https://host` (the callback path is appended to this). */
@@ -85,6 +90,58 @@ const STATE_MS = 10 * 60 * 1000;
 const sessions = new Map();
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
+/* -------------------------------------------------- this machine's own account */
+
+/**
+ * **A way in that always works, because it is this machine's own.**
+ *
+ * Google and GitHub are the two ways in *when they are set up* — and two client ids and
+ * two secrets are exactly what a fresh install does not have. A card whose only control
+ * is a sentence about environment variables is not a sign-in; it is a dead end, and it is
+ * what this app showed. So there is one account of its own: a name and an optional
+ * address, kept on this machine in `addon/account.json` (runtime state, git-ignored;
+ * `NUVIO_ACCOUNT_FILE` moves it, which is how the tests stay out of the real one).
+ *
+ * It is **not** a second account system beside the providers. It is the same session, the
+ * same cookie and the same `/auth/me`; the only thing it does differently is survive a
+ * restart, because a session id that lives only in memory is gone the moment the server
+ * reloads — and a sign-in that forgets you is not worth pressing. The file keeps the id
+ * it has already accepted, so the cookie is still good next launch.
+ */
+const ACCOUNT_FILE = process.env.NUVIO_ACCOUNT_FILE || path.join(__dirname, "account.json");
+
+/** `undefined` = not read yet, `null` = nobody has signed in on this machine. */
+let accountCache;
+
+function readAccount() {
+  if (accountCache !== undefined) return accountCache;
+  try {
+    const held = JSON.parse(fs.readFileSync(ACCOUNT_FILE, "utf8"));
+    accountCache = held && held.id && held.name ? held : null;
+  } catch {
+    // No file, or nothing readable in it: nobody has signed in here yet.
+    accountCache = null;
+  }
+  return accountCache;
+}
+
+const writeAccount = (account) => {
+  accountCache = account;
+  try {
+    fs.mkdirSync(path.dirname(ACCOUNT_FILE), { recursive: true });
+    fs.writeFileSync(ACCOUNT_FILE, `${JSON.stringify(account, null, 2)}\n`);
+  } catch {
+    // A machine that cannot write it still signs in for this run; the file is a
+    // convenience, not the session itself.
+  }
+};
+
+/** The account this machine remembers, if one was made. No session needed to *read* it. */
+export const localAccount = () => {
+  const held = readAccount();
+  return held ? { id: held.id, name: held.name, email: held.email || "", picture: held.picture || "", provider: "local" } : null;
+};
+
 const clean = () => {
   const now = Date.now();
   for (const [k, v] of pending) if (v.expires < now) pending.delete(k);
@@ -94,14 +151,69 @@ const clean = () => {
 /** The cookie the browser carries. HttpOnly, SameSite=Lax (the callback is a top-level GET). */
 export const SESSION_COOKIE = "nuvio_session";
 
-export function readSession(req) {
-  clean();
+const cookieId = (req) => {
   const raw = String(req.headers.cookie || "");
   const hit = raw.split(";").map((c) => c.trim()).find((c) => c.startsWith(`${SESSION_COOKIE}=`));
-  if (!hit) return null;
-  const id = hit.slice(SESSION_COOKIE.length + 1);
+  return hit ? hit.slice(SESSION_COOKIE.length + 1) : "";
+};
+
+export function readSession(req) {
+  clean();
+  const id = cookieId(req);
+  if (!id) return null;
   const found = sessions.get(id);
-  return found ? { ...found.user, expires: found.expires } : null;
+  if (found) return { ...found.user, expires: found.expires };
+  // **A restart is not a sign-out for this machine's own account.** A provider's session
+  // is a token this server was handed; this one is the machine's own, so the id it has
+  // already accepted is written down and the cookie stands until the account is forgotten.
+  const held = readAccount();
+  if (held && held.sessionId === id) {
+    const user = { id: held.id, name: held.name, email: held.email || "", picture: held.picture || "", provider: "local" };
+    const record = { user, expires: Date.now() + SESSION_MS };
+    sessions.set(id, record);
+    return { ...user, expires: record.expires };
+  }
+  return null;
+}
+
+/** An address is optional here, so an empty one is fine — a wrong-looking one is not. */
+const looksLikeEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+/**
+ * Sign in on this machine, making the account the first time.
+ *
+ * No name means "come back as the one you already are" — that is the Continue button
+ * after a sign-out, one press, with nothing typed. A name that is only whitespace is not
+ * a name and is refused rather than stored, and so is an address that is not one: this is
+ * the whole of the validation, because there is no password and nothing to verify against.
+ */
+export function signInLocal({ name, email } = {}) {
+  const held = readAccount();
+  const typed = String(name || "").replace(/\s+/g, " ").trim().slice(0, 40);
+  if (!typed && !held) throw new Error("A name is needed — that is the whole account.");
+  const wanted = typed || held.name;
+  const address = String(email ?? held?.email ?? "").trim().slice(0, 120);
+  if (address && !looksLikeEmail(address)) throw new Error("That address does not look like one.");
+  const user = { id: held?.id || `local-${randomBytes(6).toString("hex")}`, name: wanted, email: address, picture: held?.picture || "", provider: "local" };
+  // **The same session id every time.** Signing out clears the cookie, not the account,
+  // so coming back reuses the id the file already vouches for.
+  const sessionId = held?.sessionId || randomBytes(24).toString("base64url");
+  writeAccount({ ...user, sessionId, since: held?.since || new Date().toISOString() });
+  sessions.set(sessionId, { user, expires: Date.now() + SESSION_MS });
+  return { user, sessionId };
+}
+
+/** Forget this machine's account, and the session that goes with it. */
+export function forgetLocal() {
+  const held = readAccount();
+  if (held?.sessionId) sessions.delete(held.sessionId);
+  accountCache = null;
+  try {
+    fs.rmSync(ACCOUNT_FILE, { force: true });
+  } catch {
+    // Nothing to remove, or nowhere to remove it from.
+  }
+  return true;
 }
 
 export const signOut = (req) => {
