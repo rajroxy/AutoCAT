@@ -1714,15 +1714,10 @@ button:focus-visible,
 .hero-art.art-filled, .section-art.art-filled { background-image: none !important; }
 .icon-wrap.art-filled, .hero-art.art-filled, .section-art.art-filled { background-color: var(--panel-2); }
 
-/* **With motion off, the finished logo is what is drawn.** The opening is a sequence —
-   the line fills, the cat lies down, the letters arrive — and when nothing animates there
-   is no sequence, so the last frame is the frame: the curled cat, and both letters. */
-.motion-off .cat-sit { opacity: 0; }
-.motion-off .cat-c { opacity: 1; }
-@media (prefers-reduced-motion: reduce) {
-  html:not(.motion-full) .cat-sit { opacity: 0; }
-  html:not(.motion-full) .cat-c { opacity: 1; }
-}
+/* **With motion off the finished wordmark is simply drawn.** Nothing in it is hidden by a
+   base rule — the two letters carry their entrance in `@keyframes` alone, and
+   `animation: none` above drops it — so with motion off (or reduced motion) AutoCAT is on
+   the screen, whole, with no rule needed to put it there. */
 
 /* ------------------------------------------------------------ boot screen */
 
@@ -1742,8 +1737,10 @@ button:focus-visible,
 }
 .boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
 .boot[hidden] { display: none; }
-/* The wordmark and the cat sit side by side: "Auto" then the mark to its right. */
-.boot-brand { display: flex; align-items: center; gap: 4px; }
+/* **The wordmark reads as one word.** "Auto", the letter C, then the last two — three
+   parts of one name, so there is no gap between them: they are letters of the same word,
+   not blocks standing beside each other the way the drawn mark needed. */
+.boot-brand { display: flex; align-items: center; }
 /* The name and the progress line, stacked: the line is exactly as wide as the word. */
 .boot-name-col { display: flex; flex-direction: column; align-items: stretch; gap: 9px; }
 .boot-name {
@@ -1755,54 +1752,24 @@ button:focus-visible,
   color: #f8f3e8;
   text-shadow: 0 3px 22px rgba(var(--accent-rgb), 0.3);
 }
-/* The mark holds **two drawings of the same animal**, and the opening swaps one for the
-   other: the cat sitting up is what waits, the cat curled into an arc is the letter the
-   wordmark is missing. Nothing here changes the layout — both poses are in the same 76px
-   box, so the swap cannot nudge the name beside it. */
-.boot-mark { width: 76px; height: 76px; display: grid; place-items: center; }
-.boot-cat {
-  width: 76px;
-  height: 76px;
-  overflow: visible;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
+/* **The C is a letter.** The mark used to be an animal — a real drawing of a cat curled
+   around an arc, with a head at its upper tip and a tail at its lower one — and it is the
+   plain letter now, in the wordmark's own face, size, weight and colour, so the name reads
+   straight through it. Nothing here is animated: the opening is the line filling and then
+   the last two letters arriving. */
+.boot-mark {
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: #f8f3e8;
+  text-shadow: 0 3px 22px rgba(var(--accent-rgb), 0.3);
 }
-/* **Beat two — the animal becomes the C.**
-   The curled pose is drawn first and waits at zero opacity. It arrives at 1.62s, the moment
-   the sitting cat is letting go, and it arrives *out of focus*: a 7px blur at 0.62 scale
-   that resolves to sharp at full size. Blur under a crossfade is what makes two drawings
-   read as one thing moving, instead of two pictures trading places. `both` holds the
-   finished pose, so the last frame of the opening is the logo. */
-.cat-c {
-  transform-box: fill-box;
-  transform-origin: 50% 52%;
-  opacity: 0;
-  animation: boot-become-c 0.9s cubic-bezier(0.22, 0.9, 0.24, 1) 1.45s both;
-}
-/* **Beat one — the cat sits up, then lies down.**
-   It is the second beat of the opening: the line has just filled (1.2s) and the animal
-   rolls over onto its side, toward the word it belongs to, and hands over. Pivoted on its
-   haunches and squashed as it goes, so it reads as weight rather than a spin. */
-.cat-sit {
-  transform-box: fill-box;
-  transform-origin: 50% 96%;
-  animation: boot-lie-down 0.95s cubic-bezier(0.45, 0, 0.2, 1) 1.2s both;
-}
-/* Blink: flatten both eyes around the line that joins them (y = 34.5). */
-.cat-eyes { transform-box: view-box; transform-origin: 60px 34.5px; animation: boot-blink 4.8s ease-in-out infinite; }
-/* A slow ear twitch, each ear pivoting on its own base. */
-.cat-ear-l { transform-box: view-box; transform-origin: 48px 24px; animation: boot-twitch-l 5.4s ease-in-out infinite; }
-.cat-ear-r { transform-box: view-box; transform-origin: 72px 24px; animation: boot-twitch-r 5.4s ease-in-out infinite; }
-/* The tail flicks from where it meets the body. */
-.cat-tail { transform-box: view-box; transform-origin: 74px 92px; animation: boot-tail 6.2s ease-in-out infinite; }
-.cat-whisk { animation: boot-whisk 3.8s ease-in-out infinite; }
-/* The halo breathes behind whichever pose is on top, so a boot that waits still looks
-   alive rather than stuck. */
-.cat-glow { animation: boot-glow 3.8s ease-in-out infinite; }
 /* **The boot sequence, in one pass.** The line fills from the left to the right and
    **stays full** — it used to fill and empty on a loop, so "loading" and "loaded" looked
    the same and the sweep restarted under a wordmark that had not changed. When it is full
-   the cat lies down and becomes the C, and the last two letters land after it: the screen
-   says **AutoCAT** exactly when the catalog is in hand.
+   the last two letters arrive, the A and then the T: the screen says **AutoCAT** exactly
+   when the catalog is in hand.
    `scaleX` from a left origin rather than a changing `width`, so the sweep is composited
    instead of re-laid-out on every frame. The track is exactly the width of the wordmark
    above it. */
@@ -1816,47 +1783,37 @@ button:focus-visible,
   background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.4), var(--accent));
   box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.45);
   /* **One fill, left to right, and then it stays full.** 1.2s is the length of the first
-     beat of the opening: the cat's own move is timed to begin at exactly this mark. */
+     beat of the opening: the A is timed to start just after this mark. */
   animation: boot-load 1.2s cubic-bezier(0.32, 0, 0.2, 1) forwards;
 }
 @keyframes boot-load {
   from { transform: scaleX(0); opacity: 0.85; }
   to { transform: scaleX(1); opacity: 1; }
 }
-/* **And then the last two letters, as one word.** They used to be two spans with their own
-   delays, which read as A… then T. This is a single block that arrives whole, in one move,
-   landing against the C so the name completes once and the screen is done. */
+/* **And then the last two letters, one after the other: the A, then the T.** The A slides
+   in from the left first — the line has just filled when it starts — and the T lands beside
+   it while the A is still settling, so the name completes left to right, the way it is read,
+   rather than arriving as one block. */
 .boot-letters {
-  margin: 0 0 0 -16px;
+  margin: 0;
   font-size: 42px;
   font-weight: 900;
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   color: #f8f3e8;
   text-shadow: 0 3px 22px rgba(var(--accent-rgb), 0.3);
-  animation: boot-letters 0.6s cubic-bezier(0.2, 0.85, 0.2, 1) 2.25s both;
 }
-@keyframes boot-letters {
-  from { opacity: 0; transform: translateX(-16px) scale(0.95); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+.boot-letter { display: inline-block; }
+.boot-letter:first-child { animation: boot-letter-a 0.5s cubic-bezier(0.2, 0.85, 0.2, 1) 1.45s both; }
+.boot-letter:last-child { animation: boot-letter-t 0.45s cubic-bezier(0.2, 0.85, 0.2, 1) 1.85s both; }
+@keyframes boot-letter-a {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
 }
-@keyframes boot-lie-down {
-  0% { transform: rotate(0deg) scale(1); opacity: 1; filter: blur(0px); }
-  /* It tips over onto its side, toward the word, and presses down. */
-  55% { transform: rotate(-48deg) scale(1.03) translateY(-1px); opacity: 1; filter: blur(0px); }
-  /* Then it lets go — the blur is what the next drawing resolves out of. */
-  100% { transform: rotate(-62deg) scale(0.82) translateX(6px); opacity: 0; filter: blur(7px); }
+@keyframes boot-letter-t {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
 }
-@keyframes boot-become-c {
-  0% { opacity: 0; transform: rotate(26deg) scale(0.66); filter: blur(8px); }
-  58% { opacity: 1; transform: rotate(-5deg) scale(1.04); filter: blur(1.4px); }
-  100% { opacity: 1; transform: rotate(0deg) scale(1); filter: blur(0px); }
-}
-@keyframes boot-glow { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.85; } }
-@keyframes boot-blink { 0%, 89% { transform: scaleY(1); } 93%, 95.5% { transform: scaleY(0.07); } 100% { transform: scaleY(1); } }
-@keyframes boot-twitch-l { 0%, 78%, 100% { transform: rotate(0deg); } 83% { transform: rotate(-6deg); } 89% { transform: rotate(2.5deg); } 95% { transform: rotate(0deg); } }
-@keyframes boot-twitch-r { 0%, 78%, 100% { transform: rotate(0deg); } 84% { transform: rotate(6deg); } 90% { transform: rotate(-2.5deg); } 96% { transform: rotate(0deg); } }
-@keyframes boot-tail { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
 
 /* ------------------------------------------- the whole-app surface, one look */
 

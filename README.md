@@ -44,7 +44,10 @@ serve.mjs                   server: gallery + addon on one origin
 
 Every card × 2 rows = one cover per card per row. In the app the order opens on
 **For You** and ends on **your own three cards** — and `CARD_ORDER` in
-`collections.mjs` is the only place that order is written, so a card cannot drift:
+`collections.mjs` is the only place that order is written, so a card cannot drift. The
+names below are the app's own labels for the cards; the two service cards are **Global**
+and **Regional** in the app, while the generated covers still carry the older **Global
+OTT** / **Regional OTT** wording (the app never draws a cover):
 
 1. For You
 2. Discover ◆ Top 25
@@ -58,10 +61,10 @@ Every card × 2 rows = one cover per card per row. In the app the order opens on
 10. Based on the
 11. Moods & Vibes
 12. Themes & Tags
-13. Global OTT ◆ Top 10
-14. Global OTT
-15. Regional OTT ◆ Top 10
-16. Regional OTT
+13. Global | Top 10
+14. Global
+15. Regional | Top 10
+16. Regional
 17. **Watchlist**
 18. **Upcoming** — `Upcoming`, one row per row type: TMDB's own upcoming films, and
     the first-air-date order from today on for shows (**nearest first**), so what is
@@ -155,10 +158,10 @@ drawn on the cover:
 | Popular by ◆ Decade | `Popular in <decade>s` (both) |
 | Decades | `<decade>s`, 1950s–2020s (both) |
 | Genre from ◆ Decades | `<Genre> ◆ 1950 → Present` — movie genres / TV genres (both) |
-| Global OTT ◆ Top 10 | `<Platform> ◆ Top 10` — the six platforms the card carries: Netflix · Prime Video · Disney+ · Max · Apple TV+ · Paramount+ (both) |
-| Global OTT | `<Platform>` — everything on that platform, **followed by that platform's own `<Platform> Originals` row** (both) |
-| Regional OTT Top 10 | `<Service> ◆ Top 10` — **every region's** regional OTT services (128 rows), then **Crunchyroll** and **Viki** (both) |
-| Regional OTT | `<Service>` — everything on each of those services, plus the two Asian-catalogue services (both) |
+| Global \| Top 10 | `Latest \| Top 10` · `Newest \| Top 10` · `Trending \| Top 10`, then `<Platform> \| Top 10` — the six platforms the card carries: Netflix · Prime Video · Disney+ · Max · Apple TV+ · Paramount+ (both) |
+| Global | `<Platform>` — everything on that platform, **followed by that platform's own `<Platform> Originals` row** (both) |
+| Regional \| Top 10 | `Latest \| Top 10` · `Newest \| Top 10` · `Trending \| Top 10`, then `<Service> \| Top 10` — the services of the region set in Settings → Content (both) |
+| Regional | `<Service>` — everything on each of those services, plus the two Asian-catalogue services (both) |
 | Continental | continent names (both) |
 | Countries | **countries with 50+ titles on a row type, less the places asked out** — 79 publish a movies row and 45 a shows row, of 251 known; out are the rows under fifty, the 36 territories TMDB returns nothing for, **and 37 named removals** (below). **Pakistan, Bangladesh and Southeast Asia (less Brunei, Myanmar, Timor-Leste) are exempt by name** and publish wherever they have anything |
 | Runtimes | `30+ mins … 120+ mins` (**movies**) / `4 · 6 · 8 · 10 Episodes` (**shows**) |

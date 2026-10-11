@@ -7843,11 +7843,11 @@ const bootShownAt = Date.now();
  * **The sequence is not cut off by a warm server.** The splash comes down when the first
  * screen is drawn, which on a warm catalog is a few hundred milliseconds — the line would
  * barely start to fill and the wordmark would never finish. So it is held for the length
- * of the opening (the fill, the cat settling, the last two letters), and no longer.
+ * of the opening (the fill, then the last two letters), and no longer.
  */
-// The opening is three beats — the line fills, the cat lies down as the C, the last two
-// letters arrive — and this is its length, so a warm catalog cannot cut it short.
-const BOOT_MIN_MS = 3200;
+// The opening is two beats — the line fills, then the A and the T arrive, at 1.45s and
+// 1.85s — so this is a little past its end, and a warm catalog cannot cut it short.
+const BOOT_MIN_MS = 2600;
 
 /** A screen the page was linked to, to be taken once a mode has been chosen. */
 let pendingDeepLink = "";

@@ -491,7 +491,7 @@ const keywordPick = (group, names, type, take) =>
 const countriesFor = (type) => COUNTRIES.filter(([name]) => countryHasContent(name, type));
 
 /**
- * Global OTT rows: Top 10, then everything — for the six `GLOBAL_OTT` platforms.
+ * Global rows: Top 10, then everything — for the six `GLOBAL_OTT` platforms.
  *
  * Only the `| Top 10` rows are capped; the `all` rows are uncapped, because a
  * `take` of 30/40 made an OTT card the one place in the app whose rows stopped
@@ -523,7 +523,7 @@ const globalOtt = {
  * row is scoped to that country's region.
  *
  * **The Region scopes the card.** `code` is the country set in Settings → Content:
- * the rows are that region's own services, which is what "Regional OTT" names. It
+ * the rows are that region's own services, which is what "Regional" names. It
  * briefly published every region's rows instead, each carrying its own region — a
  * 128-row card of services from markets you are not in, which is the "Regional OTT
  * shows every country" that a Region setting exists to answer. A region the data
@@ -575,6 +575,21 @@ const discoverRow = (suffix = "", take) => [
   preset(`Trending${suffix}`, "trending", take),
   preset(`Popular${suffix}`, "popular", take),
   preset(`Top Rated${suffix}`, "top_rated", take),
+];
+
+/**
+ * **The three period rows the Discover card opens on, at Top 10.**
+ *
+ * The Global and Regional Top 10 cards used to open straight onto one row per
+ * service, which answered "what is on Netflix" before it answered "what is new
+ * anywhere I can watch" — the question the card is named for. They open on the
+ * same **Latest · Newest · Trending** set the Discover card carries, capped at
+ * ten, and the service rows follow it.
+ */
+const top10Periods = (suffix = " | Top 10") => [
+  discover(`Latest${suffix}`, "latest", TOP10),
+  discover(`Newest${suffix}`, "new", TOP10),
+  preset(`Trending${suffix}`, "trending", TOP10),
 ];
 
 /**
@@ -775,16 +790,16 @@ const buildCollections = (code = "") => {
     },
   },
 
-  // Global OTT — Top 10, then everything, for each platform.
+  // Global — the period rows, then Top 10 for each platform.
   {
     key: "global-ott-top-10",
-    lines: ["Global OTT", "| Top 10"],
+    lines: ["Global", "| Top 10"],
     scene: "global-ott-top-10",
-    catalogs: both(globalOtt.top10(TOP10)),
+    catalogs: both([...top10Periods(), ...globalOtt.top10(TOP10)]),
   },
   {
     key: "global-ott",
-    lines: ["Global OTT"],
+    lines: ["Global"],
     scene: "global-ott",
     catalogs: both(globalOtt.all()),
   },
@@ -796,14 +811,17 @@ const buildCollections = (code = "") => {
   // for a card that changes with the Region.
   {
     key: "regional-ott-top-10",
-    lines: ["Regional OTT", "| Top 10"],
+    lines: ["Regional", "| Top 10"],
     scene: "regional-ott-top-10",
     titleOnly: true,
-    catalogs: regionalOtt("top10", code),
+    catalogs: {
+      movie: [...top10Periods(), ...regionalOtt("top10", code).movie],
+      show: [...top10Periods(), ...regionalOtt("top10", code).show],
+    },
   },
   {
     key: "regional-ott",
-    lines: ["Regional OTT"],
+    lines: ["Regional"],
     scene: "regional-ott",
     titleOnly: true,
     catalogs: regionalOtt("all", code),

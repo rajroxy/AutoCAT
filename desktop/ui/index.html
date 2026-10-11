@@ -26,7 +26,7 @@
 </script>
 <!-- `?v=` is the cache-buster: bump it whenever style.css or app.js changes, or
      browsers keep showing the old UI long after the server has moved on. -->
-<link rel="stylesheet" href="./style.css?v=20261011b">
+<link rel="stylesheet" href="./style.css?v=20261011c">
 </head>
 <body>
   <!-- Boot screen. It covers the app until the first screen is drawn, then fades
@@ -47,123 +47,19 @@
           <span class="boot-loader-bar" aria-hidden="true"></span>
         </span>
       </span>
-      <!-- **The mark, and it is two drawings of the same animal.**
-           The opening is the logo being *built*: the line fills under "Auto", the sitting
-           cat then lies down and curls into the letter the name is missing — a real C,
-           drawn as a cat curled around an arc, with the head at its upper tip and the
-           tail at its lower one — and the "AT" lands beside it as one block. What is left
-           on screen is the wordmark itself: **AutoCAT**.
-           Both poses live in one inline SVG (no request, no asset) and the swap between
-           them is a crossfade under a blur, so it reads as the animal moving rather than
-           two pictures trading places. Motion is CSS-only and `motion-off` /
-           prefers-reduced-motion stop all of it. -->
-      <span class="boot-mark" aria-hidden="true">
-        <svg class="boot-cat" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="presentation">
-          <defs>
-            <radialGradient id="catHalo" cx="50%" cy="45%" r="55%">
-              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.26"/>
-              <stop offset="65%" stop-color="var(--accent)" stop-opacity="0.05"/>
-              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
-            </radialGradient>
-            <linearGradient id="catFur" x1="0.15" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stop-color="#262633"/>
-              <stop offset="50%" stop-color="#13131b"/>
-              <stop offset="100%" stop-color="#09090e"/>
-            </linearGradient>
-            <linearGradient id="catBody" x1="0.15" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stop-color="#21212c"/>
-              <stop offset="55%" stop-color="#101017"/>
-              <stop offset="100%" stop-color="#08080d"/>
-            </linearGradient>
-            <linearGradient id="catEarIn" x1="0" y1="0" x2="0.3" y2="1">
-              <stop offset="0%" stop-color="#9d90cc"/>
-              <stop offset="100%" stop-color="#6d629c"/>
-            </linearGradient>
-            <linearGradient id="catEyeW" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#f2f8ea"/>
-              <stop offset="100%" stop-color="#d6e2ca"/>
-            </linearGradient>
-          </defs>
-
-          <!-- Beat two, drawn first so it settles behind the sitting cat: the cat curled
-               into a **C**. A thick arc with its gap on the right, the head — big ears, wide
-               eyes, whiskers — at the arc's upper tip, and the tail at its lower one. The
-               head overlaps the arc's end, so the two read as one animal, not a letter with
-               a cat stuck on it. -->
-          <g class="cat-c">
-            <circle class="cat-glow" cx="58" cy="64" r="52" fill="url(#catHalo)"/>
-            <path class="c-arc" d="M76 35.2A34 34 0 1 0 76 92.8" fill="none" stroke="url(#catBody)" stroke-width="15.5" stroke-linecap="round"/>
-            <path class="c-sheen" d="M33.4 74.6C30.4 67.6 30.4 60.4 33.4 53.4" fill="none" stroke="rgba(150,166,212,0.20)" stroke-width="3.6" stroke-linecap="round"/>
-            <path class="c-tail" d="M76 92.8C88.6 97.6 97.4 88.4 90.6 79.6" fill="none" stroke="url(#catBody)" stroke-width="5.4" stroke-linecap="round"/>
-            <g class="c-head" transform="translate(80 30)">
-              <path class="c-ear c-ear-l" d="M-13.5 -5.5 -15.5 -27 -2 -13Z" fill="url(#catFur)"/>
-              <path class="c-ear c-ear-r" d="M13.5 -5.5 15.5 -27 2 -13Z" fill="url(#catFur)"/>
-              <path class="c-ear-in c-ear-l" d="M-11.4 -7.6 -13 -22 -4.4 -12.6Z" fill="url(#catEarIn)"/>
-              <path class="c-ear-in c-ear-r" d="M11.4 -7.6 13 -22 4.4 -12.6Z" fill="url(#catEarIn)"/>
-              <ellipse class="c-face" cx="0" cy="0" rx="16" ry="14.6" fill="url(#catFur)"/>
-              <path d="M-14 -3C-16 2 -14.6 8 -10.2 11.4" fill="none" stroke="rgba(150,166,212,0.30)" stroke-width="3.4" stroke-linecap="round"/>
-              <g class="c-eyes">
-                <ellipse cx="-6.4" cy="1" rx="6" ry="6.6" fill="url(#catEyeW)" stroke="#0b0b10" stroke-width="1.1" transform="rotate(-4 -6.4 1)"/>
-                <ellipse cx="6.4" cy="1" rx="6" ry="6.6" fill="url(#catEyeW)" stroke="#0b0b10" stroke-width="1.1" transform="rotate(4 6.4 1)"/>
-                <ellipse cx="-5.3" cy="1.7" rx="2.1" ry="3" fill="#0a0a0e"/>
-                <circle cx="-6.3" cy="-0.1" r="1.05" fill="#ffffff" opacity="0.92"/>
-                <circle cx="-4.2" cy="3.1" r="0.6" fill="#ffffff" opacity="0.6"/>
-                <ellipse cx="5.3" cy="1.7" rx="2.1" ry="3" fill="#0a0a0e"/>
-                <circle cx="4.3" cy="-0.1" r="1.05" fill="#ffffff" opacity="0.92"/>
-                <circle cx="6.4" cy="3.1" r="0.6" fill="#ffffff" opacity="0.6"/>
-              </g>
-              <path d="M0 5.4 -1.9 7.5h3.8L0 5.4Z" fill="#7a505a"/>
-              <path d="M-2.6 9.6c0-1 1.2-1.5 2.6-1.5s2.6.5 2.6 1.5c0 1.9-1.2 3.2-2.6 3.2s-2.6-1.3-2.6-3.2Z" fill="#bb4a5c"/>
-              <path class="c-whisk" d="M-17 1 -27.5 -1.4M-17.2 4.8 -26.5 4.8M17 1 27.5 -1.4M17.2 4.8 26.5 4.8" fill="none" stroke="rgba(226,231,240,0.36)" stroke-width="1" stroke-linecap="round"/>
-            </g>
-          </g>
-
-          <!-- Beat one: the cat sitting up, the pose it lies down from. -->
-          <g class="cat-sit">
-            <circle class="cat-glow" cx="60" cy="62" r="57" fill="url(#catHalo)"/>
-            <g class="cat-body-g">
-              <path class="cat-tail" d="M74 92C84 95 86 104 77 107C71 109 64 108.5 58 106.5" fill="none" stroke="url(#catBody)" stroke-width="3.6" stroke-linecap="round"/>
-              <path d="M60 51C52 51 48 57.5 46.5 66C45 75 43.5 88 44.5 96C45.5 103.5 51 107 60 107C69 107 74.5 103.5 75.5 96C76.5 88 75 75 73.5 66C72 57.5 68 51 60 51Z" fill="url(#catBody)"/>
-              <rect x="53.4" y="83" width="6.6" height="21" rx="3.3" fill="#1c1c26"/>
-              <rect x="60" y="83" width="6.6" height="21" rx="3.3" fill="#1c1c26"/>
-              <ellipse class="cat-paw" cx="56.7" cy="103.5" rx="4.1" ry="3.1" fill="#252532"/>
-              <ellipse class="cat-paw" cx="63.3" cy="103.5" rx="4.1" ry="3.1" fill="#252532"/>
-              <path d="M48.6 60C46.6 72 45.4 85 46.4 96.5" fill="none" stroke="rgba(150,166,212,0.26)" stroke-width="3" stroke-linecap="round"/>
-            </g>
-            <g class="cat-head" transform="translate(60 34.5) scale(1 0.93) translate(-60 -34.5)">
-              <path class="cat-ear cat-ear-l" d="M40 25C36.5 16 35.5 6.5 39 3.5C43.5 4.5 50.5 11.5 56 20.5Z" fill="url(#catFur)"/>
-              <path class="cat-ear cat-ear-r" d="M80 25C83.5 16 84.5 6.5 81 3.5C76.5 4.5 69.5 11.5 64 20.5Z" fill="url(#catFur)"/>
-              <path class="cat-ear-in cat-ear-l" d="M44.5 22.5C42 14.5 41.5 7 44 5C47.5 6.5 52.5 12 56.5 19.5Z" fill="url(#catEarIn)"/>
-              <path class="cat-ear-in cat-ear-r" d="M75.5 22.5C78 14.5 78.5 7 76 5C72.5 6.5 67.5 12 63.5 19.5Z" fill="url(#catEarIn)"/>
-              <path class="cat-face" d="M60 14C72.5 14 82 22.5 82 35C82 41 80 46.5 75.5 50.5C71 54.5 65.5 55.5 60 55.5C54.5 55.5 49 54.5 44.5 50.5C40 46.5 38 41 38 35C38 22.5 47.5 14 60 14Z" fill="url(#catFur)"/>
-              <path d="M46.5 17.5C41.5 20.8 38.8 25.6 38.8 31.4C38.8 35 39.6 38.3 41 41.2" fill="none" stroke="rgba(150,166,212,0.34)" stroke-width="4.4" stroke-linecap="round"/>
-              <path d="M60 15.2C50.5 15.2 42.5 20.6 40 28" fill="none" stroke="rgba(150,166,212,0.20)" stroke-width="3" stroke-linecap="round"/>
-              <g class="cat-eyes">
-                <ellipse class="cat-eye" cx="49" cy="34.5" rx="8.8" ry="9.6" fill="url(#catEyeW)" stroke="#0b0b10" stroke-width="1.3" transform="rotate(-4 49 34.5)"/>
-                <ellipse class="cat-eye" cx="71" cy="34.5" rx="8.8" ry="9.6" fill="url(#catEyeW)" stroke="#0b0b10" stroke-width="1.3" transform="rotate(4 71 34.5)"/>
-                <ellipse cx="50.6" cy="35.2" rx="3" ry="4.3" fill="#0a0a0e"/>
-                <circle cx="49.4" cy="33.1" r="1.5" fill="#ffffff" opacity="0.92"/>
-                <circle cx="52.2" cy="37.4" r="0.85" fill="#ffffff" opacity="0.6"/>
-                <ellipse cx="69.4" cy="35.2" rx="3" ry="4.3" fill="#0a0a0e"/>
-                <circle cx="68.2" cy="33.1" r="1.5" fill="#ffffff" opacity="0.92"/>
-                <circle cx="71" cy="37.4" r="0.85" fill="#ffffff" opacity="0.6"/>
-              </g>
-              <path d="M60 40.6 57.7 42.9h4.6L60 40.6Z" fill="#7a505a"/>
-              <path d="M56.4 45.5c0-1.4 1.7-2 3.6-2s3.6.6 3.6 2c0 2.5-1.6 4.3-3.6 4.3s-3.6-1.8-3.6-4.3Z" fill="#bb4a5c"/>
-              <path d="M58.2 49.2c.9 1 2.7 1 3.6 0-.5 1.6-3.1 1.8-3.6 0Z" fill="#e08a95"/>
-              <path d="M56.9 45.1 58.4 45.1 57.5 46.9Z" fill="#ffffff" opacity="0.94"/>
-              <path d="M61.6 45.1 63.1 45.1 62.5 46.9Z" fill="#ffffff" opacity="0.94"/>
-              <path class="cat-whisk" d="M36 35 25 33M36 39.2 24 39.2M36 43.4 25 45.5M84 35 95 33M84 39.2 96 39.2M84 43.4 95 45.5" fill="none" stroke="rgba(226,231,240,0.42)" stroke-width="1.1" stroke-linecap="round"/>
-            </g>
-          </g>
-        </svg>
-      </span>
-      <!-- **The last two letters of the wordmark, and they are one word.** They used to be
-           two spans with their own delays, which read as A… then T. This is a single block
-           that arrives whole and in one move, landing against the C so the name is complete
-           at the moment the app is ready. Ordinary text, so with motion off (or reduced
-           motion) they are simply there. -->
-      <span class="boot-letters" aria-hidden="true">AT</span>
+      <!-- **The C, and it is the letter itself.** It fills the slot the app's drawn cat
+           used to hold. That animal was a real drawing of a real cat curled around an arc,
+           swapped in under a blur at the end of the opening — and a wordmark with a
+           picture in the middle of it is not a wordmark. The letter is set in the same
+           face, size and weight as the "Auto" beside it, so **AutoCAT** reads as one word
+           that happens to be a pun, which is the whole joke. -->
+      <span class="boot-mark" aria-hidden="true">C</span>
+      <!-- **And then the last two letters: the A, and then the T.** They arrive one after
+           the other — the A slides in from the left first, and the T lands beside it — so
+           the name completes the way it is read. The line has just filled when the A
+           starts. Ordinary text, so with motion off (or reduced motion) they are simply
+           there. -->
+      <span class="boot-letters" aria-hidden="true"><span class="boot-letter">A</span><span class="boot-letter">T</span></span>
     </div>
     <p class="boot-note">Preparing your collections…</p>
   </div>
@@ -239,6 +135,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./app.js?v=20261011b"></script>
+  <script type="module" src="./app.js?v=20261011c"></script>
 </body>
 </html>
