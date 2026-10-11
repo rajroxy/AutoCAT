@@ -594,8 +594,10 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 /* The drawn mark an On-the-Board banner wears in place of its two-word title. */
 .hero-title-mark { display: flex; align-items: center; }
 .hero-mark {
-  width: 64px;
-  height: 64px;
+  width: 88px;
+  height: 88px;
+  /* A nudge down: the mark sat tight under the banner's own name. */
+  margin-top: 10px;
   fill: none;
   stroke: #f8f3e8;
   stroke-width: 1.6;
@@ -621,7 +623,15 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    what those want. The **live channel banner** (`.hero.live-hero`) keeps its column
    against the left edge for the same reason. */
 .hero:not(.title-hero):not(.live-hero) .hero-body { text-align: center; align-self: start; }
-.hero:not(.title-hero):not(.live-hero) .hero-kicker { text-align: left; font-size: 16px; }
+.hero:not(.title-hero):not(.live-hero) .hero-kicker {
+  text-align: left;
+  font-size: 16px;
+  /* **Capitals, not sentence case.** The banner's own name is a label over the whole
+     block, so it is set the way a label is — upper case with a little tracking — rather
+     than in the sentence case the rest of the app's captions wear. */
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
 .hero:not(.title-hero):not(.live-hero) .hero-title-mark { justify-content: center; }
 .hero:not(.title-hero):not(.live-hero) .hero-cats { justify-content: center; }
 .hero.live-hero .hero-body { text-align: left; align-self: start; }
