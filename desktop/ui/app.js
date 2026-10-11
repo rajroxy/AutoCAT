@@ -465,7 +465,8 @@ const state = {
   // and guide the server has answered with.
   liveRow: localStorage.getItem(KEY.liveRow) || "livetv",
   liveSource: readJSON(KEY.liveSource, { mode: "dth", m3u: "", host: "", username: "", password: "", epg: "", providers: [], refreshMinutes: 0 }),
-  live: { loading: false, loaded: false, all: [], total: 0, groups: [], rows: [], updated: 0, error: "", guide: null, guideLoading: false, guideError: "" },
+  live: { loading: false, loaded: false, all: [], total: 0, groups: [], rows: [], updated: 0, error: "", guide: null, guideLoading: false, guideError: "", guideCountry: "", guideCategory: "", guideSportsOnly: false },
+  recordings: readJSON("nuvio.recordings", []),
   providers: readJSON(KEY.providers, { tmdb: { enabled: true }, tvdb: { enabled: false }, mdblist: { enabled: false } }),
   // Debrid: which service turns a torrent into a direct link. Only `enabled` and
   // `hasKey` are ever stored here — the key itself lives on the server and is
@@ -1142,6 +1143,16 @@ const initialsOf = (name) =>
     .join("") ||
   "?";
 
+const channelResolution = (name = "") => {
+  const text = String(name || "").toLowerCase();
+  if (text.match(/\b(2160p|4k|uhd)\b/)) return "4K";
+  if (text.match(/\b(1440p|qhd|wqhd)\b/)) return "QHD";
+  if (text.match(/\b(1080p|fhd|full hd)\b/)) return "FHD";
+  if (text.match(/\b(720p|hd|hdtv)\b/)) return "HD";
+  if (text.match(/\b(576p|480p|pal|ntsc|sd)\b/)) return "SD";
+  return "";
+};
+
 const posterFallback = (name) => el("div", { class: "poster-fallback", text: initialsOf(name).toUpperCase() });
 
 async function fetchCatalog(catalog, skip = 0, count = 0) {
@@ -1540,6 +1551,7 @@ function parseHash() {
   }
   if (hash.startsWith("channel/")) return { view: "channel", id: decodeURIComponent(hash.slice(8)) };
   if (hash === "guide") return { view: "guide" };
+  if (hash === "recordings") return { view: "recordings" };
   if (hash.startsWith("categories/")) return { view: "category", group: decodeURIComponent(hash.slice(11)) };
   if (hash === "categories") return { view: "categories" };
   if (hash === "profiles") return { view: "profiles" };
@@ -4126,6 +4138,51 @@ function liveCalRow(channel, programme) {
       el("span", { class: "cal-live-channel", text: [channel.name, channel.country].filter(Boolean).join(" · ") }),
     ),
   );
+}
+
+
+/** Recording helpers for IPTV/DVR */
+const REC_KEY = "nuvio.recordings";
+
+function recordingsGet() {
+  try {
+    return JSON.parse(localStorage.getItem(REC_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function recordingsSave(list) {
+  try {
+    localStorage.setItem(REC_KEY, JSON.stringify(list));
+  } catch {}
+  state.recordings = list;
+}
+
+function isRecording(id) {
+  return recordingsGet().some((r) => r.id === id);
+}
+
+function toggleRecordProgramme(channel, programme) {
+  const list = recordingsGet();
+  const id = `${channel.id}|${programme.start}`;
+  const idx = list.findIndex((r) => r.id === id);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+  } else {
+    list.push({
+      id,
+      channelId: channel.id,
+      channelName: channel.name,
+      channelLogo: channel.logo || "",
+      title: programme.title,
+      start: programme.start,
+      stop: programme.stop,
+      desc: programme.desc || "",
+    });
+  }
+  recordingsSave(list);
+  render();
 }
 
 /**
@@ -7593,6 +7650,28 @@ async function moveCustomRow(id, delta) {
   if (Array.isArray(res?.rows)) state.customRows = res.rows;
   render();
 }
+
+function renderRecordings() {
+  const list = recordingsGet();
+  const now = Date.now();
+  const upcoming = list.filter((r) => r.stop > now).sort((a, b) => a.start - b.start);
+  const past = list.filter((r) => r.stop <= now).sort((a, b) => b.stop - a.stop);
+  const mkRow = (r) => el("button", {
+    class: "cal-live-row focusable",
+    type: "button",
+    title: "Remove recording",
+    onclick: () => { toggleRecordProgramme({ id: r.channelId, name: r.channelName, logo: r.channelLogo }, { start: r.start, stop: r.stop, title: r.title }); },
+  }, el("span", { class: "cal-live-time", text: `${clockOf(r.start)} – ${clockOf(r.stop)}` }), r.channelLogo ? el("img", { class: "cal-live-logo", src: r.channelLogo, alt: "" }) : el("span", { class: "cal-live-logo fallback", text: (r.channelName || "?").slice(0,1).toUpperCase() }), el("span", { class: "cal-live-what" }, el("span", { class: "cal-live-title", text: r.title }), el("span", { class: "cal-live-channel", text: r.channelName })));
+  return [
+    el("h1", { class: "view-title", text: "Recordings" }),
+    el("p", { class: "view-hint", text: `${list.length} recordings · ${upcoming.length} upcoming` }),
+    el("h2", { class: "view-title", style: "font-size:1.2rem;margin-top:1rem", text: "Upcoming" }),
+    upcoming.length ? el("div", { class: "cal-list" }, ...upcoming.map(mkRow)) : el("p", { class: "empty", text: "No upcoming recordings" }),
+    el("h2", { class: "view-title", style: "font-size:1.2rem;margin-top:1.5rem", text: "Past" }),
+    past.length ? el("div", { class: "cal-list" }, ...past.map(mkRow)) : el("p", { class: "empty", text: "No past recordings" }),
+  ];
+}
+
 function renderSettings() {
   const section = state.settingsSection;
 
@@ -7873,6 +7952,7 @@ async function render() {
   // watchdog as the only thing that would ever explain it. The failure is drawn now.
   try {
   if (view === "guide") nodes = renderGuide();
+  else if (view === "recordings") nodes = renderRecordings();
   else if (view === "categories") nodes = renderLiveCategories();
   else if (view === "category") nodes = renderLiveCategory(group);
   else if (view === "channel") nodes = renderChannel(id);
@@ -8335,7 +8415,17 @@ function renderGuide() {
   if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
   if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
 
-  const channels = liveChannelsShown().slice(0, LIVE_GUIDE_CHANNELS);
+  let channels = liveChannelsShown().slice(0, LIVE_GUIDE_CHANNELS);
+  const { guideCountry, guideCategory, guideSportsOnly } = state.live || {};
+  if (guideCountry) {
+    channels = channels.filter((c) => (c.country || "").toUpperCase() === guideCountry.toUpperCase());
+  }
+  if (guideCategory) {
+    channels = channels.filter((c) => (c.groups || []).some((g) => g === guideCategory));
+  }
+  if (guideSportsOnly) {
+    channels = channels.filter((c) => (c.groups || []).some((g) => /sport/i.test(g)) || /sport/i.test(c.name || ""));
+  }
   const guide = state.live.guide;
   const hasEpg = Boolean(guide && guide.epg);
   const start = Date.now();
@@ -8373,7 +8463,10 @@ function renderGuide() {
         channel.logo
           ? el("img", { class: "guide-logo", src: channel.logo, alt: "", loading: "lazy" })
           : el("span", { class: "guide-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
-        el("span", { class: "guide-name", text: channel.name }),
+        el("span", { class: "guide-name", text: channel.name }, (() => {
+          const res = channelResolution(channel.name);
+          return res ? el("span", { class: "guide-res", text: res }) : null;
+        })()),
       ),
       el(
         "div",
@@ -8389,6 +8482,38 @@ function renderGuide() {
     el("h1", { class: "view-title", text: "Guide" }),
     el("p", { class: "view-hint", text: `${channels.length} channels · the next ${LIVE_GUIDE_HOURS} hours` }),
     liveRowSwitch(),
+    // Country and category filter strips for immersive guide
+    (() => {
+      const all = state.live.all || [];
+      const countries = [...new Set(all.map((c) => (c.country || "").trim()).filter(Boolean))].sort();
+      const groups = [...new Set(all.flatMap((c) => c.groups || []).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+      const chips = [];
+      chips.push(el("button", {
+        class: `chip focusable${!state.live.guideCountry && !state.live.guideCategory && !state.live.guideSportsOnly ? " active" : ""}`,
+        type: "button",
+        text: "All",
+        onclick: () => { state.live.guideCountry = ""; state.live.guideCategory = ""; state.live.guideSportsOnly = false; render(); }
+      }));
+      countries.slice(0, 12).forEach((cc) => chips.push(el("button", {
+        class: `chip focusable${state.live.guideCountry === cc ? " active" : ""}`,
+        type: "button",
+        text: cc,
+        onclick: () => { state.live.guideCountry = state.live.guideCountry === cc ? "" : cc; render(); }
+      })));
+      groups.slice(0, 20).forEach((g) => chips.push(el("button", {
+        class: `chip focusable${state.live.guideCategory === g ? " active" : ""}`,
+        type: "button",
+        text: g,
+        onclick: () => { state.live.guideCategory = state.live.guideCategory === g ? "" : g; render(); }
+      })));
+      chips.push(el("button", {
+        class: `chip focusable${state.live.guideSportsOnly ? " active" : ""}`,
+        type: "button",
+        text: "Sports",
+        onclick: () => { state.live.guideSportsOnly = !state.live.guideSportsOnly; render(); }
+      }));
+      return el("div", { class: "cat-strip" }, chips);
+    })(),
     hasEpg
       ? null
       : el("p", {
@@ -8434,8 +8559,11 @@ function channelCard(channel) {
         ? el("img", { src: channel.logo, alt: "", loading: "lazy" })
         : el("span", { class: "channel-fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
     ),
-    el("span", { class: "channel-name", text: channel.name }),
-    el("span", { class: "channel-sub", text: [channel.groups?.[0], channel.country].filter(Boolean).join(" · ") }),
+    el("span", { class: "channel-name", text: channel.name }, (() => {
+      const res = channelResolution(channel.name);
+      return res ? el("span", { class: "channel-res", text: res }) : null;
+    })()),
+    el("span", { class: "channel-sub", text: [channel.groups?.[0], channel.country, channelResolution(channel.name) || ""].filter(Boolean).join(" · ") }),
   );
 }
 
@@ -8550,7 +8678,10 @@ function guideGrid(channels, { hours = 3 } = {}) {
         channel.logo
           ? el("img", { class: "guide-logo", src: channel.logo, alt: "", loading: "lazy" })
           : el("span", { class: "guide-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
-        el("span", { class: "guide-name", text: channel.name }),
+        el("span", { class: "guide-name", text: channel.name }, (() => {
+          const res = channelResolution(channel.name);
+          return res ? el("span", { class: "guide-res", text: res }) : null;
+        })()),
       ),
       el(
         "div",
@@ -8642,6 +8773,26 @@ function channelsCard() {
   });
 }
 
+function recordingsCard() {
+  const list = recordingsGet();
+  const upcoming = list.filter((r) => r.stop > Date.now()).slice(0, 6);
+  const rows = upcoming.length
+    ? upcoming.map((r) => el("div", { class: "guide-mini-row" },
+        el("span", { class: "guide-mini-name", text: r.title }),
+        el("span", { class: "guide-mini-block", text: clockOf(r.start) })
+      ))
+    : [el("div", { class: "guide-mini-row" },
+        el("span", { class: "guide-mini-name", text: "No upcoming recordings" }),
+        el("span", { class: "guide-mini-block bare", text: "Schedule from guide" })
+      )];
+  return liveCard({
+    id: "open-recordings",
+    title: "Recordings",
+    sub: `${list.length} total · ${upcoming.length} upcoming`,
+    rows,
+    action: () => go("#/recordings"),
+  });
+}
 /**
  * The Live TV banner — this profile's own Spotlight.
  *
@@ -8717,7 +8868,7 @@ function renderLiveHome() {
   const nodes = [
     liveHeroBlock(),
     liveRowSwitch(),
-    el("div", { class: "icons grid live-cards" }, guideCard(), channelsCard()),
+    el("div", { class: "icons grid live-cards" }, guideCard(), channelsCard(), recordingsCard()),
   ].filter(Boolean);
   if (state.live.loading && !state.live.loaded) {
     nodes.push(el("p", { class: "empty", text: "Reading the channel list…" }));
