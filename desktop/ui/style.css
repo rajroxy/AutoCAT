@@ -224,15 +224,22 @@ body {
   gap: 12px;
   width: 100%;
   padding: 26px 18px 6px;
+  /* The same corners as the card it fills, so a highlight drawn on either is one shape. */
+  border-radius: 19px 19px 0 0;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
 }
-/* **No ring of its own.** The keyboard ring is drawn around the *card* (`:has` below),
-   not around the inner surface, so the highlight is not clipped inside the card. */
+/* **One highlight, and it is the card's.** The inner surface used to wear the app's own
+   `.focusable` ring as well — and, having square corners, that ring was a *box* round a
+   rounded card: two highlights in two shapes. The card is the only thing that answers
+   here, so hover and keyboard focus both draw one ring, following the card's corners. */
+.profile-tile-hit:hover,
 .profile-tile-hit:focus-visible { outline: none; box-shadow: none; }
+.profile-tile:hover,
+.profile-tile:focus-visible,
 .profile-tile:has(.profile-tile-hit:focus-visible) { box-shadow: var(--hl); }
 /* The card's own controls — Rename, under the name, inside the card. */
 .profile-card-tools { display: flex; justify-content: center; gap: 8px; padding: 0 18px 18px; }
@@ -282,7 +289,11 @@ body {
    with the app's own label weight, sitting in the same row as the marks. */
 .profile-rename {
   height: 30px;
+  /* **Rename and Save are one button**, so they are one size: a floor under the width
+     keeps the swap from resizing the control under the cursor. */
+  min-width: 92px;
   padding: 0 14px;
+  text-align: center;
   border: 0;
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.08);
@@ -4487,7 +4498,9 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    being edited, so it is drawn inside the card, directly under the field. */
 .profile-tile.editing { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: default; }
 .profile-tile.editing:hover { transform: none; }
-.profile-tile.editing .profile-rename { width: 100%; height: 34px; font-size: 13px; }
+/* **Save is the same button as Rename.** It used to be stretched to the card's width and
+   a little taller, so the control changed size the moment the name opened. One size now. */
+.profile-tile.editing .profile-rename { min-width: 92px; }
 
 /* **The live Upcoming card's frames hold a channel's logo, not a still** — the same two
    frames the VOD Upcoming card draws, but a mark is *contained* on the app's own plate
@@ -4546,3 +4559,28 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 /* **GitHub's own green**, because this button is GitHub's door and not the app's accent. */
 .btn.github { background: #2da44e; color: #fff; font-weight: 700; }
 .btn.github:hover, .btn.github:focus-visible { background: #2c974b; }
+
+/* ============================================================================
+   **One highlight on a profile card, and it is the card's.**
+   ----------------------------------------------------------------------------
+   The card is a wrapper with the *enter* target inside it, and the inner surface is
+   `.focusable` — so the app's own keyboard/hover ring was drawn on **it** as well,
+   in the square corners it has of its own, while the card drew its ring in the
+   rounded corners it has of its own: two highlights, two shapes, on one thing. The
+   card answers now and nothing inside it does, both rings follow the card's real
+   radius (`inherit`, because the radius comes from a later grouped rule), and the
+   rules sit at the end of the sheet so the generic `.focusable` ring cannot win on
+   position. */
+.profile-grid .profile-tile-hit {
+  border-radius: inherit;
+}
+.profile-grid .profile-tile-hit:hover,
+.profile-grid .profile-tile-hit:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.profile-grid .profile-tile:hover,
+.profile-grid .profile-tile:focus-visible,
+.profile-grid .profile-tile:has(.profile-tile-hit:focus-visible) {
+  box-shadow: var(--hl);
+}

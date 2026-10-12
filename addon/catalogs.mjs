@@ -623,16 +623,30 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
   if (!held?.named?.length) return null;
   const here = held.named
     .filter((p) => !GLOBAL_PROVIDER_IDS.has(p.id))
-    .filter((p) => !STORE_LIKE.test(p.name));
+    .filter((p) => !STORE_LIKE.test(p.name))
+    .filter((p) => !CHANNEL_TIER.test(p.name));
   if (!here.length) return null;
-  // **The popular names the country actually holds.** TMDB's answer for a small region is
-  // mostly festival and niche services (a Korean film list runs Netflix, Prime, Disney+ and
-  // then fifteen documentary catalogues), so the region's answer is read *through* the list
-  // of services a person would name — the ones that are both popular and available here.
-  // A country where none of those names is present keeps TMDB's own order, because a country
-  // with no row at all is worse than a country with an unexpected one.
-  const popular = here.filter((p) => isPopularRegional(p.name));
-  return (popular.length ? popular : here).slice(0, limit);
+  // **The country's own list, in TMDB's order for that country.**
+  //
+  // This used to keep *only* the names on a short hand-written list, which is how a
+  // country TMDB knows eight services in came back with four rows: everything the list
+  // did not happen to name was dropped. Reading the region *through* a worldwide list of
+  // "popular" names is wrong for the same reason in the other direction — Sun Nxt,
+  // Shahid VIP and MUBI led **every** country's card, including ones that do not carry
+  // them. The order that means something is TMDB's own `display_priority` for the region
+  // (`named` above arrives sorted by it), with the worldwide platforms and their
+  // channel-tier variants left to the Global card, and the shops and the art-house
+  // catalogues to the STORE_LIKE filter.
+  //
+  // **The names people know lead; the rest of the country follows.** TMDB's own priority
+  // for a region is not a popularity order — it puts the same handful (Sun Nxt, MUBI,
+  // Curiosity Stream) first in *every* country — so the hand-written list is used the one
+  // way it is both honest and useful: as a **prefix**, and only for services the region
+  // actually carries. Everything else the country has comes after it, so the card is the
+  // country's own list and never only the four names the list happened to recognise.
+  const known = here.filter((p) => isPopularRegional(p.name));
+  const rest = here.filter((p) => !isPopularRegional(p.name));
+  return [...known, ...rest].slice(0, limit);
 }
 
 /**
@@ -643,6 +657,15 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
  * subscribe to.
  */
 const STORE_LIKE = /google play|justwatch|apple tv|amazon video|youtube|microsoft|rakuten|chili|vudu|fandango|redbox|hoopla|kanopy|plex|eventive|cultpix|takflix|guide?doc|broadwayhd|magellan|filmzie|dekkoo|docalliance|true story|jolt film|netzkino|shadowz|\bpresents plus\b/i;
+
+/**
+ * **A channel tier is not a service.** "HBO Max Amazon Channel", "Anime Times Amazon
+ * Channel", "HBO Max on U-Next", "Netflix Kids" — these are add-on tiers of a platform
+ * that already has its own card, and a Regional row for one of them is a row for Prime
+ * Video or Netflix wearing somebody else's name. The country's *own* services are what
+ * this card is for.
+ */
+const CHANNEL_TIER = /amazon channel|netflix kids|on u-next|apple tv channel|\bplus (essential|premium)\b|with ads|standard with ads|basic with ads/i;
 
 /** The worldwide platforms, by provider id — the ones the Global OTT card owns. */
 const GLOBAL_PROVIDER_IDS = new Set(GLOBAL_OTT.map(([, id]) => String(id)));

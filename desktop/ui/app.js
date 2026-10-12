@@ -2761,7 +2761,8 @@ function personSlot(person, active, editing, count, menu) {
         { class: "profile-tile active editing" },
         el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
         field,
-        renameBtn,
+        // Wrapped like the closed card, so Rename and Save are one button of one size.
+        el("div", { class: "profile-card-tools" }, renameBtn),
       ),
       tools,
     );
@@ -2785,7 +2786,9 @@ function personSlot(person, active, editing, count, menu) {
         el("span", { class: "profile-tile-name", text: person.name }),
         el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
       ),
-      el("div", { class: "profile-card-tools" }, renameBtn),
+      // **Rename appears when the pencil is pressed.** The card holds it, under the
+      // name, so the thing being renamed and the button that renames it are one object.
+      menu || editing ? el("div", { class: "profile-card-tools" }, renameBtn) : null,
     ),
     tools,
   );
@@ -8936,9 +8939,6 @@ function panePlayback() {
   return [
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Playback engine" }),
-      el("p", { class: "pane-note", text: nativeEngine()
-        ? "Which engine this device hands a stream to. Media3 (ExoPlayer) is the one to stay on: hardware decoding, tunneled playback and decoder order are its own settings. libmpv plays the containers and codecs Media3 refuses. Both apply here, in the app's own shell."
-        : "This builds the Android shell's engine: Media3 (ExoPlayer) for hardware and tunneled decoding, and libmpv for the containers Media3 refuses. In a browser the app plays through the page's own player, so these switches are stored for the shell and do nothing here." }),
       el("div", { class: "options" },
         ...ENGINE_CHOICES.map(([id, label]) => radioRow(playbackEngine().engine === id, "engine", label, "", () => savePlaybackEngine({ engine: id }))),
       ),
