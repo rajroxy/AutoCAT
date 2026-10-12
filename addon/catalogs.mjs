@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -534,13 +534,27 @@ export async function primeRegionProviders(code = activeCountry()) {
       const held = regionProviders.get(slotKey);
       if (held && Date.now() - held.at < REGION_PROVIDERS_TTL) return;
       try {
-        const res = await get(`/watch/providers/${tmdbPath(type)}`, { watch_region: region });
-        const ids = (res?.results || [])
-          .map((p) => String(p?.provider_id || ""))
-          .filter((id) => /^\d+$/.test(id));
+        const res = await get(`/watch/providers/${tmdbPath(type)}`, { watch_region: r });
+        const rows = (res?.results || [])
+          .map((p) => ({
+            id: String(p?.provider_id || ""),
+            name: String(p?.provider_name || ""),
+            priority: Number(p?.display_priority ?? 999),
+          }))
+          .filter((p) => /^\d+$/.test(p.id) && p.name);
         // Nothing came back: keep whatever the last answer was rather than emptying the
         // set, which would drop every regional row on one bad response.
-        if (ids.length) regionProviders.set(slotKey, { at: Date.now(), ids: new Set(ids) });
+        if (rows.length) {
+          regionProviders.set(slotKey, {
+            at: Date.now(),
+            ids: new Set(rows.map((p) => p.id)),
+            // **TMDB's own popularity order.** Its answer for a region already arrives
+            // sorted by `display_priority` — the order a viewer in that region sees the
+            // services in — so the head of it is the popular end, by TMDB's own reckoning
+            // rather than by a list kept here.
+            named: rows.slice().sort((a, b) => a.priority - b.priority),
+          });
+        }
       } catch {
         /* offline — the rows stand as they are */
       }
@@ -587,6 +601,54 @@ const withAvailableProviders = (defs) =>
     const set = regionProviders.get(`${d.type}:${String(d.entry.region || "").toUpperCase()}`)?.ids;
     return !set || set.has(String(d.entry.providerId));
   });
+
+/**
+ * **The popular OTT services of a country, in TMDB's own order.**
+ *
+ * The Regional OTT card used to publish a curated list of service *names* — assembled from
+ * whichever regions this project happened to have verified — which is why it could hold a
+ * service that had nothing to do with the country on screen and miss the ones a person in
+ * it actually subscribes to. It is read off TMDB's answer for **the country the app is set
+ * to** now: every service with a catalogue there, already in TMDB's display-priority order.
+ *
+ * The worldwide platforms and the two Asian-catalogue services are left out — they have
+ * their own card (see `GLOBAL_OTT`), and one service belongs to one card family.
+ *
+ * Returns `null` when that region's list has not arrived yet: an unasked question is not a
+ * "no", and the caller keeps what it already has rather than emptying the card.
+ */
+export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
+  const held = regionProviders.get(`${type}:${String(code || "").toUpperCase()}`)
+    || regionProviders.get(`${type}:US`);
+  if (!held?.named?.length) return null;
+  const here = held.named
+    .filter((p) => !GLOBAL_PROVIDER_IDS.has(p.id))
+    .filter((p) => !STORE_LIKE.test(p.name));
+  if (!here.length) return null;
+  // **The popular names the country actually holds.** TMDB's answer for a small region is
+  // mostly festival and niche services (a Korean film list runs Netflix, Prime, Disney+ and
+  // then fifteen documentary catalogues), so the region's answer is read *through* the list
+  // of services a person would name — the ones that are both popular and available here.
+  // A country where none of those names is present keeps TMDB's own order, because a country
+  // with no row at all is worse than a country with an unexpected one.
+  const popular = here.filter((p) => isPopularRegional(p.name));
+  return (popular.length ? popular : here).slice(0, limit);
+}
+
+/**
+ * **Stores and aggregators are not streaming services.** TMDB lists the shops (Google Play
+ * Movies, Apple TV, JustWatch TV), the aggregators and the pass-throughs beside the real
+ * services, and a row called "Google Play Movies" is not a place with a catalogue of its
+ * own — it is where a film can be bought. The Regional OTT card is about services you
+ * subscribe to.
+ */
+const STORE_LIKE = /google play|justwatch|apple tv|amazon video|youtube|microsoft|rakuten|chili|vudu|fandango|redbox|hoopla|kanopy|plex|eventive|cultpix|takflix|guide?doc|broadwayhd|magellan|filmzie|dekkoo|docalliance|true story|jolt film|netzkino|shadowz|\bpresents plus\b/i;
+
+/** The worldwide platforms, by provider id — the ones the Global OTT card owns. */
+const GLOBAL_PROVIDER_IDS = new Set(GLOBAL_OTT.map(([, id]) => String(id)));
+
+/** How many services the Regional OTT card lists for a country. */
+const REGIONAL_ROW_LIMIT = 14;
 
 /** A shuffled copy — the walk's order is the point. */
 function shuffled(list) {
@@ -662,17 +724,55 @@ const recentForYouSeeds = new Map();
 /** Two rolls' worth of seeds per card and row type. */
 const FOR_YOU_SEED_MEMORY = FOR_YOU_ROWS_PER_TYPE * 2;
 
+/**
+ * **The Regional OTT card lists *this country's* popular services.**
+ *
+ * The rows are read from TMDB's answer for the country the app is set to (see
+ * `regionalServicesFor`), so what the card holds is what a person in that country can
+ * actually subscribe to — in TMDB's own popularity order — instead of a curated list of
+ * service names gathered from regions this project happened to verify. The static rows
+ * (`regionalOtt` in `scripts/collections.mjs`) are what the card falls back to while that
+ * answer is on its way, so the card is never *emptier* on a first load than on the next.
+ */
+function withRegionalServices(defs, code) {
+  const movie = regionalServicesFor(code, "movie");
+  const series = regionalServicesFor(code, "series");
+  if (!movie && !series) return defs;
+  const kept = defs.filter((d) => !String(d.key || "").startsWith("regional-ott"));
+  // Both regional cards are the same list read twice: the plain one, and the Top 10 the
+  // service publishes for itself.
+  for (const [cardKey, rowName, take] of [
+    ["regional-ott", (svc) => svc.name, 40],
+    ["regional-ott-top-10", (svc) => `${svc.name} | Top 10`, 10],
+  ]) {
+    for (const [type, rows] of [["movie", movie], ["series", series]]) {
+      if (!rows) continue;
+      for (const svc of rows) {
+        const name = rowName(svc);
+        kept.push({
+          id: `${CATALOG_ID_PREFIX}${cardKey}--${slug(svc.name)}-${String(code).toLowerCase()}`,
+          type,
+          key: cardKey,
+          entry: { kind: "provider", providerId: svc.id, region: String(code).toUpperCase(), name, take },
+          name,
+        });
+      }
+    }
+  }
+  return kept;
+}
+
 export function catalogDefs(code = activeCountry()) {
   const key = String(code || "US").toUpperCase();
   if (!defsCache.has(key)) defsCache.set(key, buildCatalogDefs(collectionsFor(key)));
   const { defs, recommendCards } = defsCache.get(key);
-  if (!recommendCards.length) return withAvailableProviders(defs);
+  if (!recommendCards.length) return withAvailableProviders(withRegionalServices(defs, key));
   // **The rows are published even with an empty watchlist.** Withholding them left
   // the For You card with no rows at all, so it could not show anything; with nothing
   // pinned each row falls back to what is trending (the `recommend` case in
   // `specsFor`), which is why the card is never empty.
   return [
-    ...withAvailableProviders(defs),
+    ...withAvailableProviders(withRegionalServices(defs, key)),
     ...recommendCards.flatMap((c) => {
       const rows = [];
       // **Per row type**, not per card: a watchlist holding only shows must still

@@ -32,6 +32,15 @@ repositories {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    // **The playback engine.** Media3 (ExoPlayer) is the app's own player on Android: it is
+    // what gives the settings in Playback → Playback engine something to switch — hardware
+    // decoding, tunneled playback, the decoder order, and the manifest's own audio and
+    // subtitle tracks (see PlaybackEnginePlugin).
+    implementation "androidx.media3:media3-exoplayer:$media3Version"
+    implementation "androidx.media3:media3-exoplayer-hls:$media3Version"
+    implementation "androidx.media3:media3-exoplayer-dash:$media3Version"
+    implementation "androidx.media3:media3-ui:$media3Version"
+    implementation "androidx.media3:media3-common:$media3Version"
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"

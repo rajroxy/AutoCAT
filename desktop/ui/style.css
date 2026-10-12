@@ -4494,3 +4494,31 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .settings-pane .group-head,
 .settings-pane p.option-title,
 .settings-pane .option-desc { display: none; }
+
+/* ---------------------------------------------------------- the sign-in page */
+
+/* **One card, in the middle of the page, the shape every sign-in has.** GitHub's own
+   page is the model: the mark, a heading, one way in, a rule, and the second door. */
+.signin-page { display: grid; place-items: start center; padding: 12px 0 40px; }
+.signin-card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 30px 26px 26px;
+  border-radius: 18px;
+  background: var(--panel);
+  text-align: center;
+}
+.signin-card .signin-mark { width: 58px; height: 58px; background: rgba(255, 255, 255, 0.08); }
+.signin-card .signin-mark svg { width: 32px; height: 32px; }
+.signin-title { margin: 2px 0 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+.signin-sub { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); max-width: 46ch; }
+.signin-avatar { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; object-fit: cover; background: var(--panel-2); font-size: 24px; font-weight: 800; }
+.signin-rule { width: 100%; height: 1px; margin: 6px 0 2px; background: var(--rule-soft); }
+.signin-fields { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.signin-card .btn { width: 100%; }
+/* **GitHub's own green**, because this button is GitHub's door and not the app's accent. */
+.btn.github { background: #2da44e; color: #fff; font-weight: 700; }
+.btn.github:hover, .btn.github:focus-visible { background: #2c974b; }

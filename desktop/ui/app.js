@@ -68,6 +68,9 @@ const SETTING_KEYS = {
   liveRow: "nuvio.liveRow",
   // How a season's episodes are drawn: one row each, or a grid of cards.
   epView: "nuvio.epView",
+  // **The playback engine** — which player the stream is handed to on a TV box, and how
+  // it decodes it (see `playbackEngine`).
+  engine: "nuvio.engine",
   liveSource: "nuvio.liveSource",
   // How the live side draws its Guide and its Categories: a table/tiles, or a list.
   liveView: "nuvio.liveView",
@@ -1927,6 +1930,7 @@ function parseHash() {
   if (hash === "categories") return { view: "categories" };
   if (hash === "profiles") return { view: "profiles" };
   if (hash === "modes") return { view: "modes" };
+  if (hash === "signin") return { view: "signin" };
   if (hash === "calendar") return { view: "calendar" };
   if (hash === "search") return { view: "search" };
   if (hash === "settings") return { view: "settings" };
@@ -2258,6 +2262,14 @@ function signInCard() {
         ? "GitHub's own page opens, you sign in there as you would anywhere, and the app comes back with your name and picture. Nothing of your password is ever here."
         : "GitHub is the way in. One application has to be registered once, on this server's own account — press Set up on this server and the form is filled in for you." }),
       el("button", {
+        class: "btn subtle focusable",
+        type: "button",
+        id: "sign-in-page",
+        text: "Open the sign-in page",
+        title: "The full-page sign-in: GitHub, and this machine's own account",
+        onclick: () => go("#/signin"),
+      }),
+      el("button", {
         class: "btn primary focusable",
         type: "button",
         id: "sign-in-github",
@@ -2481,6 +2493,91 @@ async function signInOnThisMachine(name, email) {
  * (the tile keeps its shape and the field takes the name's place), and a profile can only
  * be removed while another one is left to enter with.
  */
+/**
+ * **The sign-in screen.**
+ *
+ * The pane in Settings is a row of controls like every other pane; this is the page — the
+ * shape a person already knows from every sign-in they have ever done: the mark at the
+ * top, one heading, one way in, a rule, and the second door under it. GitHub's own page is
+ * the way in (the app never sees a password — the window opens on GitHub, and what comes
+ * back is a name and a picture), and this machine's own account is the door beneath it, for
+ * a profile that never signs in anywhere.
+ *
+ * A **profile** is not an account: a profile is who is watching, and it is made on the
+ * profiles screen. This page is only about being *signed in* — a name, a picture and a
+ * session that follows you.
+ */
+function renderSignin() {
+  const account = state.account || {};
+  const local = account.local || null;
+  const github = (account.providers || []).find((p) => p.key === "github") || { configured: false };
+  if (account.user) {
+    const user = account.user;
+    return [
+      el("h1", { class: "view-title", text: "Sign in" }),
+      el("div", { class: "signin-page" },
+        el("div", { class: "signin-card" },
+          user.picture
+            ? el("img", { class: "signin-avatar", src: user.picture, alt: "" })
+            : el("span", { class: "signin-avatar letter", text: (user.name || user.email || "?").slice(0, 1).toUpperCase() }),
+          el("h2", { class: "signin-title", text: user.name || user.email || "Signed in" }),
+          el("p", { class: "signin-sub", text: [user.email, user.provider === "local" ? "this machine" : `via ${user.provider}`].filter(Boolean).join(" · ") }),
+          el("button", { class: "btn subtle focusable", type: "button", id: "signin-out", text: "Sign out", onclick: signOutAccount }),
+        ),
+      ),
+    ];
+  }
+  const draft = state.signInDraft || { name: local?.name || "", email: local?.email || "" };
+  const nameField = el("input", {
+    class: "text-input focusable", type: "text", id: "signin-name", maxlength: "40",
+    value: draft.name, placeholder: "Name this machine signs in with", "aria-label": "Your name",
+  });
+  const emailField = el("input", {
+    class: "text-input focusable", type: "email", id: "signin-email", maxlength: "120",
+    value: draft.email, placeholder: "Email (optional)", "aria-label": "Email (optional)",
+  });
+  const submit = () => signInOnThisMachine(nameField.value, emailField.value);
+  for (const field of [nameField, emailField]) {
+    field.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); submit(); } });
+  }
+  return [
+    el("h1", { class: "view-title", text: "Sign in" }),
+    el("div", { class: "signin-page" },
+      el("div", { class: "signin-card" },
+        el("span", { class: "signin-mark", "aria-hidden": "true" }, githubMark()),
+        el("h2", { class: "signin-title", text: "Sign in to AutoCAT" }),
+        el("p", { class: "signin-sub", text: "Use your GitHub account — the app never sees your password, and what comes back is your name, your address and your picture." }),
+        el("button", {
+          class: "btn github focusable", type: "button", id: "signin-github",
+          text: "Sign in with GitHub",
+          onclick: () => openGithubSignIn(),
+        }),
+        github.configured
+          ? null
+          : el("button", {
+              class: "btn subtle focusable wide", type: "button", id: "signin-setup",
+              text: "Set up on this server",
+              onclick: () => openGithubSignIn(true),
+            }),
+        el("div", { class: "signin-rule", "aria-hidden": "true" }),
+        el("p", { class: "signin-sub", text: "Or sign in on this machine — a name, and nothing sent anywhere." }),
+        el("div", { class: "signin-fields" }, nameField, emailField),
+        el("button", {
+          class: "btn primary focusable wide", type: "button", id: "signin-continue",
+          text: local ? `Continue as ${local.name}` : "Continue",
+          onclick: submit,
+        }),
+        el("p", { class: "signin-sub", text: "A profile is who is watching, not who is signed in." }),
+        el("button", {
+          class: "btn subtle focusable wide", type: "button", id: "signin-profiles",
+          text: "Manage profiles",
+          onclick: () => go("#/profiles"),
+        }),
+      ),
+    ),
+  ];
+}
+
 function renderPeople() {
   const people = profileList();
   const current = currentPerson();
@@ -8710,6 +8807,61 @@ function paneFont() {
  * of them used to sit beside Play on a title page, which put a global preference in the
  * middle of one title's own actions; they live here now, where they are set once.
  */
+/* ============================================================================
+   **The playback engine.**
+   ----------------------------------------------------------------------------
+   On a phone or a TV box the app is a Capacitor shell around Android, and Android has
+   engines a browser page does not: **Media3 (ExoPlayer)** — hardware decoding, tunneled
+   playback, a decoder order you can choose, and the audio and subtitle tracks of a
+   manifest picked apart and switched at will — and **libmpv**, for the containers and
+   codecs Media3 refuses. A browser `<video>` with hls.js has none of those: it decodes
+   in software, cannot tunnel, and offers whatever the file happens to carry.
+
+   So the choice is a setting, and the choice is only *offered* where it can be honoured:
+   the engine is used when the shell exposes it (`window.Capacitor.Plugins.PlaybackEngine`,
+   registered by `PlaybackEnginePlugin` in the Android project). In a browser the app
+   plays exactly as it always did, and the settings pane says so rather than pretending.
+   ============================================================================ */
+const ENGINE_CHOICES = [["auto", "Auto"], ["exo", "Media3 (ExoPlayer)"], ["mpv", "libmpv"]];
+const DECODER_CHOICES = [["hardware", "Hardware first"], ["software", "Software first"]];
+
+function playbackEngine() {
+  const stored = readJSON(KEY.engine, {});
+  return {
+    engine: ENGINE_CHOICES.some(([id]) => id === stored.engine) ? stored.engine : "auto",
+    // Hardware decoding is what a TV box is for; it is the default, and turning it off is
+    // the troubleshooting switch for a box whose decoder mangles a particular stream.
+    hardware: stored.hardware !== false,
+    // **Tunneled playback**: the decoder writes straight to the display, the video never
+    // passes through the app's own surface. It is what makes 4K HDR play on a set-top box
+    // — and the reason the app's own overlay controls cannot be drawn over the picture.
+    tunneling: stored.tunneling === true,
+    decoder: stored.decoder === "software" ? "software" : "hardware",
+  };
+}
+
+function savePlaybackEngine(patch) {
+  writeJSON(KEY.engine, { ...playbackEngine(), ...patch });
+  render();
+}
+
+/** The native engine, when the app is running inside a shell that has one. */
+const nativeEngine = () => window.Capacitor?.Plugins?.PlaybackEngine || null;
+
+/** What the engine needs to open a stream: the URL, and the preferences. */
+function engineRequest(url, { audio = [], subtitle = [] } = {}) {
+  const prefs = playbackEngine();
+  return {
+    url,
+    engine: prefs.engine,
+    hardware: prefs.hardware,
+    tunneling: prefs.tunneling,
+    decoder: prefs.decoder,
+    audio,
+    subtitle,
+  };
+}
+
 function panePlayback() {
   const resolution = dropdown(QUALITY_CHOICES, state.prefs?.quality || "auto", (value) => savePrefs({ quality: value }), "Resolution");
   // **Primary and secondary, for both tracks.** A stream that carries several audios or
@@ -8732,6 +8884,20 @@ function panePlayback() {
     render();
   }, "Secondary subtitle");
   return [
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Playback engine" }),
+      el("p", { class: "pane-note", text: nativeEngine()
+        ? "Which engine this device hands a stream to. Media3 (ExoPlayer) is the one to stay on: hardware decoding, tunneled playback and decoder order are its own settings. libmpv plays the containers and codecs Media3 refuses. Both apply here, in the app's own shell."
+        : "This builds the Android shell's engine: Media3 (ExoPlayer) for hardware and tunneled decoding, and libmpv for the containers Media3 refuses. In a browser the app plays through the page's own player, so these switches are stored for the shell and do nothing here." }),
+      el("div", { class: "options" },
+        ...ENGINE_CHOICES.map(([id, label]) => radioRow(playbackEngine().engine === id, "engine", label, "", () => savePlaybackEngine({ engine: id }))),
+      ),
+      el("div", { class: "options" },
+        ...DECODER_CHOICES.map(([id, label]) => radioRow(playbackEngine().decoder === id, "decoder", label, "", () => savePlaybackEngine({ decoder: id }))),
+      ),
+      toggleRow(playbackEngine().hardware, "Hardware decoding", "", (e) => savePlaybackEngine({ hardware: e.target.checked })),
+      toggleRow(playbackEngine().tunneling, "Tunneled playback", "", (e) => savePlaybackEngine({ tunneling: e.target.checked })),
+    ),
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Resolution" }),
       el("p", { class: "option-desc", text: "The ceiling a stream may reach for. Auto takes whatever the source offers; 1080p never plays a larger one." }),
@@ -9727,6 +9893,7 @@ async function render() {
   else if (view === "channel") nodes = renderChannel(id);
   else if (view === "title") nodes = await renderTitle(type, id);
   else if (view === "list") nodes = await renderList(kind, id, type, extra);
+  else if (view === "signin") nodes = renderSignin();
   else if (view === "profiles") nodes = renderPeople();
   else if (view === "modes") nodes = renderModes();
   else if (view === "card") nodes = await renderCard(key);
@@ -12949,6 +13116,26 @@ async function openPlayer(url, title, opts = {}) {
     const needsProxy = !s.torrent && (s.scraped || s.custom || s.referer);
     const playUrl = needsProxy ? proxyPath(target, s.referer || s.page || "") : target;
     const hlsTarget = IS_HLS(target);
+    // **A real engine, when the shell has one.** Media3 or libmpv is handed the address and
+    // the prefs — it can hardware-decode, tunnel, order the decoders and switch the
+    // manifest's own audio and subtitle tracks, none of which the element below can do. If
+    // it declines (no shell, or an engine that will not open the stream) the page's own
+    // player picks the stream up as usual, so a device without the plugin is never worse
+    // off than before.
+    if (nativeEngine()) {
+      try {
+        const answer = await nativeEngine().open(engineRequest(playUrl, {
+          audio: [state.prefs?.audio, state.prefs?.audio2].filter(Boolean),
+          subtitle: [state.subtitles?.language, state.subtitles?.language2].filter(Boolean),
+        }));
+        if (answer?.handled) {
+          node.classList.add("native-engine");
+          return;
+        }
+      } catch (err) {
+        console.log("[player] the native engine declined:", err?.message || err);
+      }
+    }
     if (needsProxy) console.log("[player] via proxy", playUrl);
     // **A torrent is not a URL.** The picture comes from the swarm — or from a
     // debrid account's direct link — so the element is handed a file, not an address.

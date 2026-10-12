@@ -445,8 +445,8 @@ const POPULAR_REGIONAL = new Set([
   "Globoplay", "VIX", "Paramount Plus", "Crave", "CBC Gem",
 ]);
 
-/** Is this a service the Regional OTT card publishes? */
-const isPopularRegional = (name) => POPULAR_REGIONAL.has(String(name || "").trim());
+/** Is this a service the Regional OTT card publishes? (@see `regionalServicesFor` in addon/catalogs.mjs) */
+export const isPopularRegional = (name) => POPULAR_REGIONAL.has(String(name || "").trim());
 
 /** The country the collection set is built for unless Settings picks another. */
 export const DEFAULT_COUNTRY = (process.env.NUVIO_REGION || "US").toUpperCase();
