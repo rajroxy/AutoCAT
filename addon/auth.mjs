@@ -43,6 +43,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import { signinKeys } from "./settings.mjs";
+import { cleanScope } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -94,57 +95,99 @@ const STATE_MS = 10 * 60 * 1000;
 const sessions = new Map();
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
-/* -------------------------------------------------- this machine's own account */
+/* ------------------------------------- this machine's own accounts (five per profile) */
 
 /**
- * **A way in that always works, because it is this machine's own.**
+ * **This machine's own sign-in — and there are up to five of them per profile.**
  *
- * Google and GitHub are the two ways in *when they are set up* — and two client ids and
- * two secrets are exactly what a fresh install does not have. A card whose only control
- * is a sentence about environment variables is not a sign-in; it is a dead end, and it is
- * what this app showed. So there is one account of its own: a name and an optional
- * address, kept on this machine in `addon/account.json` (runtime state, git-ignored;
- * `NUVIO_ACCOUNT_FILE` moves it, which is how the tests stay out of the real one).
+ * Google is the way in *when it is set up*, and a client id and secret are exactly what a
+ * fresh install does not have. So the app keeps accounts of its own: a name and an optional
+ * address, in `addon/account.json` (runtime state, git-ignored; `NUVIO_ACCOUNT_FILE` moves
+ * it, which is how the tests stay out of the real one). It is not a second account system
+ * beside the providers — it is the same session, the same cookie and the same `/auth/me`.
  *
- * It is **not** a second account system beside the providers. It is the same session, the
- * same cookie and the same `/auth/me`; the only thing it does differently is survive a
- * restart, because a session id that lives only in memory is gone the moment the server
- * reloads — and a sign-in that forgets you is not worth pressing. The file keeps the id
- * it has already accepted, so the cookie is still good next launch.
+ * **What changed: one account became five, and they are per profile.** A profile used to
+ * hold the machine's single account, so switching from Male to Female showed the same
+ * signed-in name — the account was the machine's, not the person's. Each profile now keeps
+ * its **own** list of up to `MAX_LOCAL_ACCOUNTS` accounts, and choosing one files
+ * *everything* under it: the app and the server both scope their stores by profile **and**
+ * account (see `handleAddon` in `index.mjs`), so two accounts on one profile share nothing —
+ * not a key, not a watchlist, not a card.
+ *
+ * The file holds every account on the machine:
+ *
+ *     { "accounts": [ { id, name, email, picture, profile, sessionId, since } ] }
+ *
+ * `profile` is the profile it was made under, `sessionId` is what makes the cookie survive
+ * a restart, and nothing here is a password because there is nothing to verify against.
  */
 const ACCOUNT_FILE = process.env.NUVIO_ACCOUNT_FILE || path.join(__dirname, "account.json");
 
-/** `undefined` = not read yet, `null` = nobody has signed in on this machine. */
-let accountCache;
+/** How many local accounts one profile can hold. */
+export const MAX_LOCAL_ACCOUNTS = 5;
 
-function readAccount() {
-  if (accountCache !== undefined) return accountCache;
+/** `undefined` = not read yet; an array otherwise. */
+let accountsCache;
+
+/** The accounts on this machine, migrating the single-account file this used to write. */
+function readAccounts() {
+  if (accountsCache !== undefined) return accountsCache;
   try {
     const held = JSON.parse(fs.readFileSync(ACCOUNT_FILE, "utf8"));
-    accountCache = held && held.id && held.name ? held : null;
+    if (Array.isArray(held?.accounts)) accountsCache = held.accounts.filter((a) => a && a.id && a.name);
+    // The shape before this round: one account, no profile. It belongs to the first
+    // profile (`you`), which is the profile that was on when it was made — and it is
+    // **the account the app was already being used as**, so it adopts the files that were
+    // there (see `takeAdoption` and `adoptScopeFiles` in `index.mjs`): an account that
+    // starts empty would look like the app had thrown everything away.
+    else if (held && held.id && held.name) accountsCache = [{ ...held, profile: held.profile || "you", adopt: true }];
+    else accountsCache = [];
   } catch {
-    // No file, or nothing readable in it: nobody has signed in here yet.
-    accountCache = null;
+    accountsCache = [];
   }
-  return accountCache;
+  return accountsCache;
 }
 
-const writeAccount = (account) => {
-  accountCache = account;
+const writeAccounts = (list) => {
+  accountsCache = list;
   try {
     fs.mkdirSync(path.dirname(ACCOUNT_FILE), { recursive: true });
-    fs.writeFileSync(ACCOUNT_FILE, `${JSON.stringify(account, null, 2)}\n`);
+    fs.writeFileSync(ACCOUNT_FILE, `${JSON.stringify({ accounts: list }, null, 2)}\n`);
   } catch {
     // A machine that cannot write it still signs in for this run; the file is a
     // convenience, not the session itself.
   }
 };
 
-/** The account this machine remembers, if one was made. No session needed to *read* it. */
-export const localAccount = () => {
-  const held = readAccount();
-  return held ? { id: held.id, name: held.name, email: held.email || "", picture: held.picture || "", provider: "local" } : null;
+/** The public half of an account — never the session id. */
+const publicAccount = (a) => ({ id: a.id, name: a.name, email: a.email || "", picture: a.picture || "", provider: "local" });
+
+/** Every local account filed under one profile. */
+export const localAccounts = (profile = "") => {
+  const who = cleanScope(profile) || "you";
+  return readAccounts().filter((a) => (a.profile || "you") === who).map(publicAccount);
 };
+
+/** The local account that owns `id` (a session id), or null. */
+const accountBySession = (id, profile = "") => {
+  if (!id) return null;
+  const who = profile ? cleanScope(profile) : "";
+  return readAccounts().find((a) => a.sessionId === id && (!who || (a.profile || "you") === who)) || null;
+};
+
+/**
+ * The account this browser is signed into **for one profile**.
+ *
+ * A session belongs to the account, and the account belongs to a profile: switching profile
+ * must not show the other profile's name, which is the whole point of the split.
+ */
+export const localAccountFor = (req, profile = "") => {
+  const held = accountBySession(cookieId(req), profile);
+  return held ? publicAccount(held) : null;
+};
+
+/** Every account, for the profile pane that lists them (id + name only). */
+export const cleanProfile = (profile) => cleanScope(profile) || "you";
 
 const clean = () => {
   const now = Date.now();
@@ -161,19 +204,19 @@ const cookieId = (req) => {
   return hit ? hit.slice(SESSION_COOKIE.length + 1) : "";
 };
 
-export function readSession(req) {
+export function readSession(req, profile = "") {
   clean();
   const id = cookieId(req);
   if (!id) return null;
   const found = sessions.get(id);
-  if (found) return { ...found.user, expires: found.expires };
+  if (found && (!profile || (found.profile || "you") === cleanProfile(profile))) return { ...found.user, expires: found.expires };
   // **A restart is not a sign-out for this machine's own account.** A provider's session
   // is a token this server was handed; this one is the machine's own, so the id it has
   // already accepted is written down and the cookie stands until the account is forgotten.
-  const held = readAccount();
-  if (held && held.sessionId === id) {
-    const user = { id: held.id, name: held.name, email: held.email || "", picture: held.picture || "", provider: "local" };
-    const record = { user, expires: Date.now() + SESSION_MS };
+  const held = accountBySession(id, profile);
+  if (held) {
+    const user = publicAccount(held);
+    const record = { user, profile: held.profile || "you", expires: Date.now() + SESSION_MS };
     sessions.set(id, record);
     return { ...user, expires: record.expires };
   }
@@ -184,39 +227,78 @@ export function readSession(req) {
 const looksLikeEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 /**
- * Sign in on this machine, making the account the first time.
+ * Sign in on this machine: **switch to an account you already have, or make a new one.**
  *
- * No name means "come back as the one you already are" — that is the Continue button
- * after a sign-out, one press, with nothing typed. A name that is only whitespace is not
- * a name and is refused rather than stored, and so is an address that is not one: this is
- * the whole of the validation, because there is no password and nothing to verify against.
+ * - `id` names an account to come back as (that is what picking one off the list does).
+ * - A `name` makes a new one, unless the profile is already holding `MAX_LOCAL_ACCOUNTS`
+ *   of them — five is the limit, and the refusal says so rather than silently replacing one.
+ * - Neither means "come back as the account this browser is already on for this profile"
+ *   (the Continue button after a sign-out, one press, with nothing typed).
+ *
+ * A name that is only whitespace is not a name and is refused rather than stored, and so is
+ * an address that is not one: that is the whole of the validation, because there is no
+ * password and nothing to verify against.
  */
-export function signInLocal({ name, email } = {}) {
-  const held = readAccount();
+export function signInLocal({ name, email, id, who } = {}) {
+  const profile = cleanProfile(who);
+  const list = readAccounts();
+  const mine = list.filter((a) => (a.profile || "you") === profile);
+
+  if (id) {
+    const found = mine.find((a) => a.id === cleanScope(id) || a.id === id);
+    if (!found) throw new Error("That account is not on this machine.");
+    const sessionId = found.sessionId || randomBytes(24).toString("base64url");
+    const next = list.map((a) => (a.id === found.id ? { ...a, sessionId } : a));
+    writeAccounts(next);
+    sessions.set(sessionId, { user: publicAccount(found), profile, expires: Date.now() + SESSION_MS });
+    return { user: publicAccount(found), sessionId, accounts: localAccounts(profile) };
+  }
+
   const typed = String(name || "").replace(/\s+/g, " ").trim().slice(0, 40);
-  if (!typed && !held) throw new Error("A name is needed — that is the whole account.");
-  const wanted = typed || held.name;
-  const address = String(email ?? held?.email ?? "").trim().slice(0, 120);
+  if (!typed) {
+    const resume = mine[mine.length - 1] || null;
+    if (!resume) throw new Error("A name is needed — that is the whole account.");
+    const sessionId = resume.sessionId || randomBytes(24).toString("base64url");
+    writeAccounts(list.map((a) => (a.id === resume.id ? { ...a, sessionId } : a)));
+    sessions.set(sessionId, { user: publicAccount(resume), profile, expires: Date.now() + SESSION_MS });
+    return { user: publicAccount(resume), sessionId, accounts: localAccounts(profile) };
+  }
+  if (mine.length >= MAX_LOCAL_ACCOUNTS) {
+    throw new Error(`${profile} already holds ${MAX_LOCAL_ACCOUNTS} local accounts — that is the limit. Forget one first.`);
+  }
+  const address = String(email ?? "").trim().slice(0, 120);
   if (address && !looksLikeEmail(address)) throw new Error("That address does not look like one.");
-  const user = { id: held?.id || `local-${randomBytes(6).toString("hex")}`, name: wanted, email: address, picture: held?.picture || "", provider: "local" };
-  // **The same session id every time.** Signing out clears the cookie, not the account,
-  // so coming back reuses the id the file already vouches for.
-  const sessionId = held?.sessionId || randomBytes(24).toString("base64url");
-  writeAccount({ ...user, sessionId, since: held?.since || new Date().toISOString() });
-  sessions.set(sessionId, { user, expires: Date.now() + SESSION_MS });
-  return { user, sessionId };
+  const user = { id: `local-${randomBytes(6).toString("hex")}`, name: typed, email: address, picture: "", profile };
+  const sessionId = randomBytes(24).toString("base64url");
+  writeAccounts([...list, { ...user, sessionId, since: new Date().toISOString() }]);
+  sessions.set(sessionId, { user: publicAccount(user), profile, expires: Date.now() + SESSION_MS });
+  return { user: publicAccount(user), sessionId, accounts: localAccounts(profile) };
 }
 
-/** Forget this machine's account, and the session that goes with it. */
-export function forgetLocal() {
-  const held = readAccount();
-  if (held?.sessionId) sessions.delete(held.sessionId);
-  accountCache = null;
-  try {
-    fs.rmSync(ACCOUNT_FILE, { force: true });
-  } catch {
-    // Nothing to remove, or nowhere to remove it from.
-  }
+/**
+ * **The one account that adopts the app that was already there.**
+ *
+ * Before this round there was one account and no account scoping: everything was filed per
+ * *profile*. The account carried over from that file is the one the app was being used as,
+ * so it takes the profile's stores with it — the server copies every `*.you.json` to
+ * `*.you-<id>.json` once, and the browser copies its own keys (see `adoptScopeFor` in the
+ * app). Any account made after this one starts empty, which is what "separate" has to mean.
+ */
+export function takeAdoption(id) {
+  const list = readAccounts();
+  const found = list.find((a) => a.id === id && a.adopt);
+  if (!found) return false;
+  writeAccounts(list.map((a) => (a.id === id ? { ...a, adopt: false } : a)));
+  return true;
+}
+
+/** Forget one of this machine's accounts, and the session that goes with it. */
+export function forgetLocal(id = "") {
+  const list = readAccounts();
+  const wanted = String(id || "");
+  const gone = wanted ? list.filter((a) => a.id === wanted) : list;
+  for (const a of gone) if (a.sessionId) sessions.delete(a.sessionId);
+  writeAccounts(wanted ? list.filter((a) => a.id !== wanted) : []);
   return true;
 }
 

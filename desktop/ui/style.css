@@ -1181,7 +1181,10 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 /* No scrollbar is drawn on a row: the row scrolls with the wheel (see
    `horizontalWheel` in app.js) and with the D-pad, and a chunky bar under every
    row was the busiest thing on Home. */
-.strip { display: flex; gap: 14px; overflow-x: auto; padding: 6px 4px 14px; scrollbar-width: none; -ms-overflow-style: none; }
+/* **The strip keeps its own room for the highlight.** Four pixels of side padding left
+   the first card's ring landing on the app's own content edge, which reads as the card
+   bleeding over it; six keeps the whole ring inside the row. */
+.strip { display: flex; gap: 14px; overflow-x: auto; padding: 6px 6px 14px; scrollbar-width: none; -ms-overflow-style: none; }
 .strip::-webkit-scrollbar { height: 0; display: none; }
 
 .poster {
@@ -1296,6 +1299,28 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .signin-said { margin: 10px 0 0; color: #e39a9a; font-size: 14px; }
 /* The two fields and the button are one row: the fields take the width, the button keeps
    its own, and neither can squeeze the other off the card. */
+/* **The profile's accounts, one row each.** Each row is the name, the address under it, and
+   the two things you can do with it — Use (switch to it) or Forget (take it off the
+   machine). The one in use is filled with the accent and wears the word instead of a
+   button, because that one is not a choice you can make again. */
+.account-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 4px; }
+.account-list .account-row {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+.account-list .account-row.on { background: rgba(var(--accent-rgb), 0.14); }
+.account-badge {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #14110a;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 #account .account-buttons { flex-wrap: wrap; }
 #account .text-input { flex: 1 1 200px; min-width: 0; }
 #account .btn { flex: none; }
@@ -1776,7 +1801,10 @@ textarea:focus-visible {
      4px of highlight room above and below, the box is 70px. At 74px the third row's top
      edge landed on the window's bottom edge and read as a row cut in half. */
   max-height: 70px;
-  padding: 4px 2px;
+  /* **4px on every side, not 2.** The side padding was 2px and the ring is 3px, so the
+     first tag of a line had its highlight clipped by a pixel at the app's own edge —
+     the "tags are clipping" on a card. */
+  padding: 4px;
   overflow-y: auto;
   scroll-behavior: smooth;
   scroll-snap-type: y mandatory;
@@ -2591,6 +2619,12 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
    to be a "More (N)" pill that expanded the line where it stood, which turned one
    filter into a wall of chips and pushed every line under it out of the panel. */
 .filter-options.clamped {
+  /* **Four pixels of room, so a ring is never cut.** The window scrolls, and a scroll
+     container clips both axes: with no padding the top row's ring lost its top 3px and
+     the first chip in a row lost its left 3px — the "upper and left sides are clipping"
+     on the filter rows. The window's height is measured from the chips **plus** this
+     padding (see `sizeWindow`), so the two rows still land on a row boundary. */
+  padding: 4px;
   /* **Two rows, measured.** The height is set from the chips actually drawn (see
      `sizeWindow` in `app.js`), so the window ends on a row boundary at any text size; this
      is the value before the script has a box to measure. It used to be a fixed 112px,

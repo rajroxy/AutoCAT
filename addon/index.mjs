@@ -79,7 +79,7 @@ import { handleProxy } from "./proxy.mjs";
 import { guardState } from "./guards.mjs";
 import { browserUnavailableReason } from "../scraper/tier3.js";
 import { handleTorrentStream, prepareTorrent, torrentStatus, torrentState } from "./torrent.mjs";
-import { authConfigured, authProviders, clearCookie, finish, forgetLocal, localAccount, readSession, redirectUri, sessionCookie, signInLocal, signOut, startUrl } from "./auth.mjs";
+import { authConfigured, authProviders, cleanProfile, clearCookie, finish, forgetLocal, localAccounts, localAccountFor, readSession, redirectUri, sessionCookie, signInLocal, signOut, startUrl, takeAdoption } from "./auth.mjs";
 import { publicSites, addSite, updateSite, removeSite, detectSearchPattern, patternFromSample, addRepository, removeRepository, searchJob, startSearchOnPlay, listSites } from "./custom-sites.mjs";
 import { getPrefs, updatePrefs } from "./user-prefs.mjs";
 
@@ -1455,13 +1455,30 @@ function appOptions() {
  * one (and the desktop app pins its port, so that string is stable across launches — see
  * `desktop/main.js`).
  */
-const accountPayload = (req, origin) => ({
-  configured: authConfigured(),
-  providers: authProviders(),
-  redirects: Object.fromEntries(authProviders().map((p) => [p.key, redirectUri(p.key, origin)])),
-  local: localAccount(),
-  user: readSession(req),
-});
+const accountPayload = (req, origin) => {
+  // **The profile the pane is being drawn for.** The app asks as the profile that is on,
+  // so the names it lists are that profile's own accounts — the machine's single account
+  // used to answer for both profiles, which is the bug this payload fixes.
+  const profile = profileOf(req);
+  return {
+    profile,
+    configured: authConfigured(),
+    providers: authProviders(),
+    redirects: Object.fromEntries(authProviders().map((p) => [p.key, redirectUri(p.key, origin)])),
+    accounts: localAccounts(profile),
+    local: localAccountFor(req, profile),
+    user: readSession(req, profile),
+  };
+};
+
+/** The profile a request names: `?who=` first, then the POST body's own `who`. */
+function profileOf(req) {
+  try {
+    return cleanProfile(new URL(req.url ?? "/", "http://localhost").searchParams.get("who"));
+  } catch {
+    return cleanProfile("");
+  }
+}
 
 /** The watchlist as the app reads it: every pin, plus the per-state counts. */
 function watchlistPayload() {
@@ -1535,8 +1552,19 @@ function customPayload() {
  */
 let lastScoped = "";
 export async function handleAddon(req, res, pathname, origin) {
-  const who = cleanScope(new URL(req.url ?? "/", "http://localhost").searchParams.get("who"));
-  return withScope(who, async () => {
+  const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+  const who = cleanScope(params.get("who"));
+  // **One account is one app.** A profile can hold up to five local accounts, and the one
+  // in use rides on every request (`as=`), so the scope is the pair: `you-local-a1b2`.
+  // Everything a profile owns — keys and add-ons, the Library, the watchlist, the saved
+  // sites, the preferences, the resolver — is filed per *pair*, so two accounts on one
+  // profile share nothing at all. An `as` that names no account of this profile is
+  // ignored rather than trusted.
+  const asked = cleanScope(params.get("as"));
+  const scope = scopeFrom(who, asked);
+  // The account carried over from before accounts existed adopts the files that were there.
+  if (asked && scope !== who && takeAdoption(asked)) adoptScopeFiles(who, asked);
+  return withScope(scope, async () => {
     try { setKey(tmdbKey()); } catch { /* the TMDB module owns its own key */ }
     if (who !== lastScoped) {
       lastScoped = who;
@@ -1555,6 +1583,45 @@ export async function handleAddon(req, res, pathname, origin) {
  * profile, and a move between two profiles drops the caches built for the other one
  * rather than answering with them.
  */
+/**
+ * The scope a request names: the profile, plus the account it chose when there is one.
+ *
+ * `you` or `you-local-a1b2`. An `as` that names no account of that profile is ignored
+ * rather than trusted, so a hand-written request cannot file work under an account that
+ * does not exist (or under another profile's).
+ */
+const scopeFrom = (who, as) => {
+  const profile = cleanProfile(who);
+  const wanted = cleanScope(as);
+  return wanted && localAccounts(profile).some((a) => a.id === wanted) ? `${profile}-${wanted}` : profile;
+};
+
+/**
+ * **The account carried over from before accounts existed takes the app with it.**
+ *
+ * Every store a profile owns is a file per scope (`settings.you.json`,
+ * `watchlist.you.json`, …). The account that was signed in on this machine when the split
+ * arrived adopts them: each `*.<profile>.json` is copied to `*.<profile>-<account>.json`
+ * **once**, so signing in as that account opens the app that was there rather than an empty
+ * one. A second account is deliberately left empty — separate is the point.
+ */
+function adoptScopeFiles(profile, account) {
+  try {
+    const dir = path.dirname(fileURLToPath(import.meta.url));
+    for (const name of fs.readdirSync(dir)) {
+      const m = name.match(/^(.+)\.([a-z0-9_-]{1,32})\.json$/i);
+      if (!m) continue;
+      const [, base, scope] = m;
+      if (scope !== profile) continue;
+      const to = path.join(dir, `${base}.${profile}-${account}.json`);
+      if (fs.existsSync(to)) continue;
+      fs.copyFileSync(path.join(dir, name), to);
+    }
+  } catch {
+    // Read-only folder, or nothing to copy: the account simply starts empty.
+  }
+}
+
 const scopeStores = (who) => {
   const next = cleanScope(who);
   if (!next || next === lastScoped) return;
@@ -1732,13 +1799,13 @@ async function serveAddon(req, res, pathname, origin) {
   if (pathname === "/auth/local" && req.method === "POST") {
     try {
       const body = await readBody(req);
-      const { user, sessionId } = signInLocal(body);
+      const { user, sessionId, accounts } = signInLocal(body);
       res.writeHead(200, {
         "content-type": "application/json; charset=utf-8",
         "cache-control": "no-store",
         "set-cookie": sessionCookie(sessionId, secureOrigin(origin)),
       });
-      res.end(JSON.stringify({ ok: true, user, local: localAccount() }));
+      res.end(JSON.stringify({ ok: true, user, accounts, local: user }));
     } catch (err) {
       json(res, 400, { ok: false, error: String(err?.message || err) });
     }
@@ -1748,7 +1815,14 @@ async function serveAddon(req, res, pathname, origin) {
   // **Forget it.** Signing out ends the session; this takes the account off the machine
   // as well, which is the only way to stop the card offering the name back.
   if (pathname === "/auth/local/forget" && req.method === "POST") {
-    forgetLocal();
+    // One account, named in the body; no body forgets every account this machine holds.
+    let wanted = "";
+    try {
+      wanted = String((await readBody(req)).id || "");
+    } catch {
+      /* an empty body means "all of them", the shape this route always had */
+    }
+    forgetLocal(wanted);
     res.writeHead(200, {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
@@ -2330,7 +2404,7 @@ async function serveAddon(req, res, pathname, origin) {
     if (req.method === "POST") {
       try {
         const body = await readBody(req);
-        scopeStores(body.who);
+        scopeStores(scopeFrom(body.who, body.as));
         const item = body.item || {};
         const state = body.state;
         if (body.remove || state === null) json(res, 200, { ...watchlistUnpin(item), ...watchlistPayload() });
@@ -2359,7 +2433,7 @@ async function serveAddon(req, res, pathname, origin) {
     if (req.method === "POST") {
       try {
         const body = await readBody(req);
-        scopeStores(body.who);
+        scopeStores(scopeFrom(body.who, body.as));
         const row = body.row || DEFAULT_ROW;
         const item = body.item || {};
         // One card, or the whole row (Settings → Custom Rows clears a row in one go).
@@ -2390,7 +2464,7 @@ async function serveAddon(req, res, pathname, origin) {
   if (pathname.startsWith("/custom-rows/") && req.method === "POST") {
     try {
       const body = await readBody(req);
-      scopeStores(body.who);
+      scopeStores(scopeFrom(body.who, body.as));
       const action = pathname.slice("/custom-rows/".length);
       const result =
         action === "add" ? customAddRow(body.name)

@@ -101,16 +101,48 @@ const SETTING_KEYS = {
    and clears the old copies, so nobody loses the app they had.
    ============================================================================ */
 const WHO_STORE = "nuvio.who";
+/** Which local account is in use, per profile: `nuvio.as@<profile>` → account id. */
+const AS_STORE = "nuvio.as";
 /** The id of the profile every install starts with — see `DEFAULT_PEOPLE`. */
 const HOME_PROFILE = "you";
 /** How the app *looks* is the machine's; everything else is the profile's. */
 const MACHINE_KEYS = new Set(["theme", "accent", "motion", "font", "blur", "pop", "speed", "glow"]);
-const activeScope = () => {
+/**
+ * **A profile, and the local account in use inside it.**
+ *
+ * The profile is who is watching (Male or Female); the account is which of up to five
+ * local sign-ins on that profile is on. A profile can hold five, and each one is meant to
+ * be a *separate app* — so the value every store is filed under is the **pair**:
+ * `you-local-a1b2`, or just `you` when nobody has signed in on this one. The server does the
+ * same with `who` + `as` (see `scopeFrom` in the addon), so the two halves always agree.
+ */
+const activeProfile = () => {
   try {
     return localStorage.getItem(WHO_STORE) || HOME_PROFILE;
   } catch {
     return HOME_PROFILE;
   }
+};
+/** The local account chosen on this profile ("" = the profile's own, signed-out data). */
+const activeAccount = () => {
+  try {
+    return localStorage.getItem(`${AS_STORE}@${activeProfile()}`) || "";
+  } catch {
+    return "";
+  }
+};
+const setActiveAccount = (id) => {
+  try {
+    if (id) localStorage.setItem(`${AS_STORE}@${activeProfile()}`, id);
+    else localStorage.removeItem(`${AS_STORE}@${activeProfile()}`);
+  } catch {
+    /* a browser that will not store it still signs in for this run */
+  }
+};
+const activeScope = () => {
+  const who = activeProfile();
+  const as = activeAccount();
+  return as ? `${who}-${as}` : who;
 };
 const KEY = new Proxy(SETTING_KEYS, {
   get(target, prop) {
@@ -158,7 +190,9 @@ function migrateScope() {
  * value this profile chose differently is different, and stays. The pass runs once.
  */
 function splitInheritedLocal() {
-  const who = activeScope();
+  // The **profile**, not the scope: this is about handing an install's old settings to the
+  // first profile, and an account inside that profile is not a different install.
+  const who = activeProfile();
   if (!who || who === HOME_PROFILE) return 0;
   const flag = `nuvio.split@${who}`;
   try {
@@ -954,9 +988,14 @@ const GET_TIMEOUT_MS = Number(globalThis.NUVIO_GET_TIMEOUT_MS) || 25000;
  * the plain store.
  */
 const withScope = (path) => {
-  const who = activeScope();
-  if (!who || /[?&]who=/.test(path)) return path;
-  return `${path}${path.includes("?") ? "&" : "?"}who=${encodeURIComponent(who)}`;
+  if (/[?&]who=/.test(path)) return path;
+  const who = activeProfile();
+  const as = activeAccount();
+  // **Two names, not one joined string.** The server reads the profile for the account
+  // list and the pair for the stores, so it is told both rather than handed a string it
+  // would have to take apart.
+  const query = `who=${encodeURIComponent(who)}${as ? `&as=${encodeURIComponent(as)}` : ""}`;
+  return `${path}${path.includes("?") ? "&" : "?"}${query}`;
 };
 
 const get = async (path, { timeoutMs = GET_TIMEOUT_MS } = {}) => {
@@ -1002,7 +1041,10 @@ const getText = async (path) => {
 const post = async (path, body) => {
   // The scope rides in the body as well as the URL, because the server reads it before it
   // has parsed anything else (see `scopeStores` in the addon).
-  const scoped = typeof body === "object" && body !== null ? { ...body, who: body.who ?? activeScope() } : body;
+  const scoped =
+    typeof body === "object" && body !== null
+      ? { ...body, who: body.who ?? activeProfile(), as: body.as ?? activeAccount() }
+      : body;
   const res = await fetch(API + withScope(path), {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -1094,7 +1136,7 @@ function mergeServerSettings(res) {
     if (res.sources.length || !state.sources.length) {
       state.sources = migrateSources(res.sources);
       writeJSON(KEY.sources, state.sources);
-    } else if (activeScope() === HOME_PROFILE) {
+    } else if (activeProfile() === HOME_PROFILE) {
       // **Only the install's own profile hands its add-ons up.** This is the one path
       // that writes a device's existing add-ons to the server, and it exists for the
       // install that had them before the server kept them — which is the first profile.
@@ -2197,98 +2239,10 @@ function syncProfileMark() {
  */
 function signInCard() {
   const account = state.account || {};
-  const providers = Array.isArray(account.providers) ? account.providers : [];
-  // What this machine remembers. It is what makes the card useful before anything is
-  // typed: the name is filled in, and the button says whose session it would resume.
-  const local = account.local || null;
-  // A provider's refusal comes back on the hash (`#/settings?signin_error=…`); this
-  // app's own comes back on the state, so it survives the redraw that shows it.
+  // A refusal comes back on the hash (`#/settings?signin_error=…`) for a provider, and on
+  // the state for this app's own sign-in, so it survives the redraw that shows it.
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
-  // **What was typed is not thrown away.** The redraw that shows a refusal would
-  // otherwise clear the fields, so the name worth correcting is the name that is gone.
-  const draft = state.signInDraft || { name: local?.name || "", email: local?.email || "" };
-
-  if (account.user) {
-    const user = account.user;
-    const via = (providers.find((p) => p.key === user.provider) || {}).label
-      || (user.provider === "local" ? "this device" : user.provider);
-    return el(
-      "div",
-      { class: "provider", id: "account" },
-      el(
-        "div",
-        { class: "account-row" },
-        user.picture
-          ? el("img", { class: "account-avatar", src: user.picture, alt: "", loading: "lazy" })
-          : el("span", { class: "account-avatar", text: (user.name || user.email || "?").slice(0, 1).toUpperCase() }),
-        el(
-          "div",
-          { class: "account-body" },
-          el("span", { class: "option-title", text: user.name || user.email || "Signed in" }),
-          el("span", { class: "option-desc", text: [user.email, via ? `via ${via}` : ""].filter(Boolean).join(" · ") }),
-        ),
-        el("button", {
-          class: "btn focusable",
-          type: "button",
-          id: "sign-out",
-          text: "Sign out",
-          title: "End this session. The account stays where it is.",
-          onclick: signOutAccount,
-        }),
-        // **This machine's account can be taken off this machine.** A provider's cannot —
-        // that one is not ours to delete — so it gets Sign out and nothing more.
-        user.provider === "local"
-          ? el("button", {
-              class: "btn subtle focusable",
-              type: "button",
-              id: "account-forget",
-              text: "Forget",
-              title: `Remove ${user.name || "this account"} from this machine`,
-              onclick: forgetAccount,
-            })
-          : null,
-      ),
-    );
-  }
-
-  const nameField = el("input", {
-    class: "text-input focusable",
-    type: "text",
-    id: "sign-in-name",
-    maxlength: "40",
-    value: draft.name,
-    placeholder: "Your name",
-    "aria-label": "Your name",
-  });
-  const emailField = el("input", {
-    class: "text-input focusable",
-    type: "email",
-    id: "sign-in-email",
-    maxlength: "120",
-    value: draft.email,
-    placeholder: "Email (optional)",
-    "aria-label": "Email (optional)",
-  });
-  const submit = () => signInOnThisMachine(nameField.value, emailField.value);
-  // Enter in either field is the button: this is a two-field form, and a form whose last
-  // press needs the mouse is a form that feels broken.
-  for (const field of [nameField, emailField]) {
-    field.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); submit(); }
-    });
-  }
-  const continueBtn = el("button", {
-    class: "btn primary focusable",
-    type: "button",
-    id: "sign-in-continue",
-    text: local ? `Continue as ${local.name}` : "Continue",
-    title: local ? `Come back as ${local.name}` : "Sign in on this machine — the name stays here",
-    onclick: submit,
-  });
-  // The button stops offering a name the moment the field stops holding it.
-  nameField.addEventListener("input", () => {
-    continueBtn.textContent = local && nameField.value.trim() === local.name ? `Continue as ${local.name}` : "Continue";
-  });
+  const { rows, current, room } = accountList();
 
   return el(
     "div",
@@ -2302,42 +2256,99 @@ function signInCard() {
         el("span", { class: "option-title", text: "Sign in" }),
         el("span", {
           class: "option-desc",
-          text: local
-            ? `Continue as ${local.name} — the name on this machine.`
-            : "This machine's own account — a name, and an address if you want one. No password, and nothing sent anywhere.",
+          text: "Each profile keeps up to five local accounts of its own on this machine. Each one is a separate app — its own keys, cards, watchlist and settings — and nothing about any of them leaves this machine.",
         }),
       ),
     ),
     said ? el("p", { class: "signin-said", text: said }) : null,
-    el("div", { class: "account-row account-buttons" }, nameField, emailField, continueBtn),
-    local
+    rows.length ? el("div", { class: "account-list" }, ...rows) : null,
+    accountForm(),
+    current
       ? el("button", {
           class: "btn subtle focusable",
           type: "button",
-          id: "account-forget",
-          text: "Forget this account",
-          title: `Remove ${local.name} from this machine`,
-          onclick: forgetAccount,
+          id: "sign-out",
+          text: "Sign out",
+          title: `Leave ${current} on this machine — its data stays with it`,
+          onclick: signOutAccount,
         })
       : null,
+    el("p", {
+      class: "option-desc",
+      text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
+    }),
   );
 }
 
-
-/** Sign out of the session. Whatever this machine remembers is left alone. */
-async function signOutAccount() {
-  await post("/auth/signout", {}).catch(() => { /* the session is gone either way */ });
-  state.account = { ...(state.account || {}), user: null, refused: "" };
-  state.signInDraft = null;
-  render();
+/**
+ * **The accounts work in threes: switch to one, add one, take one away.**
+ *
+ * Every one of them ends in a **reload**, for the same reason switching profile does: the
+ * stores are filed under the pair of profile and account (see `activeScope`), so the page in
+ * front of you was built from the *other* account's copy. Signing in as somebody else is not
+ * a repaint of this app — it is somebody else's app, loaded.
+ */
+/**
+ * **The first account of a profile keeps the app that was already there.**
+ *
+ * Everything this browser stores is filed under the pair of profile and account
+ * (`nuvio.tab@you-local-a1b2`). Accounts are new, so an account scope starts empty — which
+ * would look like the app had thrown away the rows, the region, the language and the rest.
+ * The **first** account of a profile is the one the app was being used as (it is the one
+ * carried over from before accounts existed), so its scope is given a copy of the profile's
+ * own keys, once. Later accounts start empty, which is what "each one separate" means.
+ */
+function adoptScopeFor(accountId) {
+  const profile = activeProfile();
+  const scope = `${profile}-${accountId}`;
+  const accounts = localAccounts();
+  try {
+    if (!accountId || localStorage.getItem(`nuvio.adopted@${scope}`) !== null) return;
+    if (!accounts.length || accounts[0].id !== accountId) return;
+    const suffix = `@${profile}`;
+    const pairs = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.endsWith(suffix)) continue;
+      // `nuvio.as@<profile>` is *which account is on*, not part of the app: copying it into
+      // the account's own namespace would be nonsense.
+      if (key.startsWith(`${AS_STORE}@`)) continue;
+      pairs.push([key, localStorage.getItem(key)]);
+    }
+    for (const [key, value] of pairs) localStorage.setItem(`${key.slice(0, -suffix.length)}@${scope}`, value);
+    localStorage.setItem(`nuvio.adopted@${scope}`, "1");
+  } catch {
+    /* a browser that will not store it: the account starts empty */
+  }
 }
 
-/** Forget this machine's account — the name and the address, not just the session. */
-async function forgetAccount() {
-  await post("/auth/local/forget", {}).catch(() => { /* it is this machine's own file */ });
-  state.account = { ...(state.account || {}), user: null, local: null, refused: "" };
-  state.signInDraft = null;
-  render();
+async function useLocalAccount(id) {
+  if (!id) return;
+  adoptScopeFor(id);
+  let answer = {};
+  try {
+    answer = await post("/auth/local", { id });
+  } catch (err) {
+    state.account = { ...(state.account || {}), refused: `The app server did not answer — ${err.message}` };
+    render();
+    return;
+  }
+  setActiveAccount(answer.user?.id || id);
+  location.reload();
+}
+
+/** Sign out of the session. The account stays on this machine, with everything in it. */
+async function signOutAccount() {
+  await post("/auth/signout", {}).catch(() => { /* the session is gone either way */ });
+  setActiveAccount("");
+  location.reload();
+}
+
+/** Forget one account — its name, its address **and everything it kept**. */
+async function forgetAccount(id) {
+  await post("/auth/local/forget", id ? { id } : {}).catch(() => { /* it is this machine's own file */ });
+  if (!id || id === activeAccount()) setActiveAccount("");
+  location.reload();
 }
 
 /**
@@ -2345,17 +2356,18 @@ async function forgetAccount() {
  *
  * The answer is read here rather than through `post`, which turns a refusal into
  * "HTTP 400" — and the refusal is the thing worth showing (a name is needed; an address
- * that is not an address is not kept), so the sentence the server wrote goes on screen.
+ * that is not an address is not kept; the profile is already holding five accounts), so
+ * the sentence the server wrote goes on screen.
  */
 async function signInOnThisMachine(name, email) {
   state.signInDraft = { name, email };
   let answer = {};
   let status = 0;
   try {
-    const res = await fetch(`${API}/auth/local`, {
+    const res = await fetch(API + withScope("/auth/local"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, email }),
+      body: JSON.stringify({ name, email, who: activeProfile(), as: activeAccount() }),
     });
     status = res.status;
     answer = await res.json().catch(() => ({}));
@@ -2368,10 +2380,103 @@ async function signInOnThisMachine(name, email) {
     return;
   }
   state.signInDraft = null;
-  state.account = { ...(state.account || {}), user: answer.user, local: answer.local || (state.account || {}).local || null, refused: "" };
-  render();
+  adoptScopeFor(answer.user.id);
+  setActiveAccount(answer.user.id);
+  location.reload();
 }
 
+/** The accounts this profile holds, and how many it may hold. */
+const MAX_LOCAL_ACCOUNTS = 5;
+const localAccounts = () => (Array.isArray(state.account?.accounts) ? state.account.accounts : []);
+
+/**
+ * **The list of this profile's accounts**, as the sign-in page and the settings pane draw it.
+ *
+ * One row each: the name, the address under it, and **Use** on every one that is not already
+ * on. The list is per profile, so the same machine shows Male's accounts on Male and
+ * Female's on Female — which is the bug this replaces (one account, shown on both).
+ */
+function accountList() {
+  const accounts = localAccounts();
+  const current = activeAccount();
+  const rows = accounts.map((a) =>
+    el(
+      "div",
+      { class: `account-row${a.id === current ? " on" : ""}` },
+      el("span", { class: "account-avatar", text: (a.name || "?").slice(0, 1).toUpperCase() }),
+      el(
+        "div",
+        { class: "account-body" },
+        el("span", { class: "option-title", text: a.name }),
+        el("span", { class: "option-desc", text: a.id === current ? `In use on this profile${a.email ? ` · ${a.email}` : ""}` : a.email || "No address" }),
+      ),
+      a.id === current
+        ? el("span", { class: "account-badge", text: "In use" })
+        : el("button", {
+            class: "btn focusable",
+            type: "button",
+            text: "Use",
+            title: `Switch to ${a.name} — its own settings, watchlist and keys`,
+            onclick: () => useLocalAccount(a.id),
+          }),
+      el("button", {
+        class: "btn subtle focusable",
+        type: "button",
+        text: "Forget",
+        title: `Remove ${a.name} from this machine, and everything it kept`,
+        onclick: () => forgetAccount(a.id),
+      }),
+    ),
+  );
+  return { accounts, rows, current, room: MAX_LOCAL_ACCOUNTS - accounts.length };
+}
+
+/**
+ * **The new-account form**, which stops offering itself at the fifth account.
+ *
+ * Five is the limit per profile (see `MAX_LOCAL_ACCOUNTS` in the addon), and the form says so
+ * rather than letting a sixth be typed and refused.
+ */
+function accountForm({ onDone } = {}) {
+  const draft = state.signInDraft || { name: "", email: "" };
+  const room = MAX_LOCAL_ACCOUNTS - localAccounts().length;
+  if (room <= 0) {
+    return el("p", {
+      class: "option-desc",
+      text: `This profile has ${MAX_LOCAL_ACCOUNTS} local accounts — the limit. Forget one to make another.`,
+    });
+  }
+  const nameField = el("input", {
+    class: "text-input focusable", type: "text", id: "signin-name", maxlength: "40",
+    value: draft.name, placeholder: "Name this account", "aria-label": "Name this account",
+  });
+  const emailField = el("input", {
+    class: "text-input focusable", type: "email", id: "signin-email", maxlength: "120",
+    value: draft.email, placeholder: "Email (optional)", "aria-label": "Email (optional)",
+  });
+  const submit = () => {
+    state.signInDraft = { name: nameField.value, email: emailField.value };
+    if (onDone) onDone();
+    signInOnThisMachine(nameField.value, emailField.value);
+  };
+  for (const field of [nameField, emailField]) {
+    field.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); submit(); } });
+  }
+  return el(
+    "div",
+    { class: "account-row account-buttons" },
+    nameField,
+    emailField,
+    el("button", {
+      class: "btn primary focusable",
+      type: "button",
+      id: "signin-continue",
+      text: "Add account",
+      title: `A new account on this profile — ${room} left`,
+      onclick: submit,
+    }),
+  );
+}
 
 /**
  * **Who is watching — the screen the app starts on.**
@@ -2396,51 +2501,33 @@ async function signInOnThisMachine(name, email) {
  */
 function renderSignin() {
   const account = state.account || {};
-  const local = account.local || null;
-  if (account.user) {
-    const user = account.user;
-    return [
-      el("h1", { class: "view-title", text: "Sign in" }),
-      el("div", { class: "signin-page" },
-        el("div", { class: "signin-card" },
-          user.picture
-            ? el("img", { class: "signin-avatar", src: user.picture, alt: "" })
-            : el("span", { class: "signin-avatar letter", text: (user.name || user.email || "?").slice(0, 1).toUpperCase() }),
-          el("h2", { class: "signin-title", text: user.name || user.email || "Signed in" }),
-          el("p", { class: "signin-sub", text: [user.email, user.provider === "local" ? "this machine" : `via ${user.provider}`].filter(Boolean).join(" · ") }),
-          el("button", { class: "btn subtle focusable", type: "button", id: "signin-out", text: "Sign out", onclick: signOutAccount }),
-        ),
-      ),
-    ];
-  }
-  const draft = state.signInDraft || { name: local?.name || "", email: local?.email || "" };
-  const nameField = el("input", {
-    class: "text-input focusable", type: "text", id: "signin-name", maxlength: "40",
-    value: draft.name, placeholder: "Name this machine signs in with", "aria-label": "Your name",
-  });
-  const emailField = el("input", {
-    class: "text-input focusable", type: "email", id: "signin-email", maxlength: "120",
-    value: draft.email, placeholder: "Email (optional)", "aria-label": "Email (optional)",
-  });
-  const submit = () => signInOnThisMachine(nameField.value, emailField.value);
-  for (const field of [nameField, emailField]) {
-    field.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); submit(); } });
-  }
+  const said = account.refused || "";
+  const { rows, current } = accountList();
   return [
     el("h1", { class: "view-title", text: "Sign in" }),
     el("div", { class: "signin-page" },
       el("div", { class: "signin-card" },
-        el("h2", { class: "signin-title", text: "Sign in to AutoCAT" }),
-        el("p", { class: "signin-sub", text: "This machine's own account — a name, and an address if you want one. Nothing is sent anywhere." }),
-        el("div", { class: "signin-fields" }, nameField, emailField),
-        el("button", {
-          class: "btn primary focusable wide", type: "button", id: "signin-continue",
-          text: local ? `Continue as ${local.name}` : "Continue",
-          onclick: submit,
+        el("h2", { class: "signin-title", text: `Accounts on ${currentPerson().name}` }),
+        el("p", {
+          class: "signin-sub",
+          text: "This machine's own accounts — a name, and an address if you want one. Nothing is sent anywhere. Each account keeps its own keys, cards, watchlist and settings, and a profile holds up to five of them.",
         }),
-        el("p", { class: "signin-sub", text: "A profile is who is watching, not who is signed in." }),
+        said ? el("p", { class: "signin-said", text: said }) : null,
+        rows.length ? el("div", { class: "account-list" }, ...rows) : null,
+        accountForm(),
+        current
+          ? el("button", {
+              class: "btn subtle focusable wide",
+              type: "button",
+              id: "signin-out",
+              text: `Sign out of ${current}`,
+              onclick: signOutAccount,
+            })
+          : null,
         el("button", {
-          class: "btn subtle focusable wide", type: "button", id: "signin-profiles",
+          class: "btn subtle focusable wide",
+          type: "button",
+          id: "signin-profiles",
           text: "Manage profiles",
           onclick: () => go("#/profiles"),
         }),
@@ -4169,8 +4256,13 @@ function filterRow(label, choices, active, onPick, { clamp = false } = {}) {
     const chip = options.firstElementChild;
     const h = chip ? chip.getBoundingClientRect().height : 0;
     if (!h) return;
-    const gap = Number.parseFloat(getComputedStyle(options).rowGap) || 6;
-    options.style.maxHeight = `${Math.round(h * 2 + gap)}px`;
+    const cs = getComputedStyle(options);
+    const gap = Number.parseFloat(cs.rowGap) || 6;
+    // The window's own padding is part of its height (`padding: 4px` in the sheet, so a
+    // chip's ring has room on every side) and is left out of the **two rows** the window
+    // is asked to show — otherwise the rows would shift as the chips are measured.
+    const room = (Number.parseFloat(cs.paddingTop) || 0) + (Number.parseFloat(cs.paddingBottom) || 0);
+    options.style.maxHeight = `${Math.round(h * 2 + gap + room)}px`;
   };
   // **A step is a window, not a row.** The arrows used to move one row at a time, and
   // Country is eighty chips in a two-row window — so reaching the other half of the list
@@ -4619,6 +4711,11 @@ function renderSearch() {
     // being browsed; a search box that asks "what is this called?" is not a row, and the
     // two buttons sat between the field and its own heading for no reason. What kind of
     // title a search is looking for is the **Type** row in Filters, one press away.
+    // **The same Movies / Shows switch Home wears, above the bar.** A search answers both
+    // rows at once and the results follow this switch, so the switch belongs on the screen
+    // that is about to be read by it — not only on Home, where it was the only place to say
+    // which half of the catalogue you are looking through.
+    rowSwitch(),
     el(
       "div",
       { class: "search-wrap" },
@@ -9448,6 +9545,12 @@ function renderTabs() {
     // A title's route carries a TMDB id, not a name, so the page hands it in once its
     // own data has arrived (see `setChromeLabel`).
     label = chromeLabel;
+  } else if (parsed.view === "settings") {
+    label = "Settings";
+  } else if (parsed.view === "search") {
+    label = "Search";
+  } else if (parsed.view === "calendar") {
+    label = "Calendar";
   }
   // Built as a list and filtered rather than handed to `replaceChildren` directly:
   // that call stringifies a non-node, so a bare `null` in the arguments lands on the
