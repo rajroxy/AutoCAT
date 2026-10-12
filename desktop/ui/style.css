@@ -1442,9 +1442,13 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   display: grid;
   place-items: center;
   padding: 4vh 4vw;
-  background: rgba(4, 5, 8, 0.62);
-  backdrop-filter: blur(22px) saturate(1.15);
-  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  /* **The page is put away, not dimmed.** At 62% with a blur the title page under the
+     trailer stayed legible — cards, headings and all — which is why a trailer card sat
+     there "in the background" beside the clip. It is nearly opaque now: the clip and the
+     app's own panel, nothing else. */
+  background: rgba(3, 4, 7, 0.94);
+  backdrop-filter: blur(26px) saturate(1.15);
+  -webkit-backdrop-filter: blur(26px) saturate(1.15);
 }
 /* **The clip plays inside one of the app's own panels.** It used to be a bare 16:9 box
    with a white hairline round it and a heading floating above it, so the clip arrived as
@@ -3958,12 +3962,14 @@ select option:hover {
 }
 .settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
 
-/* **Pills answer in their own fill.** A 12px tag is too small to ring: a chip you have
-   *not* picked takes the accent tint, and the picked one is already a solid plate. */
+/* **A tag lights up like everything else.** Pills used to be the exception — the ring
+   was taken off them ("too small to ring"), so hovering a tag did nothing you could see
+   and pressing one left no mark at all. They take the same accent ring on hover and on
+   the keyboard, and the ones you have *not* picked also take the tint. */
 .chip:not(.active):hover, .chip:not(.active):focus-visible,
 .model-chip:not(.suggested):hover, .chip-more:hover,
 .filter-chip:not(.active):hover, .search-filter-btn:hover {
-  box-shadow: none;
+  box-shadow: var(--hl);
   background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
 }
@@ -4166,6 +4172,28 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    control belongs to the panel's bar, which is the app's control, and a big ▶ in the
    middle of the picture is the one thing every other player already draws. The cover
    answers the cursor with the app's ring and a little light instead. */
+/* **The embed's furniture is only hidden while the picture is stopped.** YouTube paints
+   its title card, its channel mark, its share/watch-later marks and its "More videos" wall
+   across the frame whenever the clip is *not* moving — paused, or ended. Those bands sit on
+   the picture only in that state (`.stopped`, set from the player's own state), so a running
+   clip is never covered: no vignette over the trailer, and none of YouTube's chrome either.
+   The bands are as tall as the furniture they hide and no taller. */
+.trailer-frame > .trailer-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  /* Under the cover (which is 2), over the embed. */
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--quick) var(--ease);
+}
+.trailer-frame > .trailer-mask[hidden] { display: none; }
+.trailer-frame.stopped > .trailer-mask { opacity: 1; }
+.trailer-frame > .trailer-mask-top { top: 0; bottom: auto; height: 15%; background: linear-gradient(180deg, rgba(0, 0, 0, 0.92) 0 62%, rgba(0, 0, 0, 0) 100%); }
+.trailer-frame > .trailer-mask-bottom { top: auto; bottom: 0; height: 14%; background: linear-gradient(0deg, rgba(0, 0, 0, 0.94) 0 66%, rgba(0, 0, 0, 0) 100%); }
+
 .trailer-cover { transition: filter var(--quick) var(--ease); }
 /* **No ring on the cover, at any moment.** It used to draw a 3px accent ring inside its own
    edge — a square highlight over the artwork, on the screen where the artwork is the point.
@@ -4426,3 +4454,10 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .player-next-note { display: flex; align-items: center; gap: 12px; margin: 0; flex-wrap: wrap; }
 .player-next-count { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-variant-numeric: tabular-nums; }
 .player-next-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+
+/* **The Save sits in the card, under the field it keeps.** The rename tool is a tool
+   beside the tile while the name is shut; while the name is open it belongs to the thing
+   being edited, so it is drawn inside the card, directly under the field. */
+.profile-tile.editing { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: default; }
+.profile-tile.editing:hover { transform: none; }
+.profile-tile.editing .profile-rename { width: 100%; height: 34px; font-size: 13px; }

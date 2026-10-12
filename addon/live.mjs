@@ -103,7 +103,7 @@ const READ_VERSION = 3;
 // 6: public free-to-air streams are married into the lineup (see
 // `publicStreamIndex`) — an older cached lineup has no stream URLs in it and has to be
 // rebuilt, not reused.
-const LINEUP_VERSION = 7;
+const LINEUP_VERSION = 8;
 const FETCH_TIMEOUT = 25_000;
 
 let cache = { at: 0, source: "", error: "", channels: [], groups: [], guide: null, countries: null, providers: null };
@@ -643,7 +643,11 @@ const groupsOf = (channels) => {
  */
 export async function liveChannels({ force = false } = {}) {
   const live = getSettings().live || {};
-  const mode = ["dth", "m3u", "xtream"].includes(live.mode) ? live.mode : "dth";
+  // **Your playlist, or your Xtream panel — nothing else.** The mode used to fall back
+  // to `dth`, the premium/operator catalogue, so a profile with no source of its own was
+  // handed somebody else's lineup (243 channels of it). A profile with nothing configured
+  // now reads nothing, which is what "the app does not have my channels yet" looks like.
+  const mode = live.mode === "xtream" ? "xtream" : "m3u";
   const countries = (Array.isArray(live.countries) ? live.countries : []).flatMap((c) => countrySpellings(c)).sort();
   const providers = (Array.isArray(live.providers) ? live.providers : []).map(String).sort();
   // **The cache key has to carry every setting that decides the lineup**, or a switch
@@ -667,10 +671,7 @@ export async function liveChannels({ force = false } = {}) {
     const channels =
       mode === "m3u"
         ? parseM3U(/^https?:/i.test(live.m3u || "") ? await fetchText(live.m3u) : fs.readFileSync(live.m3u, "utf8"))
-        : mode === "xtream"
-          ? await xtreamChannels(live)
-          : await dthChannels(live);
-    if (mode === "dth") mergePremiumChannels(channels, countries);
+        : await xtreamChannels(live);
     if (!channels.length) throw new Error("no channels in that lineup");
     // **The lineup's own escapes, decoded once.** Every source is read above — an M3U
     // export, an Xtream login, the DTH directory, the XMLTV feeds' own channels — and
@@ -702,7 +703,17 @@ export async function liveChannels({ force = false } = {}) {
     };
     writeCache();
   } catch (err) {
-    // A failed source keeps the last good list rather than emptying Live TV.
+    // **A failed source keeps the last good list — unless there is no source at all.**
+    // With no M3U and no Xtream login there is nothing for the last good list to be the
+    // last good read *of*: serving it was how a profile with no channels configured was
+    // handed 30,000 of somebody else's (the operator catalogue's), which is the lineup
+    // the Live TV profile was showing with nothing set up.
+    const blank = mode === "m3u" && !String(live.m3u || "").trim();
+    if (blank) {
+      cache = { at: Date.now(), source, error: "", channels: [], groups: [], guide: null, countries: [], providers: [], read: {}, readVersion: READ_VERSION, lineupVersion: LINEUP_VERSION };
+      writeCache();
+      return cache;
+    }
     cache = { ...cache, source, error: err.message, at: cache.channels?.length ? cache.at : Date.now() };
   }
   return cache;
@@ -834,25 +845,9 @@ export async function liveGuide({ hours = 6, force = false, countries = "" } = {
   const picked = live.mode === "m3u" || live.mode === "xtream" ? [] : pickedProviders(live.providers);
   const own = picked.filter((prov) => prov.epg).map((prov) => ({ url: prov.epg, key: prov.epg }));
   let feedList = own;
-  if (!feedList.length && live.mode !== "m3u" && live.mode !== "xtream") {
-    // **The feeds the grid is drawing.** A six-hour guide for the whole world is
-    // gigabytes of XML — the world's guides cannot be held in one response — and
-    // reading a fixed first few countries is how a country's channels sat there with
-    // no schedule. The lineup is already in hand, so the guide follows **its own
-    // weight**: the countries holding the most of it are read first, which are the
-    // ones whose channels the grid actually shows. `GUIDE_FEEDS_READ` bounds one
-    // load, and the picked countries' feeds are always in that set.
-    const weight = new Map();
-    for (const channel of channels) {
-      const cc = String(channel.country || "").toUpperCase();
-      if (cc) weight.set(cc, (weight.get(cc) || 0) + 1);
-    }
-    const ranked = [...weight.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([cc]) => cc);
-    const codes = (ranked.length ? ranked : dthCountries(live, picked)).slice(0, GUIDE_FEEDS_READ);
-    feedList = codes.flatMap((code) => countryEpgs(code)).map((url) => ({ url, key: url }));
-  }
+  // **No directory feeds any more.** Without a picked provider these were the DTH
+  // directory's own XMLTV feeds — a schedule for a lineup that is not yours. The guide is
+  // drawn from the provider feeds you picked, or from the EPG URL under Guide & EPG.
   const manual = String(live.epg || "").trim();
   if (manual) feedList = [{ url: manual, key: manual }];
   if (!feedList.length) return { start: Date.now(), end: Date.now() + hours * 3600_000, programmes: {}, channels, epg: false };
@@ -893,7 +888,7 @@ export async function liveStatus() {
   const live = getSettings().live || {};
   const list = await liveChannels();
   return {
-    mode: ["dth", "m3u", "xtream"].includes(live.mode) ? live.mode : "dth",
+    mode: live.mode === "xtream" ? "xtream" : "m3u",
     hasEpg: Boolean(String(live.epg || "").trim()) || Boolean(firstProviderEpg(live.providers)),
     hasPassword: Boolean(live.password),
     providers: Array.isArray(live.providers) ? live.providers : [],

@@ -42,6 +42,7 @@ import {
   unpin as watchlistUnpin,
   metasFor as watchlistMetas,
   watchedKeys,
+  setScope as watchlistSetScope,
 } from "./watchlist.mjs";
 import {
   DEFAULT_ROW,
@@ -59,6 +60,7 @@ import {
   add as customAdd,
   remove as customRemove,
   metasFor as customMetas,
+  setScope as customSetScope,
 } from "./customrows.mjs";
 import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, isOttSort } from "./catalogs.mjs";
 import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
@@ -1479,7 +1481,21 @@ function customPayload() {
  * when it is not an addon route (so the caller can fall through to static
  * file serving).
  */
+/**
+ * **Which profile's watchlist and Library this request is about.**
+ *
+ * The app sends `who=<profile id>` on every request (see `get`/`post` in the UI), so the
+ * server keeps one watchlist and one Library **per profile** instead of one per machine.
+ * A caller that sends no `who` — Stremio reading the addon, a script, the test suite —
+ * keeps the plain files and sees exactly what it saw before.
+ */
+const scopeStores = (who) => {
+  watchlistSetScope(who);
+  customSetScope(who);
+};
+
 export async function handleAddon(req, res, pathname, origin) {
+  scopeStores(new URL(req.url ?? "/", "http://localhost").searchParams.get("who"));
   // Settings are read/written by the app's Settings screen. The keys live on the
   // server so the addon can use them; the response only says whether one is set.
   if (pathname === "/settings" || pathname === "/settings.json") {
@@ -2244,6 +2260,7 @@ export async function handleAddon(req, res, pathname, origin) {
     if (req.method === "POST") {
       try {
         const body = await readBody(req);
+        scopeStores(body.who);
         const item = body.item || {};
         const state = body.state;
         if (body.remove || state === null) json(res, 200, { ...watchlistUnpin(item), ...watchlistPayload() });
@@ -2272,6 +2289,7 @@ export async function handleAddon(req, res, pathname, origin) {
     if (req.method === "POST") {
       try {
         const body = await readBody(req);
+        scopeStores(body.who);
         const row = body.row || DEFAULT_ROW;
         const item = body.item || {};
         // One card, or the whole row (Settings → Custom Rows clears a row in one go).
@@ -2302,6 +2320,7 @@ export async function handleAddon(req, res, pathname, origin) {
   if (pathname.startsWith("/custom-rows/") && req.method === "POST") {
     try {
       const body = await readBody(req);
+      scopeStores(body.who);
       const action = pathname.slice("/custom-rows/".length);
       const result =
         action === "add" ? customAddRow(body.name)
@@ -2523,15 +2542,12 @@ export async function handleAddon(req, res, pathname, origin) {
       .filter(Boolean);
     const needle = (params.get("q") || "").trim().toLowerCase();
     const list = await liveChannels({ force: params.get("force") === "1" });
-    // **Your add-ons' live channels are Live TV too.** A live Stremio add-on publishes
-    // its channels as catalogues, and a Stremio app shows them beside the operator
-    // lineup. Merged here (not stored in the lineup cache) so they ride the add-on's own
-    // 30-minute cache and an add-on added a minute ago appears at once.
-    const fromAddons = params.get("addons") === "0" ? { channels: [] } : await liveAddonChannels().catch(() => ({ channels: [] }));
-    const lineup = [
-      ...(list.channels || []),
-      ...(fromAddons.channels || []).filter((c) => !(list.channels || []).some((k) => k.id === c.id)),
-    ];
+    // **No add-on channels in the lineup.** A live Stremio add-on publishes its channels
+    // as catalogues, and this merged them in behind the user's own playlist — so Live TV
+    // showed an add-on's lineup (PenguPlay's, and whatever else declared a live catalog)
+    // beside the M3U, and a profile with nothing configured showed somebody else's.
+    // Live TV comes from your M3U URL, your file, or your Xtream code: nothing else.
+    const lineup = [...(list.channels || [])];
     const channels = lineup.filter(
       (c) =>
         (!group || (c.groups || []).includes(group)) &&

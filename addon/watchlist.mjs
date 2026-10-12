@@ -24,7 +24,49 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FILE = process.env.NUVIO_WATCHLIST_FILE || path.join(__dirname, "watchlist.json");
+const BASE_FILE = process.env.NUVIO_WATCHLIST_FILE || path.join(__dirname, "watchlist.json");
+
+/* ============================================================================
+   **One watchlist per profile.**
+   ----------------------------------------------------------------------------
+   The store was one file for the machine, so switching profile showed the same
+   pins: Profile 2 opened on Profile 1's plan-to-watch, and pinning something in
+   one row put it in the other's. A profile is a person, and what a person has
+   watched is theirs.
+
+   The file is chosen by the **scope** the caller asks with (`?who=<id>`, sent by
+   the app for the profile that is on): `watchlist.<who>.json`. No `who` — a
+   Stremio/Nuvio client reading the addon, a script, a test — is the plain
+   `watchlist.json` it always was, so nothing outside the app changes.
+
+   The first scoped caller **inherits the file that was there**: an install from
+   before this change had its pins in the plain file, and its profile is the one
+   making the first request. A marker keeps that inheritance to a single profile,
+   so a third profile starts with an empty watchlist rather than a copy of the
+   first one's.
+   ============================================================================ */
+let scope = "";
+let FILE = BASE_FILE;
+const cleanScope = (who) => String(who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 32);
+
+/** Point the store at one profile's file. Called by the routes before they read. */
+export function setScope(who) {
+  const next = cleanScope(who);
+  if (next === scope) return;
+  scope = next;
+  FILE = next ? path.join(__dirname, `watchlist.${next}.json`) : BASE_FILE;
+  cache = null;
+  if (!next) return;
+  try {
+    if (fs.existsSync(FILE)) return;
+    const marker = path.join(__dirname, "watchlist.scope");
+    if (fs.existsSync(marker) || !fs.existsSync(BASE_FILE)) return;
+    fs.writeFileSync(FILE, fs.readFileSync(BASE_FILE));
+    fs.writeFileSync(marker, `${next}\n`);
+  } catch {
+    /* a read-only fs: the empty store works for this run */
+  }
+}
 
 /** The states a pinned title can be in, in the order they are shown. */
 export const STATES = ["planned", "watching", "watched"];

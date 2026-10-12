@@ -881,10 +881,26 @@ const titleOf = (c, row = rowKey()) => c?.[row]?.title || c?.title || "";
  * a message the screen already knows how to show.
  */
 const GET_TIMEOUT_MS = Number(globalThis.NUVIO_GET_TIMEOUT_MS) || 25000;
+/**
+ * **Every request says which profile it is for.**
+ *
+ * The watchlist and the Library are stored on the server, and they were one store for the
+ * machine — so Profile 2 opened on Profile 1's pins. They are kept **per profile** now
+ * (`watchlist.<who>.json`, `customrows.<who>.json`), and this is the half that says who is
+ * asking: the profile that is on rides on every request. A request that does not come from
+ * the app — a Stremio client reading the addon, a script — carries no `who` and still sees
+ * the plain store.
+ */
+const withScope = (path) => {
+  const who = activeScope();
+  if (!who || /[?&]who=/.test(path)) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}who=${encodeURIComponent(who)}`;
+};
+
 const get = async (path, { timeoutMs = GET_TIMEOUT_MS } = {}) => {
   let res;
   try {
-    res = await fetch(API + path, { signal: AbortSignal.timeout(timeoutMs) });
+    res = await fetch(API + withScope(path), { signal: AbortSignal.timeout(timeoutMs) });
   } catch (err) {
     throw new Error(err?.name === "TimeoutError" ? `the app server did not answer in ${Math.round(timeoutMs / 1000)}s` : String(err?.message || err));
   }
@@ -922,10 +938,13 @@ const getText = async (path) => {
  * resolve. Two different failures must not share a word.
  */
 const post = async (path, body) => {
-  const res = await fetch(API + path, {
+  // The scope rides in the body as well as the URL, because the server reads it before it
+  // has parsed anything else (see `scopeStores` in the addon).
+  const scoped = typeof body === "object" && body !== null ? { ...body, who: body.who ?? activeScope() } : body;
+  const res = await fetch(API + withScope(path), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(scoped),
   });
   // **A 502/503 here is not the route failing — it is the app server gone.** The tunnel in
   // front of this app answers those two itself when nothing is listening, so "Custom Sites
@@ -2489,6 +2508,23 @@ function personSlot(person, active, editing, count, menu) {
     });
     queueMicrotask(() => field.focus());
   }
+  // 2. **Rename**, and 3. **Save** in its place. While the name is *closed* it sits in
+  //    the tools row, under the card; while the name is *open* it lives **inside the
+  //    card**, directly under the field it commits — the button that keeps a name is not
+  //    a tool beside the card, it belongs to the thing being edited.
+  const renameBtn = el(
+    "button",
+    {
+      class: `profile-rename focusable${editing ? " save" : ""}`,
+      type: "button",
+      text: editing ? "Save" : "Rename",
+      title: editing ? `Save this name` : `Rename ${person.name}`,
+      onclick: () => {
+        if (editing) commit();
+        else { state.renaming = person.id; render(); }
+      },
+    },
+  );
   const tools = el(
     "div",
     { class: "profile-tools" },
@@ -2512,23 +2548,8 @@ function personSlot(person, active, editing, count, menu) {
         svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
         svgNode("path", { d: "M14.5 5.5l4 4" })),
     ),
-    // 2. Rename — under the name, and only while the pencil is open. 3. It becomes
-    //    **Save** the moment the field is open, and commits on the press.
-    menu
-      ? el(
-          "button",
-          {
-            class: `profile-rename focusable${editing ? " save" : ""}`,
-            type: "button",
-            text: editing ? "Save" : "Rename",
-            title: editing ? `Save ${person.name}'s name` : `Rename ${person.name}`,
-            onclick: () => {
-              if (editing) commit();
-              else { state.renaming = person.id; render(); }
-            },
-          },
-        )
-      : null,
+    // Rename, while the pencil is open and the name is not being edited.
+    menu && !editing ? renameBtn : null,
     count > 1
       ? el(
           "button",
@@ -2551,9 +2572,10 @@ function personSlot(person, active, editing, count, menu) {
       { class: "profile-slot editing" },
       el(
         "div",
-        { class: "profile-tile active" },
+        { class: "profile-tile active editing" },
         el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
         field,
+        renameBtn,
       ),
       tools,
     );
@@ -5850,7 +5872,7 @@ function subtitlePick() {
     writeJSON(KEY.subtitles, state.subtitles);
     pushSettings({ subtitles: { language: value } });
     render();
-  }, "Subtitle");
+  }, "Primary subtitle");
   pick.node.classList.add("title-pick");
   return pick.node;
 }
@@ -6833,6 +6855,9 @@ function openTrailer(t) {
     onclick: () => start(),
   });
 
+  // The two bands the embed paints its own furniture on — see the note in the frame above.
+  const maskTop = el("div", { class: "trailer-mask trailer-mask-top", "aria-hidden": "true" });
+  const maskBottom = el("div", { class: "trailer-mask trailer-mask-bottom", "aria-hidden": "true" });
   const overlay = el("div", { class: "trailer-overlay", role: "dialog", "aria-modal": "true", "aria-label": `${t.name} trailer` },
     el("div", { class: "trailer-shell" },
       el("div", { class: "trailer-bar" },
@@ -6841,6 +6866,13 @@ function openTrailer(t) {
       ),
       el("div", { class: "trailer-frame" },
         el("div", { id: "trailer-mount" }),
+        // **Only over a stopped picture.** These carry `.stopped` on the frame, which is
+        // set from the player's own state: YouTube draws its title card, its marks and
+        // its "More videos" wall whenever the clip is not moving, and draws none of it
+        // while it is. So the bands are transparent for the whole of a running clip and
+        // come up the moment it pauses or ends.
+        maskTop,
+        maskBottom,
         // **The cover, and why it is here.** The embed paints its own title card and its
         // own logo over the first moment of a clip, and neither is a control the API
         // exposes — so the player is not started until the app's own Play is pressed, and
@@ -6931,6 +6963,9 @@ function openTrailer(t) {
         onReady: (e) => { e.target.playVideo(); tick = setInterval(paint, 500); },
         onStateChange: (e) => {
           paint(e);
+          // 0 ended · 2 paused · 5 cued: the states YouTube paints its own furniture in.
+          const stopped = [0, 2, 5].includes(e?.data);
+          overlay.querySelector(".trailer-frame")?.classList.toggle("stopped", stopped);
           // **Lift only when the picture is really running.** A paused or blocked player
           // is YouTube's own frame — its big play button, its title card, its logo — so
           // the cover stays over it until the clip is playing. Then one beat more, because
@@ -8626,20 +8661,20 @@ function panePlayback() {
   // half an answer when the copy in front of you has English and Tamil. The player reads
   // them in order: the primary if the stream has it, otherwise the secondary, otherwise
   // what the stream itself calls the default.
-  const audio = dropdown(audioChoices(), state.prefs?.audio || "", (value) => savePrefs({ audio: value }), "Audio");
-  const audio2 = dropdown(audioChoices(), state.prefs?.audio2 || "", (value) => savePrefs({ audio2: value }), "Audio 2");
+  const audio = dropdown(audioChoices(), state.prefs?.audio || "", (value) => savePrefs({ audio: value }), "Primary audio");
+  const audio2 = dropdown(audioChoices(), state.prefs?.audio2 || "", (value) => savePrefs({ audio2: value }), "Secondary audio");
   const subtitle = dropdown(subtitleChoices(), state.subtitles?.language || "", (value) => {
     state.subtitles = { ...state.subtitles, language: value };
     writeJSON(KEY.subtitles, state.subtitles);
     pushSettings({ subtitles: { language: value } });
     render();
-  }, "Subtitle");
+  }, "Primary subtitle");
   const subtitle2 = dropdown(subtitleChoices(), state.subtitles?.language2 || "", (value) => {
     state.subtitles = { ...state.subtitles, language2: value };
     writeJSON(KEY.subtitles, state.subtitles);
     pushSettings({ subtitles: { language2: value } });
     render();
-  }, "Subtitle 2");
+  }, "Secondary subtitle");
   return [
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Resolution" }),
@@ -8647,7 +8682,7 @@ function panePlayback() {
       el("div", { class: "source-form" }, resolution.node),
     ),
     el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Audio" }),
+      el("span", { class: "option-title", text: "Primary audio" }),
       el("p", { class: "option-desc", text: "The audio language a player switches to when a stream carries more than one. Stream default leaves the choice to the file." }),
       el("div", { class: "source-form" }, audio.node),
     ),
@@ -8657,7 +8692,7 @@ function panePlayback() {
       el("div", { class: "source-form" }, audio2.node),
     ),
     el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Subtitle" }),
+      el("span", { class: "option-title", text: "Primary subtitle" }),
       el("p", { class: "option-desc", text: "The subtitle language the player turns on when the stream carries one. It follows what the app is browsed in until you pick one here." }),
       el("div", { class: "source-form" }, subtitle.node),
     ),
@@ -12509,12 +12544,10 @@ async function openPlayer(url, title, opts = {}) {
       el("div", { class: "stream-list" },
         ...(audios.length ? audios : [el("p", { class: "empty", text: audioNote })]),
       ),
-      el("h3", { class: "row-head", text: "Subtitle services" }),
-      el("p", {
-        class: "option-desc",
-        text: "A subtitle this stream does not carry, fetched from the services set up in Settings → Subtitles for the title — and the episode — you are watching.",
-      }),
-      osList,
+      // **No Subtitle services list here.** The option panel is the picture and its own
+      // tracks; a service search for the title you are watching is a Settings → Subtitles
+      // matter, and the panel was the wrong place to spend a subtitle quota from. The
+      // stream's own subtitle tracks are above, under Subtitles.
     ].filter(Boolean));
     drawOpenSubtitles();
   };

@@ -53,3 +53,11 @@ addon/dns-config.json
 
 # General preferences written by the app (search-on-play, the summary line, …)
 addon/user-preferences.json
+
+# **Per-profile stores and their marker.** The watchlist and the Library are one file per
+# profile now (`watchlist.<who>.json`, `customrows.<who>.json`); the `.scope` marker records
+# which profile inherited the pre-scope file, so a second profile never copies the first's.
+addon/watchlist.*.json
+addon/customrows.*.json
+addon/watchlist.scope
+addon/customrows.scope

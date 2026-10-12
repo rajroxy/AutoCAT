@@ -23,7 +23,35 @@ import { fileURLToPath } from "node:url";
 import { cleanItem } from "./watchlist.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FILE = process.env.NUVIO_CUSTOM_FILE || path.join(__dirname, "customrows.json");
+const BASE_FILE = process.env.NUVIO_CUSTOM_FILE || path.join(__dirname, "customrows.json");
+
+/* **One Library per profile.** The rows you built and what you put in them belong to the
+   person watching, not to the machine — see the same note in `watchlist.mjs`, which this
+   follows exactly: `customrows.<who>.json`, the plain file for callers that send no
+   `who` (Stremio, a script), and the first scoped caller inheriting what was there. */
+let scope = "";
+let FILE = BASE_FILE;
+const cleanScope = (who) => String(who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 32);
+
+/** Point the store at one profile's file. Called by the routes before they read. */
+export function setScope(who) {
+  const next = cleanScope(who);
+  if (next === scope) return;
+  scope = next;
+  FILE = next ? path.join(__dirname, `customrows.${next}.json`) : BASE_FILE;
+  cache = null;
+  metalist = null;
+  if (!next) return;
+  try {
+    if (fs.existsSync(FILE)) return;
+    const marker = path.join(__dirname, "customrows.scope");
+    if (fs.existsSync(marker) || !fs.existsSync(BASE_FILE)) return;
+    fs.writeFileSync(FILE, fs.readFileSync(BASE_FILE));
+    fs.writeFileSync(marker, `${next}\n`);
+  } catch {
+    /* a read-only fs: the empty store works for this run */
+  }
+}
 
 /** The row the Watchlist card publishes after its three state rows. */
 export const DEFAULT_ROW = "add-cards";
