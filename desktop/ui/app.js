@@ -260,15 +260,15 @@ const ACCENTS = [
   // something for a screen that is too dim or too bright for the first eight.
   ["crimson", "Crimson", "224, 92, 92", "#e05c5c", "#a83a3a"],
   ["coral", "Coral", "240, 138, 108", "#f08a6c", "#bd5a3d"],
-  // **Where magenta was.** A warm copper: no colour in the board sat between amber
-  // and coral on the warm side, and a pink that reads as a warning on a dark screen is
-  // not a colour to hand someone by default. An install that had picked magenta falls
-  // back to the app’s gold (`accentOf`), since the id it stored is gone.
-  ["copper", "Copper", "196, 121, 82", "#c47952", "#94502f"],
+  // **Where magenta was.** A light sky: the cool side of the board had a medium blue
+  // and an ice, and this is the pale end of the same idea — and a pink that reads as a
+  // warning on a dark screen is not a colour to hand someone by default. An install that
+  // had picked magenta falls back to the app’s gold (see `accentOf`).
+  ["sky", "Sky", "150, 206, 240", "#96cef0", "#5f9ec9"],
   ["indigo", "Indigo", "122, 130, 236", "#7a82ec", "#4c53bd"],
   ["lime", "Lime", "166, 214, 90", "#a6d65a", "#769f2f"],
   ["ice", "Ice", "126, 208, 226", "#7ed0e2", "#4b9cb1"],
-  // **Two more ends.** A plum that sits between the violet and the copper without being
+  // **Two more ends.** A plum that sits between the violet and the sky without being
   // either, and a mint between the teal and the green — so the board has a colour for a
   // screen the first fourteen do not.
   ["plum", "Plum", "186, 130, 220", "#ba82dc", "#8a52b0"],
