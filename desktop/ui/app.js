@@ -218,8 +218,6 @@ const FONT_STACK = '"Inter", system-ui, sans-serif';
 const FONTS = [
   ["inter", "Inter", "The default face — the voice the app is written in."],
   ["condensed", "Condensed", "A narrower cut, so a long title fits its row without being clipped."],
-  ["rounded", "Rounded", "Softer terminals and a rounder bowl — the same layout, a gentler read."],
-  ["square", "Square", "A squarer, more geometric face with a technical edge."],
 ];
 // **Every face is shipped with the app** — a file in `./fonts`, declared in style.css —
 // rather than a name that has to be installed. A "font setting" that silently falls back
@@ -228,8 +226,6 @@ const FONTS = [
 const FONT_STACKS = {
   inter: '"Inter", system-ui, sans-serif',
   condensed: '"Barlow Semi Condensed", "Inter", system-ui, sans-serif',
-  rounded: '"Figtree", "Inter", system-ui, sans-serif',
-  square: '"Space Grotesk", "Inter", system-ui, sans-serif',
 };
 
 /**
@@ -7244,7 +7240,6 @@ function panePosters() {
     // pane's own board and the chosen one wears the accent. **No heading above them** —
     // the tile you are on says which pane this is — and the line that explains what the
     // choice does sits above them instead.
-    el("p", { class: "option-desc", text: "Which service supplies the artwork. Its pattern is filled in below; edit the pattern to use anything else — {imdb_id}, {tmdb_id}, {type} and {rpdb_key} are filled in per title." }),
     ...POSTER_SERVICES.map(([id, label, url, desc]) =>
       radioRow(current === id, "posterservice", label, desc, () => savePosters({ source: id, pattern: url, enabled: id !== "none" })),
     ),
@@ -7706,7 +7701,6 @@ function paneAppearance() {
     // The line under the row. It says what the setting *does* rather than naming the
     // pane it is on — the section name is the tile on the left, and does not need
     // saying twice.
-    el("p", { class: "option-desc", text: "Paints the whole app: buttons, chips, the ring on what you hover, the bar on the player. Fifteen choices, one at a time." }),
   ];
 }
 
@@ -8518,9 +8512,11 @@ function renderTabs() {
   // page as the word "null" instead of being dropped (`el` drops it — this is not `el`).
   const children = [];
   if (label) {
-    // The same rule the Home group wears, drawn for the name: the left-hand group is
-    // gone on these screens, so it would otherwise sit against nothing.
-    children.push(el("span", { class: "top-divider", "aria-hidden": "true" }));
+    // **One rule, not two.** This used to draw its own vertical rule here *as well as*
+    // the back arrow's own (`#back-divider`, which every screen with an arrow wears) —
+    // so a card, an Explore page and a title page sat there with two identical strokes
+    // a few pixels apart. The arrow's rule is the one that belongs to the bar; this
+    // label just sits after it.
     // **The name is a label, not a door.** It used to be a Home button, so pressing
     // the name of the card you were reading threw you out of it. Leaving is the
     // arrow's job (`#back`), which sits right beside this — so the name is drawn as

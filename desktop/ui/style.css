@@ -1,10 +1,9 @@
-/* **The app carries its own typefaces.** Settings → Font offers four, and every one of
-   them is a file in `./fonts` rather than a name that happens to be installed — a "font
-   setting" that silently falls back to the same face on a machine without it is a switch
-   that does nothing, and four near-identical grotesques is a switch that looks like it
-   does nothing. These four are plainly different from each other: the app's own Inter, a
-   **narrow** cut, a **rounded** cut, and a **square geometric** one. All four are Open
-   Font License. */
+/* **The app carries its own typefaces.** Settings → Font offers **two**, and both are
+   files in `./fonts` rather than names that happen to be installed — a "font setting"
+   that silently falls back to the same face on a machine without it is a switch that
+   does nothing. Four faces were too many: two of them read as the same app. What is left
+   is the app's own **Inter**, and **Condensed** — the same voice in a narrower cut, for a
+   long title that would otherwise be clipped. Both are Open Font License. */
 @font-face {
   font-family: "Inter";
   src: url("./fonts/Inter.woff2") format("woff2");
@@ -33,18 +32,6 @@
   font-family: "Barlow Semi Condensed";
   src: url("./fonts/BarlowSemiCondensed-700.woff2") format("woff2");
   font-weight: 700;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Figtree";
-  src: url("./fonts/Figtree.woff2") format("woff2");
-  font-weight: 300 900;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Space Grotesk";
-  src: url("./fonts/SpaceGrotesk-400.woff2") format("woff2");
-  font-weight: 300 700;
   font-display: swap;
 }
 
@@ -122,7 +109,7 @@ body {
   /* **The typeface is a setting.** `--font` is set on :root by Settings →
      Appearance; the stack above it is the default, so nothing changes for anyone who
      never opens the pane. */
-  font-family: var(--font, Inter, "Inter Tight", Roboto, system-ui, sans-serif);
+  font-family: var(--font, "Inter", system-ui, sans-serif);
   overflow-x: hidden;
 }
 
@@ -3555,8 +3542,6 @@ select option:hover {
 .rec-btn:hover {
   background: rgba(var(--accent-rgb), 0.24);
 }
-CSS
-echo "done"
 
 /* IPTV extras */
 .guide-res, .channel-res {
@@ -3603,84 +3588,132 @@ echo "done"
 
 
 /* ============================================================================
-   **Hovering, and what is chosen — a highlight, not an outline.**
+   **What the accent does: the edge of the thing you are on.**
    ----------------------------------------------------------------------------
-   Two passes got this wrong in opposite directions. The outline pass took the
-   hairline off everything, so hover and *chosen* both read as the same flat fill.
-   The pass after it put a grey 1px border on every surface at rest, which is not
-   what the app is: **nothing wears a line until you point at it.** What comes back
-   is the first version's own language — the accent, spent on the one thing under
-   the cursor or the one thing you picked: a **ring and a tint**, no outline.
+   Three passes got this wrong. The first took the hairline off every surface, so a
+   hovered card and a chosen one were the same flat fill. The next put a grey line on
+   everything at rest. The last answered with a 2px accent ring and an accent wash over
+   the *whole* surface — a card lit up end to end, and a ring on the card plus a ring on
+   the poster inside it, which is the double highlight.
+
+   What the first version did is the thing to keep, and it is what is back: **every
+   surface keeps the same 1px hairline it always had, and the accent repaints that one
+   edge** when the cursor is on it or when it is the one you picked. The small things you
+   choose between — a menu row, a checked option, a planned day, a chosen chip — take a
+   light accent tint as well. Nothing is ringed, nothing is washed, nothing doubles.
    ============================================================================ */
-.icon-btn:hover, .icon-btn:focus-visible,
-.btn:hover, .btn:focus-visible,
-.profile-tile:hover, .profile-tile:focus-visible,
+
+/* The hairline every surface wears at rest — the app's own, not a new one. */
+.icon-box, .poster, .channel-card, .cat-tile, .company-card, .season-card,
+.trailer-card, .result, .provider, .source, .vis-card, .option, .vis-option,
+.cal-cell, .profile-tile, .site-row, .vis-card, .source-providers, .ai-ask {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.icon-btn, .text-input, .dropdown-btn, .search-bar, .modal-close {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.btn { border: 1px solid rgba(255, 255, 255, 0.14); }
+
+/* **The edge, and only the thing you are actually on.** A card's posters are not a
+   second target: pointing at artwork inside a card highlights the card. And no lift —
+   `transform` on hover made a card's rounded corners paint over the floated top bar,
+   which is the "upper corners and upper lines go over" that had to be fixed once
+   already. */
 .icon-box:hover, .icon-box:focus-visible,
 .poster:hover, .poster:focus-visible,
+.channel-card:hover, .channel-card:focus-visible,
 .cat-tile:hover, .cat-tile:focus-visible,
+.company-card:hover, .company-card:focus-visible,
+.season-card:hover, .season-card:focus-visible,
+.trailer-card:hover, .trailer-card:focus-visible,
 .result:hover, .result:focus-visible,
-.option:hover, .option:focus-visible,
-.vis-option:hover, .vis-option:focus-visible,
 .provider:hover, .provider:focus-visible,
 .source:hover, .source:focus-visible,
 .vis-card:hover,
-.chip:hover, .chip:focus-visible,
-.chip-more:hover, .chip-more:focus-visible,
-.filter-chip:hover, .filter-chip:focus-visible,
-.model-chip:hover, .model-chip:focus-visible,
-.channel-card:hover, .channel-card:focus-visible,
-.dropdown-btn:hover, .dropdown-btn:focus-visible,
-.dropdown:focus-within .dropdown-btn,
-.site-row:hover,
-.search-filter-btn:hover, .search-filter-btn:focus-visible,
-.row-btn:hover, .row-btn:focus-visible,
-.crumb:hover, .crumb:focus-visible,
-.menu-item:hover, .menu-item:focus-visible,
-.tab:hover, .tab:focus-visible {
-  /* The highlight: an accent ring drawn *outside* the box, so nothing about the
-     layout moves and nothing is outlined when it is at rest. */
-  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.55);
-  background: rgba(var(--accent-rgb), 0.12);
-  color: #fff;
+.option:hover, .vis-option:hover,
+.cal-cell:hover,
+.profile-tile:hover, .profile-tile:focus-visible,
+.ep-row:hover, .site-row:hover,
+.icon-btn:hover, .icon-btn:focus-visible,
+.btn:hover, .btn:focus-visible {
+  box-shadow: none;
+  transform: none;
+  border-color: rgba(var(--accent-rgb), 0.5);
 }
+/* A poster inside a highlighted card keeps its own hairline: one edge is the highlight,
+   two are a frame around a frame. */
+.icon-box:hover .poster, .icon-box:focus-visible .poster { border-color: rgba(255, 255, 255, 0.08); }
 
-/* What is **chosen** wears the same highlight and keeps it. */
+/* **What is chosen keeps the accent edge**, a little stronger, with the light tint the
+   app uses for a row you picked. */
 .chip.active, .filter-chip.active, .model-chip.suggested,
 .option:has(input:checked), .vis-option:has(input:checked),
 .dropdown-btn[aria-expanded="true"], .menu-item.active,
-.tab.active, .profile-tile.active, .settings-tab.active,
-.icon-box.active, .poster.active {
-  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.75);
+.settings-tab.active, .row-btn.active, .profile-tile.active,
+.tab[aria-selected="true"] {
+  box-shadow: none;
+  border-color: rgba(var(--accent-rgb), 0.75);
+  background: rgba(var(--accent-rgb), 0.14);
+  color: #fff;
+}
+/* The month grid's day: the tint the app already used for a planned day, and the
+   accent on its edge. */
+.cal-cell.selected { box-shadow: none; border-color: var(--accent); background: rgba(var(--accent-rgb), 0.14); }
+.cal-cell.today { box-shadow: none; border-color: rgba(var(--accent-rgb), 0.7); }
+
+/* **Pills answer the cursor in their own fill** — a 12px tag is too small to read a
+   border on, and a solid accent pill is the "whole button accented" the app does not
+   want. */
+.chip:hover, .chip:focus-visible,
+.model-chip:hover, .chip-more:hover,
+.filter-chip:hover, .search-filter-btn:hover {
+  box-shadow: none;
+  border-color: rgba(var(--accent-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.18);
+  color: #fff;
+}
+button.chip:hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
+
+/* **Dropdowns and menus.** The button turns the accent; the row under the cursor inside
+   the open menu is a tinted plate, no ring. */
+.dropdown-btn:hover, .dropdown-btn:focus-visible, .dropdown:focus-within .dropdown-btn {
+  box-shadow: none;
+  border-color: rgba(var(--accent-rgb), 0.55);
+  color: #fff;
+}
+.dropdown-item { border-radius: 8px; }
+.dropdown-item:hover, .dropdown-item:focus-visible,
+.menu-item:hover, .menu-item:focus-visible,
+.suggest-item:hover, .suggest-item:focus-visible {
+  box-shadow: none;
   background: rgba(var(--accent-rgb), 0.16);
   color: #fff;
 }
 
-/* A menu, and the row under the cursor inside it. */
-.dropdown-item { border-radius: 8px; }
-.dropdown-item:hover, .dropdown-item:focus-visible,
-.menu-item:hover, .menu-item:focus-visible {
-  box-shadow: none;
-  background: rgba(var(--accent-rgb), 0.2);
-  color: #fff;
-}
+/* A catalog's own name turns the accent, as it did at first. */
+.cat-name:hover, .row-head-link:hover, .row-head-link:focus-visible, .icon-name-link:hover { color: var(--accent); }
+.cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
 
-/* A field you are typing in reads as chosen, too — the ring, not a border. */
-.text-input:focus, select:focus, select.text-input:focus {
+/* **A field you are typing in** shows it with its fill and its edge, not a ring. */
+.text-input:focus, select:focus, select.text-input:focus, .search-input:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.6);
-  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(255, 255, 255, 0.12);
 }
 
-/* A card's wall of artwork: the ring is enough there, no tint over a photograph. */
-.icon-box:hover, .poster:hover, .poster:focus-visible, .channel-card:hover { background: none; }
-.icon-box:hover { background: var(--panel-2); }
+/* **The settings column does not jump.** The nav tiles were lifting 2px under the
+   cursor, which on a column you are clicking down read as the list moving up under
+   your hand — the same "it goes to the top" the section offset was already fixed
+   for. The tile answers with its fill now, and the accent stays where it belongs:
+   on the section you are actually in. */
+.settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
 
-/* **The descriptions come back — in Settings only.** The "no subtext anywhere"
-   rule hid every explanatory line in the app, and the ask was to take the *repeated
-   section name* off the right-hand pane, not to leave it wordless. A pane shows what
-   each control does again; nothing outside Settings changes. */
-/* `!important`, because the rule it is answering is `display: none !important` — one
-   app-wide suppression against one container that is allowed to speak. */
-.settings-pane .option-desc,
-.settings-pane .group-head .option-desc,
-.settings-pane .setting-grid .option-desc { display: block !important; }
+/* A poster in a row answers the cursor on its edge, not by lightening its whole
+   face — a photograph behind a fill is a photograph you cannot read. */
+.poster:hover, .poster:focus-visible { background: var(--panel); }
+
+/* The reported double highlight, spelled out: no ring anywhere on these, and no
+   accent wash over a surface that is being highlighted. */
+.icon-box:hover, .poster:hover, .poster:focus-visible, .channel-card:hover,
+.icon-box:focus-visible, .cat-tile:hover, .cat-tile:focus-visible { box-shadow: none; }

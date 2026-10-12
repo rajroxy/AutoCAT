@@ -178,6 +178,22 @@ async function complete(cfg, key, model, prompt, { maxTokens, system } = {}) {
 }
 
 /**
+ * **The header a key rides in — and Google's is not a bearer.**
+ *
+ * Every provider here but one is OpenAI-shaped and takes `Authorization: Bearer <key>`.
+ * Google's Generative Language API does not: an API key sent as a bearer token is
+ * answered with **HTTP 401 "API keys are not supported by this API. Expected OAuth2
+ * access token or other authentication credentials"** — *with a key that works*. Its
+ * key goes in the `x-goog-api-key` header (or the `?key=` query it already uses).
+ *
+ * This was sending the bearer to Google on the **connection test** and on **Load
+ * models**, which is why a valid Google AI Studio key reported "HTTP 401" when it was
+ * applied and then "no models listed (check the key)" — the key was never the problem.
+ */
+const authHeaders = (cfg, key) =>
+  cfg.shape === "gemini" ? { "x-goog-api-key": key } : { authorization: `Bearer ${key}` };
+
+/**
  * The models a provider will actually accept right now.
  *
  * Providers retire model names without warning — Groq answered a hard-coded
@@ -188,7 +204,7 @@ async function complete(cfg, key, model, prompt, { maxTokens, system } = {}) {
 async function listModels(cfg, key) {
   try {
     const url = cfg.shape === "gemini" ? `${cfg.base}/models?key=${encodeURIComponent(key)}` : cfg.models;
-    const res = await fetch(url, { headers: { authorization: `Bearer ${key}` } });
+    const res = await fetch(url, { headers: authHeaders(cfg, key) });
     if (!res.ok) return [];
     const data = await res.json();
     const ids = cfg.shape === "gemini"
@@ -385,7 +401,7 @@ export async function verifyAI(name, key) {
     const url = cfg.shape === "gemini"
       ? `${cfg.base}/models?key=${encodeURIComponent(useKey)}`
       : cfg.models;
-    const res = await fetch(url, { headers: { authorization: `Bearer ${useKey}` } });
+    const res = await fetch(url, { headers: authHeaders(cfg, useKey) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     // Report what it serves too: a key that works but only lists guard models is
     // the case that used to look "connected" and then answer nothing.
