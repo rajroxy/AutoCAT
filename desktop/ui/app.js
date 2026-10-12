@@ -48,6 +48,7 @@ const KEY = {
   contentSource: "nuvio.contentSource",
   enrich: "nuvio.enrich",
   section: "nuvio.settingsSection",
+  glow: "nuvio.glow",
   accent: "nuvio.accent",
   motion: "nuvio.motion",
   font: "nuvio.font",
@@ -607,13 +608,16 @@ const state = {
   motion: localStorage.getItem(KEY.motion) || "auto",
   // The face the app is set in — Inter, or the condensed cut of it.
   font: localStorage.getItem(KEY.font) || "inter",
+  // **A glow around the highlight** (Settings → Accent). The ring itself is always
+  // drawn; the halo is a matter of taste, so it is a switch and it starts off.
+  glow: localStorage.getItem(KEY.glow) === "1",
   // Blur the page behind a popup (the assistant, a dialog). On unless turned off.
   blur: localStorage.getItem(KEY.blur) !== "0",
   // **Sound and notifications.** Each is a small map of switches rather than
   // than a single flag, because they are separate questions: a click when you press
   // something is not the same as music under the browsing, and a calendar reminder is not
   // the same as a release date being announced.
-  sound: readJSON(KEY.sound, { clicks: false, music: false, musicVolume: 35 }),
+  sound: readJSON(KEY.sound, { clicks: false, music: "none", musicVolume: 35 }),
   notifications: readJSON(KEY.notifications, { calendar: true, releases: false, live: false }),
   // "Pick the cards for you": when it is on, the per-profile visibility below
   // decides which rows, cards and catalog rows this profile shows. Off means every
@@ -626,6 +630,11 @@ const state = {
   order: {},
   calendar: { month: new Date().toISOString().slice(0, 7), day: null },
 };
+
+// **The music setting is a track, not a switch.** It used to be `true`/`false`; a stored
+// `true` means the loop this app has always shipped, and `false` means silence.
+if (state.sound.music === true) state.sound.music = "loop";
+if (state.sound.music === false || state.sound.music == null) state.sound.music = "none";
 
 /** A pin is keyed by type *and* id — TMDB numbers films and shows in one space. */
 const watchKey = (m) => `${m?.type === "series" ? "series" : "movie"}:${m?.id || ""}`;
@@ -5146,18 +5155,40 @@ function playClick() {
  * once, offline, and shipped as a file: the browser only has to decode it, with no
  * oscillators, no chord timer, and no seam between bars.
  */
-const MUSIC_SRC = "./audio/browse-loop.wav";
+/**
+ * **The tracks** (Settings → Sound).
+ *
+ * Every one is a file in `./audio`, rendered once offline and shipped inside the app — so
+ * the music plays with no network at all. **None is the first entry and the default**:
+ * nothing is heard until a track is picked, which is the switch this replaced.
+ */
+const MUSIC_TRACKS = [
+  ["none", "None", ""],
+  ["loop", "Lofi Loop", "./audio/browse-loop.wav"],
+  ["chill", "Lofi Chill", "./audio/lofi-chill.wav"],
+  ["rain", "Lofi Rain", "./audio/lofi-rain.wav"],
+  ["night", "Lofi Night", "./audio/lofi-night.wav"],
+];
+const musicTrack = () => MUSIC_TRACKS.find(([id]) => id === state.sound?.music) || MUSIC_TRACKS[0];
+
 let musicEl = null;
+let musicSrc = "";
 
 /** The level the volume slider is asking for, as the element's own volume. */
 const musicLevel = () => (Math.max(0, Math.min(100, Number(state.sound?.musicVolume ?? 35))) / 100) * 0.6;
 
 function startMusic() {
   if (typeof Audio === "undefined") return;
-  if (!musicEl) {
-    musicEl = new Audio(MUSIC_SRC);
+  const [, , src] = musicTrack();
+  if (!src) return stopMusic();
+  // **A different track is heard at once.** The element is replaced when the source
+  // changes, so picking another one in Settings does not wait for the next reload.
+  if (!musicEl || musicSrc !== src) {
+    if (musicEl) musicEl.pause();
+    musicEl = new Audio(src);
     musicEl.loop = true;
     musicEl.preload = "auto";
+    musicSrc = src;
   }
   musicEl.volume = musicLevel();
   // **A press is what starts it.** A browser refuses playback without a gesture, so the
@@ -5174,7 +5205,7 @@ function stopMusic() {
 /** Music runs while browsing and gives way to the title being played. */
 function syncSound() {
   const playing = Boolean(document.querySelector(".player"));
-  if (state.sound?.music && !playing) startMusic();
+  if (state.sound?.music && state.sound.music !== "none" && !playing) startMusic();
   else stopMusic();
 }
 
@@ -7659,6 +7690,7 @@ function applyTheme() {
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
   root.classList.toggle("motion-off", state.motion === "off");
+  root.classList.toggle("glow-on", state.glow === true);
   root.classList.toggle("motion-full", state.motion === "full");
   // Written out for the boot script in `index.html`, which applies them **before
   // the first paint**. Without it the app painted its default gold and then
@@ -7704,6 +7736,16 @@ function paneAppearance() {
       ),
       el("div", { class: "provider-check" }, el("span", { class: "source-status", text: `Accent: ${accentOf(state.accent)[1]}` })),
     ),
+    // **The ring is the highlight; the glow is optional.** The ring is what says "this
+    // one", and it is always drawn. The halo around it is a look rather than information,
+    // so it is a switch — and it starts off, so the app is exactly as it was for anyone
+    // who never opens this pane.
+    toggleRow(state.glow, "Glow around the highlight", "A soft halo in the accent colour, around the ring on the card, button or row you are on.", (e) => {
+      state.glow = e.target.checked;
+      localStorage.setItem(KEY.glow, state.glow ? "1" : "0");
+      applyTheme();
+      render();
+    }),
     // The line under the row. It says what the setting *does* rather than naming the
     // pane it is on — the section name is the tile on the left, and does not need
     // saying twice.
@@ -7825,7 +7867,17 @@ function paneSound() {
   return [
     el("p", { class: "option-desc", text: "Nothing here is on until you turn it on, and nothing plays over a title once it is playing." }),
     toggleRow(sound.clicks, "A click when you press something", "A short, soft tick on a button, a tile and a card — never on a scroll, and never on a screen you did not press.", (e) => set({ clicks: e.target.checked })),
-    toggleRow(sound.music, "Lofi music while you browse", "A slow four-chord lofi loop under the app until you press Play. It stops the moment a title starts, and never plays in the player.", (e) => set({ music: e.target.checked })),
+    // **The music is a track you pick, not a switch you flip.** Every track ships inside
+    // the app, so this works with no network; None is the default and plays nothing. It
+    // stops the moment a title starts, and never plays inside the player.
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Browsing music" }),
+      el("p", { class: "option-desc", text: "A loop under the app while you browse, from the app's own files — no network, nothing downloaded. It gives way the moment a title plays." }),
+      // **The app's own dropdown.** A native `<select>` is the one control the platform
+      // paints — its list cannot be themed and its box never matched the fields beside it
+      // — so this is the button-and-list the Playback pane already uses.
+      dropdown(MUSIC_TRACKS.map(([id, label]) => [id, label]), sound.music || "none", (v) => set({ music: v }), "Track").node,
+    ),
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Music volume" }),
       el("p", { class: "option-desc", text: "How loud the browsing music is, against the title you are about to play." }),

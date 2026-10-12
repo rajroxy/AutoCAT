@@ -37,6 +37,10 @@
 
 :root {
   color-scheme: dark;
+  /* **The one highlight.** The ring is always drawn; the halo is the switch in
+     Settings → Accent. One variable, so every surface in the app lights the same way. */
+  --hl: 0 0 0 3px var(--accent);
+  --hl-glow: none;
   /* A near-neutral black rather than a blue-black: the surfaces are one flat
      colour each, so the posters and the covers carry the colour in the app. */
   --ink: #0b0b0b;
@@ -1083,7 +1087,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .accent-card.active {
   background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
-  box-shadow: 0 0 0 3px var(--accent), 0 0 26px 2px rgba(var(--accent-rgb), 0.5);
+  box-shadow: var(--hl);
 }
 
 /* ------------------------------------------------------------------ explore */
@@ -1253,9 +1257,12 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   flex-direction: column;
   gap: 16px;
   max-height: calc(100vh - 128px);
+  /* **The tiles keep their own scroll, and their own room.** A chosen or focused tile
+     draws its ring *outside* its box, and this column clips at its edges — with no padding
+     the ring on the left was cut off, which is the options looking sliced at the edge. */
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 6px;
+  padding: 6px 10px 6px 6px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
@@ -2713,7 +2720,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .person-initials { display: grid; place-items: center; font-size: 30px; font-weight: 800; color: var(--faint); }
 .person-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
 .person-role { font-size: 11px; color: var(--muted); }
-.person:hover .person-face, .person:focus-visible .person-face { outline: 3px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 24px 2px rgba(var(--accent-rgb), 0.45); }
+.person:hover .person-face, .person:focus-visible .person-face { outline: none; box-shadow: var(--hl); }
 
 /* Seasons: the show's own list, each one a way into its episodes. */
 .season-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
@@ -3490,7 +3497,7 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
 .strip-clickable { cursor: pointer; }
 /* The cue is the same accent ring everything else uses — it was a grey 1px **outline**,
    which is the box-around-things this app does not draw. */
-.strip-clickable:hover { outline: none; box-shadow: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45); border-radius: 12px; }
+.strip-clickable:hover { outline: none; box-shadow: var(--hl); border-radius: 12px; }
 
 /* ---------------------------------------------- the add-on / plugin dropdowns */
 /* The source form's type field and the model picker are drawn by the same rule
@@ -3603,6 +3610,8 @@ select option:hover {
 .font-condensed body { font-stretch: 87.5%; }
 
 
+.glow-on { --hl: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45); }
+
 /* ============================================================================
    **Hover and choice: a ring on the one thing you are on — and no outlines.**
    ----------------------------------------------------------------------------
@@ -3649,16 +3658,45 @@ select option:hover {
    double highlight, all over again: pointing at one colour card lit the whole accent
    pane. */
 .vis-card:hover,
-.option:hover, .vis-option:hover,
-.cal-cell:hover,
+.option:hover, .option:focus-visible, .vis-option:hover, .vis-option:focus-visible,
+.cal-cell:hover, .cal-cell:focus-visible,
 .profile-tile:hover, .profile-tile:focus-visible,
 .ep-row:hover, .site-row:hover,
 .icon-btn:hover, .icon-btn:focus-visible,
 .btn:hover, .btn:focus-visible,
 .accent-card:hover, .accent-card:focus-visible,
+.settings-tab:focus-visible,
 .dropdown-btn:hover, .dropdown-btn:focus-visible, .dropdown:focus-within .dropdown-btn {
   transform: none;
-  box-shadow: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45);
+  /* The generic keyboard ring is a 3px outline on the button itself; every surface here
+     draws the highlight instead, so nothing wears two. */
+  outline: none;
+  box-shadow: var(--hl);
+}
+
+/* **The keyboard lands on the card, not on the picture inside it.** The arrow keys step
+   through `.focusable`, and on a card that is the *artwork button* inside it — so the ring
+   is drawn on the card whenever anything in it is focused. The highlight follows the
+   keyboard exactly as it follows the cursor. */
+.icon-box:has(:focus-visible),
+.poster:has(:focus-visible),
+.cat-tile:has(:focus-visible),
+.channel-card:has(:focus-visible),
+.accent-card:has(:focus-visible),
+.season-card:has(:focus-visible),
+.company-card:has(:focus-visible),
+.trailer-card:has(:focus-visible) {
+  box-shadow: var(--hl);
+}
+/* …and whatever is inside does not draw a second ring of its own. */
+.icon-box :focus-visible,
+.cat-tile :focus-visible,
+.channel-card :focus-visible,
+.accent-card :focus-visible,
+.season-card :focus-visible,
+.company-card :focus-visible,
+.trailer-card :focus-visible {
+  outline: none;
 }
 /* **A card's own posters are not a second target.** Pointing at artwork inside a card
    highlights the card; a ring on both is the double highlight. */
@@ -3671,11 +3709,11 @@ select option:hover {
 .option:has(input:checked), .vis-option:has(input:checked),
 .menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"],
 .profile-tile.active {
-  box-shadow: 0 0 0 3px var(--accent), 0 0 26px 2px rgba(var(--accent-rgb), 0.5);
+  box-shadow: var(--hl);
   background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
 }
-.cal-cell.selected { box-shadow: 0 0 0 3px var(--accent), 0 0 22px 2px rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.2); }
+.cal-cell.selected { box-shadow: var(--hl); background: rgba(var(--accent-rgb), 0.2); }
 .cal-cell.today { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.6); }
 
 /* **The buttons that are filled stay filled.** Movies/Shows and the active chips are
@@ -3693,10 +3731,20 @@ select option:hover {
 }
 /* **The section you are in, and Home's own tab: a fill, no ring** — a ring around a
    full-width nav tile reads as a box. */
-.settings-tab.active, .tab[aria-selected="true"] {
-  background: rgba(var(--accent-rgb), 0.24);
+/* **The section you are in is a fill, not a ring** — a ring around a full-width nav tile
+   reads as a box around the column. */
+.settings-tab.active {
+  background: rgba(var(--accent-rgb), 0.26);
   color: #fff;
-  box-shadow: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45);;
+  box-shadow: none;
+}
+/* **Home is a filled button, like Movies / Shows.** It was tinted and ringed like a
+   *selection*; the top bar's own control is the same solid accent plate its sibling switch
+   wears, with the dark text that goes on it. */
+.tab[aria-selected="true"] {
+  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  color: #14110a;
+  box-shadow: none;
 }
 .settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
 
