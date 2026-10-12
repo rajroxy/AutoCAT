@@ -69,6 +69,8 @@ const SETTING_KEYS = {
   // How a season's episodes are drawn: one row each, or a grid of cards.
   epView: "nuvio.epView",
   liveSource: "nuvio.liveSource",
+  // How the live side draws its Guide and its Categories: a table/tiles, or a list.
+  liveView: "nuvio.liveView",
   ottSort: "nuvio.ottSort",
 };
 
@@ -258,11 +260,15 @@ const ACCENTS = [
   // something for a screen that is too dim or too bright for the first eight.
   ["crimson", "Crimson", "224, 92, 92", "#e05c5c", "#a83a3a"],
   ["coral", "Coral", "240, 138, 108", "#f08a6c", "#bd5a3d"],
-  ["magenta", "Magenta", "216, 110, 196", "#d86ec4", "#a3448f"],
+  // **Where magenta was.** A warm copper: no colour in the board sat between amber
+  // and coral on the warm side, and a pink that reads as a warning on a dark screen is
+  // not a colour to hand someone by default. An install that had picked magenta falls
+  // back to the app’s gold (`accentOf`), since the id it stored is gone.
+  ["copper", "Copper", "196, 121, 82", "#c47952", "#94502f"],
   ["indigo", "Indigo", "122, 130, 236", "#7a82ec", "#4c53bd"],
   ["lime", "Lime", "166, 214, 90", "#a6d65a", "#769f2f"],
   ["ice", "Ice", "126, 208, 226", "#7ed0e2", "#4b9cb1"],
-  // **Two more ends.** A plum that sits between the violet and the magenta without being
+  // **Two more ends.** A plum that sits between the violet and the copper without being
   // either, and a mint between the teal and the green — so the board has a colour for a
   // screen the first fourteen do not.
   ["plum", "Plum", "186, 130, 220", "#ba82dc", "#8a52b0"],
@@ -2105,6 +2111,20 @@ function syncProfileMark() {
  * nothing to press: on a machine with no provider keys it drew *zero* controls. What it
  * draws now is the thing itself — a name, an address if you have one, and Continue.
  */
+/** The GitHub mark — the one picture a sign-in screen needs. */
+const githubMark = () =>
+  svgNode("svg", { class: "github-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+    svgNode("path", { d: "M12 1.8a10.2 10.2 0 0 0-3.23 19.9c.51.09.7-.22.7-.5v-1.9c-2.84.62-3.44-1.2-3.44-1.2-.46-1.18-1.13-1.5-1.13-1.5-.93-.63.07-.62.07-.62 1.02.07 1.56 1.05 1.56 1.05.91 1.56 2.4 1.11 2.98.85.09-.66.36-1.11.64-1.37-2.27-.26-4.65-1.13-4.65-5.04 0-1.11.4-2.02 1.05-2.73-.11-.26-.46-1.3.1-2.71 0 0 .86-.27 2.81 1.05a9.75 9.75 0 0 1 5.11 0c1.95-1.32 2.8-1.05 2.8-1.05.56 1.41.21 2.45.11 2.71.65.71 1.05 1.62 1.05 2.73 0 3.92-2.39 4.78-4.67 5.03.37.32.7.94.7 1.9v2.82c0 .28.18.6.7.5A10.2 10.2 0 0 0 12 1.8Z" }));
+
+/**
+ * **The sign-in screen.** GitHub is the door; the machine's own name is the second one.
+ *
+ * This pane used to be a box with a button in it, and the button opened a *setup* panel
+ * that talked about Client IDs before it offered a way in. It is a sign-in screen now: the
+ * mark, the one thing to press, and — under a rule — the name this machine keeps. The
+ * one-time registration is still there, behind **Set up on this server**, because it is
+ * something the app's owner does once and a person signing in never has to see.
+ */
 function signInCard() {
   const account = state.account || {};
   const providers = Array.isArray(account.providers) ? account.providers : [];
@@ -2229,12 +2249,18 @@ function signInCard() {
     // the name under the rule is the way in that works before any keys exist. Google is
     // not offered here: one provider ahead of the local option is what this pane is for,
     // and GitHub is it.
-    el("div", { class: "account-row account-buttons" },
+    // **The screen itself.** The mark, the one door, and — behind a second button — the
+    // one-time registration only the app's owner ever needs.
+    el("div", { class: "github-login" },
+      el("span", { class: "signin-mark", "aria-hidden": "true" }, githubMark()),
+      el("p", { class: "pane-note", text: github.configured
+        ? "GitHub's own page opens, you sign in there as you would anywhere, and the app comes back with your name and picture. Nothing of your password is ever here."
+        : "GitHub is the way in. One application has to be registered once, on this server's own account — press Set up on this server and the form is filled in for you." }),
       el("button", {
         class: "btn primary focusable",
         type: "button",
         id: "sign-in-github",
-        text: "Sign in with GitHub",
+        text: "Continue with GitHub",
         title: github.configured
           ? "Sign in with your GitHub account"
           : "Sign in with GitHub — one app has to be registered first",
@@ -2243,6 +2269,14 @@ function signInCard() {
         // it opens the panel that does the signing in, and the panel is also where that
         // one-time registration happens (see `openGithubSignIn`).
         onclick: () => openGithubSignIn(),
+      }),
+      el("button", {
+        class: "btn subtle focusable",
+        type: "button",
+        id: "sign-in-setup",
+        text: "Set up on this server",
+        title: "Register this app on GitHub, once, as its owner",
+        onclick: () => openGithubSignIn(true),
       }),
     ),
     el("div", { class: "h-divider", "aria-hidden": "true" }),
@@ -2277,8 +2311,11 @@ function signInCard() {
  * them on this server (Settings first, the environment second — see `signinKeys`). After
  * that the button signs in normally, on this machine, for good.
  */
-function openGithubSignIn() {
+function openGithubSignIn(setup = false) {
   const github = (state.account?.providers || []).find((p) => p.key === "github") || { configured: false };
+  // **Setup only when it is needed.** A server that already has the app registered opens
+  // straight onto Continue; the form is one press away for the owner (see the pane).
+  const wantsSetup = setup || !github.configured;
   const redirect = state.account?.redirects?.github || `${location.origin}/auth/github/callback`;
   const start = `/auth/github/start?next=${encodeURIComponent("/app/#/settings")}`;
   const status = el("p", { class: "player-note", text: "" });
@@ -2319,7 +2356,7 @@ function openGithubSignIn() {
   const idField = el("input", { class: "text-input focusable", type: "text", id: "github-client-id", placeholder: "Client ID", value: state.signin?.github?.clientId || "" });
   const secretField = el("input", { class: "text-input focusable", type: "password", id: "github-client-secret", placeholder: state.signin?.github?.hasSecret ? "Client secret — already set" : "Client secret" });
   const registerUrl = "https://github.com/settings/applications/new"
-    + `?oauth_application%5Bname%5D=${encodeURIComponent("Nuvio")}`
+    + `?oauth_application%5Bname%5D=${encodeURIComponent("AutoCAT")}`
     + `&oauth_application%5Burl%5D=${encodeURIComponent(location.origin)}`
     + `&oauth_application%5Bcallback_url%5D=${encodeURIComponent(redirect)}`;
   const saveSetup = async () => {
@@ -2345,12 +2382,9 @@ function openGithubSignIn() {
       el("p", { class: "pane-note", text: github.configured
         ? ""
         : "The Client ID and the secret are the app's identity badge, not yours. They are not your login and they cannot sign anyone in on their own — they are what tells GitHub which app is asking." }),
-      github.configured
-        ? el("div", { class: "account-row account-buttons" },
-            el("button", { class: "btn primary focusable", type: "button", id: "github-continue", text: "Continue to GitHub", onclick: go }),
-            el("button", { class: "btn subtle focusable", type: "button", id: "github-same-tab", text: "Or open it in this tab", onclick: () => { location.href = start; } }),
-          )
-        : el("div", { class: "github-setup" },
+      el("div", { class: "signin-mark" }, githubMark()),
+      wantsSetup
+        ? el("div", { class: "github-setup" },
             el("p", { class: "pane-note", text: "1. GitHub fills this form in for you — press Register application at the bottom of it." }),
             el("a", { class: "btn subtle focusable", id: "github-register", href: registerUrl, target: "_blank", rel: "noreferrer noopener", text: "Open GitHub's registration form" }),
             el("p", { class: "pane-note", text: "2. Copy the two values it gives you here. The callback is already in the form." }),
@@ -2363,6 +2397,11 @@ function openGithubSignIn() {
             el("div", { class: "account-row account-buttons" },
               el("button", { class: "btn primary focusable", type: "button", id: "github-save", text: "Save and sign in", onclick: saveSetup }),
             ),
+          )
+        : el("div", { class: "account-row account-buttons" },
+            el("button", { class: "btn primary focusable", type: "button", id: "github-continue", text: "Continue to GitHub", onclick: go }),
+            el("button", { class: "btn subtle focusable", type: "button", id: "github-same-tab", text: "Or open it in this tab", onclick: () => { location.href = start; } }),
+            el("button", { class: "btn subtle focusable", type: "button", id: "github-setup", text: "Set up on this server", title: "Register this app on GitHub, once, as its owner", onclick: () => { close(); openGithubSignIn(true); } }),
           ),
       status,
       el("div", { class: "assistant-actions" },
@@ -2373,7 +2412,12 @@ function openGithubSignIn() {
   document.addEventListener("keydown", onKey, true);
   overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
   document.body.append(overlay);
-  keepSharp(overlay);
+  // **Nothing of the page is left sharp behind the panel.** A copy of the card you
+  // pressed used to be drawn over the blur, exactly where it sits on the page — and on a
+  // title page that card *is* a trailer card, so a second copy of the clip sat beside the
+  // player, sharper than the page and ringed. The panel is the only thing on screen now;
+  // the page behind it is blurred and nothing of it is repeated.
+  dropSharp();
 }
 
 /** Sign out of the session. Whatever this machine remembers is left alone. */
@@ -6901,6 +6945,13 @@ function openTrailer(t) {
     }
     clock.textContent = `${mmss(now)} / ${mmss(total)}`;
     const playing = ytPlayer.getPlayerState?.() === 1;
+    // **YouTube's own furniture is kept off the picture.** The embed paints its title
+    // card, its channel line, its marks and its "More videos" wall for the opening
+    // seconds of a clip and again whenever it is not moving; these two bands sit over
+    // exactly those moments and are transparent for the whole of a running clip. The
+    // state change alone was not enough — the title card is painted *while* it plays.
+    const opening = playing && now < 6;
+    overlay.querySelector(".trailer-frame")?.classList.toggle("stopped", !playing || opening);
     playBtn.textContent = playing ? "❚❚" : "▶";
     playBtn.title = playing ? "Pause" : "Play";
     playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
@@ -6950,7 +7001,11 @@ function openTrailer(t) {
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", onKey);
   document.body.append(overlay);
-  keepSharp(overlay);
+  // **Nothing of the page is left sharp behind the panel.** The card you pressed used to
+  // be copied on top of the blur, exactly where it sits on the page — and on a title page
+  // that card *is* a trailer card, so a second copy of the clip sat beside the player,
+  // sharper than the page behind it. The panel is the only thing on screen now.
+  dropSharp();
   // The IFrame API is fetched once, and only when a trailer is actually opened — nothing
   // loads for a page that is merely open.
   let lifted = false;
@@ -7900,7 +7955,7 @@ function paneSignin() {
       ? null
       : el("p", {
           class: "source-status",
-          text: "GitHub needs one application registered on your own account before it can sign anyone in. Press Sign in with GitHub and the panel opens GitHub's form with everything filled in already.",
+          text: "GitHub needs one application registered on the server's own account before it can sign anyone in. Press Set up on this server and the form opens filled in already.",
         }),
   ].filter(Boolean);
 }
@@ -9904,7 +9959,6 @@ const liveProfile = () => state.profile === LIVE_PROFILE;
 const LIVE_CARDS = [
   ["live-guide", "Guide"],
   ["live-channels", "Channels"],
-  ["live-recordings", "Recordings"],
   ["live-upcoming", "Upcoming"],
 ];
 const liveCardOn = (key) => !picking() || visFor().cards[key] !== false;
@@ -10149,6 +10203,7 @@ function renderGuide() {
   if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
 
   let channels = liveChannelsShown().slice(0, LIVE_GUIDE_CHANNELS);
+  const view = liveView();
   const { guideCountry, guideCategory, guideSportsOnly } = state.live || {};
   if (guideCountry) {
     channels = channels.filter((c) => (c.country || "").toUpperCase() === guideCountry.toUpperCase());
@@ -10253,7 +10308,7 @@ function renderGuide() {
           class: "view-hint",
           text: "No guide data — add an XMLTV (EPG) URL under Settings → Source and these rows fill with real programmes.",
         }),
-    el(
+    view.guide === "list" ? guideListBlock(channels) : el(
       "div",
       { class: "guide" },
       el(
@@ -10323,7 +10378,7 @@ function channelRow(name, channels) {
  * first few rows of what is inside it, then the name and a line of description under
  * it — and the frame is the button, the way a cover is.
  */
-function liveCard({ id, title, sub, rows, action, posters = [], grid = null }) {
+function liveCard({ id, title, sub, rows, action, posters = [], grid = null, spotlight = false }) {
   // **The frame holds six channel logos**, the way a Movies card holds its own
   // posters: a wall of `.content-tile`s in the same `.icon-wrap`. Only when there
   // is nothing to draw (no lineup read yet) does it fall back to the guide rows.
@@ -10339,7 +10394,7 @@ function liveCard({ id, title, sub, rows, action, posters = [], grid = null }) {
   const filled = Boolean(grid) || wall.length > 0;
   return el(
     "div",
-    { class: "icon-box live-card" },
+    { class: "icon-box live-card" + (spotlight ? " card-spotlight" : "") },
     el(
       "div",
       { class: `icon-wrap${filled ? " art-filled" : ""}` },
@@ -10463,7 +10518,7 @@ function guideCard() {
       updated ? `updated ${updated}` : "",
       state.live.guide && state.live.guide.epg === false ? "no EPG yet" : "",
     ].filter(Boolean).join(" · "),
-    grid: guideGrid(channels, { hours: 3 }),
+    grid: liveView().guide === "list" ? guideListBlock(channels, { compact: true }) : guideGrid(channels, { hours: 3 }),
     action: () => go("#/guide"),
   });
 }
@@ -10506,17 +10561,55 @@ function channelsCard() {
   });
 }
 
-/** **The Upcoming card, on the live side too.** The VOD home has one to the right of
- * your own cards; this is the same glance — what is coming up next — next to the
- * Recordings (or Highlights) card. */
+/**
+ * **The Upcoming card, on the live side too — and it is the same card.**
+ *
+ * The VOD home's Upcoming card is **two frames**, each with a tag across the top and the
+ * name of what is coming; the live side had one line of text instead, so the two homes
+ * did not look like the same app. These are the next two programmes in the guide, drawn
+ * in the VOD card's own frames: the channel's mark is the picture, the channel is the tag,
+ * the programme is the title.
+ */
 function liveUpcomingCard() {
+  if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
+  if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
+  const picks = [];
+  for (const channel of liveChannelsShown()) {
+    const { next } = nowNext(channel, state.live.guide);
+    if (next && next.title) picks.push({ channel, next });
+    if (picks.length === 2) break;
+  }
+  const tiles = Array.from({ length: 2 }, (_, i) => {
+    const pick = picks[i];
+    const tile = el("figure", { class: "spotlight-tile" },
+      el("img", {
+        class: "spotlight-tile-art",
+        alt: "",
+        loading: "lazy",
+        onerror: (event) => spotlightArtFailed(event.currentTarget),
+      }),
+      el("div", { class: "spotlight-frame", "aria-hidden": "true" },
+        el("span", { class: "spotlight-tag", text: pick ? pick.channel.name : "" }),
+        el("span", { class: "spotlight-title", text: pick ? pick.next.title : (i === 0 ? "Nothing in the guide yet" : "") }),
+      ),
+    );
+    const img = tile.querySelector(".spotlight-tile-art");
+    if (pick && pick.channel.logo) {
+      img.classList.add("logo-art");
+      img.setAttribute("src", pick.channel.logo);
+    } else {
+      img.removeAttribute("src");
+      img.classList.add("blank");
+    }
+    return tile;
+  });
   return liveCard({
     id: "open-live-upcoming",
     title: "Upcoming",
-    sub: "What is on next",
-    rows: [el("div", { class: "guide-mini-row" },
-      el("span", { class: "guide-mini-name", text: "What is on next" }),
-      el("span", { class: "guide-mini-block bare", text: "Open the calendar" }))],
+    sub: picks.length ? "What is on next" : "No guide read yet",
+    spotlight: true,
+    grid: el("div", { class: "content-strip spotlight-strip" },
+      el("div", { class: "spotlight-track" }, ...tiles)),
     action: () => go("#/calendar"),
   });
 }
@@ -10625,7 +10718,6 @@ function renderLiveHome() {
       ...[
         liveCardOn("live-guide") ? guideCard() : null,
         liveCardOn("live-channels") ? channelsCard() : null,
-        liveCardOn("live-recordings") ? recordingsCard() : null,
         liveCardOn("live-upcoming") ? liveUpcomingCard() : null,
       ].filter(Boolean),
     ),
@@ -10658,7 +10750,18 @@ function renderLiveCategories() {
         ? `${liveChannelsShown().length} channels in ${groups.length} groups — pick a group to see its channels.`
         : "Reading the channel list…",
     }),
-    el(
+    liveView().category === "list"
+      ? el("div", { class: "guide-list" }, ...groups.map((group) =>
+          el("button", {
+            class: "guide-list-row focusable",
+            type: "button",
+            onclick: () => go("#/categories/" + encodeURIComponent(group.name)),
+          },
+            el("span", { class: "guide-list-name", text: group.name }),
+            el("span", { class: "guide-list-at", text: group.count + " channel" + (group.count === 1 ? "" : "s") }),
+          ),
+        ))
+      : el(
       "div",
       { class: "cat-tiles" },
       ...groups.map((group) =>
@@ -11046,8 +11149,52 @@ function providerPicker(picked, save) {
   );
 }
 
+/** **A list, or a grid — one at a time.** */
+function liveView() {
+  const stored = readJSON(KEY.liveView, {});
+  return {
+    guide: stored.guide === "list" ? "list" : "grid",
+    category: stored.category === "list" ? "list" : "grid",
+  };
+}
+
+function saveLiveView(patch) {
+  writeJSON(KEY.liveView, { ...liveView(), ...patch });
+  render();
+}
+
+/**
+ * **The Guide as a list.** One line per channel — its mark, its name, what is on it now
+ * and when that started — instead of the table. The channels are the ones the filters
+ * above left, so the list and the table are the same guide, drawn two ways.
+ */
+function guideListBlock(channels, { compact = false } = {}) {
+  const guide = state.live.guide;
+  const rows = channels.map((channel) => {
+    const { now, next } = nowNext(channel, guide);
+    return el("button", {
+      class: "guide-list-row focusable",
+      type: "button",
+      "aria-label": "Open " + channel.name,
+      onclick: () => go("#/channel/" + encodeURIComponent(channel.id)),
+    },
+      compact ? null : el("span", { class: "guide-list-logo" },
+        channel.logo
+          ? el("img", { src: channel.logo, alt: "", loading: "lazy" })
+          : el("span", { class: "channel-fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() })),
+      el("span", { class: "guide-list-name", text: channel.name }),
+      el("span", { class: "guide-list-now", text: (now && now.title) || (next ? "Next: " + next.title : "No programme data") }),
+      compact ? null : el("span", { class: "guide-list-at", text: now ? clockOf(now.start) : next ? clockOf(next.start) : "" }),
+    );
+  });
+  if (!rows.length) rows.push(el("p", { class: "empty", text: "No channels read yet." }));
+  return el("div", { class: "guide-list" + (compact ? " compact" : "") }, ...rows);
+}
+
 function paneLiveSource() {
   const live = liveSource();
+  const view = liveView();
+  const saveView = saveLiveView;
   const pickedProviders = new Set((Array.isArray(live.providers) ? live.providers : []).map(String));
   const field = (id, label, value, placeholder, type = "text") => {
     const input = el("input", { class: "text-input focusable", type, id, value, placeholder });
@@ -11087,6 +11234,16 @@ function paneLiveSource() {
             field("live-pass", "password", live.password, "password", "password"),
           )
         : null,
+      el("div", { class: "provider" },
+        el("span", { class: "option-title", text: "Guide and Categories" }),
+        el("p", { class: "option-desc", text: "How the live side draws them. One view at a time — a table and a wall of tiles, or a plain list." }),
+        el("div", { class: "options" },
+          radioRow(view.guide === "grid", "guide-view", "Guide — the table", "Channels down the side, the next hours across the top, one block per programme.", () => saveView({ guide: "grid" })),
+          radioRow(view.guide === "list", "guide-view", "Guide — the list", "One line per channel: what is on it now, and when that started.", () => saveView({ guide: "list" })),
+          radioRow(view.category === "grid", "category-view", "Categories — tiles", "A wall of category tiles, each with its channel count.", () => saveView({ category: "grid" })),
+          radioRow(view.category === "list", "category-view", "Categories — the list", "One row per category, with its count.", () => saveView({ category: "list" })),
+        ),
+      ),
       el("div", { class: "provider-check" },
         el("span", {
           class: `source-status${state.live.error ? " bad" : state.live.loaded ? " ok" : ""}`,

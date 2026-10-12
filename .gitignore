@@ -61,3 +61,9 @@ addon/watchlist.*.json
 addon/customrows.*.json
 addon/watchlist.scope
 addon/customrows.scope
+
+# **The settings are per profile too.** `settings.<who>.json` holds that profile's keys,
+# add-ons, live source and trackers, and `settings.scope` records which profile inherited
+# the pre-scope file. Both are runtime state, and neither is source.
+addon/settings.*.json
+addon/settings.scope

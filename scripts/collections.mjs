@@ -402,10 +402,57 @@ export const REGIONAL_SERVICES = (type) => {
   // was a route into the same near-empty list, under a brand name. The two worldwide
   // services carry no region and are kept (`codeHasContent` keeps an unknown code too,
   // so a region the country table does not list is not silently deleted).
-  const kept = list.filter((svc) => codeHasContent(svc.region));
+  const kept = list.filter((svc) => codeHasContent(svc.region) && isPopularRegional(svc.name));
   const keptIds = new Set(kept.map((s) => s.id));
   return [...kept, ...WORLDWIDE.filter((s) => !seen.has(s.id) && !keptIds.has(s.id))];
 };
+
+/**
+ * **Only the services people actually subscribe to.**
+ *
+ * The regional data holds 133 services, and the card published every one of them: a
+ * Regional OTT row was as likely to be a small national catalogue, a shop-front for a
+ * broadcaster's back catalogue, or a companion app for a pay-TV box as it was to be a
+ * service anyone recognises — and two of them were literally named \`5\` and \`10\`, the
+ * provider list's own abbreviations, sitting in the card as rows called "5" and "10".
+ *
+ * So the card keeps the **household names**: the streaming service of each region's
+ * broadcasters, the big local platforms, and the regional players everyone in that
+ * country would name if asked. Everything else — the Amazon/Apple/Roku *channel*
+ * variants, the box companions, the art-house catalogues, the two numeric labels — is
+ * left out of the card. The data still holds them; this is the card's own list.
+ */
+const POPULAR_REGIONAL = new Set([
+  // —— the Pacific
+  "9Now", "7plus", "ABC iview", "SBS On Demand", "Stan", "BINGE", "TVNZ+", "ThreeNow",
+  // —— Britain and Ireland
+  "BBC iPlayer", "ITVX", "Channel 4", "STV Player", "BritBox", "RTE Player", "TG4",
+  // —— South Asia
+  "JioHotstar", "Zee5", "MX Player", "Sun Nxt", "aha", "Hoichoi", "ManoramaMax",
+  // —— Korea
+  "TVING", "wavve", "Watcha", "Coupang Play", "Kocowa",
+  // —— Japan
+  "U-NEXT", "Hulu",
+  // —— Greater China and South-East Asia
+  "iQIYI", "WeTV", "Viu", "Vidio", "iflix", "Catchplay", "Mewatch", "iWant", "LINE TV",
+  // —— Europe
+  "ZDF", "ARD Mediathek", "RTL+", "Joyn", "ServusTV On", "ORF ON", "Arte", "M6+",
+  "Molotov TV", "Canal+", "CANAL+", "rtve", "Movistar Plus+", "Filmin", "Mediaset Infinity",
+  "Timvision", "Sky", "Now TV", "SkyShowtime", "Viaplay", "TV4 Play", "TV 2 Play", "TV 2",
+  "NRK TV", "SVT", "Yle Areena", "Ruutu", "Videoland", "NPO Start", "NLZIET", "VRT MAX",
+  "RTBF Auvio", "Play Suisse", "TVP", "Player", "Polsat Box Go", "Voyo", "WOW", "Go3",
+  "Telia Play", "blue TV",
+  // —— Turkey and Russia
+  "Exxen", "puhutv", "Kinopoisk", "Okko", "Premier",
+  // —— the Middle East
+  "Shahid VIP", "STARZPLAY", "OSN+", "TOD", "TOD TV",
+  // —— the Americas
+  "Globoplay", "VIX", "Claro video", "Peacock Premium", "Pluto TV", "Tubi TV", "Starz",
+  "AMC+", "MGM Plus", "Paramount Plus", "Crave", "CBC Gem", "MUBI",
+]);
+
+/** Is this a service the Regional OTT card publishes? */
+const isPopularRegional = (name) => POPULAR_REGIONAL.has(String(name || "").trim());
 
 /** The country the collection set is built for unless Settings picks another. */
 export const DEFAULT_COUNTRY = (process.env.NUVIO_REGION || "US").toUpperCase();
@@ -536,7 +583,7 @@ function regionalOtt(kind) {
     const seen = new Set();
     for (const [name, code] of COUNTRIES) {
       if (!countryHasContent(name, type)) continue;
-      const local = localFor(name, type);
+      const local = localFor(name, type).filter((svc) => isPopularRegional(svc.name));
       if (!local.length) continue;
       for (const svc of local) {
         // The same service can be listed for two countries (a pan-regional platform);

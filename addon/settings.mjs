@@ -14,7 +14,53 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Overridable so tests never touch the real settings file.
-const FILE = process.env.NUVIO_SETTINGS_FILE || path.join(__dirname, "settings.json");
+const BASE_FILE = process.env.NUVIO_SETTINGS_FILE || path.join(__dirname, "settings.json");
+
+/* ============================================================================
+   **One settings file per profile.**
+   ----------------------------------------------------------------------------
+   Every key, every add-on, the live source, the trackers - all of it lived in one
+   file for the machine, so switching profile showed the other person's TMDB key,
+   their debrid account and their M3U URL, and a key added in one profile appeared
+   in all of them. That is a shared account, not a profile.
+
+   The file is chosen by the **scope** the caller asks with (`?who=<id>`, which the
+   app sends on every request): `settings.<who>.json`. No `who` - a Stremio client
+   reading the addon, a script, the test suite - keeps the plain `settings.json` it
+   always was, so nothing outside the app changes.
+
+   The first scoped caller **inherits the file that was there**: an install from
+   before this change had its keys in the plain file, and its profile is the one
+   making the first request. A marker keeps that to a single profile, so a second
+   profile starts with the defaults rather than a copy of the first one's keys.
+   ============================================================================ */
+let scope = "";
+let FILE = BASE_FILE;
+const cleanScope = (who) => String(who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 32);
+
+/** Point the store at one profile's file. Returns true when the scope changed. */
+export function setSettingsScope(who) {
+  const next = cleanScope(who);
+  if (next === scope) return false;
+  scope = next;
+  FILE = next ? path.join(__dirname, `settings.${next}.json`) : BASE_FILE;
+  cache = null;
+  if (next) {
+    try {
+      const marker = path.join(__dirname, "settings.scope");
+      if (!fs.existsSync(FILE) && !fs.existsSync(marker) && fs.existsSync(BASE_FILE)) {
+        fs.writeFileSync(FILE, fs.readFileSync(BASE_FILE));
+        fs.writeFileSync(marker, `${next}\n`);
+      }
+    } catch {
+      /* a read-only fs: the defaults work for this run */
+    }
+  }
+  return true;
+}
+
+/** The profile the store is pointing at ("" = the plain file). */
+export const settingsScope = () => scope;
 
 const DEFAULTS = {
   profile: "VOD",
@@ -94,14 +140,14 @@ const DEFAULTS = {
   // every row, TVDB fills the fields TMDB left empty for the same title (keyed by
   // IMDb id). Each half can be switched off from Settings → Trackers & providers.
   enrich: { tmdb: true, tvdb: true },
-  // Live TV & Sports: where the lineup and the guide come from. "dth" is the
-  // **premium/DTH provider catalogue** shipped with the app ("m3u" is your own
-  // playlist URL/file, "xtream" is an Xtream Codes login). `providers` is which of
-  // the catalogue's operators this profile is drawn from, and `epg` is an XMLTV URL
-  // — with it (or a provider's own public feed) the Guide draws real programme
-  // blocks; without it the lineup is still there and the Guide says so.
+  // Live TV & Sports: where the lineup and the guide come from. **`m3u` is the
+  // default** — your own playlist URL or file. `xtream` is an Xtream Codes login, and
+  // `dth` (the operator catalogue that used to ship with the app) is only ever what an
+  // older install already had; a new one never starts there. `epg` is an XMLTV URL —
+  // with it the Guide draws real programme blocks; without it the lineup is still there
+  // and the Guide says so.
   live: {
-    mode: "dth",
+    mode: "m3u",
     m3u: "",
     host: "",
     username: "",
@@ -239,7 +285,7 @@ export function publicSettings() {
     // The live source is reported as *what is set*, never as the values: a
     // playlist URL can carry a token and a password is a password.
     live: {
-      mode: ["dth", "m3u", "xtream"].includes(s.live?.mode) ? s.live.mode : "dth",
+      mode: ["m3u", "dth", "xtream"].includes(s.live?.mode) ? s.live.mode : "m3u",
       providers: Array.isArray(s.live?.providers) ? s.live.providers : [],
       hasM3u: Boolean(s.live?.m3u),
       hasLogin: Boolean(s.live?.host && s.live?.username),

@@ -63,7 +63,7 @@ import {
   setScope as customSetScope,
 } from "./customrows.mjs";
 import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, isOttSort } from "./catalogs.mjs";
-import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
+import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys, setSettingsScope, settingsScope } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
 import { applyPosters, postersEnabled, checkPosterService, imdbId } from "./posters.mjs";
 import { applyContentSource, contentSourceActive, contentSourceStats } from "./tvdb.mjs";
@@ -1492,6 +1492,22 @@ function customPayload() {
 const scopeStores = (who) => {
   watchlistSetScope(who);
   customSetScope(who);
+  // **The keys and the add-ons are the profile's too.** They were one file for the
+  // machine, so a TMDB key, a debrid account or an M3U URL added while one profile was
+  // on showed up in every profile. A **new** profile re-derives what the server has
+  // already cached from those settings: the stream answers and the TMDB answers were
+  // built with the old profile's key and add-ons, so they are dropped rather than
+  // handed to the profile that just arrived.
+  // **A cache built for one profile is not handed to the next.** Only a move *between*
+  // two profiles drops them: a request that carries no `who` at all is an asset or a
+  // client outside the app, and rebuilding every cached answer each time a font loads
+  // would be a cost with nothing to show for it.
+  const was = settingsScope();
+  if (setSettingsScope(who) && was && who) {
+    try { setKey(tmdbKey()); } catch { /* the TMDB module owns its own key */ }
+    clearStreamCache();
+    clearTmdbCache();
+  }
 };
 
 export async function handleAddon(req, res, pathname, origin) {
