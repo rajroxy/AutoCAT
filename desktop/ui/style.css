@@ -244,6 +244,30 @@ body {
 }
 .profile-tool:hover, .profile-tool:focus-visible { background: rgba(var(--accent-rgb), 0.22); color: var(--text); }
 .profile-tool.danger:hover, .profile-tool.danger:focus-visible { background: rgba(214, 74, 74, 0.3); color: #fff; }
+/* **The pencil, open.** While its own tools are showing the pencil keeps the accent fill —
+   a fill, never a ring, so a pencil that has been pressed does not wear a box. */
+.profile-tool.on { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
+
+/* **Rename, under the name — and Save in its place.** The pencil opens this button; this
+   button opens the field and turns into Save. It is a word, not a mark, so it is a pill
+   with the app's own label weight, sitting in the same row as the marks. */
+.profile-rename {
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.profile-rename:hover, .profile-rename:focus-visible { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
+.profile-rename.save { background: linear-gradient(160deg, var(--accent), var(--accent-deep)); color: #14110a; }
+/* The cross belongs to the open pencil, the way it belongs to the edit. */
+.profile-slot:not(.editing) .profile-tools .profile-rename ~ .profile-tool.danger { display: grid; }
 .tool-mark { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* **The name is edited where it is read.** The tile keeps its shape; the field takes the
@@ -266,7 +290,11 @@ body {
   text-align: center;
   outline: none;
 }
-.profile-name-field:focus { background: rgba(255, 255, 255, 0.13); }
+/* **No ring round the name you are typing.** The field is focused the moment it opens,
+   and `input:focus-visible` drew the app's accent ring around it — the same square box
+   round a line of text the app took off every other field. The fill says what it is. */
+.profile-name-field:focus,
+.profile-name-field:focus-visible { outline: none !important; box-shadow: none !important; background: rgba(255, 255, 255, 0.13); }
 .profile-rename-actions { display: flex; gap: 8px; }
 
 /* **The slot that is not a profile yet.** Dashed and quiet, so it reads as a place to
@@ -2632,7 +2660,10 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
    to be a "More (N)" pill that expanded the line where it stood, which turned one
    filter into a wall of chips and pushed every line under it out of the panel. */
 .filter-options.clamped {
-  max-height: 76px;
+  /* **Three rows, not two.** Two rows of eighty countries meant most of the list was out
+     of reach without a scroll nothing pointed at; the window is three rows now, and the
+     arrows turn a whole page at a time. */
+  max-height: 112px;
   overflow-y: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -3823,17 +3854,21 @@ select option:hover {
 /* Nor does artwork lighten its face under the cursor. */
 .poster:hover, .poster:focus-visible { background: var(--panel); }
 
-/* **What is chosen keeps the ring**, with the accent tint on the rows you choose
-   between. */
+/* **What is chosen is a fill, never a ring.** Every one of these had a 3px accent box
+   drawn round it *because it was selected*, so a chosen row, an open menu item or the day
+   you had clicked wore a square highlight for as long as it stayed chosen. The ring is a
+   **hover and keyboard** answer (see `.focusable:hover` / `:focus-visible` above); being
+   selected is said with the accent tint and nothing else. */
 .option:has(input:checked), .vis-option:has(input:checked),
 .menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"],
 .profile-tile.active {
-  box-shadow: var(--hl);
+  box-shadow: none;
   background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
 }
-.cal-cell.selected { box-shadow: var(--hl); background: rgba(var(--accent-rgb), 0.2); }
-.cal-cell.today { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.6); }
+.cal-cell.selected { box-shadow: none; background: rgba(var(--accent-rgb), 0.2); }
+/* `today` is a fact about the date, not a selection — one hairline, no accent box. */
+.cal-cell.today { box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.45); }
 
 /* **The buttons that are filled stay filled.** Movies/Shows and the active chips are
    solid accent plates with dark text — and a plate stays a plate while it is hovered. */
@@ -4000,7 +4035,8 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  /* Elapsed in the accent — a filled bar, the same reading as the player's. */
+  background: linear-gradient(90deg, var(--accent) 0 var(--fill, 0%), rgba(255, 255, 255, 0.16) var(--fill, 0%) 100%);
   accent-color: var(--accent);
   cursor: pointer;
   -webkit-appearance: none;
@@ -4078,8 +4114,22 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    control belongs to the panel's bar, which is the app's control, and a big ▶ in the
    middle of the picture is the one thing every other player already draws. The cover
    answers the cursor with the app's ring and a little light instead. */
-.trailer-cover { transition: box-shadow var(--quick) var(--ease), filter var(--quick) var(--ease); }
-.trailer-cover:hover, .trailer-cover:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--accent); filter: brightness(1.12); }
+.trailer-cover { transition: filter var(--quick) var(--ease); }
+/* **No ring on the cover, at any moment.** It used to draw a 3px accent ring inside its own
+   edge — a square highlight over the artwork, on the screen where the artwork is the point.
+   The cover answers the cursor with a little light and nothing else. */
+.trailer-cover:hover, .trailer-cover:focus-visible { outline: none; box-shadow: none; filter: brightness(1.14); }
+
+/* **Nothing wears the ring inside the trailer, either.** The panel's own controls (play,
+   seek, fullscreen, Close) are `.focusable`, so resting the cursor on one drew the app's
+   accent ring inside the player — the "selection highlight" on the trailer screen. They
+   answer in their own fill instead, which is what a control over a picture should do. */
+.trailer-overlay .focusable:hover,
+.trailer-overlay .focusable:focus-visible { outline: none; box-shadow: none; }
+.trailer-overlay .trailer-btn:hover,
+.trailer-overlay .trailer-btn:focus-visible { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.trailer-overlay .btn:hover,
+.trailer-overlay .btn:focus-visible { background: rgba(255, 255, 255, 0.14); box-shadow: none; }
 
 /* ============================================================================
    **Add to Library: one button, and the rows are under it.**
@@ -4178,12 +4228,22 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    page's section) sitting in a scroller whose top edge lands on the line box, and
    the uppercase kicker above a name. Both take the room their ascent needs.
    ============================================================================ */
+/* **A catalog's name is not clipped.** The row head is a flex line with a fixed gap, and
+   a 15px bold name set on a 1.45 line can have its ascenders — the top of a `T`, an `f`, a
+   capital with an accent — shaved by the line box above it. The padding is what gives them
+   their room back; the row head carries the same breath so the head never cuts into the row
+   under it either. */
 .cat-name, .row-head, .section-title, .icon-name, .hero-kicker, .view-title, .cal-month {
   overflow: visible;
-  line-height: 1.45;
+  line-height: 1.5;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
-.cat-head { align-items: center; margin-bottom: 10px; }
-.cat-name { padding: 3px 2px 4px; }
+.cat-head { align-items: center; margin-bottom: 12px; padding-top: 6px; }
+.cat-row { padding-top: 2px; }
+.cat-name { padding: 6px 2px 6px; }
+.icon-meta { padding-top: 15px; }
+.icon-name { line-height: 1.5; }
 
 /* **The Library picker floats over the page.** It is `position: fixed` and placed
    under the button by `libraryPicker`, so the row of four cannot clip it and it is
@@ -4208,33 +4268,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .pane-note + .pane-note { margin-top: 8px; }
 .pane-note:empty { display: none; }
 
-/* ============================================================================
-   **The trailer's two bands.** YouTube's embed paints its own furniture over the
-   picture: a title card and channel mark across the top, a watermark — and, on a
-   pause or at the end, a "More videos" wall — across the bottom. The IFrame API
-   exposes no switch for any of it. These two bands are the app covering the bands
-   that furniture is painted on, so what plays is the clip and the app's own bar.
-   They lift with the cover (`liftCover`), never before it.
-   ============================================================================ */
-.trailer-frame > .trailer-mask { position: absolute; left: 0; right: 0; width: 100%; z-index: 2; pointer-events: none; }
-.trailer-frame > .trailer-mask[hidden] { display: none; }
-/* **A vignette, not a shelf.** The bands only need to be opaque where YouTube actually
-   paints its furniture — the title card's first lines and the watermark's corner — so they
-   fade out well before the picture. The top is a short strip and the bottom is soft, and
-   both let the clip show through almost all of their height. */
-.trailer-frame > .trailer-mask-top {
-  top: 0;
-  bottom: auto;
-  height: 11%;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.92) 0 34%, rgba(0, 0, 0, 0) 100%);
-}
-.trailer-frame > .trailer-mask-bottom {
-  top: auto;
-  bottom: 0;
-  height: 15%;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0 30%, rgba(0, 0, 0, 0) 100%);
-}
-
 /* **The profile editor's card blocks hold two lists.** One for the card's films and one
    for its shows (see `visCard`), so a Shows catalog is on screen to switch off and a row
    switched off above takes its list with it. */
@@ -4253,9 +4286,10 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    **This round's surfaces.**
    ============================================================================ */
 
-/* The two ratings services, on one line, half the pane each. */
-.rating-choice-row { display: flex; align-items: stretch; gap: 10px; }
-.rating-choice-row > * { flex: 1 1 0; min-width: 0; }
+/* **The ratings services are stacked, not halved.** They were drawn two to a line, half
+   the pane each, which cut both labels short. One box per line now. */
+.rating-choice-row { display: flex; flex-direction: column; gap: 12px; }
+.rating-choice-row > * { flex: none; width: 100%; }
 
 /* The profile tool while it is the Save: the tick wears the accent. */
 .profile-tool.save { color: var(--accent); }
@@ -4269,8 +4303,10 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .search-bar .search-input:focus,
 .search-bar .search-input:focus-visible { outline: none !important; box-shadow: none !important; }
 
-/* The title page's row of four sits a little lower, clear of the overview above it. */
-.title-hero .title-actions { margin: 34px 0 24px; }
+/* **The title page's row of four sits lower**, well clear of the overview above it. It
+   was 20px, then 34px, and it still read as the last line of the paragraph — it is a row
+   of its own now. */
+.title-hero .title-actions { margin: 52px 0 26px; }
 
 /* **The player's Options panel.** The gear opens a panel called Options. */
 .player-options-head {
@@ -4282,14 +4318,17 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   color: var(--accent);
 }
 
-/* **The player's seek bar is a bar, not a lozenge.** A flat track, a round accent
-   thumb, and the elapsed fill drawn in the accent — the same reading as the trailer's. */
+/* **The player's seek bar is a bar with its fill.** A flat track, a round accent thumb,
+   and the *whole elapsed part* painted in the accent — `--fill` is set from the playhead
+   in `openPlayer`, so the bar reads at a glance instead of being an empty grey line with
+   a dot on it. */
 .player-seek {
   -webkit-appearance: none;
   appearance: none;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
+  background:
+    linear-gradient(90deg, var(--accent) 0 var(--fill, 0%), rgba(255, 255, 255, 0.22) var(--fill, 0%) 100%);
   cursor: pointer;
 }
 .player-seek::-webkit-slider-thumb {

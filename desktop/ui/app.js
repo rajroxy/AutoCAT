@@ -22,7 +22,7 @@ const API = new URLSearchParams(location.search).get("api") || window.NUVIO_API 
 // The top bar has no Movies/Shows labels any more — those are buttons on Home.
 const TABS = [["home", "Home"]];
 
-const KEY = {
+const SETTING_KEYS = {
   tab: "nuvio.tab",
   row: "nuvio.row",
   layout: "nuvio.layout",
@@ -69,6 +69,74 @@ const KEY = {
   liveSource: "nuvio.liveSource",
   ottSort: "nuvio.ottSort",
 };
+
+/* ============================================================================
+   **Every setting belongs to the profile that chose it.**
+   ----------------------------------------------------------------------------
+   There was one bucket of settings for the whole machine: switch to Profile 2 and
+   you were on Profile 1's rows, Profile 1's regions, Profile 1's playlists and
+   Profile 1's preferences, because the app read `nuvio.*` and `nuvio.*` did not
+   know who was watching. A profile is a person, and a person's app is theirs.
+
+   The rule is a suffix: a setting that is **about watching** is filed under
+   `key@<who>`, so each profile reads and writes its own copy, and nothing else in
+   the code has to know — every read and write in the app goes through `KEY`, and
+   `KEY` is a proxy that answers with the scoped name.
+
+   **What is not scoped is the screen itself.** The accent, the font, motion, the
+   blur, the pop, the glow and the resolved theme are about the display you are
+   sitting at, not about who is watching it — one person turning the accent violet
+   must not repaint the other's screen — so those keep their plain name and the
+   boot script in `index.html` keeps working untouched.
+
+   An install from before this change has its settings under the plain names; the
+   first boot after it hands them to the profile that is on (`migrateScope` below)
+   and clears the old copies, so nobody loses the app they had.
+   ============================================================================ */
+const WHO_STORE = "nuvio.who";
+/** The id of the profile every install starts with — see `DEFAULT_PEOPLE`. */
+const HOME_PROFILE = "you";
+/** How the app *looks* is the machine's; everything else is the profile's. */
+const MACHINE_KEYS = new Set(["theme", "accent", "motion", "font", "blur", "pop", "speed", "glow"]);
+const activeScope = () => {
+  try {
+    return localStorage.getItem(WHO_STORE) || HOME_PROFILE;
+  } catch {
+    return HOME_PROFILE;
+  }
+};
+const KEY = new Proxy(SETTING_KEYS, {
+  get(target, prop) {
+    const raw = target[prop];
+    if (typeof raw !== "string" || MACHINE_KEYS.has(prop)) return raw;
+    return `${raw}@${activeScope()}`;
+  },
+});
+
+/**
+ * **The settings an install already had, handed to the profile that is on.** One pass,
+ * once: for every profile-scoped setting, if this profile has no copy yet and the plain
+ * name holds a value, the plain value becomes this profile's. The plain name is then
+ * removed, so the *next* profile starts empty instead of inheriting someone else's app.
+ */
+function migrateScope() {
+  let moved = 0;
+  for (const [name, raw] of Object.entries(SETTING_KEYS)) {
+    if (MACHINE_KEYS.has(name)) continue;
+    const scoped = `${raw}@${activeScope()}`;
+    try {
+      const legacy = localStorage.getItem(raw);
+      if (legacy === null) continue;
+      if (localStorage.getItem(scoped) === null) localStorage.setItem(scoped, legacy);
+      localStorage.removeItem(raw);
+      moved += 1;
+    } catch {
+      /* nothing to migrate */
+    }
+  }
+  return moved;
+}
+migrateScope();
 
 const PINNED = /\| Top 10|^Upcoming$|Airing Today|On the Air|Now Playing|^Latest|^Newest|^Trending|^Plan to Watch$|^Watching$|^Watched$/;
 
@@ -127,7 +195,7 @@ const PIN_STATES = WATCH_STATES.filter(([id]) => id === "planned");
  * in this browser alone.
  */
 const PEOPLE_KEY = "nuvio.people";
-const WHO_KEY = "nuvio.who";
+const WHO_KEY = WHO_STORE;
 const DEFAULT_PEOPLE = [{ id: "you", name: "You" }];
 /** An id nothing else will take, so two profiles can share a name without colliding. */
 const personId = () => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
@@ -566,8 +634,11 @@ const state = {
   // this browser only — a profile is a name, not an account.
   people: readJSON(PEOPLE_KEY, DEFAULT_PEOPLE),
   who: localStorage.getItem(WHO_KEY) || "",
-  // Which profile's name is being edited on the profile screen ("" = none).
+  // Which profile's name is being edited on the profile screen ("" = none), and which
+  // profile's pencil has been pressed ("" = none) — pressing the pencil opens the
+  // **Rename** button under the name; pressing *that* opens the field.
   renaming: "",
+  renameMenu: "",
   // Live TV & Sports: which of its two rows is showing, and the channels, groups
   // and guide the server has answered with.
   liveRow: localStorage.getItem(KEY.liveRow) || "livetv",
@@ -2356,7 +2427,7 @@ function renderPeople() {
       el(
         "div",
         { class: "profile-grid" },
-        ...people.map((person) => personSlot(person, person.id === current.id, renaming === person.id, people.length)),
+        ...people.map((person) => personSlot(person, person.id === current.id, renaming === person.id, people.length, (state.renameMenu || "") === person.id)),
         // **The slot that is not a profile yet.** Drawn dashed and named for what it
         // does, so adding a profile is on the screen rather than hidden in Settings.
         el(
@@ -2386,12 +2457,17 @@ const plusMark = () =>
   svgNode("svg", { class: "plus-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
     svgNode("path", { d: "M24 13v22M13 24h22" }));
 
-/** One profile on the picker: the tile you enter with, and the two tools under it. */
-function personSlot(person, active, editing, count) {
-  // **The pencil becomes the save.** One tool, two states: at rest it is *Rename* —
-  // press it and the tile's name opens for typing — and while the name is open the same
-  // tool is the tick that keeps it. There is no Save/Cancel pair under the field: the
-  // tool you pressed is the tool that commits, and Escape still puts the old name back.
+/**
+ * One profile on the picker: the tile you enter with, and the tools under it.
+ *
+ * **The pencil opens Rename; Rename opens the field; Rename becomes Save.** Three steps,
+ * in that order, and each one is a press: the pencil (a pencil is an *intent*, not a
+ * name being edited) puts a **Rename** button under the profile's label; pressing Rename
+ * turns the tile's name into a field and the Rename button into **Save**; pressing Save
+ * keeps it. Escape backs all the way out. The button keeps its place between the pencil
+ * and the cross, so nothing moves between the three states.
+ */
+function personSlot(person, active, editing, count, menu) {
   const field = editing
     ? el("input", {
         class: "profile-name-field",
@@ -2405,32 +2481,50 @@ function personSlot(person, active, editing, count) {
   if (field) {
     field.addEventListener("keydown", (event) => {
       if (event.key === "Enter") { event.preventDefault(); commit(); }
-      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; render(); }
+      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; state.renameMenu = ""; render(); }
     });
     queueMicrotask(() => field.focus());
   }
   const tools = el(
     "div",
     { class: "profile-tools" },
+    // 1. The pencil: it only opens the menu, it never edits anything itself.
     el(
       "button",
       {
-        class: `profile-tool focusable${editing ? " save" : ""}`,
+        class: `profile-tool focusable${menu ? " on" : ""}`,
         type: "button",
-        title: editing ? `Save ${person.name}` : `Rename ${person.name}`,
-        "aria-label": editing ? "Save this name" : `Rename ${person.name}`,
+        title: menu ? `Close the tools for ${person.name}` : `Edit ${person.name}`,
+        "aria-label": menu ? `Close the tools for ${person.name}` : `Edit ${person.name}`,
+        "aria-expanded": String(Boolean(menu)),
         onclick: () => {
-          if (editing) commit();
-          else { state.renaming = person.id; render(); }
+          // Pressing it again puts the tools away — and closes the field with them.
+          if (menu) { state.renameMenu = ""; state.renaming = ""; }
+          else { state.renameMenu = person.id; state.renaming = ""; }
+          render();
         },
       },
-      editing
-        ? svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-            svgNode("path", { d: "M5 13l4 4L19 7" }))
-        : svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-            svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
-            svgNode("path", { d: "M14.5 5.5l4 4" })),
+      svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+        svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
+        svgNode("path", { d: "M14.5 5.5l4 4" })),
     ),
+    // 2. Rename — under the name, and only while the pencil is open. 3. It becomes
+    //    **Save** the moment the field is open, and commits on the press.
+    menu
+      ? el(
+          "button",
+          {
+            class: `profile-rename focusable${editing ? " save" : ""}`,
+            type: "button",
+            text: editing ? "Save" : "Rename",
+            title: editing ? `Save ${person.name}'s name` : `Rename ${person.name}`,
+            onclick: () => {
+              if (editing) commit();
+              else { state.renaming = person.id; render(); }
+            },
+          },
+        )
+      : null,
     count > 1
       ? el(
           "button",
@@ -2552,8 +2646,19 @@ function saveWho(id) {
 
 /** Pick the person watching, then ask how they want to watch. */
 function choosePerson(id) {
+  const changing = (state.who || "") !== id;
   saveWho(id);
   state.renaming = "";
+  state.renameMenu = "";
+  // **A different profile is a different app.** Every setting is filed under the person
+  // (see `KEY`), and the page in front of you was built from the *last* person's copy —
+  // so entering as somebody else starts the app again with them on. Same person, same
+  // settings: that press just moves on to the mode screen.
+  if (changing) {
+    if (parseHash().view === "profiles") location.hash = "#/modes";
+    location.reload();
+    return;
+  }
   if (parseHash().view === "profiles") go("#/modes");
   else render();
 }
@@ -2572,6 +2677,7 @@ function addPerson() {
   const person = { id: personId(), name: `Profile ${n}` };
   savePeople([...list, person]);
   state.renaming = person.id;
+  state.renameMenu = person.id;
   render();
 }
 
@@ -2580,6 +2686,7 @@ function renamePerson(id, raw) {
   const name = String(raw || "").replace(/\s+/g, " ").trim().slice(0, 24);
   if (name) savePeople(profileList().map((p) => (p.id === id ? { ...p, name } : p)));
   state.renaming = "";
+  state.renameMenu = "";
   render();
 }
 
@@ -2589,8 +2696,15 @@ function removePerson(id) {
   if (list.length < 2) return;
   const next = list.filter((p) => p.id !== id);
   savePeople(next);
-  if (state.who === id) saveWho(next[0].id);
   state.renaming = "";
+  state.renameMenu = "";
+  // Removing the profile you are watching as walks you into the next one's app — a
+  // reload, for the same reason `choosePerson` reloads (see `KEY`).
+  if ((state.who || "") === id) {
+    saveWho(next[0].id);
+    location.reload();
+    return;
+  }
   render();
 }
 
@@ -4167,11 +4281,15 @@ function filterRow(label, choices, active, onPick, { clamp = false } = {}) {
   // be a "More (N)" pill that expanded the line in place, which turned one filter
   // into a wall of chips and pushed every line under it off the screen.
   const options = el("div", { class: "filter-options clamped", tabindex: "0" }, ...chips);
-  // A DOM with no layout (jsdom, a WebView before first paint) has no `scrollBy`, so
-  // the arrows stay usable there instead of throwing on the first press.
+  // **A step is a window, not a row.** The arrows used to move one row at a time, and
+  // Country is eighty chips in a two-row window — so reaching the other half of the list
+  // was forty presses, which is why the list read as one you could not click through.
+  // Each press now turns the page: the height of the window, less the one row it keeps
+  // for continuity.
   const step = (direction) => {
     if (typeof options.scrollBy !== "function") return;
-    options.scrollBy({ top: direction * trackRow(options), behavior: reducedMotion() ? "auto" : "smooth" });
+    const page = Math.max(trackRow(options), Math.round((options.clientHeight || 0) - trackRow(options)));
+    options.scrollBy({ top: direction * page, behavior: reducedMotion() ? "auto" : "smooth" });
   };
   const up = el(
     "button",
@@ -4587,9 +4705,10 @@ function renderSearch() {
 
   return [
     el("h1", { class: "view-title", text: "Search" }),
-    // **Movies / Shows, the same switch Home has.** Searching is browsing a row, so the
-    // screen that asks "what is this called?" wears the row's own two buttons.
-    rowSwitch(),
+    // **No Movies / Shows switch on this screen.** The row switch belongs where a row is
+    // being browsed; a search box that asks "what is this called?" is not a row, and the
+    // two buttons sat between the field and its own heading for no reason. What kind of
+    // title a search is looking for is the **Type** row in Filters, one press away.
     el(
       "div",
       { class: "search-wrap" },
@@ -4961,7 +5080,8 @@ function liveCalRow(channel, programme) {
 
 
 /** Recording helpers for IPTV/DVR */
-const REC_KEY = "nuvio.recordings";
+// Recordings are yours, not the machine's — the same per-profile suffix `KEY` uses.
+const REC_KEY = `nuvio.recordings@${activeScope()}`;
 
 function recordingsGet() {
   try {
@@ -5185,12 +5305,19 @@ function sourceProviders(source) {
 }
 
 /** A manifest resource → the label the Sources screen shows it under. */
-const RESOURCE_LABELS = { catalog: "Catalog", meta: "Metadata", stream: "Streams", subtitles: "Subtitles", addon_catalog: "Add-on catalog" };
+const RESOURCE_LABELS = { catalog: "Catalog", meta: "Metadata", stream: "Streams", subtitles: "Subtitles", live: "Live TV", addon_catalog: "Add-on catalog" };
+/**
+ * **A live resource is not a VOD resource.** An add-on that declares `live` offers live
+ * channels, and this profile is films and series — so `live` is dropped from everything
+ * the VOD Add-ons pane says and offers (the resource chips, the count line, the server
+ * payload). Live TV comes from your own M3U / Xtream source, on the live profile.
+ */
+const vodResources = (list) => (Array.isArray(list) ? list.filter((r) => r !== "live") : []);
 const resourceLabel = (name) => RESOURCE_LABELS[name] || (name ? name.charAt(0).toUpperCase() + name.slice(1) : "");
 
 /** What one source serves, grouped: resources (add-ons) and scrapers (plugins). */
 function sourceGroups(source) {
-  const resources = (source.resources || []).map(resourceLabel).filter(Boolean);
+  const resources = vodResources(source.resources).map(resourceLabel).filter(Boolean);
   const scrapers = Array.isArray(source.scrapers) ? source.scrapers : [];
   const providers = sourceProviders(source);
   // A repository's "providers" *are* its scrapers.
@@ -6275,28 +6402,95 @@ function pinButtons(item) {
 }
 
 /**
- * **Add to Library — one button, one press.**
+ * **Add to Library — the button, and your rows underneath it.**
  *
- * It was a picker: press it (or rest the cursor on it) and the Library's rows opened
- * underneath, and the row you chose decided where the title went. That is a dropdown for
- * what is one decision, and the words in it changed under the cursor as you scrolled —
- * the reported "the label changes in the button". The Library's own first row is where a
- * title goes unless you have made others, so this is a toggle: press it and the title is
- * in the Library, press it again and it is not. Nothing opens.
+ * The button says one thing and never changes its words: *Add to Library* while the
+ * title is in none of your rows, *In your Library* while it is in one. Rest the cursor
+ * on it (or press it) and **your rows** open underneath as a list you scroll — the
+ * Library's own row names, exactly as the Library card labels them — and the row you
+ * pick is the row the title goes into. Picking a row it is already in takes it out.
+ *
+ * This is what the old two-step picker got wrong twice over: the words in the *button*
+ * changed under the cursor (the reported "the label changes in the button"), and the row
+ * list was one long line rather than a list you could walk. The button holds still now
+ * and the list under it is the thing that moves.
  */
 function libraryButton(item) {
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
-  const row = rows[0];
-  const inside = inCustomRow(item, row.id);
-  return el("button", {
-    class: `btn focusable${inside ? " active" : ""}`,
+  const anyInside = rows.some((row) => inCustomRow(item, row.id));
+  const menu = el("div", { class: "library-pop-menu dropdown-menu", hidden: true, role: "menu" });
+  for (const row of rows) {
+    const inside = inCustomRow(item, row.id);
+    menu.append(
+      el("button", {
+        class: `dropdown-item focusable${inside ? " active" : ""}`,
+        type: "button",
+        role: "menuitem",
+        text: inside ? `${row.name} · added` : row.name,
+        title: inside ? `Take it out of ${row.name}` : `Put this in ${row.name}`,
+        onclick: () => { close(); toggleCustomRow(item, row.id); },
+      }),
+    );
+  }
+  const btn = el("button", {
+    class: `btn focusable${anyInside ? " active" : ""}`,
     type: "button",
     id: "library-add",
-    "aria-pressed": String(inside),
-    title: inside ? `In ${row.name} — press to take it out` : `Put this in ${row.name}`,
-    text: inside ? `${row.name} · added` : "Add to Library",
-    onclick: () => toggleCustomRow(item, row.id),
+    "aria-haspopup": "menu",
+    "aria-expanded": "false",
+    title: anyInside ? "In your Library — pick a row to move it, or the row it is in to take it out" : "Add this to one of your Library rows",
+    text: anyInside ? "In your Library" : "Add to Library",
   });
+  const root = el("div", { class: "library-pop" }, btn, menu);
+  const open = () => {
+    if (!menu.hidden) return;
+    menu.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    root.classList.add("open");
+    placeMenu();
+  };
+  const close = () => {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    btn.setAttribute("aria-expanded", "false");
+    root.classList.remove("open");
+  };
+  // **Under the button, on the page.** `.library-pop-menu` is `position: fixed` (see the
+  // stylesheet), so the row of four can never clip it and the list is never squeezed into
+  // the button's own box. A short list is capped and scrolls, which is what lets a long
+  // set of rows be walked with the wheel rather than pushing the page around.
+  const placeMenu = () => {
+    const box = btn.getBoundingClientRect();
+    menu.style.left = `${Math.round(box.left)}px`;
+    menu.style.minWidth = `${Math.round(box.width)}px`;
+    const below = window.innerHeight - box.bottom - 12;
+    const above = box.top - 12;
+    const useBelow = below >= Math.min(240, above) || below >= 160;
+    menu.style.maxHeight = `${Math.max(140, Math.round(useBelow ? below : above))}px`;
+    if (useBelow) {
+      menu.style.top = `${Math.round(box.bottom + 8)}px`;
+      menu.style.bottom = "auto";
+    } else {
+      menu.style.bottom = `${Math.round(window.innerHeight - box.top + 8)}px`;
+      menu.style.top = "auto";
+    }
+  };
+  // The hover is what the user asked for by name: resting on the button shows the rows.
+  root.addEventListener("pointerenter", open);
+  root.addEventListener("pointerleave", (event) => {
+    // Leaving for the menu itself is not leaving.
+    if (menu.contains(event.relatedTarget)) return;
+    close();
+  });
+  btn.addEventListener("focus", open);
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (menu.hidden) open();
+    else close();
+  });
+  document.addEventListener("pointerdown", (event) => { if (!root.contains(event.target)) close(); }, true);
+  window.addEventListener("resize", () => { if (!menu.hidden) placeMenu(); });
+  return root;
 }
 
 /** One person's card — a face, a name and what they did. Opens their credits. */
@@ -6550,10 +6744,6 @@ function openTrailer(t) {
     "aria-label": "Fullscreen",
   });
 
-  // The two bands over the embed's own furniture — see the note in the frame above.
-  const maskTop = el("div", { class: "trailer-mask trailer-mask-top", "aria-hidden": "true", hidden: true });
-  const maskBottom = el("div", { class: "trailer-mask trailer-mask-bottom", "aria-hidden": "true", hidden: true });
-
   const cover = el("button", {
     class: "trailer-cover focusable",
     type: "button",
@@ -6578,15 +6768,6 @@ function openTrailer(t) {
         // this plate of the clip's own artwork covers that moment. Nothing of YouTube's
         // chrome is left once it lifts. See `start` below.
         cover,
-        // **The bands the embed paints its own furniture on.** Once the clip is running,
-        // YouTube draws its title card and channel mark across the top and its watermark —
-        // and, whenever the picture pauses or ends, a "More videos" wall — across the
-        // bottom. None of that is a control the IFrame API exposes, so the only way to keep
-        // it off the screen is to cover the two bands it is painted on with the app's own
-        // surface. They are hidden until the cover lifts, so the artwork on the cover is
-        // whole. See `liftCover`.
-        maskTop,
-        maskBottom,
       ),
       el("div", { class: "trailer-controls" }, playBtn, seek, clock, full),
     ),
@@ -6603,7 +6784,10 @@ function openTrailer(t) {
     if (!ytPlayer?.getDuration) return;
     const now = ytPlayer.getCurrentTime?.() || 0;
     const total = ytPlayer.getDuration?.() || 0;
-    if (!dragging && total) seek.value = String(Math.round((now / total) * 1000));
+    if (!dragging && total) {
+      seek.value = String(Math.round((now / total) * 1000));
+      seek.style.setProperty("--fill", `${(now / total) * 100}%`);
+    }
     clock.textContent = `${mmss(now)} / ${mmss(total)}`;
     const playing = ytPlayer.getPlayerState?.() === 1;
     playBtn.textContent = playing ? "❚❚" : "▶";
@@ -6631,16 +6815,15 @@ function openTrailer(t) {
   const liftCover = () => {
     if (!cover.isConnected || cover.hidden) return;
     cover.hidden = true;
-    // The app's bands come up with the cover off, so the embed's title card, its channel
-    // mark and its "More videos" wall are never on a bare frame.
-    maskTop.hidden = false;
-    maskBottom.hidden = false;
     if (document.activeElement === cover) playBtn.focus?.();
   };
   /** The cover is up until the picture is really moving — see `onStateChange`. */
   const coverUp = () => !cover.hidden;
   playBtn.addEventListener("click", toggle);
-  seek.addEventListener("input", () => { dragging = true; });
+  seek.addEventListener("input", () => {
+    dragging = true;
+    seek.style.setProperty("--fill", `${Number(seek.value) / 10}%`);
+  });
   seek.addEventListener("change", () => {
     dragging = false;
     const total = ytPlayer?.getDuration?.() || 0;
@@ -7655,25 +7838,59 @@ function paneProfile() {
         ? "Switch off anything this profile should not show, then press Done. Off by default: with the editor closed, everything shows and nothing is hidden."
         : "This is the profile the app is using. Names are changed on the profile screen at boot; press Edit to choose which rows, cards and catalogs this profile shows.",
     }),
-    editing ? el("div", { class: "vis-editor" },
-      el("section", { class: "vis-section" },
-        el("div", { class: "group-head" },
-          el("span", { class: "option-title", text: "Media rows" }),
-          el("span", { class: "option-desc", text: "The Movies and Shows rows under the hero banner." }),
-        ),
-        visRow(v.rows.movie !== false, "row", "movie", "Movies", "The Movies row and its cards."),
-        visRow(v.rows.series !== false, "row", "series", "Shows", "The Shows row and its cards."),
-      ),
+    editing && liveProfile()
+      ? liveVisEditor(v)
+      : editing
+        ? el("div", { class: "vis-editor" },
+            el("section", { class: "vis-section" },
+              el("div", { class: "group-head" },
+                el("span", { class: "option-title", text: "Media rows" }),
+                el("span", { class: "option-desc", text: "The Movies and Shows rows under the hero banner." }),
+              ),
+              visRow(v.rows.movie !== false, "row", "movie", "Movies", "The Movies row and its cards."),
+              visRow(v.rows.series !== false, "row", "series", "Shows", "The Shows row and its cards."),
+            ),
 
-      el("section", { class: "vis-section" },
-        el("div", { class: "group-head" },
-          el("span", { class: "option-title", text: "Cards" }),
-          el("span", { class: "option-desc", text: `${state.collections.filter(cardVisible).length} of ${state.collections.length} cards show on Home, in the published order. Each card's catalog rows are listed inside it.` }),
-        ),
-        ...state.collections.map((card) => visCard(card, v)),
-      ),
-    ) : null,
+            el("section", { class: "vis-section" },
+              el("div", { class: "group-head" },
+                el("span", { class: "option-title", text: "Cards" }),
+                el("span", { class: "option-desc", text: `${state.collections.filter(cardVisible).length} of ${state.collections.length} cards show on Home, in the published order. Each card's catalog rows are listed inside it.` }),
+              ),
+              ...state.collections.map((card) => visCard(card, v)),
+            ),
+          )
+        : null,
   ].filter(Boolean);
+}
+
+/**
+ * **The editor, on the live profile — the live profile's own cards.**
+ *
+ * The same three things the Movies editor offers (which rows, which cards), drawn from
+ * what a live playlist actually publishes: the **Live TV / Sports** rows and the four
+ * cards on its home. There are no catalog rows to list here — a live row is a lineup,
+ * not a set of catalogs — so each card is one switch and its own description.
+ */
+function liveVisEditor(v) {
+  return el("div", { class: "vis-editor" },
+    el("section", { class: "vis-section" },
+      el("div", { class: "group-head" },
+        el("span", { class: "option-title", text: "Media rows" }),
+        el("span", { class: "option-desc", text: "The Live TV and Sports rows under the banner." }),
+      ),
+      visRow(!picking() || v.rows.livetv !== false, "row", "livetv", "Live TV", "The Live TV row and its cards."),
+      visRow(!picking() || v.rows.sports !== false, "row", "sports", "Sports", "The Sports row and its cards."),
+    ),
+    el("section", { class: "vis-section" },
+      el("div", { class: "group-head" },
+        el("span", { class: "option-title", text: "Cards" }),
+        el("span", { class: "option-desc", text: `The ${LIVE_CARDS.length} cards on the live home, in published order.` }),
+      ),
+      ...LIVE_CARDS.map(([key, name]) =>
+        visRow(liveCardOn(key), "card", key, name, `The ${name} card on the live home.`),
+      ),
+    ),
+  );
 }
 
 /**
@@ -7917,12 +8134,11 @@ function paneRatings() {
     // they sit in the pane's own board, and the chosen one wears the accent like every
     // other choice in Settings.
     ...RATING_SERVICES.filter(([id]) => id === "none").map(pick),
-    // **The two real services, side by side.** They are the same choice read two ways —
-    // each site's own page, or one key that has already read them all — so they sit on
-    // one line, Public pages on the left and MDBList on the right, half the pane each.
-    el("div", { class: "rating-choice-row" },
-      ...RATING_SERVICES.filter(([id]) => id !== "none").map(pick),
-    ),
+    // **One box per service, stacked full width — MDBList first.** They were drawn two to
+    // a line, half the pane each, which cut both labels short and made the two services
+    // read as a pair of switches rather than as two choices. MDBList is the one key that
+    // has already read every site, so it is offered first; Public pages sits under it.
+    ...RATING_SERVICES.filter(([id]) => id !== "none").reverse().map(pick),
     // **What the chosen service actually reads, in the pane.** The three rows above name
     // the services; this is the one line that says how they differ — a page read per site
     // against one key that has already read them all — since a caption under a row is
@@ -8692,7 +8908,8 @@ async function hydrateSources() {
  */
 function sourceStatusText(source) {
   const providers = Array.isArray(source.providers) ? source.providers : [];
-  const resources = Array.isArray(source.resources) ? source.resources : [];
+  // No `live` in this count either — see `vodResources`.
+  const resources = vodResources(source.resources);
   const scrapers = Array.isArray(source.scrapers) ? source.scrapers : [];
   if (source.kind === "plugin" || source.kind === "repo" || (scrapers.length && !providers.length)) {
     return `${scrapers.length} scraper${scrapers.length === 1 ? "" : "s"}`;
@@ -9532,6 +9749,23 @@ function setupInput() {
 const LIVE_ROWS = [["livetv", "Live TV"], ["sports", "Sports"]];
 const liveProfile = () => state.profile === LIVE_PROFILE;
 
+/**
+ * **The cards the Live TV & Sports home publishes**, and the keys the profile editor
+ * switches them by.
+ *
+ * The profile editor listed the *Movies & Shows* cards even while the live profile was
+ * on, so "Edit" on a live profile offered to hide For You and Discover and said nothing
+ * about the guide that is actually on the screen. These are the live home's four cards,
+ * and each one is switched by its own key exactly as a Movies card is.
+ */
+const LIVE_CARDS = [
+  ["live-guide", "Guide"],
+  ["live-channels", "Channels"],
+  ["live-recordings", "Recordings"],
+  ["live-upcoming", "Upcoming"],
+];
+const liveCardOn = (key) => !picking() || visFor().cards[key] !== false;
+
 const liveRowKey = () => state.liveRow;
 const setLiveRow = (value) => {
   state.liveRow = value;
@@ -9543,7 +9777,7 @@ function liveRowSwitch() {
   return el(
     "div",
     { class: "row-switch", role: "tablist", "aria-label": "Live TV or Sports" },
-    ...LIVE_ROWS.map(([value, label]) =>
+    ...LIVE_ROWS.filter(([value]) => !picking() || visFor().rows[value] !== false).map(([value, label]) =>
       el("button", {
         class: `row-btn focusable${liveRowKey() === value ? " active" : ""}`,
         type: "button",
@@ -9563,9 +9797,11 @@ function liveRowSwitch() {
 /** The live source, as the app keeps it (the server keeps its own masked copy). */
 function liveSource() {
   const live = {
-    // `dth` is the premium/DTH/operator catalogue — the profile's own source. `m3u`
-    // and `xtream` are your own box's export.
-    mode: "dth",
+    // **Your own box's export, and nothing else.** The Premium/DTH operator catalogue
+    // that used to live here — and the countries and providers that came with it — is
+    // gone: a live playlist is an M3U URL, a file, or an Xtream code you type in. This is
+    // the default for a profile that has never picked one.
+    mode: "m3u",
     m3u: "",
     host: "",
     username: "",
@@ -9581,10 +9817,10 @@ function liveSource() {
     allCountries: false,
     ...state.liveSource,
   };
-  // A stored mode from before the catalogue replaced the public directory says
-  // "demo", which is not a source any more — land on the catalogue rather than on a
-  // pane with nothing selected.
-  if (!["dth", "m3u", "xtream"].includes(live.mode)) live.mode = "dth";
+  // A stored mode from before — "demo" from the old public directory, or "dth" from the
+  // Premium catalogue — is not a source any more, so it lands on the M3U box rather than
+  // on a pane with nothing in it.
+  if (!["m3u", "xtream"].includes(live.mode)) live.mode = "m3u";
   if (!Array.isArray(live.providers)) live.providers = [];
   return live;
 }
@@ -10240,7 +10476,16 @@ function renderLiveHome() {
   const nodes = [
     liveHeroBlock(),
     liveRowSwitch(),
-    el("div", { class: "icons grid live-cards" }, guideCard(), channelsCard(), recordingsCard(), liveUpcomingCard()),
+    el(
+      "div",
+      { class: "icons grid live-cards" },
+      ...[
+        liveCardOn("live-guide") ? guideCard() : null,
+        liveCardOn("live-channels") ? channelsCard() : null,
+        liveCardOn("live-recordings") ? recordingsCard() : null,
+        liveCardOn("live-upcoming") ? liveUpcomingCard() : null,
+      ].filter(Boolean),
+    ),
   ].filter(Boolean);
   if (state.live.loading && !state.live.loaded) {
     nodes.push(el("p", { class: "empty", text: "Reading the channel list…" }));
@@ -11300,6 +11545,9 @@ async function openPlayer(url, title, opts = {}) {
   video.addEventListener("timeupdate", () => {
     const d = video.duration || 0;
     seek.value = d ? String(Math.round((video.currentTime / d) * 1000)) : "0";
+    // The bar's own fill (see `.player-seek`): the elapsed part is painted in the accent,
+    // so the bar reads as a bar rather than as a bare track with a dot on it.
+    seek.style.setProperty("--fill", d ? `${(video.currentTime / d) * 100}%` : "0%");
     clock.textContent = timecode(video.currentTime);
     total.textContent = d ? timecode(d) : "live";
     watchedPast(opts.meta, d ? video.currentTime / d : 0);
@@ -11307,6 +11555,7 @@ async function openPlayer(url, title, opts = {}) {
   video.addEventListener("loadedmetadata", () => { total.textContent = video.duration ? timecode(video.duration) : "live"; });
   seek.addEventListener("input", () => {
     const d = video.duration || 0;
+    seek.style.setProperty("--fill", `${Number(seek.value) / 10}%`);
     if (d) video.currentTime = (Number(seek.value) / 1000) * d;
   });
 

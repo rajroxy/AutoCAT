@@ -98,10 +98,14 @@ const WATCHLIST_FILE = path.join(__dirname, "watchlist.json");
 export const ADDON_ID = "community.nuvio.collections";
 export { CATALOG_ID_PREFIX };
 
-// **No forty-title window.** Every row was read forty at a time, so a card looked like
-// it stopped at forty titles whatever the catalogue held. The page is only the first
-// screen of a drop that is paged as you scroll; asking for more is free.
-const PAGE_SIZE = 200;
+// **How many titles one request hands back — a chunk, never a cap.**
+//
+// This number used to be the *only* window a row was read through, so a card looked
+// like it stopped at whatever it said — forty, then two hundred. It is not a ceiling
+// on a row: the strip asks again from `skip` the moment you scroll near the end, and
+// it keeps asking until TMDB itself has nothing left to hand over. The number is only
+// how much arrives in one reply, so the first screen paints fast. There is no total.
+const ROW_CHUNK = 200;
 
 /**
  * How much one search window reads.
@@ -1070,7 +1074,7 @@ export async function catalogShuffle(media, def, count, opts = {}) {
     // most popular titles is what made one shuffle look like the last one, and
     // like nothing but the biggest names: the pool has to reach well past them
     // before a random draw is worth anything.
-    await deepen(entry, Math.max(count * 8, PAGE_SIZE * 4));
+    await deepen(entry, Math.max(count * 8, ROW_CHUNK * 4));
     const raw = poolItems(entry);
     const cross = crossCountry ? raw.filter(isCrossCountry) : raw;
     pool = metasFrom(entry, cross.length >= count ? cross : raw);
@@ -1158,7 +1162,7 @@ async function episodeMetas(media, bucket, language = activeLanguage(), adult = 
     .filter(Boolean);
 }
 
-async function episodesMetas(media, bucket, skip, language, adult, size = PAGE_SIZE) {
+async function episodesMetas(media, bucket, skip, language, adult, size = ROW_CHUNK) {
   const metas = await episodeMetas(media, bucket, language, adult);
   return metas.slice(skip, skip + size);
 }
@@ -1274,11 +1278,12 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
 }
 
 export async function catalogMetas(media, def, skip, opts = {}) {
-  // **How big a window one request hands back.** The default stays the row's own
-  // page, but a caller filling out a whole letter (Explore's alphabet rail) can ask
-  // for several pages in one round trip instead of one page per trip — bounded so a
-  // single request cannot ask TMDB for a whole catalog at once.
-  const window = Math.max(1, Math.min(200, Number(opts.count) || PAGE_SIZE));
+  // **How big a window one request hands back.** The default is one chunk, but a
+  // caller filling out a whole letter (Explore's alphabet rail) can ask for several
+  // chunks in one round trip. **There is no clamp here any more** — the `Math.min(200,
+  // …)` was a second ceiling hiding inside the first, and a caller that asks for more
+  // titles now simply gets them.
+  const window = Math.max(1, Number(opts.count) || ROW_CHUNK);
   const specs = def.entry ? await catalogSpecs(def.entry, media, opts) : [];
   // Key on the catalog's identity *and* its resolved entry — two definitions
   // must never share a pool just because one of them has no id.
