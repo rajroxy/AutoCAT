@@ -316,7 +316,7 @@ async function specsFor(entry, media, opts = {}) {
       return [
         page({
           with_watch_providers: entry.providerId,
-          watch_region: entry.region || activeRegion(),
+          watch_region: providerRowRegion(entry.providerId, entry.region, media),
           with_watch_monetization_types: "flatrate",
           ...(order ? order(media) : { sort_by: "popularity.desc", "vote_count.gte": 10 }),
         }, entry.take),
@@ -510,9 +510,15 @@ const REGION_PROVIDERS_TTL = 12 * 60 * 60 * 1000;
 
 export async function primeRegionProviders(code = activeCountry()) {
   const region = String(code || "US").toUpperCase();
+  // **The United States is always asked.** The six Global OTT platforms and the two
+  // worldwide services are read against a region, and the region in Settings is where the
+  // *user* is — a country where Prime Video, Max or Paramount+ publish no flatrate catalogue
+  // at all (Korea, for one) answered every one of those rows with nothing. The US list is what
+  // a global row falls back to (see `providerRowRegion`).
+  const regions = region === "US" ? [region] : [region, "US"];
   await Promise.all(
-    ["movie", "series"].map(async (type) => {
-      const slotKey = `${type}:${region}`;
+    regions.flatMap((r) => ["movie", "series"].map(async (type) => {
+      const slotKey = `${type}:${r}`;
       const held = regionProviders.get(slotKey);
       if (held && Date.now() - held.at < REGION_PROVIDERS_TTL) return;
       try {
@@ -526,8 +532,29 @@ export async function primeRegionProviders(code = activeCountry()) {
       } catch {
         /* offline — the rows stand as they are */
       }
-    }),
+    })),
   );
+}
+
+/**
+ * **The region an OTT row is actually read in.**
+ *
+ * The Global OTT card's six platforms have no region of their own — they are global — so
+ * they used to be read in whatever region Settings held. In a country where a platform
+ * publishes nothing (Prime Video, Max and Paramount+ have no flatrate catalogue in Korea)
+ * the row came back empty under a platform's name. A global row is read where the platform
+ * is, then: the region you are in when the platform is listed there, and the United States
+ * — the catalogue every one of these six exists in — when it is not. A row that *does*
+ * carry a region (a country's own services) is left exactly as it was.
+ */
+const GLOBAL_OTT_REGION = "US";
+function providerRowRegion(providerId, entryRegion, type) {
+  const own = String(entryRegion || "").toUpperCase();
+  if (own) return own;
+  const here = String(activeRegion() || "").toUpperCase() || GLOBAL_OTT_REGION;
+  const set = regionProviders.get(`${type}:${here}`)?.ids;
+  if (!set || set.has(String(providerId))) return here;
+  return GLOBAL_OTT_REGION;
 }
 
 /**

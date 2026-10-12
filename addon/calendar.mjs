@@ -44,16 +44,34 @@ export async function calendarMonth(media, month, { adult = false } = {}) {
   if (!range) return null;
   const t = tmdbPath(media);
   const field = media === "movie" ? "primary_release_date" : "first_air_date";
-  const params = {
-    [`${field}.gte`]: range.start,
-    [`${field}.lte`]: range.end,
-    sort_by: `${field}.asc`,
-    ...(adult ? { include_adult: true } : {}),
-  };
+
+  // **A month is read a week at a time.** The whole month in one date-ordered window is
+  // the first sixty titles of the month and nothing else: TMDB answers `date.asc`, every
+  // page is three pages deep, and the first of the month alone filled all three — so a
+  // calendar whose month was real drew titles on day one and was empty for the other
+  // thirty. Seven-day windows, each read for its most notable titles, cover the month the
+  // way the calendar draws it.
+  const windows = [];
+  for (let day = 1; day <= range.days; day += 7) {
+    const last = Math.min(day + 6, range.days);
+    const mm = (n) => String(n).padStart(2, "0");
+    windows.push([
+      `${range.start.slice(0, 8)}${mm(day)}`,
+      `${range.start.slice(0, 8)}${mm(last)}`,
+    ]);
+  }
 
   const pages = await Promise.all(
-    Array.from({ length: MAX_PAGES }, (_, i) =>
-      get(`/discover/${t}`, { ...params, page: i + 1 }).catch(() => ({ results: [] })),
+    windows.flatMap(([start, end]) =>
+      Array.from({ length: MAX_PAGES }, (_, i) =>
+        get(`/discover/${t}`, {
+          [`${field}.gte`]: start,
+          [`${field}.lte`]: end,
+          sort_by: "popularity.desc",
+          ...(adult ? { include_adult: true } : {}),
+          page: i + 1,
+        }).catch(() => ({ results: [] })),
+      ),
     ),
   );
 
@@ -67,7 +85,12 @@ export async function calendarMonth(media, month, { adult = false } = {}) {
       const date = (media === "movie" ? item.release_date : item.first_air_date) || null;
       return { ...toMeta(item, media), releaseDate: date };
     })
-    .filter((m) => m && m.releaseDate);
+    .filter((m) => m && m.releaseDate)
+    // Inside the month, whatever TMDB's own date field says.
+    .filter((m) => m.releaseDate >= range.start && m.releaseDate <= range.end)
+    // Nearest release first inside each day's own list, so the calendar's grid reads in
+    // the order it draws.
+    .sort((a, b) => String(a.releaseDate).localeCompare(String(b.releaseDate)));
 
   return { month, type: media, days: range.days, metas };
 }

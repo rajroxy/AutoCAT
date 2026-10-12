@@ -1526,21 +1526,13 @@ async function fillStrip(strip, catalog) {
         // The end of a row is always said; an empty watchlist row is not (see
         // `emptyRowText`), so there the strip simply stays empty.
         const said = skip ? "End of catalog." : emptyRowText(catalog);
-        // **A row that came back with nothing is not drawn.** It used to stand there
-        // under its title with one grey line in it — on a card with many rows (the OTT
-        // cards, the Upcoming card) that was a screen of empty shelves, and a title over
-        // nothing reads as a broken app rather than as "this service has nothing here".
-        // The whole row goes, title, Explore button and all. Your own rows (the Library,
-        // the Watchlist) are always drawn: an empty row you filled yourself is a row you
-        // are about to fill, not a catalog that failed to answer.
-        if (!skip && said) {
-          const row = strip.closest(".cat-row");
-          if (row) row.remove();
-          // A strip that is on a page of its own (the collection's first row) has no
-          // `.cat-row` above it, so there the line is still the honest answer.
-          else strip.append(el("p", { class: "empty", text: said }));
-        } else if (said) {
-          strip.append(el("p", { class: "empty strip-end", text: said }));
+        // **A row that came back with nothing is drawn, and says so.** It used to be
+        // taken off the screen, title and Explore button with it — which hides a row rather
+        // than answering for it, and leaves the card one row shorter than the card the app
+        // publishes. The row stands with its own line in it: "nothing here" is an answer,
+        // and the row is still somewhere to press Explore.
+        if (said) {
+          strip.append(el("p", { class: skip ? "empty strip-end" : "empty", text: said }));
         }
         return;
       }
@@ -4377,8 +4369,14 @@ function renderSearch() {
   let searchObserver = null;
 
   const appendMetas = (metas) => {
+    // **The Results follow the Movies / Shows switch.** A search answers both rows at
+    // once, so the two headings sat one under the other and the switch that says which
+    // row you are on had nothing on this screen to be. It is the same switch Home wears
+    // (see `rowSwitch`), and the grid it governs is this one.
+    const wanted = state.row === "series" ? "show" : "movie";
     for (const m of metas) {
       const key = m.type === "movie" ? "movie" : "show";
+      if (key !== wanted) continue;
       const id = `${key}:${m.id}`;
       if (searchSeen.has(id)) continue;
       searchSeen.add(id);
@@ -4510,6 +4508,8 @@ function renderSearch() {
     // Whatever is in the box right now, not what the URL was rendered from.
     const text = document.getElementById("search-input")?.value ?? query;
     if (text.trim()) p.set("q", text.trim());
+    // The panel is open because a filter was just picked (see `renderSearch`).
+    p.set("f", "1");
     go(`#/search?${p.toString()}`);
   };
 
@@ -4522,7 +4522,12 @@ function renderSearch() {
 
   const panel = el(
     "section",
-    { class: "search-filters", id: "search-filters", hidden: !filtersActive(filters) },
+    // **Picking a filter keeps the panel open.** It used to be drawn open only while
+    // the filters were "active", and the region a profile is set to does not count as
+    // active — so picking the country the region already is (South Korea while the
+    // region is Korea) closed the panel the moment the results arrived. `f=1` rides on
+    // the URL from `pick()`, so the choice is what decides, not the region.
+    { class: "search-filters", id: "search-filters", hidden: !(filtersActive(filters) || params.get("f") === "1") },
     filterRow("Type", vocab.types, filters.type, (v) => pick("type", v)),
     filterRow("Country", vocab.countries, filters.country, (v) => pick("country", v), { clamp: true }),
     categoryList.length
@@ -4576,6 +4581,9 @@ function renderSearch() {
 
   return [
     el("h1", { class: "view-title", text: "Search" }),
+    // **Movies / Shows, the same switch Home has.** Searching is browsing a row, so the
+    // screen that asks "what is this called?" wears the row's own two buttons.
+    rowSwitch(),
     el(
       "div",
       { class: "search-wrap" },
@@ -4806,17 +4814,15 @@ function renderVodCalendar() {
   drawDetail();
   drawPlans();
 
-  // A day holds films *and* series, so both rows are read for the month.
-  Promise.all(
-    ["movie", "series"].map((type) =>
-      get(`/calendar/${type}/${month}.json${catalogQuery()}`)
-        .then((data) => data.metas || [])
-        .catch(() => []),
-    ),
-  )
-    .then((lists) => {
+  // **The calendar follows the Movies / Shows switch.** It read both rows and mixed them
+  // into one grid, so the switch that says which row you are on had nothing to do here —
+  // the film you were looking for sat beside a series you were not. It reads the row you
+  // are on: films under Movies, series under Shows, exactly like every other screen.
+  const calRow = state.row === "series" ? "series" : "movie";
+  get(`/calendar/${calRow}/${month}.json${catalogQuery()}`)
+    .then((data) => {
       const seen = new Set();
-      for (const m of lists.flat()) {
+      for (const m of data?.metas || []) {
         const id = `${m.type}:${m.id}`;
         if (seen.has(id)) continue;
         seen.add(id);
@@ -4837,7 +4843,7 @@ function renderVodCalendar() {
       { class: "cal-head" },
       el("div", { class: "cal-title" },
         el("h1", { class: "view-title", text: "Calendar" }),
-        el("p", { class: "view-hint", text: `Movies & series releasing this month${state.language ? ` · ${state.language}` : ""}` }),
+        el("p", { class: "view-hint", text: `${calRow === "series" ? "Series" : "Films"} releasing this month${state.language ? ` · ${state.language}` : ""}` }),
       ),
       el("div", { class: "cal-nav" },
         el("button", { class: "icon-btn focusable", type: "button", text: "‹", "aria-label": "Previous month", onclick: () => { state.calendar = { month: shiftMonth(month, -1), day: null }; render(); } }),
@@ -4845,6 +4851,9 @@ function renderVodCalendar() {
         el("button", { class: "icon-btn focusable", type: "button", text: "›", "aria-label": "Next month", onclick: () => { state.calendar = { month: shiftMonth(month, 1), day: null }; render(); } }),
       ),
     ),
+    // **Movies / Shows, on the calendar too.** The grid follows the row (see `calRow`),
+    // so the switch that picks the row has to be here to pick it.
+    rowSwitch(),
     grid,
     detail,
     plans,
@@ -6177,8 +6186,6 @@ function pinButtons(item) {
   // the plan is one press, and the library is a *pick* — the list opens under the button,
   // you scroll it and choose the row it goes into. The library can hold several rows now,
   // and a wall of "Add to <row>" buttons beside Play was the same control repeated.
-  const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
-  const on = rows.filter((row) => inCustomRow(item, row.id));
   return [
     el("button", {
       class: `btn pin focusable${current === planId ? " active" : ""}`,
@@ -6189,91 +6196,33 @@ function pinButtons(item) {
       text: current === planId ? `${planLabel} · pinned` : planLabel,
       onclick: () => setWatchState(item, current === planId ? null : planId),
     }),
-    libraryPicker(item, rows, on),
+    libraryButton(item),
   ];
 }
 
 /**
- * **Add to Library — one button, and the Library's own rows under it.**
+ * **Add to Library — one button, one press.**
  *
- * The Library is a list of rows you made, so putting a title in it is a *pick*: press the
- * button (or rest the cursor on it) and the rows open underneath — scroll them, choose the
- * one it goes into, and the button says which rows already hold it. It used to be a label
- * with a picker beside it, and before that a wall of one button per row; this is the
- * control the row of four was missing.
- *
- * The list stays open while the cursor travels from the button to the list — the panel
- * carries the space between them, and a short grace period covers the rest — and a press
- * anywhere else, or Escape, puts it away.
+ * It was a picker: press it (or rest the cursor on it) and the Library's rows opened
+ * underneath, and the row you chose decided where the title went. That is a dropdown for
+ * what is one decision, and the words in it changed under the cursor as you scrolled —
+ * the reported "the label changes in the button". The Library's own first row is where a
+ * title goes unless you have made others, so this is a toggle: press it and the title is
+ * in the Library, press it again and it is not. Nothing opens.
  */
-function libraryPicker(item, rows, on) {
-  const list = el("div", { class: "library-pop-list" });
-  const head = el("p", { class: "library-pop-head", text: on.length ? `${customLabel()} · added` : "Put it in a row" });
-  const menu = el("div", { class: "library-pop-menu", hidden: true }, head, list);
-  const root = el("div", { class: "library-pop" });
-  for (const row of rows) {
-    const inside = inCustomRow(item, row.id);
-    list.append(el("button", {
-      class: `dropdown-item focusable${inside ? " active" : ""}`,
-      type: "button",
-      "aria-pressed": String(inside),
-      text: `${inside ? "Remove from" : "Add to"} ${row.name}`,
-      onclick: () => { toggleCustomRow(item, row.id); close(); },
-    }));
-  }
-  const btn = el("button", {
-    class: "btn focusable library-pop-btn",
+function libraryButton(item) {
+  const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
+  const row = rows[0];
+  const inside = inCustomRow(item, row.id);
+  return el("button", {
+    class: `btn focusable${inside ? " active" : ""}`,
     type: "button",
     id: "library-add",
-    "aria-haspopup": "listbox",
-    "aria-expanded": "false",
-    title: "Put this in one of your Library rows",
-    onclick: (e) => { e.stopPropagation(); open(); },
-  },
-    el("span", { class: "library-pop-glyph", "aria-hidden": "true", text: "＋" }),
-    el("span", { text: on.length ? `${customLabel()} · added` : "Add to Library" }),
-  );
-  let grace = null;
-  /**
-   * **The list is anchored to the button, not nested in the row.** The row of four is a
-   * flex line inside a card that clips its own contents, so a list positioned under the
-   * button was cut off — or squeezed into the button's own box, which is what made the
-   * button look like its label was changing. `position: fixed` puts it over the page
-   * instead, and it is re-placed while it is open so it follows the button as the page
-   * scrolls.
-   */
-  function place() {
-    const r = btn.getBoundingClientRect();
-    const width = Math.max(240, r.width);
-    menu.style.minWidth = `${width}px`;
-    menu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - width - 12))}px`;
-    menu.style.top = `${r.bottom + 6}px`;
-    menu.style.maxHeight = `${Math.max(140, Math.min(264, innerHeight - r.bottom - 24))}px`;
-  }
-  function open() {
-    if (grace) { clearTimeout(grace); grace = null; }
-    place();
-    menu.hidden = false;
-    root.classList.add("open");
-    btn.setAttribute("aria-expanded", "true");
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-  }
-  function close() {
-    if (menu.hidden) return;
-    menu.hidden = true;
-    root.classList.remove("open");
-    btn.setAttribute("aria-expanded", "false");
-    window.removeEventListener("scroll", place, true);
-    window.removeEventListener("resize", place);
-  }
-  function later() { if (grace) clearTimeout(grace); grace = setTimeout(close, 260); }
-  root.addEventListener("pointerenter", open);
-  root.addEventListener("pointerleave", later);
-  root.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
-  document.addEventListener("pointerdown", (e) => { if (!root.contains(e.target)) close(); }, true);
-  root.append(btn, menu);
-  return root;
+    "aria-pressed": String(inside),
+    title: inside ? `In ${row.name} — press to take it out` : `Put this in ${row.name}`,
+    text: inside ? `${row.name} · added` : "Add to Library",
+    onclick: () => toggleCustomRow(item, row.id),
+  });
 }
 
 /** One person's card — a face, a name and what they did. Opens their credits. */
@@ -6527,6 +6476,10 @@ function openTrailer(t) {
     "aria-label": "Fullscreen",
   });
 
+  // The two bands over the embed's own furniture — see the note in the frame above.
+  const maskTop = el("div", { class: "trailer-mask trailer-mask-top", "aria-hidden": "true", hidden: true });
+  const maskBottom = el("div", { class: "trailer-mask trailer-mask-bottom", "aria-hidden": "true", hidden: true });
+
   const cover = el("button", {
     class: "trailer-cover focusable",
     type: "button",
@@ -6551,6 +6504,15 @@ function openTrailer(t) {
         // this plate of the clip's own artwork covers that moment. Nothing of YouTube's
         // chrome is left once it lifts. See `start` below.
         cover,
+        // **The bands the embed paints its own furniture on.** Once the clip is running,
+        // YouTube draws its title card and channel mark across the top and its watermark —
+        // and, whenever the picture pauses or ends, a "More videos" wall — across the
+        // bottom. None of that is a control the IFrame API exposes, so the only way to keep
+        // it off the screen is to cover the two bands it is painted on with the app's own
+        // surface. They are hidden until the cover lifts, so the artwork on the cover is
+        // whole. See `liftCover`.
+        maskTop,
+        maskBottom,
       ),
       el("div", { class: "trailer-controls" }, playBtn, seek, clock, full),
     ),
@@ -6595,6 +6557,10 @@ function openTrailer(t) {
   const liftCover = () => {
     if (!cover.isConnected || cover.hidden) return;
     cover.hidden = true;
+    // The app's bands come up with the cover off, so the embed's title card, its channel
+    // mark and its "More videos" wall are never on a bare frame.
+    maskTop.hidden = false;
+    maskBottom.hidden = false;
     if (document.activeElement === cover) playBtn.focus?.();
   };
   /** The cover is up until the picture is really moving — see `onStateChange`. */
@@ -7639,8 +7605,17 @@ function paneProfile() {
  * how many of its rows are on, which is the number you actually want while picking.
  */
 function visCard(card, v) {
-  const rows = rowOf(card).catalogs;
-  const shownRows = rows.filter((cat) => v.catalogs[cat.id] !== false).length;
+  // **Both rows, kept apart.** The editor listed one card per block and drew whatever row
+  // the app happened to be on, so a Shows catalog was never on screen to switch off, and
+  // switching the Shows row off changed nothing you could see. A card block now holds its
+  // own **Movies** list and its own **Shows** list, and a row switched off in "Media rows"
+  // above takes its whole list out of every card with it.
+  const shownRows =
+    (card.movie?.catalogs || []).filter((cat) => v.catalogs[cat.id] !== false).length +
+    (card.series?.catalogs || []).filter((cat) => v.catalogs[cat.id] !== false).length;
+  const totalRows = (card.movie?.catalogs || []).length + (card.series?.catalogs || []).length;
+  // The same row visibility `rowOf` reads, so the editor and the app cannot disagree.
+  const rowsFor = (row) => (v.rows[row] !== false ? card[row]?.catalogs || [] : []);
   const shown = v.cards[card.key] !== false;
   // **A card that is off has no rows to pick.** Its catalog rows are not drawn at all —
   // switching Movies off and still being shown a hundred movie rows to switch off one by
@@ -7649,8 +7624,8 @@ function visCard(card, v) {
   const open = shown && (state.openCards || {})[card.key] !== false;
   return el("div", { class: `vis-card${shown ? "" : " off"}${open ? " open" : ""}` },
     el("div", { class: "vis-card-head" },
-      visRow(shown, "card", card.key, titleOf(card), rows.length ? `${shownRows} of ${rows.length} catalog rows on` : "No catalog rows yet"),
-      rows.length
+      visRow(shown, "card", card.key, titleOf(card), totalRows ? `${shownRows} of ${totalRows} catalog rows on` : "No catalog rows yet"),
+      totalRows
         ? el("button", {
             class: "vis-fold focusable",
             type: "button",
@@ -7669,7 +7644,12 @@ function visCard(card, v) {
     ),
     open
       ? el("div", { class: "vis-card-rows" },
-          ...rows.map((cat) => visRow(v.catalogs[cat.id] !== false, "catalog", cat.id, cat.name, "", 1)),
+          ...[["movie", "Movies"], ["series", "Shows"]]
+            .filter(([row]) => v.rows[row] !== false)
+            .map(([row, label]) => el("div", { class: "vis-row-group" },
+              el("p", { class: "vis-row-group-head", text: `${label} — ${rowsFor(row).length} rows` }),
+              ...rowsFor(row).map((cat) => visRow(v.catalogs[cat.id] !== false, "catalog", cat.id, cat.name, "", 1)),
+            )),
         )
       : null,
   );

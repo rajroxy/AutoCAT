@@ -1807,7 +1807,10 @@ button:focus-visible,
      the 4px of room the highlight needs above the first one — no more, so the third row
      is never half-visible under it. The arrows step a row at a time and `scroll-snap`
      makes the step land on a row instead of between two. */
-  max-height: 74px;
+  /* **Exactly two rows.** A row is 25px and the gap 8px, so two rows are 62px; with the
+     4px of highlight room above and below, the box is 70px. At 74px the third row's top
+     edge landed on the window's bottom edge and read as a row cut in half. */
+  max-height: 70px;
   padding: 4px 2px;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -4136,16 +4139,30 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .row-btn.active:hover, .row-btn.active:focus-visible,
 .filter-chip.active:hover, .filter-chip.active:focus-visible,
 .chip.active:hover, .chip.active:focus-visible,
+.chip.active:has(:focus-visible),
 .search-filter-btn.on:hover, .search-filter-btn.on:focus-visible,
 .accent-card.active:hover, .accent-card.active:focus-visible,
 .settings-tab.active:hover, .settings-tab.active:focus-visible,
 .btn.pin.active:hover, .btn.pin.active:focus-visible,
-.menu-item.active:hover, .dropdown-item.active:hover,
-.option:has(input:checked):hover, .vis-option:has(input:checked):hover,
+.menu-item.active:hover, .menu-item.active:focus-visible,
+.dropdown-item.active:hover, .dropdown-item.active:focus-visible,
+.dropdown-btn[aria-expanded="true"]:hover, .dropdown-btn[aria-expanded="true"]:focus-visible,
+.option:has(input:checked):hover, .option:has(input:checked):focus-visible,
+.vis-option:has(input:checked):hover, .vis-option:has(input:checked):focus-visible,
 .icon-btn.active:hover, .icon-btn.active:focus-visible,
+.profile-tile.active:hover, .profile-tile.active:focus-visible,
+.cal-cell.selected:hover, .cal-cell.selected:focus-visible,
+.cal-cell.today:hover, .cal-cell.today:focus-visible,
+/* **The tab you are on — Home, Movies, Shows.** The solid accent plate already says
+   "you are here"; a ring on top of it is the app pointing at what you already chose. */
+.tab[aria-selected="true"]:hover, .tab[aria-selected="true"]:focus-visible,
+.tab[aria-selected="true"]:has(:focus-visible),
 .btn.primary:hover, .btn.primary:focus-visible {
   box-shadow: none;
+  outline: none !important;
 }
+/* It still answers the cursor with a little light, so it does not read as dead. */
+.tab[aria-selected="true"]:hover { filter: brightness(1.07); }
 .btn.primary:hover { filter: brightness(1.1); }
 .btn.primary { transition: filter var(--quick) var(--ease), background var(--quick) var(--ease); }
 
@@ -4184,3 +4201,40 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 }
 .pane-note + .pane-note { margin-top: 8px; }
 .pane-note:empty { display: none; }
+
+/* ============================================================================
+   **The trailer's two bands.** YouTube's embed paints its own furniture over the
+   picture: a title card and channel mark across the top, a watermark — and, on a
+   pause or at the end, a "More videos" wall — across the bottom. The IFrame API
+   exposes no switch for any of it. These two bands are the app covering the bands
+   that furniture is painted on, so what plays is the clip and the app's own bar.
+   They lift with the cover (`liftCover`), never before it.
+   ============================================================================ */
+.trailer-frame > .trailer-mask { position: absolute; left: 0; right: 0; width: 100%; z-index: 2; pointer-events: none; }
+.trailer-frame > .trailer-mask[hidden] { display: none; }
+.trailer-frame > .trailer-mask-top {
+  top: 0;
+  bottom: auto;
+  height: 15%;
+  background: linear-gradient(180deg, #000 0 56%, rgba(0, 0, 0, 0) 100%);
+}
+.trailer-frame > .trailer-mask-bottom {
+  top: auto;
+  bottom: 0;
+  height: 22%;
+  background: linear-gradient(0deg, #000 0 58%, rgba(0, 0, 0, 0) 100%);
+}
+
+/* **The profile editor's card blocks hold two lists.** One for the card's films and one
+   for its shows (see `visCard`), so a Shows catalog is on screen to switch off and a row
+   switched off above takes its list with it. */
+.vis-row-group + .vis-row-group { margin-top: 10px; }
+.vis-row-group-head {
+  margin: 2px 0 4px;
+  padding-left: 16px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
