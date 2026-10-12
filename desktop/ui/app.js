@@ -4524,16 +4524,21 @@ function renderSearch() {
     document.getElementById("search-input")?.blur();
     const next = { ...filters, [name]: value };
     for (const key of [...FILTER_KEYS, "sort"]) {
+      // **Country is written below, always.** It is the one line whose "all" is a choice
+      // rather than an absence, so it is never deleted here.
+      if (key === "country") continue;
       if (next[key] && next[key] !== "all" && !(key === "sort" && next[key] === "popularity")) p.set(key, next[key]);
       else p.delete(key);
     }
     if (next.type) p.set("type", next.type);
     else p.delete("type");
-    // **"All countries" is a choice, and it is written down.** Clearing the key wrote
-    // nothing at all, and the screen reads a missing country as "the region set in
-    // Settings" — so pressing All countries put South Korea straight back on the same
-    // press. The choice rides in the URL; only the *request* leaves it out.
-    if (name === "country") p.set("country", value);
+    // **Country rides in the URL whatever it is — a code, or "all".** *Not* writing it
+    // was two bugs in one line: pressing All countries wrote nothing, and the screen reads
+    // a missing country as "the region set in Settings", so South Korea came straight
+    // back; and picking a *genre or a year* then deleted the country the same way, so any
+    // other filter you pressed also reset the line to the region. Writing it every time
+    // fixes both — the choice survives every other press.
+    p.set("country", next.country || "all");
     // Whatever is in the box right now, not what the URL was rendered from.
     const text = document.getElementById("search-input")?.value ?? query;
     if (text.trim()) p.set("q", text.trim());

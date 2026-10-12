@@ -4296,13 +4296,35 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .rating-choice-row { display: flex; flex-direction: column; gap: 12px; }
 .rating-choice-row > * { flex: none; width: 100%; }
 
-/* **No square highlight on the search bar.** The field sits inside a rounded bar, and a
-   ring around the field drew a sharp-cornered rectangle inside the bar's curve. */
-.search-bar:has(.search-input:focus-visible),
-.search-bar:has(.search-input:focus),
-.search-bar:focus-within { box-shadow: none !important; }
+/* **The bar answers; the field never does, in any state.**
+   ----------------------------------------------------------------------------
+   The field inside the bar is `.focusable`, so the app drew its ring on **it** — a
+   sharp-cornered 3px accent rectangle sitting inside the bar's 14px curve, which is
+   the square box in the screenshot. Suppressing only `:focus`/`:focus-visible` was
+   not enough: a *hover* on the field ran the same `.focusable` rule, so pointing at
+   it drew the square ring while typing in it drew the rounded one — two highlights,
+   two shapes, one control. The field draws nothing at all now, and the highlight is
+   the whole bar's, in the bar's own radius. */
+.search-bar .search-input:hover,
 .search-bar .search-input:focus,
 .search-bar .search-input:focus-visible { outline: none !important; box-shadow: none !important; }
+.search-bar:hover,
+.search-bar:focus-within,
+.search-bar:has(.search-input:focus-visible),
+.search-bar:has(.search-input:focus) {
+  background: var(--panel);
+  box-shadow: var(--hl);
+}
+
+/* **A person's card rings its face, not its name.**
+   ----------------------------------------------------------------------------
+   `.person` is a `.focusable` button, so the app's ring was drawn around the whole
+   card as well: a square box around a 14px-rounded photo, sitting *under* the ring
+   the photo already draws — the second, squarish highlight on the Cast and Crew
+   rows. The face is what the ring belongs to (`person-face`), and the card draws
+   nothing. */
+.person.focusable:hover,
+.person.focusable:focus-visible { box-shadow: none; }
 
 /* **The title page's row of four sits lower**, well clear of the overview above it. It
    was 20px, then 34px, and it still read as the last line of the paragraph — it is a row
