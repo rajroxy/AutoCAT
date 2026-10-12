@@ -195,11 +195,11 @@ body {
   margin: 22px 0 10px;
 }
 
-/* **The card, with the *enter* target inside it.** A card that shows a person's name and
-   then offers to rename it has to hold the button that does it, and a button cannot sit
-   inside a button — so the card is a wrapper and the big surface above the controls is
-   the button you enter with. `padding: 0` is what lets that button reach the card's own
-   edge, so the whole top of the card is the target, exactly as it was. */
+/* **The card is the button.** There is nothing on it but a person: entering, the name and
+   the mark. It used to be a wrapper around an inner surface — a card that held Rename
+   could not be a button itself, which is also why two highlight rules were needed to draw
+   one ring. Now `.profile-tile` **is** the button, and `.focusable` rings its own rounded
+   corners like every other button in the app. */
 .profile-tile {
   display: flex;
   flex-direction: column;
@@ -219,37 +219,6 @@ body {
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-/* The way in: the avatar, the name and the line under it, one button filling the top. */
-.profile-tile-hit {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  /* **No padding of its own.** The card carries it; this is only the surface you press,
-     and it sits inside the card's padding rather than replacing it. */
-  padding: 0;
-  border-radius: inherit;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-/* **One highlight, and it is the card's.** The inner surface used to wear the app's own
-   `.focusable` ring as well — and, having square corners, that ring was a *box* round a
-   rounded card: two highlights in two shapes. The card is the only thing that answers
-   here, so hover and keyboard focus both draw one ring, following the card's corners. */
-.profile-tile-hit:hover,
-.profile-tile-hit:focus-visible { outline: none; box-shadow: none; }
-.profile-tile:hover,
-.profile-tile:focus-visible,
-.profile-tile:has(.profile-tile-hit:focus-visible) { box-shadow: var(--hl); }
-/* The card's own controls — Rename, under the name, inside the card. */
-.profile-card-tools { display: flex; justify-content: center; gap: 8px; }
-/* The card being renamed is the same card: the field takes the name's place. */
-.profile-tile.editing { cursor: default; }
-
 .profile-tile:hover, .profile-tile:focus-visible {
   transform: translateY(-3px);
   border-color: rgba(var(--accent-rgb), 0.55);
@@ -261,91 +230,7 @@ body {
 .profile-tile-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
 .profile-tile-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
 
-/* **The tools under the card.** Rename lives inside the card now; what is left here is
-   the pencil (which opens the cross) and the cross itself — removing a profile is not
-   something to put a thumb next to somebody's name. */
-.profile-slot { display: flex; flex-direction: column; gap: 10px; width: 220px; }
-.profile-slot .profile-tile { width: 100%; }
-/* **The tools are for the card whose pencil is open.** Both marks used to stand under
-   every card at all times, so a screen that asks *who is watching* also offered to
-   delete each of them. The pencil is the way in; the cross belongs to it. */
-.profile-tools { display: flex; justify-content: center; gap: 8px; }
-.profile-tool {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 30px;
-  border: 0;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.profile-tool:hover, .profile-tool:focus-visible { background: rgba(var(--accent-rgb), 0.22); color: var(--text); }
-.profile-tool.danger:hover, .profile-tool.danger:focus-visible { background: rgba(214, 74, 74, 0.3); color: #fff; }
-/* **The pencil, open.** While its own tools are showing the pencil keeps the accent fill —
-   a fill, never a ring, so a pencil that has been pressed does not wear a box. */
-.profile-tool.on { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
-
-/* **Rename, under the name — and Save in its place.** The pencil opens this button; this
-   button opens the field and turns into Save. It is a word, not a mark, so it is a pill
-   with the app's own label weight, sitting in the same row as the marks. */
-.profile-rename {
-  height: 30px;
-  /* **Rename and Save are one button**, so they are one size: a floor under the width
-     keeps the swap from resizing the control under the cursor. */
-  min-width: 92px;
-  padding: 0 14px;
-  text-align: center;
-  border: 0;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.profile-rename:hover, .profile-rename:focus-visible { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
-.profile-rename.save { background: linear-gradient(160deg, var(--accent), var(--accent-deep)); color: #14110a; }
-.tool-mark { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-/* **The name is edited where it is read.** The tile keeps its shape; the field takes the
-   name's place inside it, so the profile being renamed never moves. */
-.profile-slot.editing .profile-tile { cursor: default; }
-.profile-slot.editing .profile-tile:hover { transform: none; }
-.profile-name-field {
-  width: 100%;
-  padding: 9px 12px;
-  /* **No box round it.** The rename field wore a hairline that turned the accent on
-     focus, which put a box around the one line of text you are editing. It is a filled
-     field like every other field in the app: a fill, no border. */
-  border: 0;
-  border-radius: 10px;
-  background: var(--panel-2);
-  color: var(--text);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  text-align: center;
-  outline: none;
-}
-/* **No ring round the name you are typing.** The field is focused the moment it opens,
-   and `input:focus-visible` drew the app's accent ring around it — the same square box
-   round a line of text the app took off every other field. The fill says what it is. */
-.profile-name-field:focus,
-.profile-name-field:focus-visible { outline: none !important; box-shadow: none !important; background: rgba(255, 255, 255, 0.13); }
-.profile-rename-actions { display: flex; gap: 8px; }
-
-/* **The slot that is not a profile yet.** Dashed and quiet, so it reads as a place to
-   put one rather than as somebody who already exists. */
-.profile-tile.add { cursor: pointer; border-style: dashed; border-color: rgba(255, 255, 255, 0.16); background: transparent; }
-.profile-tile.add .avatar { background: rgba(255, 255, 255, 0.05); color: var(--muted); }
-.profile-tile.add:hover .avatar { color: var(--accent); }
-.plus-mark { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
-
+/* One card per profile, and **nothing under it**: no pencil, no cross, no Add slot. */
 /* `align-items: center` is what keeps the card's rule level with its name: a flex
    row defaults to `stretch`, and a stretched item with its own height is placed from
    the top of the row instead — which is what left the rule sitting high. */
@@ -2706,10 +2591,12 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
    to be a "More (N)" pill that expanded the line where it stood, which turned one
    filter into a wall of chips and pushed every line under it out of the panel. */
 .filter-options.clamped {
-  /* **Three rows, not two.** Two rows of eighty countries meant most of the list was out
-     of reach without a scroll nothing pointed at; the window is three rows now, and the
-     arrows turn a whole page at a time. */
-  max-height: 112px;
+  /* **Two rows, measured.** The height is set from the chips actually drawn (see
+     `sizeWindow` in `app.js`), so the window ends on a row boundary at any text size; this
+     is the value before the script has a box to measure. It used to be a fixed 112px,
+     which is three rows at one size and two and a half at another — the last row was
+     sliced through the middle, half a chip hanging under the edge. */
+  max-height: 70px;
   overflow-y: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -4409,10 +4296,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .rating-choice-row { display: flex; flex-direction: column; gap: 12px; }
 .rating-choice-row > * { flex: none; width: 100%; }
 
-/* The profile tool while it is the Save: the tick wears the accent. */
-.profile-tool.save { color: var(--accent); }
-.profile-tool.save:hover, .profile-tool.save:focus-visible { background: rgba(var(--accent-rgb), 0.22); color: var(--accent); }
-
 /* **No square highlight on the search bar.** The field sits inside a rounded bar, and a
    ring around the field drew a sharp-cornered rectangle inside the bar's curve. */
 .search-bar:has(.search-input:focus-visible),
@@ -4493,15 +4376,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .player-next-count { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-variant-numeric: tabular-nums; }
 .player-next-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
 
-/* **The Save sits in the card, under the field it keeps.** The rename tool is a tool
-   beside the tile while the name is shut; while the name is open it belongs to the thing
-   being edited, so it is drawn inside the card, directly under the field. */
-.profile-tile.editing { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: default; }
-.profile-tile.editing:hover { transform: none; }
-/* **Save is the same button as Rename.** It used to be stretched to the card's width and
-   a little taller, so the control changed size the moment the name opened. One size now. */
-.profile-tile.editing .profile-rename { min-width: 92px; }
-
 /* **The live Upcoming card's frames hold a channel's logo, not a still** — the same two
    frames the VOD Upcoming card draws, but a mark is *contained* on the app's own plate
    instead of being cropped into a band. */
@@ -4552,25 +4426,12 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 /* ============================================================================
    **One highlight on a profile card, and it is the card's.**
    ----------------------------------------------------------------------------
-   The card is a wrapper with the *enter* target inside it, and the inner surface is
-   `.focusable` — so the app's own keyboard/hover ring was drawn on **it** as well,
-   in the square corners it has of its own, while the card drew its ring in the
-   rounded corners it has of its own: two highlights, two shapes, on one thing. The
-   card answers now and nothing inside it does, both rings follow the card's real
-   radius (`inherit`, because the radius comes from a later grouped rule), and the
-   rules sit at the end of the sheet so the generic `.focusable` ring cannot win on
-   position. */
-.profile-grid .profile-tile-hit {
-  border-radius: inherit;
-}
-.profile-grid .profile-tile-hit:hover,
-.profile-grid .profile-tile-hit:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
+   There is no surface inside the card any more — the card **is** the button — so the
+   two-shapes-of-one-ring problem is gone with it. The rule stays at the end of the
+   sheet, where the generic `.focusable` ring cannot win on position, and it rings the
+   card's own rounded corners. */
 .profile-grid .profile-tile:hover,
-.profile-grid .profile-tile:focus-visible,
-.profile-grid .profile-tile:has(.profile-tile-hit:focus-visible) {
+.profile-grid .profile-tile:focus-visible {
   box-shadow: var(--hl);
 }
 
@@ -4601,9 +4462,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .option:has(input:checked):hover, .option:has(input:checked):focus-visible,
 .vis-option:has(input:checked):hover, .vis-option:has(input:checked):focus-visible,
 .model-chip.suggested:hover, .model-chip.suggested:focus-visible,
-.profile-rename.save:hover, .profile-rename.save:focus-visible,
-.profile-tool.on:hover, .profile-tool.on:focus-visible,
-.profile-tool.save:hover, .profile-tool.save:focus-visible,
 .cal-cell.selected:hover, .cal-cell.selected:focus-visible,
 .menu-item.active:hover, .menu-item.active:focus-visible,
 .dropdown-item.active:hover, .dropdown-item.active:focus-visible,

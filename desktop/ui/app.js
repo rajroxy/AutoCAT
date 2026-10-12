@@ -245,9 +245,24 @@ const PIN_STATES = WATCH_STATES.filter(([id]) => id === "planned");
  */
 const PEOPLE_KEY = "nuvio.people";
 const WHO_KEY = WHO_STORE;
-const DEFAULT_PEOPLE = [{ id: "you", name: "You" }];
-/** An id nothing else will take, so two profiles can share a name without colliding. */
-const personId = () => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+/**
+ * The two profiles every install has: **a male and a female.**
+ *
+ * There used to be as many as you cared to make, each with a pencil that opened a
+ * Rename button and a cross under the card that removed it. There are two, their names
+ * are not written by hand, and none can be added or removed — so the pencil, the
+ * Rename/Save button and the "Add profile" slot are gone with them, and the picker is
+ * only the question it asks.
+ *
+ * The **ids** are still read out of storage (see `profileList`), because a profile's id
+ * is the scope every one of its settings is filed under — the first profile keeps the
+ * id this machine already had, so nothing it has watched or set up moves.
+ */
+const PEOPLE = [
+  { id: HOME_PROFILE, name: "Male" },
+  { id: "female", name: "Female" },
+];
+const DEFAULT_PEOPLE = PEOPLE;
 
 // The profiles you can switch between. `IPTV` is the second one, and it is a
 // different app: its own two buttons, its own cards, its own settings.
@@ -688,11 +703,6 @@ const state = {
   // this browser only — a profile is a name, not an account.
   people: readJSON(PEOPLE_KEY, DEFAULT_PEOPLE),
   who: localStorage.getItem(WHO_KEY) || "",
-  // Which profile's name is being edited on the profile screen ("" = none), and which
-  // profile's pencil has been pressed ("" = none) — pressing the pencil opens the
-  // **Rename** button under the name; pressing *that* opens the field.
-  renaming: "",
-  renameMenu: "",
   // Live TV & Sports: which of its two rows is showing, and the channels, groups
   // and guide the server has answered with.
   liveRow: localStorage.getItem(KEY.liveRow) || "livetv",
@@ -2110,7 +2120,26 @@ function avatarNode(name) {
       svgNode("path", { d: "M20.5 18.5l9 5.5-9 5.5z" }),
     );
   }
-  // A profile added later still gets a mark rather than an empty disc.
+  // **The two profiles wear who they are.** Neither is a mode and neither is a blank
+  // disc: a male and a female, drawn with the same head and shoulders and with hair
+  // over the head on the female one, so the two read apart at a glance.
+  if (name === PEOPLE[1].name) {
+    return svgNode(
+      "svg",
+      { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
+      svgNode("path", { d: "M15 21c-1.6-9.5 3.3-14 9-14s10.6 4.5 9 14" }),
+      svgNode("circle", { cx: "24", cy: "18.5", r: "7.5" }),
+      svgNode("path", { d: "M10 40c0-7.5 6.3-12 14-12s14 4.5 14 12" }),
+    );
+  }
+  if (name === PEOPLE[0].name) {
+    return svgNode(
+      "svg",
+      { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
+      svgNode("circle", { cx: "24", cy: "17.5", r: "7.5" }),
+      svgNode("path", { d: "M10 40c0-7.5 6.3-12 14-12s14 4.5 14 12" }),
+    );
+  }
   return svgNode(
     "svg",
     { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
@@ -2131,16 +2160,19 @@ function avatarNode(name) {
 function syncProfileMark() {
   const button = document.getElementById("profile");
   if (!button) return;
-  const title = `${currentPerson().name} · ${state.profile} — switch profile`;
+  const who = currentPerson();
+  const title = `${who.name} · ${state.profile} — switch profile`;
   button.title = title;
   button.setAttribute("aria-label", title);
   // **A person, not a mode.** This corner drew the VOD/IPTV mark, which answers "which
   // mode am I in?" — but the mode is already named on the tab bar and on the switch
   // screen, and the corner is the *profile* control. It wears the profile mark again:
   // one glyph that means "you are here", in both modes and on every screen.
-  if (button.dataset.mark === "person") return;
-  button.dataset.mark = "person";
-  const mark = avatarNode("");
+  // It is redrawn when the profile changes too, so the corner shows *who*, not a name
+  // the mark under it does not match.
+  if (button.dataset.mark === who.id) return;
+  button.dataset.mark = who.id;
+  const mark = avatarNode(who.name);
   if (mark) button.replaceChildren(mark);
 }
 
@@ -2347,10 +2379,9 @@ async function signInOnThisMachine(name, email) {
  * The app used to open on the mode screen, which asks *how* you want to watch before it
  * knows *who* is watching. The profile comes first now, and the mode screen follows it.
  *
- * **A profile is made here, not in Settings.** Adding, renaming and removing all live on
- * this screen, because this is the screen about profiles: a name is edited in place
- * (the tile keeps its shape and the field takes the name's place), and a profile can only
- * be removed while another one is left to enter with.
+ * **The list is closed.** It used to be the screen where a profile was made, renamed and
+ * removed. There are two — a male and a female — so there is nothing here to add,
+ * rename or take away: this screen is the question, and the two cards are the answer.
  */
 /**
  * **The sign-in screen.**
@@ -2421,178 +2452,51 @@ function renderSignin() {
 function renderPeople() {
   const people = profileList();
   const current = currentPerson();
-  const renaming = state.renaming || "";
   return [
     el(
       "section",
       { class: "profiles" },
       el("p", { class: "hero-kicker", text: "Profiles" }),
       el("h1", { class: "view-title", text: "Who is watching?" }),
+      // **Two profiles, and no third.** The dashed card that made one is gone: the
+      // screen asks which of the two is watching, and the answer is one of them.
       el("p", { class: "view-hint", text: "Pick a profile to start. How you want to watch comes next." }),
       el(
         "div",
         { class: "profile-grid" },
-        ...people.map((person) => personSlot(person, person.id === current.id, renaming === person.id, people.length, (state.renameMenu || "") === person.id)),
-        // **The slot that is not a profile yet.** Drawn dashed and named for what it
-        // does, so adding a profile is on the screen rather than hidden in Settings.
-        el(
-          "div",
-          { class: "profile-slot" },
-          el(
-            "button",
-            {
-              class: "profile-tile focusable add",
-              type: "button",
-              id: "profile-add",
-              title: "Add a profile",
-              onclick: addPerson,
-            },
-            el("span", { class: "avatar", "aria-hidden": "true" }, plusMark()),
-            el("span", { class: "profile-tile-name", text: "Add profile" }),
-            el("span", { class: "profile-tile-sub", text: "a new name and mark" }),
-          ),
-        ),
+        ...people.map((person) => personSlot(person, person.id === current.id)),
       ),
     ),
   ];
 }
 
-/** The plus a new profile wears — the one mark in the app that means "make one". */
-const plusMark = () =>
-  svgNode("svg", { class: "plus-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
-    svgNode("path", { d: "M24 13v22M13 24h22" }));
-
 /**
- * One profile on the picker: the card you enter with, and its own two controls.
+ * One profile on the picker: the card, and nothing else on it.
  *
- * **Rename is inside the card, under the name** — a card that holds a person's name and
- * then offers to change it should hold the button that does it, rather than sending you
- * to a row of marks underneath. Save takes its place, so the field and the button that
- * commits it are together, inside the same card.
- *
- * The card is therefore a wrapper (a `div`) with the *enter* target as its own button
- * inside — a button cannot legally contain another button — and the profile's tools
- * (the pencil that opens the cross, and the cross itself) stay under the card, because
- * removing somebody is not something to put a thumb next to their name.
+ * **The card is the button.** It used to be a wrapper with the *enter* target inside it,
+ * because a card that held Rename could not be a button itself — which is also why the
+ * card and the surface inside it each needed their own highlight rule to look like one
+ * card. With no Rename, no pencil and no cross to hold, there is nothing left to wrap:
+ * the card is a single button, it draws one ring, and a press anywhere on it enters as
+ * that person.
  */
-function personSlot(person, active, editing, count, menu) {
-  const field = editing
-    ? el("input", {
-        class: "profile-name-field",
-        type: "text",
-        maxlength: "24",
-        value: person.name,
-        "aria-label": `Name for ${person.name}`,
-      })
-    : null;
-  const commit = editing ? () => renamePerson(person.id, field.value) : null;
-  if (field) {
-    field.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); commit(); }
-      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; state.renameMenu = ""; render(); }
-    });
-    queueMicrotask(() => field.focus());
-  }
-  const renameBtn = el(
-    "button",
-    {
-      class: `profile-rename focusable${editing ? " save" : ""}`,
-      type: "button",
-      text: editing ? "Save" : "Rename",
-      title: editing ? `Save this name` : `Rename ${person.name}`,
-      onclick: () => {
-        if (editing) commit();
-        else { state.renaming = person.id; render(); }
-      },
-    },
-  );
-  const tools = el(
-    "div",
-    { class: "profile-tools" },
-    // The pencil: it opens this profile's tools. It never edits anything itself.
-    el(
-      "button",
-      {
-        class: `profile-tool focusable${menu ? " on" : ""}`,
-        type: "button",
-        title: menu ? `Close the tools for ${person.name}` : `Tools for ${person.name}`,
-        "aria-label": menu ? `Close the tools for ${person.name}` : `Tools for ${person.name}`,
-        "aria-expanded": String(Boolean(menu)),
-        onclick: () => {
-          if (menu) { state.renameMenu = ""; state.renaming = ""; }
-          else { state.renameMenu = person.id; state.renaming = ""; }
-          render();
-        },
-      },
-      svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-        svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
-        svgNode("path", { d: "M14.5 5.5l4 4" })),
-    ),
-    // The cross belongs to the open tools, and only ever appears with them.
-    menu && count > 1
-      ? el(
-          "button",
-          {
-            class: "profile-tool danger focusable",
-            type: "button",
-            title: `Remove ${person.name}`,
-            "aria-label": `Remove ${person.name}`,
-            onclick: () => removePerson(person.id),
-          },
-          svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-            svgNode("path", { d: "M6 6l12 12M18 6L6 18" }),
-          ),
-        )
-      : null,
-  );
-  if (editing) {
-    return el(
-      "div",
-      { class: "profile-slot editing" },
-      el(
-        "div",
-        { class: "profile-tile active editing" },
-        el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
-        field,
-        // Wrapped like the closed card, so Rename and Save are one button of one size.
-        el("div", { class: "profile-card-tools" }, renameBtn),
-      ),
-      tools,
-    );
-  }
+function personSlot(person, active) {
   return el(
     "div",
     { class: `profile-slot${active ? " active" : ""}` },
     el(
-      "div",
+      "button",
       {
-        class: `profile-tile${active ? " active" : ""}`,
-        // **The whole card is the target, as it always was.** The name is the button (a
-        // card cannot be one while it holds Rename); the card's own padding is the rest
-        // of the surface, and a press on the controls is not a press on the person.
-        onclick: (event) => {
-          if (event.target.closest(".profile-card-tools")) return;
-          choosePerson(person.id);
-        },
+        class: `profile-tile focusable${active ? " active" : ""}`,
+        type: "button",
+        "aria-current": active ? "true" : undefined,
+        title: active ? `${person.name} \u2014 the profile you are on` : `Switch to ${person.name}`,
+        onclick: () => choosePerson(person.id),
       },
-      el(
-        "button",
-        {
-          class: "profile-tile-hit focusable",
-          type: "button",
-          "aria-current": active ? "true" : undefined,
-          title: active ? `${person.name} — the profile you are on` : `Switch to ${person.name}`,
-          onclick: () => choosePerson(person.id),
-        },
-        el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
-        el("span", { class: "profile-tile-name", text: person.name }),
-        el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
-      ),
-      // **Rename appears when the pencil is pressed.** The card holds it, under the
-      // name, so the thing being renamed and the button that renames it are one object.
-      menu || editing ? el("div", { class: "profile-card-tools" }, renameBtn) : null,
+      el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
+      el("span", { class: "profile-tile-name", text: person.name }),
+      el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
     ),
-    tools,
   );
 }
 
@@ -2645,21 +2549,20 @@ function renderModes() {
 
 /* ------------------------------------------------------------ the profiles */
 
-/** The profiles that exist: the stored list, or the one every install starts with. */
+/** The two profiles that exist: a male and a female, in that order. */
 function profileList() {
-  const list = Array.isArray(state.people) ? state.people.filter((p) => p && p.id && p.name) : [];
-  return list.length ? list : DEFAULT_PEOPLE;
+  // The stored list is read for its **ids**, never its names. An id is the scope a
+  // profile's settings are filed under, so the ids this machine already has are kept:
+  // its watchlist, its rows and its keys stay with the person they belong to, while the
+  // names and the marks are the app's.
+  const stored = Array.isArray(state.people) ? state.people.filter((p) => p && p.id) : [];
+  return PEOPLE.map((person, i) => ({ ...person, id: stored[i]?.id || person.id }));
 }
 
 /** The profile that is on: the stored one, or the first that exists. */
 function currentPerson() {
   const list = profileList();
   return list.find((p) => p.id === state.who) || list[0];
-}
-
-function savePeople(list) {
-  state.people = list;
-  writeJSON(PEOPLE_KEY, list);
 }
 
 function saveWho(id) {
@@ -2671,8 +2574,6 @@ function saveWho(id) {
 function choosePerson(id) {
   const changing = (state.who || "") !== id;
   saveWho(id);
-  state.renaming = "";
-  state.renameMenu = "";
   // **A different profile is a different app.** Every setting is filed under the person
   // (see `KEY`), and the page in front of you was built from the *last* person's copy —
   // so entering as somebody else starts the app again with them on. Same person, same
@@ -2684,51 +2585,6 @@ function choosePerson(id) {
   }
   if (parseHash().view === "profiles") go("#/modes");
   else render();
-}
-
-/**
- * A new profile, straight into its name field.
- *
- * A tile called "Profile 3" is nobody's name, so the field opens with it selected rather
- * than making the rename a second press.
- */
-function addPerson() {
-  const list = profileList();
-  const taken = new Set(list.map((p) => p.name.toLowerCase()));
-  let n = list.length + 1;
-  while (taken.has(`profile ${n}`.toLowerCase())) n++;
-  const person = { id: personId(), name: `Profile ${n}` };
-  savePeople([...list, person]);
-  state.renaming = person.id;
-  state.renameMenu = person.id;
-  render();
-}
-
-/** Rename a profile. An empty name is not a name: the edit is simply dropped. */
-function renamePerson(id, raw) {
-  const name = String(raw || "").replace(/\s+/g, " ").trim().slice(0, 24);
-  if (name) savePeople(profileList().map((p) => (p.id === id ? { ...p, name } : p)));
-  state.renaming = "";
-  state.renameMenu = "";
-  render();
-}
-
-/** Remove a profile — never the last one, or there would be nobody to enter as. */
-function removePerson(id) {
-  const list = profileList();
-  if (list.length < 2) return;
-  const next = list.filter((p) => p.id !== id);
-  savePeople(next);
-  state.renaming = "";
-  state.renameMenu = "";
-  // Removing the profile you are watching as walks you into the next one's app — a
-  // reload, for the same reason `choosePerson` reloads (see `KEY`).
-  if ((state.who || "") === id) {
-    saveWho(next[0].id);
-    location.reload();
-    return;
-  }
-  render();
 }
 
 /* --------------------------------------- artwork drawn from a card's contents */
@@ -4304,6 +4160,18 @@ function filterRow(label, choices, active, onPick, { clamp = false } = {}) {
   // be a "More (N)" pill that expanded the line in place, which turned one filter
   // into a wall of chips and pushed every line under it off the screen.
   const options = el("div", { class: "filter-options clamped", tabindex: "0" }, ...chips);
+  // **The window is two rows of *these* chips.** The height used to be a fixed 112px,
+  // which is three rows at one text size and two and a half at another — so the last row
+  // was sliced through the middle, half a chip hanging under the edge. It is measured
+  // instead: two rows of the chips on screen plus the gap between them, so the window
+  // always ends on a row boundary and the arrows sit under the chips, not over them.
+  const sizeWindow = () => {
+    const chip = options.firstElementChild;
+    const h = chip ? chip.getBoundingClientRect().height : 0;
+    if (!h) return;
+    const gap = Number.parseFloat(getComputedStyle(options).rowGap) || 6;
+    options.style.maxHeight = `${Math.round(h * 2 + gap)}px`;
+  };
   // **A step is a window, not a row.** The arrows used to move one row at a time, and
   // Country is eighty chips in a two-row window — so reaching the other half of the list
   // was forty presses, which is why the list read as one you could not click through.
@@ -4347,8 +4215,12 @@ function filterRow(label, choices, active, onPick, { clamp = false } = {}) {
   // panel is built **shut** (`hidden: !filtersActive(filters)`), it has to be a
   // question that survives being asked of a line with no box yet. `watchArrowFit`
   // watches the track's size, so opening the panel answers it.
-  watchArrowFit(options, (fits) => row.classList.toggle("chip-fits", fits));
+  watchArrowFit(options, (fits) => {
+    sizeWindow();
+    row.classList.toggle("chip-fits", fits);
+  });
   requestAnimationFrame(() => {
+    sizeWindow();
     sync();
     // The chip you already picked is always on screen, however far down the list it is.
     const chosen = options.querySelector(".filter-chip.active");
@@ -4468,6 +4340,11 @@ function renderSearch() {
     if (query.trim()) p.set("q", query.trim());
     if (filters.type) p.set("type", filters.type);
     for (const key of FILTER_KEYS) if (filters[key] !== "all") p.set(key, filters[key]);
+    // **All countries is asked for by name.** Every other "all" is the absence of a
+    // filter, but this one is a filter of its own — the world instead of the region —
+    // and the server only browses when it is told something. Without this, choosing All
+    // countries emptied the screen, which is the other half of "it does not select".
+    if (filters.country === "all") p.set("country", "all");
     if (filters.sort !== "popularity") p.set("sort", filters.sort);
     if (!state.safe) p.set("adult", "1");
     return p.toString();
@@ -4652,6 +4529,11 @@ function renderSearch() {
     }
     if (next.type) p.set("type", next.type);
     else p.delete("type");
+    // **"All countries" is a choice, and it is written down.** Clearing the key wrote
+    // nothing at all, and the screen reads a missing country as "the region set in
+    // Settings" — so pressing All countries put South Korea straight back on the same
+    // press. The choice rides in the URL; only the *request* leaves it out.
+    if (name === "country") p.set("country", value);
     // Whatever is in the box right now, not what the URL was rendered from.
     const text = document.getElementById("search-input")?.value ?? query;
     if (text.trim()) p.set("q", text.trim());

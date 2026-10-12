@@ -236,7 +236,7 @@ const SEARCH_CATEGORIES = [
 // countries dropped, and every country that clears the content floor. A choice that
 // could only open an empty screen is not offered, which is the same rule the cards follow.
 const SEARCH_CONTINENTS = [["all", "All continents"], ...continentsWithContent().map(([name]) => [name, name])];
-const SEARCH_COUNTRIES = [["all", "All countries"], ...countryVocab()];
+const SEARCH_COUNTRIES = [["all", "All countries"], ...countryChoices()];
 const SEARCH_PROVIDERS = [["all", "All services"], ...GLOBAL_OTT.map(([label, id]) => [String(id), label])];
 const SEARCH_MOODS = [["all", "All moods"], ...keywordVocab("moods-and-vibes").map(([name, id]) => [String(id), name])];
 const SEARCH_THEMES = [["all", "All themes"], ...keywordVocab("themes-and-tags").map(([name, id]) => [String(id), name])];
@@ -248,6 +248,31 @@ const COUNTRY_CODES = new Set(SEARCH_COUNTRIES.map(([code]) => code));
 const PROVIDER_IDS = new Set(SEARCH_PROVIDERS.map(([id]) => id));
 const MOOD_IDS = new Set(SEARCH_MOODS.map(([id]) => id));
 const THEME_IDS = new Set(SEARCH_THEMES.map(([id]) => id));
+
+/**
+ * **Every country there is, with the ones that have content first.**
+ *
+ * The row used to be `countryVocab()` alone — the countries the Countries card has a
+ * row for, which is a **content floor**: eighty names, and the other hundred and
+ * seventy were not offered at all. That is a cap, and a filter that cannot name a
+ * country is a filter that cannot be used for it. The names that are already familiar
+ * still lead (only where they really have titles), and every other country TMDB
+ * publishes follows them, so nothing is out of reach and nothing is invented.
+ */
+function countryChoices() {
+  const seen = new Set();
+  const out = [];
+  const add = (name, code) => {
+    if (!name || !code || seen.has(code) || REMOVED_COUNTRY_CODES.has(code)) return;
+    seen.add(code);
+    out.push([code, name]);
+  };
+  // The countries with content lead, in the card's own order — the names people look for
+  // are at the top of the row — and the rest of TMDB's list follows them.
+  for (const [code, name] of countryVocab()) add(name, code);
+  for (const [name, code] of COUNTRIES) add(name, code);
+  return out;
+}
 
 /**
  * The period choices: **every year on its own**, newest first.
@@ -263,7 +288,11 @@ const THEME_IDS = new Set(SEARCH_THEMES.map(([id]) => id));
 function periodChoices() {
   const thisYear = new Date().getUTCFullYear();
   const years = [];
-  for (let y = thisYear; y >= 1950; y -= 1) years.push([String(y), String(y)]);
+  // **Back to 1900, not 1950.** The row used to stop at 1950, so half of cinema had no
+  // chip at all. Films exist back to the 1870s; 1900 is the floor TMDB's own data is
+  // dense enough at to give a row for, and an older year is still accepted by hand
+  // (`period=1911` works, it is simply not offered as a chip).
+  for (let y = thisYear; y >= 1900; y -= 1) years.push([String(y), String(y)]);
   // No "Before" chip: "before 1950" sat at the far end of a line nobody scrolls to,
   // so the panel offers the years themselves. `period=before` is still understood
   // (`periodParam`, `yearInPeriod`) — an old link keeps working, it is just not offered.
@@ -2429,7 +2458,11 @@ async function serveAddon(req, res, pathname, origin) {
     const filters = parseFilters(params);
     // A screen with no text and no filter is an empty screen, not a query that
     // happens to match nothing.
-    const browsing = !query && hasFilters(filters);
+    // **"All countries" is a filter of its own.** Every other `all` means "no filter on
+    // this line", but this one says *the world instead of the region* — and a screen that
+    // asks for it has asked for something, so it browses. Without this the chip selected
+    // and the grid stayed empty, which is half of "clicking All countries does nothing".
+    const browsing = !query && (hasFilters(filters) || params.get("country") === "all");
     setKey(tmdbKey());
     if ((!query && !browsing) || !hasKey()) {
       json(res, 200, { query, metas: [], filters: filtersPayload(filters) });
