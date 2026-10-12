@@ -10634,7 +10634,7 @@ function recordingsCard() {
         el("span", { class: "guide-mini-block", text: clockOf(r.start) })
       ))
     : [el("div", { class: "guide-mini-row" },
-        el("span", { class: "guide-mini-name", text: "No upcoming recordings" }),
+        el("span", { class: "guide-mini-name", text: "No recordings" }),
         el("span", { class: "guide-mini-block bare", text: "Schedule from guide" })
       )];
   return liveCard({
