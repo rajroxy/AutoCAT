@@ -2699,7 +2699,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .person-initials { display: grid; place-items: center; font-size: 30px; font-weight: 800; color: var(--faint); }
 .person-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
 .person-role { font-size: 11px; color: var(--muted); }
-.person:hover .person-face, .person:focus-visible .person-face { outline: 2px solid var(--accent); outline-offset: 2px; }
+.person:hover .person-face, .person:focus-visible .person-face { outline: 3px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 24px 2px rgba(var(--accent-rgb), 0.45); }
 
 /* Seasons: the show's own list, each one a way into its episodes. */
 .season-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
@@ -3476,7 +3476,7 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
 .strip-clickable { cursor: pointer; }
 /* The cue is the same accent ring everything else uses — it was a grey 1px **outline**,
    which is the box-around-things this app does not draw. */
-.strip-clickable:hover { outline: none; box-shadow: 0 0 0 2px var(--accent); border-radius: 12px; }
+.strip-clickable:hover { outline: none; box-shadow: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45); border-radius: 12px; }
 
 /* ---------------------------------------------- the add-on / plugin dropdowns */
 /* The source form's type field and the model picker are drawn by the same rule
@@ -3640,7 +3640,7 @@ select option:hover {
 .btn:hover, .btn:focus-visible,
 .dropdown-btn:hover, .dropdown-btn:focus-visible, .dropdown:focus-within .dropdown-btn {
   transform: none;
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45);
 }
 /* **A card's own posters are not a second target.** Pointing at artwork inside a card
    highlights the card; a ring on both is the double highlight. */
@@ -3653,12 +3653,12 @@ select option:hover {
 .option:has(input:checked), .vis-option:has(input:checked),
 .menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"],
 .profile-tile.active {
-  box-shadow: 0 0 0 2px var(--accent);
-  background: rgba(var(--accent-rgb), 0.16);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 26px 2px rgba(var(--accent-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
 }
-.cal-cell.selected { box-shadow: 0 0 0 2px var(--accent); background: rgba(var(--accent-rgb), 0.16); }
-.cal-cell.today { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.45); }
+.cal-cell.selected { box-shadow: 0 0 0 3px var(--accent), 0 0 22px 2px rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.2); }
+.cal-cell.today { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.6); }
 
 /* **The buttons that are filled stay filled.** Movies/Shows and the active chips are
    solid accent plates with dark text — and a plate stays a plate while it is hovered. */
@@ -3676,9 +3676,9 @@ select option:hover {
 /* **The section you are in, and Home's own tab: a fill, no ring** — a ring around a
    full-width nav tile reads as a box. */
 .settings-tab.active, .tab[aria-selected="true"] {
-  background: rgba(var(--accent-rgb), 0.22);
+  background: rgba(var(--accent-rgb), 0.24);
   color: #fff;
-  box-shadow: none;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45);;
 }
 .settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
 
@@ -3700,7 +3700,7 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .menu-item:hover, .menu-item:focus-visible,
 .suggest-item:hover, .suggest-item:focus-visible {
   box-shadow: none;
-  background: rgba(var(--accent-rgb), 0.16);
+  background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
 }
 
