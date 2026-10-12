@@ -746,7 +746,10 @@ async function titlePayload(type, id, adult = false) {
 async function listPayload(kind, first, second, media, adult, page = 1) {
   const language = activeLanguage();
   const base = { language, ...(adult ? { include_adult: true } : {}) };
-  const finish = async (metas, more = false) => {
+  // **`total` is the whole list, not the page.** The head on a credits, studio or
+  // network screen used to count what had been *loaded* — twenty — so it read as a cap
+  // on a list that really holds hundreds. The caller prints `total`.
+  const finish = async (metas, more = false, total = 0) => {
     const list = stripAdult(metas.filter(Boolean), adult);
     try {
       await applyPosters(list);
@@ -755,7 +758,7 @@ async function listPayload(kind, first, second, media, adult, page = 1) {
     } catch {
       /* artwork and ratings are extras — the list itself still stands */
     }
-    return { metas: list, more };
+    return { metas: list, more, total: Number(total) || list.length };
   };
 
   if (kind === "person") {
@@ -763,13 +766,15 @@ async function listPayload(kind, first, second, media, adult, page = 1) {
     const wanted = [...(data.cast || []), ...(data.crew || [])].filter((c) =>
       media === "movie" ? c.media_type === "movie" : c.media_type === "tv",
     );
-    return finish(dedupe(wanted).map((c) => toMeta(c, media)));
+    const rows = dedupe(wanted).map((c) => toMeta(c, media));
+    return finish(rows, false, rows.length);
   }
 
   if (kind === "collection") {
     const data = await get(`/collection/${first}`, { language });
     const parts = [...(data.parts || [])].sort((a, b) => String(a.release_date || "").localeCompare(String(b.release_date || "")));
-    return finish(parts.map((p) => toMeta(p, "movie")));
+    const parts2 = parts.map((p) => toMeta(p, "movie"));
+    return finish(parts2, false, parts2.length);
   }
 
   if (kind === "season") {
@@ -810,7 +815,7 @@ async function listPayload(kind, first, second, media, adult, page = 1) {
     ...(wanted > 1 ? { page: wanted } : {}),
   });
   const totalPages = Math.min(Number(data.total_pages) || 1, 500);
-  return finish((data.results || []).map((r) => toMeta(r, media)), wanted < totalPages);
+  return finish((data.results || []).map((r) => toMeta(r, media)), wanted < totalPages, data.total_results);
 }
 
 /* ---------------------------------------------------------------- catalog */

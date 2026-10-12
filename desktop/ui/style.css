@@ -1456,10 +1456,16 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    you clicked into it. `:focus-visible` is the browser's own answer to "was this
    reached by keyboard?", which is exactly the ring's purpose. */
 button:focus-visible,
-.focusable:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius);
+.focusable:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  /* **A ring, not a square.** The keyboard highlight was a 3px `outline` — a hard
+     rectangle sitting outside a rounded control, which is the "square selection" that
+     appeared on everything the keyboard touched. A `box-shadow` ring follows the
+     element's own radius, so a pill lights up as a pill. */
+  outline: none;
+  box-shadow: var(--hl);
 }
 
 /* ------------------------------------------------------------------- modal */
@@ -4316,3 +4322,10 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 
 /* The live hero's picture is the way into the channel — a hand, like the VOD banner's. */
 .live-hero-art { cursor: pointer; }
+
+/* **A row's name is never cut.** The card names under a grid, and the row names over a
+   collection's rows, sit at the top of a scroller whose edge can land on the line box —
+   so they take the room their ascenders and their descenders need. */
+.cat-name { padding: 10px 2px 5px; line-height: 1.6; }
+.icon-name { padding-top: 3px; line-height: 1.5; }
+.cat-head { margin-bottom: 14px; align-items: center; padding-top: 2px; }

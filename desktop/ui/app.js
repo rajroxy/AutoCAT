@@ -516,7 +516,9 @@ const LIVE_SETTINGS_GROUPS = [
     sections: [
       ["livesource", "Source"],
       ["liverefresh", "Refresh"],
-      ["addons", "Add-ons"],
+      // **No Add-ons on this profile.** Live TV comes from your own M3U URL, file or
+      // Xtream login (see Source); a Stremio add-on catalogues films and series, and one
+      // sitting in the live settings only offered rows it could never fill.
       ["dns", "Network"],
       ["appearance", "Accent"],
       ["layout", "Layout"],
@@ -5100,22 +5102,78 @@ function renderLiveCalendar() {
     return nodes.filter(Boolean);
   }
 
-  for (const [key, list] of days) {
-    // **The day counts what it holds**, so a heading says how much of a day the guide
-    // can actually see rather than leaving an empty-looking date.
-    nodes.push(
-      el("h3", { class: "cal-live-day" },
-        el("span", { text: liveDayLabel(key) }),
-        el("span", { class: "cal-live-count", text: `${list.length} starting` }),
-      ),
-    );
-    nodes.push(el("div", { class: "cal-live" }, ...list.slice(0, LIVE_CAL_PER_DAY).map(({ channel, p }) => liveCalRow(channel, p))));
-    if (list.length > LIVE_CAL_PER_DAY) {
-      nodes.push(
-        el("p", { class: "view-hint", text: `${list.length - LIVE_CAL_PER_DAY} more on this day — the Guide lists every programme.` }),
-      );
+  // **A month grid, the same one the VOD calendar draws.** The live calendar used to be
+  // a list of day headings with the programmes under each — a wall of rows that only ever
+  // covered the hours the guide had been read for. It is a real month now: a cell per day
+  // carrying how many programmes start on it, the day you open holding them, and **Your
+  // plans** underneath exactly as the VOD calendar has it. On the Sports row the same grid
+  // holds what is coming up in sport, because the channels it reads are the row's own.
+  const month = state.calendar.month;
+  const [year, mon] = month.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, mon, 0)).getUTCDate();
+  const firstWeekday = new Date(Date.UTC(year, mon - 1, 1)).getUTCDay();
+  const today = new Date().toISOString().slice(0, 10);
+  const grid = el("div", { class: "cal-grid" });
+  const detail = el("div", { class: "cal-detail" });
+  const plans = el("section", { class: "cal-recent" });
+
+  const drawGrid = () => {
+    grid.replaceChildren(...["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => el("div", { class: "cal-dow", text: d })));
+    for (let i = 0; i < firstWeekday; i++) grid.append(el("div", { class: "cal-cell blank" }));
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = `${month}-${String(d).padStart(2, "0")}`;
+      const items = days.get(iso) || [];
+      grid.append(el("button", {
+        class: `cal-cell focusable${iso === today ? " today" : ""}${state.calendar.day === iso ? " selected" : ""}`,
+        type: "button",
+        "aria-pressed": String(state.calendar.day === iso),
+        onclick: () => { state.calendar.day = state.calendar.day === iso ? null : iso; render(); },
+      },
+        el("span", { class: "cal-day", text: String(d) }),
+        items.length
+          ? el("span", { class: "cal-count", text: `${items.length} on` })
+          : el("span", { class: "cal-count empty" }),
+      ));
     }
-  }
+  };
+
+  const drawDetail = () => {
+    const iso = state.calendar.day;
+    if (!iso) { detail.replaceChildren(); return; }
+    const items = days.get(iso) || [];
+    detail.replaceChildren(
+      items.length
+        ? el("div", { class: "cal-live" }, ...items.slice(0, LIVE_CAL_PER_DAY).map(({ channel, p }) => liveCalRow(channel, p)))
+        : el("p", { class: "empty", text: "Nothing in the guide starts on this day." }),
+    );
+  };
+
+  const drawPlans = () => {
+    const open = Boolean(state.calendar.day);
+    plans.hidden = open;
+    if (open) return;
+    const items = calendarPins();
+    plans.replaceChildren(
+      el("h3", { class: "section-title", text: "Your plans" }),
+      items.length
+        ? el("div", { class: "grid-titles" }, ...items.map((m) => calendarCard(m, { date: true })))
+        : el("p", { class: "empty", text: "Nothing planned yet — plan a release or a programme to see it here." }),
+    );
+  };
+
+  nodes.push(
+    el("div", { class: "cal-nav" },
+      el("button", { class: "icon-btn focusable", type: "button", text: "\u2039", "aria-label": "Previous month", onclick: () => { state.calendar = { month: shiftMonth(month, -1), day: null }; render(); } }),
+      el("span", { class: "cal-month", text: `${MONTH_NAMES[mon - 1]} ${year}` }),
+      el("button", { class: "icon-btn focusable", type: "button", text: "\u203a", "aria-label": "Next month", onclick: () => { state.calendar = { month: shiftMonth(month, 1), day: null }; render(); } }),
+    ),
+    grid,
+    detail,
+    plans,
+  );
+  drawGrid();
+  drawDetail();
+  drawPlans();
   return nodes.filter(Boolean);
 }
 
@@ -5973,7 +6031,7 @@ async function renderList(kind, id, type, extra = "") {
   const seen = new Set();
   // One pager per row type, so "Load more" continues both without one of them stalling
   // the other.
-  const each = Object.fromEntries(kinds.map((k) => [k, { page: 1, hasMore: true, busy: false }]));
+  const each = Object.fromEntries(kinds.map((k) => [k, { page: 1, hasMore: true, busy: false, total: 0 }]));
   const noun = (k, n) => `${n} ${k === "movie" ? "film" : "show"}${n === 1 ? "" : "s"}`;
   // **Both numbers, whichever row you are looking at.** The head counts films *and*
   // shows on these screens, so "43 films · 19 shows" is on the page whichever tab is
@@ -5983,7 +6041,15 @@ async function renderList(kind, id, type, extra = "") {
   // do: the films under Movies, the shows under Shows, and the switch beside it. Both rows
   // are still read (the other one is counted, not drawn), so the number is the whole list
   // rather than what has been scrolled to.
-  const tally = () => noun(media, [...seen].filter((key) => key.startsWith(`${media}:`)).length);
+  // **The number is the whole list.** `total` is the server's own count, so the head says
+  // "412 films" the moment the screen opens rather than climbing 20 at a time as you press
+  // Load more. Before the first answer, or when the server did not say, the loaded count is
+  // the best available.
+  const tally = () => {
+    const loaded = [...seen].filter((key) => key.startsWith(`${media}:`)).length;
+    const total = each[media]?.total || 0;
+    return noun(media, Math.max(total, loaded));
+  };
   const path = (k, n) => `/list/${kind}/${encodeURIComponent(id)}${extra ? `/${encodeURIComponent(extra)}` : ""}.json${listQuery(k)}${n > 1 ? `&page=${n}` : ""}`;
 
   const load = async (k) => {
@@ -5993,6 +6059,7 @@ async function renderList(kind, id, type, extra = "") {
     try {
       const data = await get(path(k, box.page));
       box.hasMore = Boolean(data.more);
+      if (data.total) box.total = Number(data.total) || box.total;
       box.page += 1;
       for (const m of data.metas || []) {
         const t = m.type || k;
@@ -11991,10 +12058,9 @@ async function openPlayer(url, title, opts = {}) {
     gearPanel.replaceChildren(...[
       // The panel's own name — the gear is labelled **Options**.
       el("p", { class: "player-options-head", text: "Options" }),
-      mergeable.length
-        ? el("h3", { class: "row-head", text: "Providers" })
-        : null,
-      mergeable.length ? el("div", { class: "stream-list" }, ...providerRows) : null,
+      // **No Providers list here.** It repeated the Sources drawer one button away, and
+      // picking a provider in it only moved the playhead — the streams are what you
+      // choose between, and they live in Sources. Options is the picture and its tracks.
       heights.length
         ? el("h3", { class: "row-head", text: "Resolution" })
         : null,
