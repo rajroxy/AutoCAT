@@ -7672,28 +7672,34 @@ function applyTheme() {
 
 /** Settings → Appearance: the accent colour, and how much the app moves. */
 function paneAppearance() {
-  // **As it was: one round swatch per colour.** The grid of tinted boxes was a change
-  // nobody asked for; this is the row the pane has always drawn — the colour itself,
-  // the chosen one ringed — with its name on the button for a screen reader.
+  // **One card per colour, like the banner's own frame.** The banner puts its artwork
+  // inside a card of its own — a panel with a radius, the picture as the thing inside it —
+  // and the accent picker is that same idea: every colour is a card carrying **its own
+  // colour as the artwork** (the same base → deep gradient the app's accent is built from),
+  // with the colour's name under it. The chosen one wears the accent ring the rest of the
+  // app uses; a row of bare circles could only tell you the colour of the dot.
   return [
     el("div", { class: "provider" },
-      el("div", { class: "accent-row" },
-        ...ACCENTS.map(([id, label, , base]) =>
+      el("div", { class: "accent-grid" },
+        ...ACCENTS.map(([id, label, , base, deep]) =>
           el("button", {
-            class: `accent-swatch focusable${state.accent === id ? " active" : ""}`,
+            class: `accent-card focusable${state.accent === id ? " active" : ""}`,
             type: "button",
             id: `accent-${id}`,
             title: label,
             "aria-label": label,
             "aria-pressed": String(state.accent === id),
-            style: `--swatch: ${base}`,
+            style: `--swatch: ${base}; --swatch-deep: ${deep}`,
             onclick: () => {
               state.accent = id;
               localStorage.setItem(KEY.accent, id);
               applyTheme();
               render();
             },
-          }),
+          },
+            el("span", { class: "accent-card-art", "aria-hidden": "true" }),
+            el("span", { class: "accent-card-name", text: label }),
+          ),
         ),
       ),
       el("div", { class: "provider-check" }, el("span", { class: "source-status", text: `Accent: ${accentOf(state.accent)[1]}` })),

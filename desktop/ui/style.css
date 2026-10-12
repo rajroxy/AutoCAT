@@ -1045,31 +1045,45 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .vis-card-rows .vis-option:not(:has(input:checked)) { opacity: 0.62; }
 .vis-option:has(input:checked) input { accent-color: var(--accent); }
 
-/* **One colour, one box** (Settings → Accent). The swatches were a wrap of bare circles
-   whose names lived in a tooltip; each is a full-width box now, the same shape every other
-   choice in Settings has — a dot of the colour and the name written beside it — stacked up
-   and down the column. */
-/* **The accent picker, as it was**: one round swatch per colour, wrapped, the chosen one
-   ringed with its own colour. */
-.accent-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 4px; }
-.accent-swatch {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--swatch);
-  cursor: pointer;
-  position: relative;
+/* **One colour, one card** (Settings → Accent).
+   The banner puts its artwork inside a card of its own — a panel, a radius, the picture
+   as the thing inside it. The accent picker is the same idea: **every colour is a card**,
+   its own colour carried as the artwork (the same `base → deep` gradient the app's accent
+   actually uses), its name under it. What is chosen wears the accent ring the rest of the
+   app uses, and the row of bare circles it replaces could only ever tell you the colour of
+   the dot. */
+.accent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
+  gap: 14px;
+  margin: 10px 0 6px;
 }
-.accent-swatch:hover, .accent-swatch:focus-visible { transform: translateY(-2px); }
-.accent-swatch.active { box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--swatch); }
-.accent-swatch.active::after {
-  content: "";
-  position: absolute;
-  inset: -7px;
-  border-radius: 50%;
-  border: 1px solid var(--accent);
+.accent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* The colour, as the card's artwork. */
+.accent-card-art {
+  display: block;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: linear-gradient(160deg, var(--swatch), var(--swatch-deep, var(--swatch)));
+}
+.accent-card-name { font-size: 13.5px; font-weight: 700; color: inherit; }
+/* The one you picked keeps the ring, and its name reads white. */
+.accent-card.active {
+  background: rgba(var(--accent-rgb), 0.2);
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 26px 2px rgba(var(--accent-rgb), 0.5);
 }
 
 /* ------------------------------------------------------------------ explore */
@@ -3614,7 +3628,7 @@ select option:hover {
 .episode-item, .hero, .graph, .guide, .calendar, .icon-btn, .btn, .text-input,
 .search-bar, .search-input, .dropdown-btn, .chip, .filter-chip, .model-chip,
 .settings-tab, .menu-item, .dropdown-item, .row-switch, .row-btn, .toast,
-.strip-clickable {
+.accent-card, .strip-clickable {
   border: 0;
 }
 
@@ -3629,8 +3643,11 @@ select option:hover {
 .season-card:hover, .season-card:focus-visible,
 .trailer-card:hover, .trailer-card:focus-visible,
 .result:hover, .result:focus-visible,
-.provider:hover, .provider:focus-visible,
-.source:hover, .source:focus-visible,
+/* **A panel is not a target.** `.provider` and `.source` are the boxes Settings draws
+   around a group of controls and the rows the Add-ons list is made of — the things you
+   press are inside them. Ringing the box as well as the control under the cursor is the
+   double highlight, all over again: pointing at one colour card lit the whole accent
+   pane. */
 .vis-card:hover,
 .option:hover, .vis-option:hover,
 .cal-cell:hover,
@@ -3638,6 +3655,7 @@ select option:hover {
 .ep-row:hover, .site-row:hover,
 .icon-btn:hover, .icon-btn:focus-visible,
 .btn:hover, .btn:focus-visible,
+.accent-card:hover, .accent-card:focus-visible,
 .dropdown-btn:hover, .dropdown-btn:focus-visible, .dropdown:focus-within .dropdown-btn {
   transform: none;
   box-shadow: 0 0 0 3px var(--accent), 0 0 24px 2px rgba(var(--accent-rgb), 0.45);
