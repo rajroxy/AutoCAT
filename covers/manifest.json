@@ -105,7 +105,7 @@
   },
   {
     "collection": "runtimes",
-    "title": "Runtimes",
+    "title": "Runtime",
     "subtitle": "30–44 mins · 45–59 mins · 60–74 mins · 75–89 mins · 90–104 mins · 105–119 mins · 120–149 mins · 150–179 mins · 180+ mins",
     "row": "movie",
     "svg": "covers/movies/runtimes.svg",
@@ -297,7 +297,7 @@
   },
   {
     "collection": "runtimes",
-    "title": "Runtimes",
+    "title": "Runtime",
     "subtitle": "4 Episodes · 6 Episodes · 8 Episodes · 10 Episodes · 12 Episodes · 16 Episodes · 20 Episodes · 24 Episodes · 28 Episodes · 32 Episodes · 40 Episodes · 50 Episodes · 60 Episodes · 80 Episodes · 100+ Episodes",
     "row": "show",
     "svg": "covers/shows/runtimes.svg",

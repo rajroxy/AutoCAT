@@ -725,7 +725,7 @@ const buildCollections = (code = "") => {
     // before that one row on the card page.
     catalogs: both([
       watchlist("Watching", "watching"),
-      { ...watchlist("Plan to Watch", "planned"), divider: true },
+      watchlist("Plan to Watch", "planned"),
       watchlist("Watched", "watched"),
     ]),
   },
@@ -932,7 +932,7 @@ const buildCollections = (code = "") => {
   },
   {
     key: "runtimes",
-    lines: ["Runtimes"],
+    lines: ["Runtime"],
     // Shows are not measured in minutes: on the Shows row the same card is its
     // episode-count ladder, so it says **Episodes** there.
     linesByRow: { show: ["Episodes"] },

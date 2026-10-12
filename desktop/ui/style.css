@@ -225,7 +225,11 @@ body {
    whole of its own surface as the target. */
 .profile-slot { display: flex; flex-direction: column; gap: 10px; width: 220px; }
 .profile-slot .profile-tile { width: 100%; }
+/* **The tools are for the tile you are editing.** Both marks used to stand under every
+   tile at all times, so a screen that asks *who is watching* also offered to delete each
+   of them. The rename mark is the way in — it stays — and the cross belongs to the edit. */
 .profile-tools { display: flex; justify-content: center; gap: 8px; }
+.profile-slot:not(.editing) .profile-tool.danger { display: none; }
 .profile-tool {
   display: grid;
   place-items: center;
@@ -1395,8 +1399,9 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   display: grid;
   place-items: center;
   padding: 4vh 4vw;
-  background: rgba(4, 5, 8, 0.86);
-  backdrop-filter: blur(8px);
+  background: rgba(4, 5, 8, 0.62);
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
 }
 /* **The clip plays inside one of the app's own panels.** It used to be a bare 16:9 box
    with a white hairline round it and a heading floating above it, so the clip arrived as
@@ -1404,6 +1409,8 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    the same radius and the same header bar the app's own dialogs wear — and the picture
    sits *inside* it, so what you are looking at is this app with a trailer in it. */
 .trailer-shell {
+  position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   width: min(860px, 82vw);
@@ -1444,10 +1451,18 @@ button:focus-visible,
 
 .modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; }
 .modal[hidden] { display: none; }
-.modal-backdrop { position: absolute; inset: 0; background: rgba(4, 5, 8, 0.78); backdrop-filter: blur(6px); }
+.modal-backdrop {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: rgba(4, 5, 8, 0.58);
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+}
 
 .modal-card {
   position: relative;
+  z-index: 3;
   width: min(860px, 92vw);
   max-height: 88vh;
   overflow: hidden auto;
@@ -1768,12 +1783,21 @@ button:focus-visible,
 /* Two rows of tags, and no more: the line scrolls inside its own window, with the
    arrows stepping it a row at a time (and the wheel working over it as well). */
 .chip-clamped .chip-track {
-  max-height: 66px;
+  /* **Room for the highlight.** The window is exactly two rows tall and it scrolls, and a
+     row's tags wear a ring *outside* their own box — with no room above the first row that
+     ring, and the top of the tags themselves once the line had been stepped, were cut off
+     by the window's edge. The padding is that room, and `scroll-snap` is what keeps the
+     line landing on whole rows instead of between two. */
+  max-height: 76px;
+  padding: 4px 2px;
   overflow-y: auto;
   scroll-behavior: smooth;
+  scroll-snap-type: y proximity;
+  scroll-padding-top: 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+.chip-clamped .chip-track > * { scroll-snap-align: start; }
 .chip-clamped .chip-track::-webkit-scrollbar { width: 0; height: 0; }
 .chip-clamped .chip-track:focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.5); outline-offset: 4px; border-radius: 10px; }
 /* **The arrows sit at the right edge.** They are a full-width strip that pushes its
@@ -3090,10 +3114,15 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   align-items: center;
   justify-content: center;
   padding: 32px;
-  background: rgba(4, 5, 8, 0.74);
-  backdrop-filter: blur(9px);
+  background: rgba(4, 5, 8, 0.58);
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
 }
 .assistant-card {
+  /* The panel is the top layer of the popup, above the sharp copy of whatever it was
+     opened from (see `.pop-sharp`). */
+  position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -3632,7 +3661,23 @@ select option:hover {
    scrim blurs the page behind it (Settings → Animation). Off, the scrim is a dim only. */
 .blur-off .assistant-overlay,
 .blur-off .modal-backdrop,
-.blur-off .overlay-backdrop { backdrop-filter: none !important; }
+.blur-off .trailer-overlay,
+.blur-off .overlay-backdrop { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* **The one thing that stays sharp.** The page behind a popup is blurred; the thing you
+   opened it *from* is not — a copy of it is drawn inside the popup's own layer, on top of
+   the blur and under the panel, exactly where it sits on the page. See `keepSharp` in
+   app.js: the copy follows the page as it scrolls and is thrown away when the popup
+   closes. It is a picture of the thing, so it takes no clicks of its own. */
+.pop-sharp {
+  position: fixed !important;
+  z-index: 2;
+  margin: 0 !important;
+  pointer-events: none !important;
+  box-shadow: var(--hl);
+  border-radius: var(--radius);
+}
+.pop-sharp-origin { visibility: hidden; }
 
 /* **The condensed cut** (Settings → Font): the narrow stack is asked for in `--font`,
    and this squeezes whatever face actually loaded where the engine can. */
@@ -3976,3 +4021,89 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .library-add .dropdown { position: relative; }
 .pop-on .library-add .dropdown-btn:hover { transform: translateY(-3px) scale(1.012); }
 .pop-on .library-add .dropdown-btn { transition: transform var(--quick) var(--ease), box-shadow var(--quick) var(--ease); }
+
+
+/* ============================================================================
+   **The trailer, with none of YouTube's own control on it.**
+   ----------------------------------------------------------------------------
+   The embed still paints a title card and its own logo for the first moment of
+   a clip, and neither is a control the API exposes. So the picture does not
+   start until the app's own Play is pressed: a plate of the same artwork sits
+   over the frame, and it lifts once the clip is actually running. What is left
+   on screen is the video, the app's bar and the app's controls.
+   ============================================================================ */
+.trailer-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: #000 50% 50% / cover no-repeat;
+  cursor: pointer;
+}
+.trailer-cover[hidden] { display: none; }
+.trailer-cover-play {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(12, 14, 18, 0.72);
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+  transition: transform var(--quick) var(--ease), background var(--quick) var(--ease);
+}
+.trailer-cover:hover .trailer-cover-play { transform: scale(1.06); background: var(--accent); color: #0b0b0b; }
+
+/* ============================================================================
+   **Add to Library: one button, and the rows are under it.**
+   ----------------------------------------------------------------------------
+   It was a label with a picker beside it. It is one control now — press it, or
+   rest the cursor on it — and the Library's own rows open underneath: scroll
+   them, pick the one it goes into. `libraryPicker` in app.js keeps it open while
+   the cursor is between the button and the list.
+   ============================================================================ */
+.library-pop { position: relative; display: inline-flex; }
+.library-pop-btn { gap: 8px; }
+.library-pop-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 3;
+  min-width: 240px;
+  max-height: 264px;
+  overflow-y: auto;
+  /* The transparent band above the panel is part of the hover: the cursor crosses it on
+     the way down from the button, and without it the list would close under the hand. */
+  padding-top: 8px;
+}
+.library-pop[hidden] { display: none; }
+.library-pop-menu[hidden] { display: none; }
+.library-pop-head {
+  padding: 9px 12px 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--panel);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.library-pop-list {
+  border-radius: 0 0 14px 14px;
+  background: var(--panel);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.66);
+}
+
+
+/* **The GitHub panel's one-time setup.** Two fields, the callback to copy and the button
+   that uses them — one column, and the link to GitHub's registration form reads as a
+   button because it is the next thing to press, not a footnote. */
+.github-setup { display: flex; flex-direction: column; gap: 10px; }
+.github-setup .btn { align-self: flex-start; text-decoration: none; }
+.github-setup .text-input { flex: 1 1 240px; min-width: 0; }

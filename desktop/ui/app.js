@@ -469,6 +469,7 @@ const SETTINGS_GROUPS = [
       ["ratings", "Ratings"],
       ["appearance", "Accent"],
       ["animation", "Motion"],
+      ["interaction", "Interaction"],
       ["layout", "Layout"],
       ["sound", "Sound"],
       ["font", "Font"],
@@ -520,6 +521,7 @@ const LIVE_SETTINGS_GROUPS = [
       ["appearance", "Accent"],
       ["layout", "Layout"],
       ["animation", "Motion"],
+      ["interaction", "Interaction"],
       ["sound", "Sound"],
       ["notifications", "Notifications"],
       ["profile", "Profile"],
@@ -1171,6 +1173,71 @@ function refreshPins(item) {
   return true;
 }
 
+/**
+ * **Blur the page — all but the thing you opened it from.**
+ *
+ * A popup dims the page behind it, and with the blur on it also throws that page out of
+ * focus — which is the point, except for the one thing you were looking at: the cover you
+ * pressed closes the moment the dialog opens, and what you were reading your way through
+ * is gone. So the page is blurred and **the card (or button) you opened it from is not**:
+ * a copy of it is drawn inside the popup's own layer, over the blur and under the panel,
+ * exactly where the original sits — and it follows the page as it scrolls.
+ *
+ * It is a picture of the thing, not the thing: no clicks, no keyboard, `aria-hidden`. The
+ * original is hidden while the copy stands in for it, and both are put back on close. The
+ * whole treatment is off with the switch (Settings → Interaction).
+ */
+let sharpPeek = null;
+function dropSharp() {
+  if (!sharpPeek) return;
+  const { clone, origin } = sharpPeek;
+  window.removeEventListener("scroll", sharpFollow, true);
+  window.removeEventListener("resize", sharpFollow);
+  clone.remove();
+  origin?.classList?.remove("pop-sharp-origin");
+  sharpPeek = null;
+}
+/** Keep the copy level with the thing it stands for, and let go if that thing is gone. */
+function sharpFollow() {
+  if (!sharpPeek) return;
+  const { clone, origin } = sharpPeek;
+  if (!origin.isConnected) return dropSharp();
+  const rect = origin.getBoundingClientRect();
+  if (!rect.width || !rect.height) return dropSharp();
+  clone.style.left = `${rect.left}px`;
+  clone.style.top = `${rect.top}px`;
+  clone.style.width = `${rect.width}px`;
+  clone.style.height = `${rect.height}px`;
+}
+function keepSharp(container) {
+  dropSharp();
+  if (state.blur === false) return;
+  const origin = document.activeElement;
+  // **Only a control on the page itself.** A button inside a dialog, a dropdown or the
+  // picker that opened it is not "the thing you were looking at", and a copy of it would
+  // be a second Close button floating over the panel.
+  if (!origin || origin === document.body || origin === document.documentElement) return;
+  if (!origin.closest?.("#main")) return;
+  const rect = origin.getBoundingClientRect();
+  if (!rect.width || !rect.height || rect.bottom < 0 || rect.top > innerHeight) return;
+  const clone = origin.cloneNode(true);
+  clone.removeAttribute("id");
+  for (const node of clone.querySelectorAll("[id]")) node.removeAttribute("id");
+  clone.classList.remove("focusable");
+  clone.classList.add("pop-sharp");
+  clone.setAttribute("aria-hidden", "true");
+  clone.setAttribute("tabindex", "-1");
+  clone.style.left = `${rect.left}px`;
+  clone.style.top = `${rect.top}px`;
+  clone.style.width = `${rect.width}px`;
+  clone.style.height = `${rect.height}px`;
+  container.append(clone);
+  origin.classList.add("pop-sharp-origin");
+  sharpPeek = { clone, origin };
+  window.addEventListener("scroll", sharpFollow, true);
+  window.addEventListener("resize", sharpFollow);
+}
+
 const modal = {
   root: null,
   open(item, coverUrl) {
@@ -1212,9 +1279,11 @@ const modal = {
         onclick: () => toggleCustomRow(item),
       }),
     );
+    keepSharp(this.root);
   },
   close() {
     this.root.hidden = true;
+    dropSharp();
   },
 };
 
@@ -2061,36 +2130,16 @@ function signInCard() {
         type: "button",
         id: "sign-in-github",
         text: "Sign in with GitHub",
-        title: "Sign in with your GitHub account",
-        onclick: () => {
-          const start = `/auth/github/start?next=${encodeURIComponent("/app/#/settings")}`;
-          if (!github.configured) {
-            const note = document.getElementById("github-note");
-            if (note) note.hidden = false;
-            return;
-          }
-          // **A panel over the app, not a trip out of it.** GitHub's own page is a
-          // different origin, so the handshake happens in a window — a small one, over
-          // the app — and this page watches for the session it comes back with. If a
-          // popup is blocked it falls back to the plain navigation that always works.
-          const popup = window.open(start, "nuvio-github-signin", "width=560,height=760,menubar=no,toolbar=no");
-          if (!popup) { location.href = start; return; }
-          const watch = setInterval(async () => {
-            try {
-              const me = await (await fetch(`${API}/auth/me`)).json();
-              if (me?.user) {
-                clearInterval(watch);
-                try { popup.close(); } catch { /* already gone */ }
-                location.reload();
-                return;
-              }
-            } catch { /* not ready yet — the next beat tries again */ }
-            if (popup.closed) clearInterval(watch);
-          }, 1200);
-        },
+        title: github.configured
+          ? "Sign in with your GitHub account"
+          : "Sign in with GitHub — one app has to be registered first",
+        // **A panel, always.** The button used to stop dead when the server had no GitHub
+        // keys, with a line of small print under it naming two environment variables; now
+        // it opens the panel that does the signing in, and the panel is also where that
+        // one-time registration happens (see `openGithubSignIn`).
+        onclick: () => openGithubSignIn(),
       }),
     ),
-    el("p", { class: "source-status bad", id: "github-note", hidden: true }),
     el("div", { class: "h-divider", "aria-hidden": "true" }),
     el("div", { class: "account-row account-buttons" }, nameField, emailField, continueBtn),
     local
@@ -2104,6 +2153,119 @@ function signInCard() {
         })
       : null,
   );
+}
+
+/**
+ * **The GitHub sign-in, in one of the app's own panels.**
+ *
+ * Pressing the button used to do one of two things: nothing at all — with a line of small
+ * print under it naming two environment variables — or a browser window, which a blocker
+ * can refuse, and which leaves the app behind. It opens a panel now: the panel is the
+ * sign-in, GitHub's own page opens in a window beside it the moment you continue, and the
+ * panel watches for the session coming back and reloads into it.
+ *
+ * **One step cannot be automated away, and the panel is honest about it.** GitHub signs a
+ * person in only through an application registered once on that person's own account, and
+ * only its owner can register one — so a fresh install has no way in until that step is
+ * done. The panel does it: it opens GitHub's registration form with the app's name and the
+ * exact callback filled in already, then takes the two values GitHub hands back and stores
+ * them on this server (Settings first, the environment second — see `signinKeys`). After
+ * that the button signs in normally, on this machine, for good.
+ */
+function openGithubSignIn() {
+  const github = (state.account?.providers || []).find((p) => p.key === "github") || { configured: false };
+  const redirect = state.account?.redirects?.github || `${location.origin}/auth/github/callback`;
+  const start = `/auth/github/start?next=${encodeURIComponent("/app/#/settings")}`;
+  const status = el("p", { class: "player-note", text: "" });
+  let watch = null;
+  const stopWatch = () => { if (watch) { clearInterval(watch); watch = null; } };
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    stopWatch();
+    dropSharp();
+    overlay.remove();
+  };
+  const onKey = (e) => { if (e.key !== "Escape") return; e.stopPropagation(); close(); };
+  /** Watch for the session the GitHub window brings back, then come back signed in. */
+  const follow = (popup) => {
+    status.textContent = "Waiting for GitHub…";
+    stopWatch();
+    watch = setInterval(async () => {
+      try {
+        const me = await (await fetch(`${API}/auth/me`)).json();
+        if (me?.user) {
+          stopWatch();
+          try { popup?.close(); } catch { /* already gone */ }
+          location.reload();
+          return;
+        }
+      } catch { /* not back yet — the next beat tries again */ }
+      if (popup && popup.closed) { stopWatch(); status.textContent = "The GitHub window was closed before it finished."; }
+    }, 1200);
+  };
+  /** The ordinary handshake: GitHub's page in a window, this panel waiting for it. */
+  const go = () => {
+    const popup = window.open(start, "nuvio-github-signin", "width=560,height=760,menubar=no,toolbar=no");
+    // A blocked window is not a dead end: the same URL in this tab always works.
+    if (!popup) { location.href = start; return; }
+    follow(popup);
+  };
+
+  const idField = el("input", { class: "text-input focusable", type: "text", id: "github-client-id", placeholder: "Client ID", value: state.signin?.github?.clientId || "" });
+  const secretField = el("input", { class: "text-input focusable", type: "password", id: "github-client-secret", placeholder: state.signin?.github?.hasSecret ? "Client secret — already set" : "Client secret" });
+  const registerUrl = "https://github.com/settings/applications/new"
+    + `?oauth_application%5Bname%5D=${encodeURIComponent("Nuvio")}`
+    + `&oauth_application%5Burl%5D=${encodeURIComponent(location.origin)}`
+    + `&oauth_application%5Bcallback_url%5D=${encodeURIComponent(redirect)}`;
+  const saveSetup = async () => {
+    const clientId = idField.value.trim();
+    if (!clientId) { status.textContent = "Paste the Client ID GitHub shows on the app's page."; return; }
+    status.textContent = "Saving…";
+    await pushSettings({ signin: { github: { enabled: true, clientId, clientSecret: secretField.value } } });
+    const me = await (await fetch(`${API}/auth/me`)).json().catch(() => null);
+    if (me) state.account = me;
+    // **Straight into the handshake.** The whole point of the two boxes is to get out of
+    // them, so the panel does not sit there asking for a second press.
+    if (me?.providers?.find((p) => p.key === "github")?.configured) go();
+    else { status.textContent = "Saved. GitHub still refuses the pair — check both values against the app's page."; render(); }
+  };
+
+  const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": "Sign in with GitHub", id: "github-panel" },
+    el("div", { class: "assistant-card" },
+      el("p", { class: "assistant-kicker", text: "Sign in" }),
+      el("h2", { class: "assistant-title", text: "GitHub" }),
+      el("p", { class: "option-desc", text: github.configured
+        ? "GitHub asks you to approve Nuvio, then hands you back here signed in. Nothing is stored but your name, your address and your picture."
+        : "GitHub signs people in through an application registered on your own GitHub account, and only you can register it. It takes one minute, once — after that this button is a normal sign-in." }),
+      github.configured
+        ? el("div", { class: "account-row account-buttons" },
+            el("button", { class: "btn primary focusable", type: "button", id: "github-continue", text: "Continue to GitHub", onclick: go }),
+            el("button", { class: "btn subtle focusable", type: "button", id: "github-same-tab", text: "Or open it in this tab", onclick: () => { location.href = start; } }),
+          )
+        : el("div", { class: "github-setup" },
+            el("p", { class: "option-desc", text: "1. GitHub fills this form in for you — press Register application at the bottom of it." }),
+            el("a", { class: "btn subtle focusable", id: "github-register", href: registerUrl, target: "_blank", rel: "noreferrer noopener", text: "Open GitHub's registration form" }),
+            el("p", { class: "option-desc", text: "2. Copy the two values it gives you here. The callback is already in the form." }),
+            el("div", { class: "signin-redirect" },
+              el("span", { class: "signin-redirect-label", text: "Callback" }),
+              el("span", { class: "signin-redirect-value", id: "github-redirect", text: redirect }),
+            ),
+            el("div", { class: "account-row account-buttons" }, idField),
+            el("div", { class: "account-row account-buttons" }, secretField),
+            el("div", { class: "account-row account-buttons" },
+              el("button", { class: "btn primary focusable", type: "button", id: "github-save", text: "Save and sign in", onclick: saveSetup }),
+            ),
+          ),
+      status,
+      el("div", { class: "assistant-actions" },
+        el("button", { class: "btn subtle focusable", type: "button", id: "github-close", text: "Close", onclick: close }),
+      ),
+    ),
+  );
+  document.addEventListener("keydown", onKey, true);
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
+  document.body.append(overlay);
+  keepSharp(overlay);
 }
 
 /** Sign out of the session. Whatever this machine remembers is left alone. */
@@ -5756,7 +5918,7 @@ async function renderList(kind, id, type, extra = "") {
   // studio's titles. The server pages its discover lists now, so this reads the next
   // page when you reach the end instead of pretending that was the whole list.
   const grid = el("div", { class: "grid-titles" });
-  const count = el("h2", { class: "view-title", text: `Loading ${BOTH ? "films and shows" : media === "movie" ? "films" : "shows"}…` });
+  const count = el("h2", { class: "view-title", text: `Loading ${media === "movie" ? "films" : "shows"}…` });
   const more = el("button", { class: "btn subtle focusable", type: "button", text: "Load more", id: "list-more" });
   const foot = el("div", { class: "cat-tools" }, more);
   const seen = new Set();
@@ -5768,11 +5930,11 @@ async function renderList(kind, id, type, extra = "") {
   // shows on these screens, so "43 films · 19 shows" is on the page whichever tab is
   // selected — that was the ask. The grid still shows one row at a time, behind the same
   // Movies / Shows switch it always had.
-  const tally = () => {
-    if (!BOTH) return noun(media, seen.size);
-    const per = kinds.map((k) => [...seen].filter((key) => key.startsWith(`${k}:`)).length);
-    return kinds.map((k, i) => noun(k, per[i])).join(" · ");
-  };
+  // **The head counts the row you are looking at**, the way the Movies and Shows screens
+  // do: the films under Movies, the shows under Shows, and the switch beside it. Both rows
+  // are still read (the other one is counted, not drawn), so the number is the whole list
+  // rather than what has been scrolled to.
+  const tally = () => noun(media, [...seen].filter((key) => key.startsWith(`${media}:`)).length);
   const path = (k, n) => `/list/${kind}/${encodeURIComponent(id)}${extra ? `/${encodeURIComponent(extra)}` : ""}.json${listQuery(k)}${n > 1 ? `&page=${n}` : ""}`;
 
   const load = async (k) => {
@@ -5804,16 +5966,10 @@ async function renderList(kind, id, type, extra = "") {
   more.addEventListener("click", () => kinds.forEach(load));
   await Promise.all(kinds.map(load));
   if (!seen.size) grid.append(el("p", { class: "empty", text: "Nothing here for this row." }));
-  // **The list keeps loading as you reach the end.** A *Load more* button at the foot
-  // makes the first page look like a ceiling — the reported "20 cap" — so the foot is
-  // watched and the next page is read as it comes into view. The button stays as a
-  // manual fallback for a page with no `IntersectionObserver`.
-  if (typeof IntersectionObserver === "function") {
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) for (const k of kinds) load(k);
-    }, { rootMargin: "700px" });
-    io.observe(foot);
-  }
+  // **Loading more is a press, not a side effect.** The foot of the page used to be watched
+  // and the next page read as it came into view, so a long list grew while you were
+  // reading it — the count climbing under you, and no way to say "this is enough for now".
+  // The button is the only thing that asks for the next page now.
 
   return [
     el("div", { class: "sources-head" },
@@ -5863,6 +6019,7 @@ async function openAssistant(meta) {
   const stateLine = el("p", { class: "player-note", text: "" });
   const close = () => {
     document.removeEventListener("keydown", onKey, true);
+    dropSharp();
     overlay.remove();
   };
   // **Escape closes the box and does nothing else.** The app's own Escape means "go Home",
@@ -5886,7 +6043,10 @@ async function openAssistant(meta) {
       el("div", { class: "assistant-suggestions" },
         // **Questions worth pressing.** "What is it about?" and "Will I like it?" were the
         // two the page could answer from its own metadata; these are the ones it cannot.
-        ...["What is it about?", "Is it worth my time?", "What should I watch after this?", "Who is this for?", "Anything I should know before starting?"].map((q) =>
+        // **The list is longer than the box**: every chip asks something the metadata on
+        // the page does not answer, and the row wraps — a suggestion line that hides
+        // behind a scroll is a suggestion nobody reads.
+        ...ASK_QUESTIONS.map((q) =>
           el("button", { class: "chip focusable", type: "button", text: q, onclick: () => { question.value = q; ask(); } }),
         ),
       ),
@@ -5928,8 +6088,31 @@ async function openAssistant(meta) {
   overlay.addEventListener("mousedown", (event) => { if (event.target === overlay) close(); });
   document.addEventListener("keydown", onKey, true);
   document.body.append(overlay);
+  keepSharp(overlay);
   question.focus();
 }
+
+/**
+ * **What you can ask about a title, as one list.**
+ *
+ * These are the questions a title page cannot answer from its own metadata — what the
+ * overview, the year, the runtime and the cast already say is not worth a chip. Each one
+ * is a sentence you would actually type, so pressing it is the same as asking it.
+ */
+const ASK_QUESTIONS = [
+  "What is it about?",
+  "Is it worth my time?",
+  "What is it like, without spoilers?",
+  "What should I watch after this?",
+  "Who is this for?",
+  "Anything I should know before starting?",
+  "Is it a slow burn, or does it start fast?",
+  "How heavy or violent does it get?",
+  "What makes it stand out from others like it?",
+  "Is there anything after the credits?",
+  "Is it better as a binge or an episode a week?",
+  "How does it compare with the book?",
+];
 
 /** The pin buttons for a title — the same ones the quick-look modal draws. */
 function pinButtons(item) {
@@ -5941,11 +6124,6 @@ function pinButtons(item) {
   // and a wall of "Add to <row>" buttons beside Play was the same control repeated.
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
   const on = rows.filter((row) => inCustomRow(item, row.id));
-  const pick = dropdown(
-    rows.map((row) => [row.id, inCustomRow(item, row.id) ? `Remove from ${row.name}` : `Add to ${row.name}`]),
-    rows[0]?.id || "",
-    (id) => toggleCustomRow(item, id),
-  );
   return [
     el("button", {
       class: `btn pin focusable${current === planId ? " active" : ""}`,
@@ -5956,11 +6134,69 @@ function pinButtons(item) {
       text: current === planId ? `${planLabel} · pinned` : planLabel,
       onclick: () => setWatchState(item, current === planId ? null : planId),
     }),
-    el("div", { class: "library-add" },
-      el("span", { class: "library-add-label", text: on.length ? `${customLabel()} · added` : "Add to Library" }),
-      pick.node,
-    ),
+    libraryPicker(item, rows, on),
   ];
+}
+
+/**
+ * **Add to Library — one button, and the Library's own rows under it.**
+ *
+ * The Library is a list of rows you made, so putting a title in it is a *pick*: press the
+ * button (or rest the cursor on it) and the rows open underneath — scroll them, choose the
+ * one it goes into, and the button says which rows already hold it. It used to be a label
+ * with a picker beside it, and before that a wall of one button per row; this is the
+ * control the row of four was missing.
+ *
+ * The list stays open while the cursor travels from the button to the list — the panel
+ * carries the space between them, and a short grace period covers the rest — and a press
+ * anywhere else, or Escape, puts it away.
+ */
+function libraryPicker(item, rows, on) {
+  const list = el("div", { class: "library-pop-list" });
+  const head = el("p", { class: "library-pop-head", text: on.length ? `${customLabel()} · added` : "Put it in a row" });
+  const menu = el("div", { class: "library-pop-menu", hidden: true }, head, list);
+  const root = el("div", { class: "library-pop" });
+  for (const row of rows) {
+    const inside = inCustomRow(item, row.id);
+    list.append(el("button", {
+      class: `dropdown-item focusable${inside ? " active" : ""}`,
+      type: "button",
+      "aria-pressed": String(inside),
+      text: `${inside ? "Remove from" : "Add to"} ${row.name}`,
+      onclick: () => { toggleCustomRow(item, row.id); close(); },
+    }));
+  }
+  const btn = el("button", {
+    class: "btn focusable library-pop-btn",
+    type: "button",
+    id: "library-add",
+    "aria-haspopup": "listbox",
+    "aria-expanded": "false",
+    title: "Put this in one of your Library rows",
+    onclick: (e) => { e.stopPropagation(); open(); },
+  },
+    el("span", { class: "library-pop-glyph", "aria-hidden": "true", text: "＋" }),
+    el("span", { text: on.length ? `${customLabel()} · added` : "Add to Library" }),
+  );
+  let grace = null;
+  function open() {
+    if (grace) { clearTimeout(grace); grace = null; }
+    menu.hidden = false;
+    root.classList.add("open");
+    btn.setAttribute("aria-expanded", "true");
+  }
+  function close() {
+    menu.hidden = true;
+    root.classList.remove("open");
+    btn.setAttribute("aria-expanded", "false");
+  }
+  function later() { if (grace) clearTimeout(grace); grace = setTimeout(close, 260); }
+  root.addEventListener("pointerenter", open);
+  root.addEventListener("pointerleave", later);
+  root.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  document.addEventListener("pointerdown", (e) => { if (!root.contains(e.target)) close(); }, true);
+  root.append(btn, menu);
+  return root;
 }
 
 /** One person's card — a face, a name and what they did. Opens their credits. */
@@ -6167,6 +6403,7 @@ function openTrailer(t) {
   const close = () => {
     document.removeEventListener("keydown", onKey);
     if (tick) clearInterval(tick);
+    dropSharp();
     try { ytPlayer?.destroy?.(); } catch { /* nothing to stop */ }
     overlay.remove();
   };
@@ -6213,18 +6450,39 @@ function openTrailer(t) {
     "aria-label": "Fullscreen",
   });
 
+  const cover = el("button", {
+    class: "trailer-cover focusable",
+    type: "button",
+    id: "trailer-cover",
+    title: "Play the trailer",
+    "aria-label": `Play the ${t.name || "trailer"}`,
+    style: `background-image: url("https://img.youtube.com/vi/${key}/hqdefault.jpg")`,
+    onclick: () => start(),
+  },
+    el("span", { class: "trailer-cover-play", "aria-hidden": "true", text: "▶" }),
+  );
+
   const overlay = el("div", { class: "trailer-overlay", role: "dialog", "aria-modal": "true", "aria-label": `${t.name} trailer` },
     el("div", { class: "trailer-shell" },
       el("div", { class: "trailer-bar" },
         el("span", { class: "trailer-heading", text: t.name || "Trailer" }),
         el("button", { class: "btn subtle focusable", type: "button", text: "Close", onclick: close }),
       ),
-      el("div", { class: "trailer-frame" }, el("div", { id: "trailer-mount" })),
+      el("div", { class: "trailer-frame" },
+        el("div", { id: "trailer-mount" }),
+        // **The cover, and why it is here.** The embed paints its own title card and its
+        // own logo over the first moment of a clip, and neither is a control the API
+        // exposes — so the player is not started until the app's own Play is pressed, and
+        // this plate of the clip's own artwork covers that moment. Nothing of YouTube's
+        // chrome is left once it lifts. See `start` below.
+        cover,
+      ),
       el("div", { class: "trailer-controls" }, playBtn, seek, clock, full),
     ),
   );
 
   let ytPlayer = null;
+  let wanted = false;
   let dragging = false;
   const mmss = (n) => {
     const sec = Math.max(0, Math.floor(Number(n) || 0));
@@ -6242,9 +6500,27 @@ function openTrailer(t) {
     playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
   };
   const toggle = () => {
-    if (!ytPlayer?.getPlayerState) return;
+    if (!ytPlayer?.getPlayerState) { start(); return; }
     if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
     else ytPlayer.playVideo();
+  };
+  /**
+   * **The clip starts on a press, not on the panel opening.**
+   *
+   * That is what keeps YouTube's own title card off the screen: the first thing the
+   * player does is paint it, and a cover over the frame is the only way to keep it out.
+   * The cover lifts a moment after the picture is actually running, and takes the logo
+   * with it.
+   */
+  const start = () => {
+    wanted = true;
+    if (ytPlayer?.playVideo) { ytPlayer.playVideo(); return; }
+    boot();
+  };
+  const liftCover = () => {
+    if (!cover.isConnected || cover.hidden) return;
+    cover.hidden = true;
+    if (document.activeElement === cover) playBtn.focus?.();
   };
   playBtn.addEventListener("click", toggle);
   seek.addEventListener("input", () => { dragging = true; });
@@ -6263,30 +6539,38 @@ function openTrailer(t) {
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", onKey);
   document.body.append(overlay);
-
+  keepSharp(overlay);
   // The IFrame API is fetched once, and only when a trailer is actually opened — nothing
   // loads for a page that is merely open.
+  let lifted = false;
   const boot = () => {
-    if (!window.YT?.Player) return;
+    if (!window.YT?.Player || ytPlayer) return;
     ytPlayer = new window.YT.Player("trailer-mount", {
       videoId: key,
-      playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0, iv_load_policy: 3, disablekb: 1, playsinline: 1, fs: 0 },
+      playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0, iv_load_policy: 3, disablekb: 1, playsinline: 1, fs: 0, showinfo: 0, color: "white" },
       events: {
         onReady: (e) => { e.target.playVideo(); tick = setInterval(paint, 500); },
-        onStateChange: paint,
+        onStateChange: (e) => {
+          paint(e);
+          // **Once, and a beat after the picture starts.** The title card is painted for
+          // the opening second; lifting on the first playing frame would show it.
+          if (!lifted && e?.data === 1) { lifted = true; setTimeout(liftCover, 1500); }
+        },
       },
     });
   };
-  if (window.YT?.Player) boot();
+  if (window.YT?.Player) { if (wanted) boot(); }
   else {
     const prior = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { prior?.(); boot(); };
+    window.onYouTubeIframeAPIReady = () => { prior?.(); if (wanted) boot(); };
     if (!document.getElementById("yt-iframe-api")) {
       const script = el("script", { id: "yt-iframe-api", src: "https://www.youtube.com/iframe_api" });
       document.head.append(script);
     }
   }
-  const stop = setInterval(() => { if (!overlay.isConnected) clearInterval(stop); else if (window.YT?.Player && !ytPlayer) boot(); }, 400);
+  // The player is built the moment the API is in and a press has asked for it — never on
+  // its own, since that press is what keeps the cover (and YouTube's chrome) in place.
+  const stop = setInterval(() => { if (!overlay.isConnected) clearInterval(stop); else if (wanted && window.YT?.Player && !ytPlayer) boot(); }, 400);
 }
 
 /**
@@ -7188,11 +7472,14 @@ function paneSignin() {
   const github = (state.account?.providers || []).find((p) => p.key === "github");
   return [
     signInCard(),
+    // **Said once, in the panel that does it.** The button above opens a panel, and the
+    // panel is where the one-time GitHub registration happens — so this line names the
+    // step rather than two environment variables, and points at the way through it.
     github?.configured
       ? null
       : el("p", {
           class: "source-status",
-          text: "GitHub sign-in is not configured on this server yet. Register one GitHub OAuth app and set NUVIO_GITHUB_CLIENT_ID and NUVIO_GITHUB_CLIENT_SECRET, and the button above signs in normally.",
+          text: "GitHub needs one application registered on your own account before it can sign anyone in. Press Sign in with GitHub and the panel opens GitHub's form with everything filled in already.",
         }),
   ].filter(Boolean);
 }
@@ -7464,8 +7751,16 @@ function paneProviders() {
  */
 const RATING_SERVICES = [
   ["none", "None", "No extra ratings — the title page keeps TMDB's own score and nothing else."],
-  ["free", "Public pages (no key)", "IMDb, Rotten Tomatoes and Metacritic read from their own pages. Nothing to sign up for; each title is looked up once and cached."],
-  ["mdblist", "MDBList (one key)", "MDBList merges IMDb, Rotten Tomatoes, Metacritic, Trakt, Letterboxd and more into scores for every title type. Needs the key below."],
+  [
+    "free",
+    "Public pages (no key)",
+    "The score each site publishes on its own page, read directly: IMDb's ★ out of 10, Rotten Tomatoes' Tomatometer and audience score, Metacritic's Metascore. No account and no key — but each one is a separate lookup, so a title is read once and cached, and a site that changes its page can stop answering until it is looked at again.",
+  ],
+  [
+    "mdblist",
+    "MDBList (one key)",
+    "One key for all of them at once: MDBList has already read IMDb, Rotten Tomatoes, Metacritic, Trakt, Letterboxd and more for every title type, and answers with the whole set in one request — so it is faster and it also carries a combined score the sites do not publish. It is a third party in the middle: what it holds is only as fresh as its own last read.",
+  ],
 ];
 
 /** Settings → Ratings: which services the title page reads, and MDBList's key. */
@@ -7484,6 +7779,11 @@ function paneRatings() {
         render();
       }),
     ),
+    // **What the chosen service actually reads, in the pane.** The three rows above name
+    // the services; this is the one line that says how they differ — a page read per site
+    // against one key that has already read them all — since a caption under a row is
+    // hidden app-wide and the difference is exactly what the choice is about.
+    el("p", { class: "player-note", text: (RATING_SERVICES.find(([id]) => id === source) || [])[2] || "" }),
     source === "mdblist"
       ? el("div", { class: "group-head" },
           el("span", { class: "option-title", text: "MDBList" }),
@@ -7908,23 +8208,24 @@ function paneLayout() {
 function paneAnimation() {
   return [
     el("p", { class: "option-desc", text: "How the app moves: screen changes, hover lifts, the row highlight." }),
-    // **How fast.** One duration behind every transition in the app, so "the app feels
-    // slow" is a setting rather than a rewrite.
-    ...SPEEDS.map(([value, title, desc]) =>
-      radioRow(state.speed === value, "speed", title, desc, () => {
+    // **How fast, as a picker.** One duration behind every transition in the app, so
+    // "the app feels slow" is a setting rather than a rewrite. It was four rows of radio
+    // buttons — a wall of text for one value; the app's own dropdown says the answer in
+    // the width of one line, and the two that are left are the choices about *what* moves.
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Speed" }),
+      el("p", { class: "option-desc", text: (SPEEDS.find(([id]) => id === state.speed) || SPEEDS[2])[2] }),
+      dropdown(SPEEDS.map(([id, title, desc]) => {
+        // The chosen row is named on the button; the duration it means is the line under
+        // it, and the tooltip of each item says what the number is for.
+        return [id, `${title} — ${desc}`];
+      }), state.speed, (value) => {
         state.speed = value;
         localStorage.setItem(KEY.speed, value);
         applyTheme();
         render();
-      }),
+      }, "Speed").node,
     ),
-    // **Pop on hover.** The lift under a card, a tile, a button or a row head.
-    toggleRow(state.pop !== false, "Pop on hover", "A card, a tile, a button or a row head lifts a little under the cursor.", (e) => {
-      state.pop = e.target.checked;
-      localStorage.setItem(KEY.pop, state.pop ? "1" : "0");
-      applyTheme();
-      render();
-    }),
     ...MOTIONS.map(([value, title, desc]) =>
       radioRow(state.motion === value, "motion", title, desc, () => {
         state.motion = value;
@@ -7933,9 +8234,32 @@ function paneAnimation() {
         render();
       }),
     ),
-    // **The blur behind a popup.** The assistant, a dialog and the player's own panels
-    // open over a page; this decides whether the page behind them is blurred out.
-    toggleRow(state.blur !== false, "Blur the screen behind a popup", "When the assistant or a dialog opens over a card, a catalog or a title, the page behind it is blurred rather than only dimmed.", (e) => {
+  ];
+}
+
+/**
+ * **Settings → Interaction: what the app does when you point at or pick something.**
+ *
+ * Its own section because both switches answer the same question — what happens to the
+ * thing *around* what you picked. They used to sit at the foot of Motion, where a switch
+ * about the blur behind a dialog had nothing to do with how fast a screen changes; the
+ * board names the subject instead (Accent, Motion, Layout, Interaction).
+ */
+function paneInteraction() {
+  return [
+    el("p", { class: "option-desc", text: "How the app answers the cursor and the keyboard, and what happens to the page around the thing you opened." }),
+    // **Pop on hover.** The lift under a card, a tile, a button, a chip, a row head —
+    // anything you can point at.
+    toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => {
+      state.pop = e.target.checked;
+      localStorage.setItem(KEY.pop, state.pop ? "1" : "0");
+      applyTheme();
+      render();
+    }),
+    // **The blur behind a popup.** The assistant, a trailer, a quick look and the player's
+    // own panels open over a page; this decides whether the page behind them is blurred
+    // out. The thing you opened it from stays sharp either way (`keepSharp`).
+    toggleRow(state.blur !== false, "Blur behind a popup", "When the assistant, a trailer or a quick look opens, the page behind it is blurred — everything except the card you opened it from, which stays sharp.", (e) => {
       state.blur = e.target.checked;
       localStorage.setItem(KEY.blur, state.blur ? "1" : "0");
       applyTheme();
@@ -8551,6 +8875,7 @@ function renderSettings() {
     playback: panePlayback,
     appearance: paneAppearance,
     animation: paneAnimation,
+    interaction: paneInteraction,
     sound: paneSound,
     notifications: paneNotifications,
     livelayout: paneLayout,
