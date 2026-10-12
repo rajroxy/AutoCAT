@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -151,6 +151,25 @@ async function specsFor(entry, media, opts = {}) {
         return [page({ sort_by: `${dateField(media)}.desc`, "vote_count.gte": 5 }, entry.take)];
       }
       return [page({ [`${dateField(media)}.gte`]: iso(new Date(Date.now() - 60 * 864e5)), sort_by: "popularity.desc", "vote_count.gte": 5 }, entry.take)];
+
+    // **A row defined by its own filters.** The Discover Plus rows are each one question
+    // about the whole catalogue — what is acclaimed, what is a pick, what is a gem — and
+    // none of those is one of the preset orders: they are a sort plus the vote floor that
+    // makes the sort mean something. `params` is handed to TMDB as written, so the row and
+    // the sentence describing it are the same thing (see the card in `collections.mjs`).
+    //
+    // Two keys in there are the row's own shorthand, turned into the release-date window
+    // of whichever media type asked: `within` is a number of days back from today and
+    // `before` a year it has to predate. Writing those as TMDB's own two date parameters
+    // would mean each row naming `primary_release_date` or `first_air_date` itself, and
+    // the same row would then be two different rows for a film and a show.
+    case "curated": {
+      const { within, before, ...rest } = entry.params || {};
+      const params = { ...rest };
+      if (Number.isFinite(within)) params[`${dateField(media)}.gte`] = iso(new Date(Date.now() - within * 864e5));
+      if (Number.isFinite(before)) params[`${dateField(media)}.lte`] = `${before}-12-31`;
+      return [page(params, entry.take)];
+    }
 
     case "genre": {
       const id = await resolveGenre(media, entry.genre);
@@ -394,35 +413,133 @@ function recommendSeeds(type) {
 const FOR_YOU_ROWS_PER_TYPE = 4;
 
 /**
- * Trending titles, per row type — the seeds a For You card starts from.
+ * The titles a For You row is topped up with — **random titles from anywhere.**
  *
- * **Every For You row is a title, not a genre.** The rows are named after the title
- * they were built from (`More Like …`), so the seeds have to be *titles*. A watchlist
- * supplies them while it holds enough; a new watchlist supplies none, and a card of
- * genre rows named "For You · Comedy" was what the card got instead — not the "more
- * like this" rows it says it holds. So the current week's trending titles top the
- * list up, cached for half an hour and refreshed in the background, which is what
- * `primeTrendingSeeds` is for. `catalogDefs` stays synchronous: it reads whatever is in
- * hand and the next call has the fresh list.
+ * **Every For You row is a title, not a genre**, and it is named after the title it was
+ * built from (`More Like …`). Your own list supplies those titles while it holds enough;
+ * a new watchlist supplies none, so the card has to find them somewhere else.
+ *
+ * It used to find them in TMDB's **week's-trending list**, which is the same handful of
+ * well-known names in every market on earth — so the card opened on "More Like <the
+ * popular thing>" on every roll, whatever country the app was set to, and the four rows
+ * read as the popular shelf with "More Like" in front of it. The top-up is now a **random
+ * walk through the world's catalogues**: a handful of countries drawn at random, one
+ * random page of each country's most popular titles, and the names that come back. The
+ * pool is rebuilt in the background on a half-hour clock, so a roll is always dealt from
+ * a mix of many countries and no request pays for the walk. `catalogDefs` stays
+ * synchronous: it deals whatever is in hand, and the next call has the fresh pool.
  */
-const trendingSeeds = { movie: { at: 0, seeds: [] }, series: { at: 0, seeds: [] } };
-const TRENDING_TTL = 30 * 60 * 1000;
+const forYouPool = { movie: { at: 0, seeds: [] }, series: { at: 0, seeds: [] } };
+const FOR_YOU_POOL_TTL = 30 * 60 * 1000;
+/** How many countries one walk visits, and how much each one gives. */
+const FOR_YOU_POOL_COUNTRIES = 12;
+const FOR_YOU_POOL_PER_COUNTRY = 10;
 
-export async function primeTrendingSeeds() {
+/**
+ * **The providers TMDB says are actually in a region.**
+ *
+ * The Regional OTT card publishes a row per service the region's own data holds **plus the
+ * two worldwide ones** (see `regionalOtt` in `scripts/collections.mjs`), and a service TMDB
+ * does not list for the selected country answers its discover call with nothing at all —
+ * an empty row wearing a service's name. That is what "there are no titles in the Regional
+ * OTT card" was: *Viki* in Korea, *Crunchyroll* in Nigeria, a service the card named and
+ * could not fill.
+ *
+ * TMDB's own `/watch/providers` answer for the region is the list to check against, because
+ * it is the same data its discover filter reads — a row that survives it is a row that
+ * resolves. Cached per region and media type for half a day, refreshed in the background
+ * like the For You pool, and **read synchronously** by `catalogDefs`. A region whose list
+ * has not arrived yet keeps every row: an unasked question is not a "no", and a first load
+ * must not be emptier than the second.
+ */
+const regionProviders = new Map();
+const REGION_PROVIDERS_TTL = 12 * 60 * 60 * 1000;
+
+export async function primeRegionProviders(code = activeCountry()) {
+  const region = String(code || "US").toUpperCase();
   await Promise.all(
     ["movie", "series"].map(async (type) => {
-      const slot = trendingSeeds[type];
-      if (slot.seeds.length && Date.now() - slot.at < TRENDING_TTL) return;
+      const slotKey = `${type}:${region}`;
+      const held = regionProviders.get(slotKey);
+      if (held && Date.now() - held.at < REGION_PROVIDERS_TTL) return;
       try {
-        const res = await get(`/trending/${tmdbPath(type)}/week`);
-        slot.seeds = (res?.results || [])
-          .slice(0, 24)
-          .map((r) => ({ id: String(r.id), name: r.title || r.name || "this title" }))
-          .filter((s) => /^\d+$/.test(s.id));
-        slot.at = Date.now();
+        const res = await get(`/watch/providers/${tmdbPath(type)}`, { watch_region: region });
+        const ids = (res?.results || [])
+          .map((p) => String(p?.provider_id || ""))
+          .filter((id) => /^\d+$/.test(id));
+        // Nothing came back: keep whatever the last answer was rather than emptying the
+        // set, which would drop every regional row on one bad response.
+        if (ids.length) regionProviders.set(slotKey, { at: Date.now(), ids: new Set(ids) });
       } catch {
-        /* offline: the standing rows below stand in */
+        /* offline — the rows stand as they are */
       }
+    }),
+  );
+}
+
+/**
+ * Drop the Regional OTT rows for services TMDB does not list in the row's own region.
+ *
+ * **Only the Regional OTT cards.** The Global OTT rows are the six platforms the card was
+ * designed around and the row is scoped to the region in Settings rather than to a country
+ * of its own; trimming those would silently change a card nobody complained about. A row
+ * whose region was never asked is kept, so this can only ever remove a row the facts say an
+ * empty catalog sits behind.
+ */
+const withAvailableProviders = (defs) =>
+  defs.filter((d) => {
+    if (d.entry?.kind !== "provider" || !String(d.key || "").startsWith("regional-ott")) return true;
+    const set = regionProviders.get(`${d.type}:${String(d.entry.region || "").toUpperCase()}`)?.ids;
+    return !set || set.has(String(d.entry.providerId));
+  });
+
+/** A shuffled copy — the walk's order is the point. */
+function shuffled(list) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+export async function primeForYouSeeds() {
+  await Promise.all(
+    ["movie", "series"].map(async (type) => {
+      const slot = forYouPool[type];
+      if (slot.seeds.length && Date.now() - slot.at < FOR_YOU_POOL_TTL) return;
+      const codes = shuffled(COUNTRIES.map(([, code]) => code)).slice(0, FOR_YOU_POOL_COUNTRIES);
+      const found = [];
+      await Promise.all(
+        codes.map(async (code) => {
+          // A random page, so visiting the same country twice is not the same ten names.
+          const page = 1 + Math.floor(Math.random() * 4);
+          try {
+            const res = await get(`/discover/${tmdbPath(type)}`, {
+              with_origin_country: code,
+              sort_by: "popularity.desc",
+              "vote_count.gte": 3,
+              page,
+            });
+            for (const r of (res?.results || []).slice(0, FOR_YOU_POOL_PER_COUNTRY)) {
+              const id = String(r.id || "");
+              if (/^\d+$/.test(id)) found.push({ id, name: r.title || r.name || "this title" });
+            }
+          } catch {
+            /* one country that did not answer is one country fewer in the walk */
+          }
+        }),
+      );
+      // Nothing answered: the last pool stands rather than an empty one (the standing
+      // roster below is the card's real answer in that case).
+      if (!found.length) return;
+      const seen = new Set();
+      slot.seeds = found.filter((s) => {
+        if (seen.has(s.id)) return false;
+        seen.add(s.id);
+        return true;
+      });
+      slot.at = Date.now();
     }),
   );
 }
@@ -454,13 +571,13 @@ export function catalogDefs(code = activeCountry()) {
   const key = String(code || "US").toUpperCase();
   if (!defsCache.has(key)) defsCache.set(key, buildCatalogDefs(collectionsFor(key)));
   const { defs, recommendCards } = defsCache.get(key);
-  if (!recommendCards.length) return defs;
+  if (!recommendCards.length) return withAvailableProviders(defs);
   // **The rows are published even with an empty watchlist.** Withholding them left
   // the For You card with no rows at all, so it could not show anything; with nothing
   // pinned each row falls back to what is trending (the `recommend` case in
   // `specsFor`), which is why the card is never empty.
   return [
-    ...defs,
+    ...withAvailableProviders(defs),
     ...recommendCards.flatMap((c) => {
       const rows = [];
       // **Per row type**, not per card: a watchlist holding only shows must still
@@ -472,17 +589,17 @@ export function catalogDefs(code = activeCountry()) {
         // *first*, so a watchlist holding two shows gave those same two shows a slot on
         // every single roll — the card said "More Like NCIS · More Like Family Guy"
         // however many times it was opened, which is the "NCIS is in For You shows
-        // every time" report. The rows are now drawn from your titles **and** this
-        // week's trending titles as one shuffled pool, so a roll is a genuine mix: your
-        // own list is still the first source it draws from, it is simply no longer a
-        // fixed prefix that fills the card before anything else is considered.
+        // every time" report. The rows are now drawn from your titles **and** the random
+        // any-country pool as one shuffled pool, so a roll is a genuine mix: your own
+        // list is still the first source it draws from, it is simply no longer a fixed
+        // prefix that fills the card before anything else is considered.
         //
         // Every row is still a *title* (never a genre), and the standing roster below
         // only appears when even the pool is short. See `findCatalog` for how the ids
         // keep resolving across rolls.
         const pool = [
           ...recommendSeeds(type).map((seed) => ({ seed })),
-          ...trendingSeeds[type].seeds.map((seed) => ({ seed })),
+          ...forYouPool[type].seeds.map((seed) => ({ seed })),
         ];
         const memKey = `${c.key}:${type}`;
         const remembered = new Set(recentForYouSeeds.get(memKey) || []);

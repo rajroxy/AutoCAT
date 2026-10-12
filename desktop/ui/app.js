@@ -31,6 +31,9 @@ const KEY = {
   sources: "nuvio.sources",
   profile: "nuvio.profile",
   providers: "nuvio.providers",
+  // The sign-in pair per provider. The keys themselves live on the server; this is only
+  // what the pane draws before the first answer arrives (see `paneSignin`).
+  signin: "nuvio.signin",
   debrid: "nuvio.debrid",
   subtitles: "nuvio.subtitles",
   dns: "nuvio.dns",
@@ -52,16 +55,15 @@ const KEY = {
   pickCards: "nuvio.pickCards",
   visibility: "nuvio.visibility",
   // The three the user asked for by name: what the app sounds like, what it leans on to
-  // tell you something, and the little preview panel a card opens on hover.
+  // tell you something.
   sound: "nuvio.sound",
   notifications: "nuvio.notifications",
-  previews: "nuvio.previews",
   liveRow: "nuvio.liveRow",
   liveSource: "nuvio.liveSource",
   ottSort: "nuvio.ottSort",
 };
 
-const PINNED = /\| Top 10|\| Top 25|^Upcoming$|Airing Today|On the Air|Now Playing|^Latest|^Newest|^Trending|^Plan to Watch$|^Watching$|^Watched$/;
+const PINNED = /\| Top 10|^Upcoming$|Airing Today|On the Air|Now Playing|^Latest|^Newest|^Trending|^Plan to Watch$|^Watching$|^Watched$/;
 
 /**
  * The five orders the OTT cards read their rows in — the dropdown in their header.
@@ -384,6 +386,10 @@ const SETTINGS_GROUPS = [
     group: "",
     sections: [
       ["profile", "Profile"],
+      // **Where the way in is set up.** Its own tile rather than more rows on Profile: the
+      // account card says *who* you are, and this says what makes the Google and GitHub
+      // buttons appear at all.
+      ["signin", "Sign in"],
       ["content", "Content"],
       ["posters", "Posters"],
       // **Looks, placed, and moving are three questions.** "Appearance & layout" was one
@@ -446,6 +452,9 @@ const LIVE_SETTINGS_GROUPS = [
       ["sound", "Sound"],
       ["notifications", "Notifications"],
       ["profile", "Profile"],
+      // Signing in is a property of the machine, not of a profile — so the live profile
+      // gets the same tile the other one has.
+      ["signin", "Sign in"],
     ],
   },
 ];
@@ -546,6 +555,10 @@ const state = {
   // from `/settings` like everything else, and only ever *displayed* — the session lives
   // in an HttpOnly cookie this page cannot read, which is the point of it.
   account: { configured: false, providers: [], user: null },
+  // **The sign-in rows.** Each holds the *effective* pair as the server reports it —
+  // `clientId` is public and comes back verbatim (`""` when it is an environment one and
+  // unset), `hasSecret` only says whether a secret is in place. See `paneSignin`.
+  signin: readJSON(KEY.signin, { google: { enabled: true }, github: { enabled: true } }),
   // The Custom card's label (a setting — see Settings → Content).
   customLabel: "Library",
   sources: migrateSources(readJSON(KEY.sources, [])),
@@ -569,13 +582,12 @@ const state = {
   settingsSection: localStorage.getItem(KEY.section) || "profile",
   accent: localStorage.getItem(KEY.accent) || "gold",
   motion: localStorage.getItem(KEY.motion) || "auto",
-  // **Sound, notifications and hover previews.** Each is a small map of switches rather
+  // **Sound and notifications.** Each is a small map of switches rather than
   // than a single flag, because they are separate questions: a click when you press
   // something is not the same as music under the browsing, and a calendar reminder is not
   // the same as a release date being announced.
   sound: readJSON(KEY.sound, { clicks: false, music: false, musicVolume: 35 }),
   notifications: readJSON(KEY.notifications, { calendar: true, releases: false, live: false }),
-  previews: readJSON(KEY.previews, { cards: true, catalogs: false }),
   // "Pick the cards for you": when it is on, the per-profile visibility below
   // decides which rows, cards and catalog rows this profile shows. Off means every
   // card shows, which is the default so nothing disappears on its own.
@@ -787,6 +799,21 @@ function mergeServerSettings(res) {
     writeJSON(key, store);
   };
   if (res.account) state.account = res.account;
+  if (res.signin) {
+    // One row per provider, merged rather than replaced: a server that only reports one of
+    // the two must not blank the other's row.
+    for (const slug of ["google", "github"]) {
+      const row = res.signin[slug];
+      if (!row) continue;
+      state.signin[slug] = {
+        ...state.signin[slug],
+        enabled: row.enabled !== false,
+        clientId: typeof row.clientId === "string" ? row.clientId : state.signin[slug].clientId || "",
+        hasSecret: Boolean(row.hasSecret),
+      };
+    }
+    writeJSON(KEY.signin, state.signin);
+  }
   if (res.providers) fold(res.providers, state.providers, KEY.providers);
   if (res.tracking) fold(res.tracking, state.tracking, KEY.tracking);
   if (res.debrid) fold(res.debrid, state.debrid, KEY.debrid);
@@ -1105,13 +1132,10 @@ function posterCard(m, opts = {}) {
       class: "poster focusable",
       type: "button",
       "data-id": m.id || "",
-      // **What the hover preview reads.** The card itself draws no caption (the
-      // artwork is the picture and nothing else), so the name, year, kind and rating
-      // travel on the element for the preview panel to pick up — see `showPreview`.
+      // **What is drawn on the card, on the element.** The card itself draws no caption
+      // (the artwork is the picture and nothing else), so the name travels with it for
+      // the checks and for anything that has to read a plan without opening it.
       "data-name": m.name || "",
-      "data-year": releaseYear(m.releaseInfo) || "",
-      "data-kind": m.type === "series" ? "Series" : "Movie",
-      "data-rating": m.imdbRating || m.rating || "",
       // The card page's frame follows the title you point at, so the backdrop it
       // should show travels on the poster itself.
       "data-backdrop": backdropOf(m) || heroImage(m) || "",
@@ -1258,16 +1282,20 @@ function noteForYouServed(id, metas) {
 }
 
 /**
- * What an empty row means depends on the row. A watchlist row is empty because
- * nothing has been pinned yet, not because the catalog failed.
+ * What an empty row says.
+ *
+ * **A watchlist row and the Library say nothing at all.** They used to explain
+ * themselves — *"Watched is empty — open a title and pin it as watched."*, *"Library is
+ * empty — open any title and add it to this row."* — which is a caption over the row you
+ * are *trying* to fill, telling you the row is empty when the row showing nothing has
+ * already said so. An empty row is an empty row; the buttons that fill it are on the
+ * title pages, where the titles are.
+ *
+ * A catalog that failed still speaks: silence there would read as "this row is fine and
+ * happens to hold nothing", which is a different thing.
  */
 function emptyRowText(catalog) {
-  if (catalog.kind === "watchlist") {
-    return `${catalog.name} is empty — open a title and pin it as ${catalog.state || "planned"}.`;
-  }
-  if (catalog.kind === "custom") {
-    return `${catalog.name} is empty — open any title and add it to this row.`;
-  }
+  if (catalog.kind === "watchlist" || catalog.kind === "custom") return "";
   return "No titles returned for this catalog.";
 }
 
@@ -1295,9 +1323,10 @@ async function fillStrip(strip, catalog) {
       if (!metas.length) {
         done = true;
         strip.removeEventListener("scroll", onScroll);
-        strip.append(
-          el("p", { class: skip ? "empty strip-end" : "empty", text: skip ? "End of catalog." : emptyRowText(catalog) }),
-        );
+        // The end of a row is always said; an empty watchlist row is not (see
+        // `emptyRowText`), so there the strip simply stays empty.
+        const said = skip ? "End of catalog." : emptyRowText(catalog);
+        if (said) strip.append(el("p", { class: skip ? "empty strip-end" : "empty", text: said }));
         return;
       }
       for (const m of metas) strip.append(posterCard(m, { watch: catalog.kind === "watchlist" }));
@@ -1457,12 +1486,12 @@ function chipLine(children, { className = "cats" } = {}) {
   const track = el("div", { class: "chip-track", tabindex: "0" }, ...children);
   const up = el(
     "button",
-    { class: "chip-arrow up focusable", type: "button", title: "Scroll the tags up", "aria-label": "Scroll the tags up", onclick: () => step(-1) },
+    { class: "chip-arrow up focusable", type: "button", "aria-label": "Scroll the tags up", onclick: () => step(-1) },
     chevronUp(),
   );
   const down = el(
     "button",
-    { class: "chip-arrow down focusable", type: "button", title: "Scroll the tags down", "aria-label": "Scroll the tags down", onclick: () => step(1) },
+    { class: "chip-arrow down focusable", type: "button", "aria-label": "Scroll the tags down", onclick: () => step(1) },
     chevronDown(),
   );
 
@@ -1483,15 +1512,14 @@ function chipLine(children, { className = "cats" } = {}) {
     up.classList.toggle("at-end", up.disabled);
   };
 
-  const label = `${children.length} tags — use the arrows to scroll them`;
   const plate = el("div", { class: "chip-scroll" }, up, down);
-  const line = el("div", { class: `${className} chip-block chip-clamped`, title: label }, track, plate);
-  // The plate is held back only where it would scroll nothing (see `watchArrowFit`),
-  // and the "use the arrows" title goes with it.
+  const line = el("div", { class: `${className} chip-block chip-clamped` }, track, plate);
+  // The plate is held back only where it would scroll nothing (see `watchArrowFit`).
+  // **The line carries no `title` at all**: it used to say "N tags — use the arrows to
+  // scroll them" over the tags, which is the interface explaining itself over the thing
+  // you were already reading (see the note on `icon-art`).
   watchArrowFit(track, (fits) => {
     line.classList.toggle("chip-fits", fits);
-    if (fits) line.removeAttribute("title");
-    else line.setAttribute("title", label);
     sync();
   });
   track.addEventListener("scroll", sync, { passive: true });
@@ -1511,7 +1539,9 @@ function catalogChip(card, cat) {
   return el("button", {
     class: "chip focusable",
     type: "button",
-    title: `Go to ${cat.name}`,
+    // **No `title`.** The tag already says where it goes; the tooltip was the same
+    // sentence printed over the row it names (see the note on `icon-art`).
+    "aria-label": `Go to ${cat.name}`,
     text: cat.name,
     onclick: () => openRow(card.key, cat.id),
   });
@@ -1750,12 +1780,16 @@ function syncProfileMark() {
 /**
  * **Signing in — the account, and however you want to make one.**
  *
- * The app keeps an account of its own: a name and an optional address, on this machine
- * (`addon/account.json`, no password, nothing verified, nothing sent anywhere) and that is
- * the way in that works on a fresh install. Google and GitHub are still here as the two
- * provider buttons that appear when their keys are set, and they go through the same
- * session cookie and the same `/auth/me` — a provider sign-in and a local one are the same
- * thing to everything downstream.
+ * **Google and GitHub come first**, and they are ordinary OAuth: the account stays with the
+ * provider, this app only keeps the profile behind its own cookie. Their keys are pasted in
+ * **Settings → Sign in**, with the exact callback to register shown beside the box.
+ *
+ * **This machine's account comes second** — a name and an optional address, on this machine
+ * (`addon/account.json`, no password, nothing verified, nothing sent anywhere) and it is the
+ * way in that works on a fresh install, before any keys exist. It answers the same
+ * `/auth/me` and sets the same session cookie, so a provider sign-in and this one are the
+ * same thing to everything downstream; the only difference is that this one survives a
+ * restart, because the file keeps the session id it has already accepted.
  *
  * **What was wrong with the card.** Every `.option-desc` in the app is hidden by the
  * "no subtext" rule, so a card made only of an `.option-desc` was the word **Sign in** with
@@ -1877,7 +1911,11 @@ function signInCard() {
       ),
     ),
     said ? el("p", { class: "signin-said", text: said }) : null,
-    el("div", { class: "account-row account-buttons" }, nameField, emailField, continueBtn),
+    // **The providers lead, this machine's account follows.** Google and GitHub are the
+    // accounts that belong to *you* — a list, a history, an avatar that is not a letter —
+    // and this machine's own name is the one that works when they are not set up. So the
+    // buttons come first and the name comes under a rule, where it reads as the fallback
+    // it is rather than as the app's own account system.
     live.length
       ? el(
           "div",
@@ -1897,6 +1935,8 @@ function signInCard() {
           ),
         )
       : null,
+    live.length ? el("div", { class: "h-divider", "aria-hidden": "true" }) : null,
+    el("div", { class: "account-row account-buttons" }, nameField, emailField, continueBtn),
     local
       ? el("button", {
           class: "btn subtle focusable",
@@ -1911,7 +1951,7 @@ function signInCard() {
       ? null
       : el("p", {
           class: "option-desc",
-          text: "Google and GitHub are offered here as well, when NUVIO_GOOGLE_CLIENT_ID and NUVIO_GOOGLE_CLIENT_SECRET (or the GitHub pair) are set and <this app>/auth/<provider>/callback is registered as the redirect.",
+          text: "Google and GitHub appear here as well — paste a client id and secret for either one in Settings → Sign in, and register the callback it shows there.",
         }),
   );
 }
@@ -3208,7 +3248,9 @@ function iconBox(c, row) {
             {
               class: "icon-art focusable",
               type: "button",
-              title: `Open ${name}`,
+              // **No `title`.** A card is covered by its own name on the frame and its
+              // own label underneath; the browser's tooltip said the same words again,
+              // a second later, over the artwork. `aria-label` still names the button.
               "aria-label": `Open ${name}`,
               onclick: () => {
                 setRow(row);
@@ -3797,12 +3839,12 @@ function filterRow(label, choices, active, onPick, { clamp = false } = {}) {
   };
   const up = el(
     "button",
-    { class: "chip-arrow up focusable", type: "button", title: `Scroll ${label} up`, "aria-label": `Scroll ${label} up`, onclick: () => step(-1) },
+    { class: "chip-arrow up focusable", type: "button", "aria-label": `Scroll ${label} up`, onclick: () => step(-1) },
     chevronUp(),
   );
   const down = el(
     "button",
-    { class: "chip-arrow down focusable", type: "button", title: `Scroll ${label} down`, "aria-label": `Scroll ${label} down`, onclick: () => step(1) },
+    { class: "chip-arrow down focusable", type: "button", "aria-label": `Scroll ${label} down`, onclick: () => step(1) },
     chevronDown(),
   );
   // Each arrow dims at its own end, and "at the end" is only claimed once the track
@@ -4171,7 +4213,7 @@ function renderSearch() {
       class: `search-filter-btn focusable${filtersActive(filters) ? " on" : ""}`,
       type: "button",
       id: "search-filter-btn",
-      title: "Filters",
+      // **No `title`.** The button draws the word "Filters" beside its icon.
       "aria-label": "Filters",
       "aria-expanded": String(!panel.hidden),
       onclick: () => {
@@ -4954,75 +4996,20 @@ function renderSources(id, name) {
 /* ------------------------------------------------------------ hover previews */
 
 /**
- * **The panel that says what is under the cursor.**
+ * **The panel that named what was under the cursor is gone.**
  *
- * Settings → Animation has offered "Titles and cards" and "Catalog tiles" since the
- * pane was written and nothing ever appeared, because the app drew captions on the
- * artwork instead and those captions were removed. The panel is the replacement: the
- * pointer resting on a poster (or on a Home tile) opens a small card beside it with
- * the name on one line and the year, kind and rating on the next — text only, no
- * request, and never inside the player or the trailer overlay.
+ * A pointer resting on a poster (or on a Home tile) opened a small card beside it with
+ * the name on one line and the year, kind and rating on the next, and Settings →
+ * Animation had two switches for it. It has been removed: it was text drawn over the
+ * artwork you were already looking at, it followed the pointer across a whole grid, and
+ * the card underneath said the same thing the moment it was opened. Nothing replaced it
+ * — the posters, the titles on the pages and the hover *lift* on a card are the whole of
+ * the pointer's job now.
  *
- * It is drawn **over** the page and takes no clicks (`pointer-events: none`), so the
- * card under it still gets the press, and it is put away by leaving the card, by a
- * scroll, or by any redraw.
+ * The `data-` attributes the panel used to read are gone with it, except `data-id`, which
+ * the checks tell two same-named titles apart by, and `data-name`, which the calendar's
+ * plan cards carry so a plan can be read without opening it.
  */
-const previewBox = el("div", { class: "hover-preview", hidden: true, "aria-hidden": "true" },
-  el("p", { class: "hover-preview-title" }),
-  el("p", { class: "hover-preview-meta" }),
-);
-
-function hidePreview() {
-  if (!previewBox.hidden) previewBox.hidden = true;
-}
-
-function showPreview(anchor, title, meta) {
-  if (!title) return hidePreview();
-  previewBox.children[0].textContent = title;
-  previewBox.children[1].textContent = meta || "";
-  previewBox.hidden = false;
-  const a = anchor.getBoundingClientRect();
-  const b = previewBox.getBoundingClientRect();
-  const left = Math.max(12, Math.min(window.innerWidth - b.width - 12, a.left + a.width / 2 - b.width / 2));
-  // Above the card where there is room, below it where there is not.
-  const above = a.top - b.height - 10;
-  const top = above >= 12 ? above : Math.min(window.innerHeight - b.height - 12, a.bottom + 10);
-  previewBox.style.left = `${Math.round(left)}px`;
-  previewBox.style.top = `${Math.round(top)}px`;
-}
-
-/** Which preview the pointer is on, if any, as its anchor and two lines of text. */
-function previewFor(node) {
-  if (!node || typeof node.closest !== "function") return null;
-  if (node.closest(".player, .trailer-overlay, .modal, .hover-preview")) return null;
-  const tile = node.closest("[data-preview]");
-  if (tile && state.previews?.catalogs) {
-    return { anchor: tile, title: tile.dataset.preview, meta: tile.dataset.previewMeta || "" };
-  }
-  const card = node.closest(".poster");
-  if (card && state.previews?.cards) {
-    const d = card.dataset;
-    return { anchor: card, title: d.name || "", meta: [d.kind, d.year, d.rating].filter(Boolean).join(" · ") };
-  }
-  return null;
-}
-
-function setupPreviews() {
-  document.body.append(previewBox);
-  document.addEventListener("pointerover", (e) => {
-    const hit = previewFor(e.target);
-    if (!hit) return hidePreview();
-    showPreview(hit.anchor, hit.title, hit.meta);
-  });
-  document.addEventListener("pointerout", (e) => {
-    const hit = previewFor(e.target);
-    // Moving between the pieces of one card is not leaving it.
-    if (hit && hit.anchor.contains(e.relatedTarget)) return;
-    hidePreview();
-  });
-  window.addEventListener("scroll", hidePreview, { passive: true });
-  window.addEventListener("resize", hidePreview);
-}
 
 /* ------------------------------------------------------------------- sound */
 
@@ -5654,12 +5641,18 @@ async function renderList(kind, id, type, extra = "") {
 const listQuery = (type) => `?type=${encodeURIComponent(type)}${state.safe ? "" : "&adult=1"}`;
 
 /**
- * **Ask the Assistant about this title.**
+ * **Ask the Assistant about this title — in a box of its own, in the middle.**
  *
- * The Ask box on the search screen does one job: it turns a sentence into a *search*.
- * A title page raises the other question — "what is this about?", "will I like it?" — and
- * that one is answered, not translated. It opens over the page the way the source picker
- * does, so nothing navigates and closing it puts you back where you were.
+ * The Ask box on the search screen does one job: it turns a sentence into a *search*. A
+ * title page raises the other question — "what is this about?", "will I like it?" — and
+ * that one is answered rather than translated, so the answer needs room: a question box
+ * and a paragraph under it.
+ *
+ * It used to borrow the player's full-screen surface, which put a 620px panel in the top
+ * left of a black screen, next to the Play button it was opened from. It is a **centred
+ * dialog** now — big, in the middle of the screen, on a dimmed page — because it is a
+ * thing you read, not a thing you reach for beside Play. Esc, the backdrop and the Close
+ * button all put it away, and nothing navigates.
  */
 async function openAssistant(meta) {
   const question = el("input", {
@@ -5668,11 +5661,24 @@ async function openAssistant(meta) {
   });
   const answer = el("p", { class: "assistant-answer", text: "" });
   const stateLine = el("p", { class: "player-note", text: "" });
-  const overlay = el("div", { class: "player assistant-panel" },
-    el("div", { class: "player-empty-body" },
-      el("h2", { class: "assistant-title", text: `Assistant · ${meta.name || "this title"}` }),
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+  };
+  // **Escape closes the box and does nothing else.** The app's own Escape means "go Home",
+  // and it is bound on the document too; this is registered in the capture phase and stops
+  // the event there, so leaving the Assistant cannot also leave the page.
+  const onKey = (e) => {
+    if (e.key !== "Escape") return;
+    e.stopPropagation();
+    close();
+  };
+  const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": `Assistant · ${meta.name || "this title"}` },
+    el("div", { class: "assistant-card" },
+      el("p", { class: "assistant-kicker", text: "Assistant" }),
+      el("h2", { class: "assistant-title", text: meta.name || "this title" }),
       el("p", { class: "option-desc", text: "Ask what it is about, whether it is worth starting, or who it is for. The answer comes from the AI provider set in Settings → Assistant." }),
-      el("div", { class: "source-form" }, question,
+      el("div", { class: "assistant-form" }, question,
         el("button", { class: "btn primary focusable", type: "button", id: "assistant-ask", text: "Ask" }),
       ),
       // **Two questions worth pressing**, so the panel is not an empty box on the first
@@ -5684,7 +5690,9 @@ async function openAssistant(meta) {
       ),
       stateLine,
       answer,
-      el("button", { class: "btn subtle focusable", type: "button", text: "Close", onclick: () => overlay.remove() }),
+      el("div", { class: "assistant-actions" },
+        el("button", { class: "btn subtle focusable", type: "button", id: "assistant-close", text: "Close", onclick: close }),
+      ),
     ),
   );
   const ask = async () => {
@@ -5710,6 +5718,9 @@ async function openAssistant(meta) {
   };
   overlay.querySelector("#assistant-ask").addEventListener("click", ask);
   question.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  // A press on the dimmed page outside the box is the same as Close.
+  overlay.addEventListener("mousedown", (event) => { if (event.target === overlay) close(); });
+  document.addEventListener("keydown", onKey, true);
   document.body.append(overlay);
   question.focus();
 }
@@ -5753,7 +5764,9 @@ const personNode = (p) =>
   el("button", {
     class: "person focusable",
     type: "button",
-    title: `${p.name} — open their credits`,
+    // **No `title`.** The name is under the face; the tooltip repeated it over the
+    // picture (see the note on `icon-art`). The accessible name says what pressing does.
+    "aria-label": `${p.name} — open their credits`,
     onclick: () => go(`#/l/person/${p.tmdbId}?type=${state.row}`),
   },
     p.poster ? el("img", { class: "person-face", src: p.poster, alt: "", loading: "lazy" }) : el("span", { class: "person-face person-initials", text: initialsOf(p.name).toUpperCase() }),
@@ -5817,7 +5830,8 @@ function companyCards(label, list, kind) {
       el("button", {
         class: "company-card focusable",
         type: "button",
-        title: `${c.name} — open its titles`,
+        // **No `title`.** `company-name` is drawn under the logo (see `icon-art`).
+        "aria-label": `${c.name} — open its titles`,
         onclick: () => go(`#/l/${kind}/${c.tmdbId}?type=${state.row}`),
       },
         el("span", { class: "company-logo-wrap" },
@@ -5920,7 +5934,10 @@ function trailersRow(trailers) {
       el("button", {
         class: "trailer-card focusable",
         type: "button",
-        title: `${t.name} — play in the app`,
+        // **No `title`.** The name and the kind are drawn under the thumb; the tooltip
+        // repeated them over the picture (see the note on `icon-art`). `aria-label` keeps
+        // the button named for a screen reader, and it says what pressing it does.
+        "aria-label": `${t.name} — play in the app`,
         onclick: () => openTrailer(t),
       },
         el("img", { class: "trailer-thumb", src: `https://img.youtube.com/vi/${t.key}/hqdefault.jpg`, alt: "", loading: "lazy" }),
@@ -6843,6 +6860,165 @@ function visRow(checked, level, id, title, desc, depth = 0) {
 }
 
 /**
+ * Settings → Sign in: the keys that make Google and GitHub buttons exist.
+ *
+ * **Why this pane is not the account card.** The card in Profile is *who you are* — the
+ * session, the avatar, the one press that resumes it. This is the other half: a provider
+ * cannot be signed in to until *you* have created an application with it, and that
+ * application is a client id, a client secret and one redirect URI registered exactly. So
+ * the pane is three things per provider — the two boxes, the switch, and **the callback
+ * string to paste into the provider's console**, copied from here rather than assembled by
+ * hand. A callback with a different host, port or trailing slash is the failure this
+ * handshake cannot recover from, which is why the string comes from the server that will
+ * receive it (`redirectUri` in `addon/auth.mjs`).
+ *
+ * Nothing here is required. This machine's own account works with nothing set up, and the
+ * profile pane says so — see the note at the foot of the pane.
+ */
+function paneSignin() {
+  const rows = [
+    [
+      "google", "Google", "https://console.cloud.google.com/apis/credentials",
+      "Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID → Web application. Paste the id and the secret here, and add the redirect URI below to that client's Authorized redirect URIs.",
+    ],
+    [
+      "github", "GitHub", "https://github.com/settings/developers",
+      "GitHub → Settings → Developer settings → OAuth Apps → New OAuth App. The \"Authorization callback URL\" is the redirect URI below, character for character.",
+    ],
+  ];
+
+  return [
+    el("p", {
+      class: "option-desc",
+      text: "Each provider needs an application of your own — a client id and a client secret it gives you — and one redirect URI registered exactly. Paste the pair here; the buttons then appear on the account card in Settings → Profile. The secret is stored on the server and never travels back to this page.",
+    }),
+    ...rows.map(([slug, label, consoleUrl, note]) => {
+      const held = state.signin[slug] || (state.signin[slug] = { enabled: true, clientId: "", hasSecret: false });
+      const configured = Boolean((state.account?.providers || []).find((p) => p.key === slug)?.configured);
+      const redirect = (state.account?.redirects || {})[slug] || "";
+      const idInput = el("input", {
+        class: "text-input focusable",
+        type: "text",
+        id: `signin-${slug}-id`,
+        value: held.clientId || "",
+        placeholder: "Client ID",
+        "aria-label": `${label} client ID`,
+      });
+      const secretInput = el("input", {
+        class: "text-input focusable",
+        type: "password",
+        id: `signin-${slug}-secret`,
+        placeholder: held.hasSecret ? "•••••••• (set — paste a new secret to replace)" : "Client secret",
+        "aria-label": `${label} client secret`,
+      });
+      const status = el("span", { class: "source-status", text: "" });
+      // **Both halves, in one press.** Storing them apart is what leaves a provider half
+      // configured — an id with the secret still in the box looks saved and never works.
+      // Either box may be left empty when the other half is already in place, so the id
+      // can be corrected without the secret being typed again.
+      const save = async () => {
+        const clientId = idInput.value.trim();
+        const clientSecret = secretInput.value.trim();
+        if (!clientId && !clientSecret) {
+          status.className = "source-status bad";
+          status.textContent = "Paste the client id and the client secret.";
+          return;
+        }
+        const patch = { enabled: true };
+        if (clientId) patch.clientId = clientId;
+        if (clientSecret) patch.clientSecret = clientSecret;
+        state.signin[slug] = { ...held, ...patch, hasSecret: Boolean(held.hasSecret || clientSecret) };
+        writeJSON(KEY.signin, state.signin);
+        status.className = "source-status";
+        status.textContent = "Saving…";
+        await pushSettings({ signin: { [slug]: patch } });
+        render();
+      };
+      secretInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+
+      return el("div", { class: `provider${configured ? " active" : ""}` },
+        el("div", { class: "provider-head" },
+          el("div", {},
+            el("span", { class: "option-title", text: label }),
+            el("span", { class: `badge ${configured ? "on" : "off"}`, text: configured ? "ready" : held.hasSecret ? "half set" : "not set up" }),
+          ),
+          el("label", { class: "switch", title: `Offer ${label} as a way in` },
+            el("input", {
+              type: "checkbox",
+              checked: held.enabled !== false,
+              onchange: async (e) => {
+                state.signin[slug] = { ...held, enabled: e.target.checked };
+                writeJSON(KEY.signin, state.signin);
+                await pushSettings({ signin: { [slug]: { enabled: e.target.checked } } });
+                render();
+              },
+            }),
+            el("span", { class: "slider" }),
+          ),
+        ),
+        el("p", { class: "option-desc", text: note }),
+        el("div", { class: "source-form" }, idInput, secretInput,
+          el("button", { class: "btn primary focusable", type: "button", id: `signin-${slug}-save`, text: "Save keys", onclick: save }),
+          held.hasSecret
+            ? el("button", {
+                class: "btn subtle focusable",
+                type: "button",
+                id: `signin-${slug}-clear`,
+                text: "Remove",
+                title: `Stop offering ${label}`,
+                onclick: async () => {
+                  state.signin[slug] = { ...held, clientId: "", hasSecret: false, enabled: false };
+                  writeJSON(KEY.signin, state.signin);
+                  // **Emptied, not hidden.** Clearing the boxes also reveals an environment
+                  // pair if the machine has one — which is why the pane says so underneath.
+                  await pushSettings({ signin: { [slug]: { clientId: "", clientSecret: "", enabled: false } } });
+                  render();
+                },
+              })
+            : null,
+        ),
+        el("div", { class: "signin-redirect" },
+          el("span", { class: "signin-redirect-label", text: "Redirect URI" }),
+          el("code", { class: "signin-redirect-value", text: redirect || `…/auth/${slug}/callback` }),
+          redirect
+            ? el("button", {
+                class: "btn subtle focusable",
+                type: "button",
+                id: `signin-${slug}-copy`,
+                text: "Copy",
+                onclick: async (e) => {
+                  try {
+                    await navigator.clipboard.writeText(redirect);
+                    e.target.textContent = "Copied";
+                  } catch {
+                    // A browser that refuses the clipboard still shows the string; this
+                    // only says so rather than pretending the copy happened.
+                    e.target.textContent = "Select it and copy";
+                  }
+                  setTimeout(() => { e.target.textContent = "Copy"; }, 2000);
+                },
+              })
+            : null,
+        ),
+        // **The door to the console, as a link you can press.** Every `.option-desc` in
+        // the app is hidden by the "no subtext" rule, so the sentence above saying where
+        // the pair comes from is not on screen — and a pane that asks for a value with no
+        // way to go and get it is a dead end. This is the same visible-signup-link pattern
+        // the Assistant pane uses.
+        el("div", { class: "provider-check" },
+          el("a", { class: "ai-signup", href: consoleUrl, target: "_blank", rel: "noreferrer", text: `Create a ${label} sign-in app` }),
+          status,
+        ),
+      );
+    }),
+    el("p", {
+      class: "option-desc",
+      text: "Nothing here is needed to sign in: the account card in Settings → Profile also offers a name for this machine, which is made here, stays here, and works before any keys exist.",
+    }),
+  ];
+}
+
+/**
  * Settings → Profile: the profile you are on, and what it shows.
  *
  * This is the "pick the cards for you" editor: one switch for each of Movies and
@@ -7516,21 +7692,6 @@ function paneAnimation() {
         render();
       }),
     ),
-    el("div", { class: "h-divider", "aria-hidden": "true" }),
-    el("div", { class: "group-head" },
-      el("span", { class: "option-title", text: "Hover previews" }),
-      el("span", { class: "option-desc", text: "The little panel that opens when the pointer rests on something — its name, its year, what it is. It is a picture of the thing under the cursor, drawn over the page; nothing is opened and nothing navigates." }),
-    ),
-    toggleRow(state.previews.cards, "Titles and cards", "A poster shows its title, year and rating in a small panel.", (e) => {
-      state.previews = { ...state.previews, cards: e.target.checked };
-      writeJSON(KEY.previews, state.previews);
-      render();
-    }),
-    toggleRow(state.previews.catalogs, "Catalog tiles and buttons", "Rows, genres and buttons say what they hold before you open them.", (e) => {
-      state.previews = { ...state.previews, catalogs: e.target.checked };
-      writeJSON(KEY.previews, state.previews);
-      render();
-    }),
   ];
 }
 
@@ -8087,6 +8248,7 @@ function renderSettings() {
     livecountries: paneLiveCountries,
     liverefresh: paneLiveRefresh,
     profile: paneProfile,
+    signin: paneSignin,
     posters: panePosters,
     // Trackers and providers are their own panes now — the two halves of the old
     // "Trackers & providers" tab, each under its own name.
@@ -8314,8 +8476,6 @@ async function render() {
   // A redraw of the screen you are **already on** (a toggle, a source being read, the
   // banner's own move) must not replay the entry animation — that restart, on every
   // redraw, is the blink the Add-ons screen was doing.
-  // A screen that redraws is a screen the preview no longer belongs to.
-  hidePreview();
   const sameScreen = route === lastRoute;
   const wasAt = window.scrollY;
   if (lastRoute && lastRoute !== route) scrollMemory.set(lastRoute, wasAt);
@@ -11506,7 +11666,6 @@ async function boot() {
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   applyTheme();
   setupInput();
-  setupPreviews();
   setupSound();
 
   try {

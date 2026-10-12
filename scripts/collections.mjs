@@ -21,6 +21,9 @@
  *   preset        value: trending | popular | top_rated | now_playing |
  *                 airing_today | airing_this_week | on_the_air
  *   discover      value: latest | new
+ *   curated       params: TMDB discover filters, written as they are sent —
+ *                 plus `within` (days) and `before` (year), which are turned
+ *                 into the release-date window for the row's own media type
  *   genre         genre, sort?: "popular"
  *   decade        decade (e.g. 1950), sort?: "popular"
  *   genre-decade  genre, from
@@ -414,6 +417,7 @@ const KW = VERIFIED.keywords;
 
 const preset = (name, value, take) => ({ name, kind: "preset", value, take });
 const discover = (name, value, take) => ({ name, kind: "discover", value, take });
+const curated = (name, params, take) => ({ name, kind: "curated", params, take });
 const genre = (name, g, sort) => ({ name, kind: "genre", genre: g, sort });
 const decade = (name, d, sort) => ({ name, kind: "decade", decade: d, sort });
 const genreDecade = (name, g, from) => ({ name, kind: "genre-decade", genre: g, from });
@@ -530,10 +534,19 @@ const globalOtt = {
  * holds nothing for keeps the full list rather than drawing an empty card.
  */
 function regionalOtt(kind, code = "") {
-  const build = (type) => {
-    const all = REGIONAL_SERVICES(type);
-    const mine = code ? all.filter((svc) => String(svc.region || "").toUpperCase() === code) : [];
-    const services = mine.length ? mine : all;
+  const build = (type, media) => {
+    // **The card publishes exactly what the Region picker promises.** `localServices` is
+    // the same list Settings counts (`services` in `appOptions`): the country's own
+    // verified services **plus the two worldwide ones** (Crunchyroll and Viki), which
+    // carry no region of their own and so used to be filtered straight back out of the
+    // row set — no country ever showed them.
+    //
+    // It used to fall back to **every region's services** when the country held none.
+    // That is the 128-row card of Australian, Indian and Brazilian services behind a
+    // picker reading "Nigeria · 4 rows": no matching OTT for the country selected. A
+    // region the facts hold nothing local for now shows the worldwide services alone,
+    // which is the honest answer and the one the picker already counted.
+    const services = localServices(code, media);
     // Two services could share a name; disambiguate so two rows can never collide on
     // the same catalog id.
     const nameCount = new Map();
@@ -541,19 +554,20 @@ function regionalOtt(kind, code = "") {
     const label = (svc) => (nameCount.get(svc.name) > 1 ? `${svc.name} (${svc.id})` : svc.name);
     return services.map((svc) => {
       // The row carries its own region: this is what makes one service row usable
-      // from the region it was verified in instead of one country's five.
-      const region = svc.region || null;
+      // from the region it was verified in instead of one country's five. A service with
+      // no region of its own (Crunchyroll, Viki) is scoped to the region in Settings.
+      const region = String(svc.region || "").toUpperCase() || code || null;
       if (kind === "top10") return provider(`${label(svc)} | Top 10`, svc.id, region, TOP10);
       return provider(label(svc), svc.id, region);
     });
   };
-  return { movie: build("movie"), show: build("tv") };
+  return { movie: build("movie", "movie"), show: build("tv", "tv") };
 }
 
 const TOP10 = 10;
-// The Discover card publishes 25 titles per row rather than 10, so it is the one
-// "top of the pile" card that is worth scrolling. Its card key stays
-// `discover-top-10` — that is the cover's filename.
+// **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide
+// card that is worth scrolling. Its card key stays `discover-top-10` — that is the
+// cover's filename (see the card's own entry for the name and its rows).
 const TOP25 = 25;
 const both = (list) => ({ movie: list, show: list.map((e) => ({ ...e })) });
 const forBoth = (build) => ({ movie: build(MOVIE_GENRES), show: build(SHOW_GENRES) });
@@ -569,12 +583,52 @@ const decadeGenres = (type, list) =>
     .filter((g) => (VERIFIED.genreDecades?.[type]?.[g]?.count ?? 0) > 0)
     .map((g) => genreDecade(`${g} ◆ 1950 → Present`, g, VERIFIED.genreDecades.from));
 
+/**
+ * The plain Discover card's five orders, unchanged: the newest, the most popular and
+ * the best reviewed, in both directions of the date order. **Discover Plus** is the
+ * card beside it that asks a different kind of question (see `discoverPlusRow`).
+ */
 const discoverRow = (suffix = "", take) => [
   discover(`Latest${suffix}`, "latest", take),
   discover(`Newest${suffix}`, "new", take),
   preset(`Trending${suffix}`, "trending", take),
   preset(`Popular${suffix}`, "popular", take),
   preset(`Top Rated${suffix}`, "top_rated", take),
+];
+
+/**
+ * **Discover Plus** — the wide card, and every row in it is a verdict.
+ *
+ * The card used to be `Discover | Top 25`: the same five orders as the plain Discover
+ * card (Latest, Newest, Trending, Popular, Top Rated) read a second time at twenty-five
+ * titles instead of twenty. Two cards asking the same questions is one card too many —
+ * and "Top 25" named the *length* of a row rather than why anything was in it, which is
+ * what a card's name is for. It asks six different questions now: what is **Acclaimed**,
+ * what this year's **Picks** are, what the **Hidden Gems** are, what has become a **Cult
+ * Classic**, what the **Landmarks** everyone has seen are, and what is **Fresh**.
+ *
+ * Each row is one `curated` entry — a sort and the vote floor that makes it mean
+ * something — so a row and the sentence describing it cannot drift apart. `within` is a
+ * window in days and `before` a year; both are applied to the release date of the row's
+ * own media type (see `specsFor` in `addon/catalogs.mjs`).
+ */
+const discoverPlusRow = (take) => [
+  // The best reviewed titles with a real audience behind them: 2000 votes is a floor
+  // that keeps a handful of 10s from topping the row.
+  curated("Acclaimed", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 2000 }, take),
+  // This year and last: the same question as Acclaimed, asked of what is new — a floor
+  // of 200 votes, because a title a month old has not had time to collect 2000.
+  curated("Picks", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 200, within: 540 }, take),
+  // Well reviewed and barely seen — the ceiling is the point: a gem nobody has found
+  // cannot have ten thousand votes.
+  curated("Hidden Gems", { sort_by: "vote_average.desc", "vote_average.gte": 7, "vote_count.gte": 50, "vote_count.lte": 600 }, take),
+  // Loved for long enough to be a classic, and made before the turn of the century.
+  curated("Cult Classics", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 500, before: 2000 }, take),
+  // The canon: the highest rated of the most seen, so the row is the titles everyone
+  // already knows rather than the ones only a few do.
+  curated("Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 5000 }, take),
+  // Out now, and good — a low floor, because a title released this week has few votes.
+  curated("Fresh", { sort_by: "popularity.desc", "vote_average.gte": 6.5, "vote_count.gte": 20, within: 90 }, take),
 ];
 
 /**
@@ -673,10 +727,14 @@ const buildCollections = (code = "") => {
     catalogs: both([recommend("More Like What You Watch")]),
   },
   {
+    // **The key stays `discover-top-10`** — it is the cover's filename, and the card it
+    // names is the wide one (twenty-five titles a row). The **name** is Discover Plus:
+    // one card that asks six questions about the whole catalogue, beside the Discover
+    // card that asks the five orders (see `discoverPlusRow`).
     key: "discover-top-10",
-    lines: ["Discover", "| Top 25"],
+    lines: ["Discover", "Plus"],
     scene: "spotlight-top-10",
-    catalogs: both(discoverRow(" | Top 25", TOP25)),
+    catalogs: both(discoverPlusRow(TOP25)),
   },
   {
     key: "on-the-board",

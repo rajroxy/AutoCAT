@@ -60,7 +60,7 @@ import {
   remove as customRemove,
   metasFor as customMetas,
 } from "./customrows.mjs";
-import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeTrendingSeeds, isOttSort } from "./catalogs.mjs";
+import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, isOttSort } from "./catalogs.mjs";
 import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
 import { applyPosters, postersEnabled, checkPosterService, imdbId } from "./posters.mjs";
@@ -78,7 +78,7 @@ import { handleProxy } from "./proxy.mjs";
 import { guardState } from "./guards.mjs";
 import { browserUnavailableReason } from "../scraper/tier3.js";
 import { handleTorrentStream, prepareTorrent, torrentStatus, torrentState } from "./torrent.mjs";
-import { authConfigured, authProviders, clearCookie, finish, forgetLocal, localAccount, readSession, sessionCookie, signInLocal, signOut, startUrl } from "./auth.mjs";
+import { authConfigured, authProviders, clearCookie, finish, forgetLocal, localAccount, readSession, redirectUri, sessionCookie, signInLocal, signOut, startUrl } from "./auth.mjs";
 import { publicSites, addSite, updateSite, removeSite, detectSearchPattern, patternFromSample, addRepository, removeRepository, searchJob, startSearchOnPlay, listSites } from "./custom-sites.mjs";
 import { getPrefs, updatePrefs } from "./user-prefs.mjs";
 
@@ -1403,6 +1403,23 @@ function appOptions() {
   };
 }
 
+/**
+ * The account block every settings / `/auth/me` answer carries.
+ *
+ * **`redirects` is why this exists as a function.** A provider sign-in only works when the
+ * callback registered with the provider is character-for-character the one this server
+ * sends, so the page is handed the exact string to register rather than left to assemble
+ * one (and the desktop app pins its port, so that string is stable across launches — see
+ * `desktop/main.js`).
+ */
+const accountPayload = (req, origin) => ({
+  configured: authConfigured(),
+  providers: authProviders(),
+  redirects: Object.fromEntries(authProviders().map((p) => [p.key, redirectUri(p.key, origin)])),
+  local: localAccount(),
+  user: readSession(req),
+});
+
 /** The watchlist as the app reads it: every pin, plus the per-state counts. */
 function watchlistPayload() {
   return {
@@ -1471,18 +1488,22 @@ export async function handleAddon(req, res, pathname, origin) {
         // read from the old add-on list, so the played title would keep saying "nothing
         // is configured to play anything" for up to five minutes after pasting one.
         if (patch && ("sources" in patch || "enrich" in patch)) clearStreamCache();
+        // **A new country is a new set of regional rows.** The set of services TMDB lists
+        // for the region is read before the app draws the card, so the rows it shows are
+        // rows that resolve rather than rows that open empty.
+        if (patch && "country" in patch) await primeRegionProviders().catch(() => {});
         // **An enrichment switch has to change what you see.** Rows, posters and
         // ratings are built from TMDB answers held in memory, so toggling enrichment
         // (or picking a different poster service / provider) rewrites nothing until
         // those answers are dropped — which is exactly "enrichment does nothing".
         if (patch && ("enrich" in patch || "posters" in patch || "providers" in patch || "ratings" in patch)) clearTmdbCache();
-        json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: { configured: authConfigured(), providers: authProviders(), local: localAccount(), user: readSession(req) } });
+        json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: accountPayload(req, origin) });
       } catch (err) {
         json(res, 400, { error: String(err?.message || err) });
       }
       return true;
     }
-    json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: { configured: authConfigured(), providers: authProviders(), local: localAccount(), user: readSession(req) } });
+    json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: accountPayload(req, origin) });
     return true;
   }
 
@@ -1589,7 +1610,7 @@ export async function handleAddon(req, res, pathname, origin) {
   // the profile it names** — see `addon/auth.mjs` for what is stored (a name, an address,
   // a picture; never a token and never a password).
   if (pathname === "/auth/me") {
-    json(res, 200, { ok: true, configured: authConfigured(), providers: authProviders(), local: localAccount(), user: readSession(req) });
+    json(res, 200, { ok: true, ...accountPayload(req, origin) });
     return true;
   }
 
@@ -2545,18 +2566,24 @@ export async function handleAddon(req, res, pathname, origin) {
 
   if (pathname === "/manifest.json") {
     // **The For You rows are built from titles**, and the card is published with the
-    // list the app is about to read. Priming the trending seeds here (cached for half
-    // an hour) is what makes those rows real "More like …" rows on a watchlist that
-    // is still empty, instead of the standing genre rows.
+    // list the app is about to read. Priming the pool here (cached for half an hour) is
+    // what makes those rows real "More like …" rows on a watchlist that is still empty,
+    // instead of the standing genre rows — and the pool is random titles from countries
+    // all over the map, not the week's trending list (see `primeForYouSeeds`).
     setKey(tmdbKey());
-    await primeTrendingSeeds().catch(() => {});
+    await primeForYouSeeds().catch(() => {});
+    // **Which services are really in the region**, before the rows are published: a
+    // Regional OTT row for a service TMDB does not list in the selected country is a row
+    // that opens empty (see `primeRegionProviders`).
+    await primeRegionProviders().catch(() => {});
     json(res, 200, buildManifest(origin));
     return true;
   }
 
   if (pathname === "/collections.json") {
     setKey(tmdbKey());
-    await primeTrendingSeeds().catch(() => {});
+    await primeForYouSeeds().catch(() => {});
+    await primeRegionProviders().catch(() => {});
     json(res, 200, collectionsPayload(origin.replace(/\/$/, "")));
     return true;
   }

@@ -50,7 +50,7 @@ and **Regional** in the app, while the generated covers still carry the older **
 OTT** / **Regional OTT** wording (the app never draws a cover):
 
 1. For You
-2. Discover ◆ Top 25
+2. Discover Plus
 3. Discover
 4. Genre from ◆ Decades
 5. Genres
@@ -156,7 +156,7 @@ drawn on the cover:
 | Card | Catalogs (movies / shows) |
 |---|---|
 | Watchlist | `Plan to Watch` · `Watching` · `Watched` (both) — served from your pins, not from TMDB |
-| Discover ◆ Top 25 | Latest/Newest/Trending/Popular/Top Rated, each **Top 25** (both) |
+| Discover Plus | `Acclaimed` · `Picks` · `Hidden Gems` · `Cult Classics` · `Landmarks` · `Fresh`, each **Top 25** (both) — every row a sort plus the vote floor that makes it mean something |
 | On the Board | Now Playing / Airing Today · Airing This Week · On the Air |
 | Discover | Latest · Newest · Trending · Popular · Top Rated (both) |
 | Popular by ◆ Genre | `Popular in <Genre>` — movie genres / TV genres |
@@ -381,9 +381,30 @@ barely a dozen films even with no floor — and a `vote_count` floor left rows l
 widened the thinnest rows — measured *Epic & Sweeping* 3 → 11, *Adrenaline Rush*
 4 → 9, *Cozy & Comforting* 14 → 40 — and left the busy ones at 40.
 
+**The For You rows are random titles from anywhere, named after the title they were
+built from.** Every row is a *title* (`More Like <Title>`), never a genre, four per
+row type. Your Watchlist supplies them while it holds enough; a fresh install holds
+none, so the card tops the list up from a **random walk through the world's
+catalogues** — a dozen countries drawn at random, one random page of each one's most
+popular titles — rebuilt in the background on a half-hour clock. It used to top up
+from TMDB's week's-trending list, which is the same handful of well-known names in
+every market on earth, so the card read as the popular shelf with "More Like" in
+front of it. Your own titles are no longer a fixed prefix either: both sources are
+shuffled into one pool, so a roll is a genuine mix and consecutive opens differ
+(the last two rolls' seeds are held aside and only replayed when the pool runs dry).
+
+**The Regional OTT card publishes rows that resolve.** A row per service the
+region's own data holds plus the two worldwide ones, and then a filter: the services
+TMDB's own `/watch/providers` answer lists for the selected country (`watch_region`)
+are the ones kept, primed in the background beside the For You pool and cached for
+half a day. A service the card named and could not fill — *Viki* in Korea,
+*Crunchyroll* in a country TMDB does not list it in — was an empty row wearing a
+service's name; a region whose list has not arrived yet keeps every row, because an
+unasked question is not a "no".
+
 **Paging.** Rows read TMDB 20 titles at a time into a growing, cached pool, so a
 window of 40 continues where the last stopped. A row serves up to 300 titles; the
-`◆ Top 10` rows stop at ten (and the Discover card's `◆ Top 25` rows at twenty-five).
+`◆ Top 10` rows stop at ten (and **Discover Plus**'s rows at twenty-five).
 
 **Nothing else is capped.** The OTT cards' `Popular`/everything rows used to carry
 a `take` of 30/40, which made an OTT card the one place whose rows ended after a
@@ -414,9 +435,10 @@ as the row scrolls, and nothing above it is covered.
 
 Covers render with the bundled Inter fonts and system fonts disabled, so a glyph
 Inter lacks becomes an empty box. `◆`, `→`, `★`, `·`, `•`, `–` and `—` are all
-present and safe to use — and, per the design, are used to set off `Top 10`/`Top 25`,
-`from … to` ranges and separators. Avoid `✦`, `➜` and other decorative arrows:
-Inter does not contain them.
+present and safe to use — and, per the design, are used to set off `Top 10` and the
+`from … to` ranges and separators. (The `◆ Top 25` suffix is gone: that card is
+**Discover Plus** now, and its rows are named for what they ask.) Avoid `✦`, `➜` and
+other decorative arrows: Inter does not contain them.
 
 Only the `catalog` resource is advertised — **no search, no discover**. Rows are refreshed from
 TMDB and cached in memory for the interval in **Settings → Content → Refresh
@@ -513,7 +535,11 @@ be a sentence about environment variables and no controls at all — every capti
 the app is hidden by its own "no subtext" rule, so what a fresh install showed was
 the words *Sign in* and **nothing to press**. That is a dead end, not a sign-in.
 
-**This machine's own account comes first.** A name and an optional address, kept in
+**Google and GitHub come first** — the accounts that belong to *you* — and **this
+machine's own name follows** under a rule, where it reads as the fallback it is.
+
+**This machine's own account is the one that needs nothing set up.** A name and an
+optional address, kept in
 `addon/account.json` (runtime state, git-ignored; `NUVIO_ACCOUNT_FILE` moves it, which
 is how the tests stay out of the real one). No password, nothing verified, nothing
 sent anywhere — and it is the way in that works with nothing configured. The session
@@ -523,8 +549,19 @@ restart**, because the file keeps the session id it has already accepted. Sign o
 ends the session and keeps the name; **Forget** takes the name and the address off the
 machine, which is the only way to stop the card offering them back.
 
-**Google and GitHub are the same card, when their keys are set.** That needs a client
-id and a secret per provider, and a public URL to come back to:
+**Google and GitHub are ordinary OAuth**, and their keys are pasted in
+**Settings → Sign in** — one row per provider, with a **Client ID**, a **Client
+secret**, a switch, and the exact **Redirect URI** to register, copied from the pane
+rather than assembled by hand. That last string is the one thing that cannot be
+guessed: a callback registered with a different host, port or trailing slash never
+comes back, so the pane shows the string the server itself will send
+(`redirectUri` in `addon/auth.mjs`) and the row carries a link straight to the
+provider's console (**Create a Google sign-in app** / **Create a GitHub sign-in
+app**). The secret is stored server-side and only ever reported back as a boolean.
+
+The same pair can be set on the environment instead, and either way works — Settings
+is read first, the environment second, so a folder install with a form and a server
+with env vars both do the same thing:
 
 ```sh
 NUVIO_GOOGLE_CLIENT_ID=…  NUVIO_GOOGLE_CLIENT_SECRET=…
@@ -535,8 +572,17 @@ NUVIO_PUBLIC_URL=https://tv.example.com      # the preview origin works too
 The callback to register with the provider is `<NUVIO_PUBLIC_URL>/auth/<provider>/callback`
 (without `NUVIO_PUBLIC_URL`, the origin the request arrived on is used — built from the
 request, never from a query parameter, which would be an open redirect). Working keys
-add **Continue with Google** / **Continue with GitHub** to the card; without them the
-card is the name field it always is, and says so rather than pretending.
+add **Continue with Google** / **Continue with GitHub** to the card at the top of
+Settings → Profile; without them the card is the name field it always is, and says
+where to put them rather than pretending.
+
+**The desktop app pins its port, because a callback has to be registered in
+advance.** The embedded server used to start on port **0** — an OS-picked free port,
+a new one every launch — which is fine for the app's own pages and impossible for
+OAuth. It is **4173** now (`NUVIO_DESKTOP_PORT` moves it), `NUVIO_PUBLIC_URL` is set
+to that origin, and the callback is therefore the same string on every launch:
+`http://127.0.0.1:4173/auth/google/callback`. If the port is taken the app still
+opens on an OS-picked one, and Settings → Sign in shows the callback actually in use.
 
 **What is never kept:** a password, or a provider token. The token is spent on one
 request (*who is this?*) and dropped; what comes back is a name, an address and a
@@ -1007,7 +1053,7 @@ scrolling catalog.
   growing, cached pool per catalog, so each window of 40 continues where the last
   stopped and repeat requests cost nothing. A row can serve up to **300 titles**
   (15 TMDB pages per query); the `◆ Top 10` rows stop at **ten** and the Discover
-  card's `◆ Top 25` rows at **twenty-five**, because that is what they claim — and
+  **Discover Plus** card's rows at **twenty-five**, because that is what they claim — and
   nothing else is capped, OTT cards included. Episode-cap
   rows are bounded by what TMDB actually has — the `4 Episodes` row is short
   because few shows are that short. A strip in a collection keeps loading too:

@@ -24,14 +24,40 @@ let server;
 let mainWindow;
 let retried = false;
 
+/**
+ * **The embedded server's port is fixed, because a sign-in callback has to be
+ * registered in advance.**
+ *
+ * The window used to start the server on port **0** — an OS-picked free port, a new one
+ * every launch. That is exactly right for the app's own pages and impossible for OAuth:
+ * Google and GitHub want one exact redirect URI, and a URI whose port changes on the next
+ * launch can never be registered. So the port is pinned (4173, the same default `npm run
+ * preview` uses, and `NUVIO_DESKTOP_PORT` moves it), and `NUVIO_PUBLIC_URL` is set to that
+ * origin so the callback this server sends is the same string Settings shows.
+ *
+ * If something else already holds the port the app still opens — on an OS-picked one — and
+ * Settings → Sign in shows the callback in use, so it stays registerable for that session.
+ */
+const DESKTOP_PORT = Number(process.env.NUVIO_DESKTOP_PORT) || 4173;
+
 async function createWindow() {
-  // Port 0 → the OS picks a free port, so the app never collides with the
-  // preview server or another instance. A second window reuses the first
-  // server rather than leaving an orphan process behind.
-  if (!server) server = await startServer({ port: 0, host: "127.0.0.1" });
+  // A second window reuses the first server rather than leaving an orphan process behind.
+  if (!server) {
+    try {
+      server = await startServer({ port: DESKTOP_PORT, host: "127.0.0.1" });
+    } catch (err) {
+      console.warn(`AutoCAT — port ${DESKTOP_PORT} was not free (${err?.code || err}); using an OS-picked one.\n` +
+        `          The sign-in callback in Settings → Sign in will show the port in use.`);
+      server = await startServer({ port: 0, host: "127.0.0.1" });
+    }
+  }
   const { port } = server.address();
   const origin = `http://127.0.0.1:${port}`;
   const home = `${origin}/app/`;
+  // **The origin a provider is told to come back to.** Set here rather than left to the
+  // request, so the callback is this app's own origin even if the page was reached some
+  // other way — see `redirectUri` in `addon/auth.mjs`.
+  process.env.NUVIO_PUBLIC_URL = origin;
 
   mainWindow = new BrowserWindow({
     width: 1440,

@@ -8,17 +8,26 @@
  *
  * ## What it needs
  *
- * A client id and secret from each provider, and a public URL to come back to:
+ * A client id and secret from each provider — **pasted in Settings → Sign in, or set on
+ * the machine's environment** — and a public URL to come back to:
  *
+ *   Settings → Sign in → Google / GitHub    (client id + client secret; the id is shown
+ *                                            back, the secret is only ever reported as set)
  *   NUVIO_GOOGLE_CLIENT_ID / NUVIO_GOOGLE_CLIENT_SECRET
  *   NUVIO_GITHUB_CLIENT_ID / NUVIO_GITHUB_CLIENT_SECRET
  *   NUVIO_PUBLIC_URL            (e.g. https://tv.example.com — the preview origin works too)
  *
- * The callback to register with each provider is `<NUVIO_PUBLIC_URL>/auth/<provider>/callback`.
- * Without these, signing in is *off* and the profile pane says so — it never pretends to
- * have a login it cannot finish. The endpoint URLs themselves can be overridden
- * (`NUVIO_GOOGLE_AUTHORIZE_URL`, … `_TOKEN_URL`, `_USERINFO_URL`) which is also how the
- * test suite points them at a local stand-in for the provider.
+ * Settings comes first and the environment second (`signinKeys` in `addon/settings.mjs`
+ * settles that), so both a folder install with a form and a server with env vars work.
+ *
+ * The callback to register with each provider is `<NUVIO_PUBLIC_URL>/auth/<provider>/callback`,
+ * and `redirectUri` below is the one function that says so — **the same string is shown in
+ * Settings**, because a callback that is registered with a different host, port or trailing
+ * slash is the failure this handshake cannot recover from. Without keys, signing in is *off*
+ * and the profile pane says so — it never pretends to have a login it cannot finish. The
+ * endpoint URLs themselves can be overridden (`NUVIO_GOOGLE_AUTHORIZE_URL`, … `_TOKEN_URL`,
+ * `_USERINFO_URL`) which is also how the test suite points them at a local stand-in for the
+ * provider.
  *
  * ## What it is not
  *
@@ -33,6 +42,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
+import { signinKeys } from "./settings.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,8 +53,12 @@ const trimSlash = (url) => String(url || "").replace(/\/+$/, "");
 const PROVIDERS = {
   google: {
     label: "Google",
-    id: () => env("NUVIO_GOOGLE_CLIENT_ID"),
-    secret: () => env("NUVIO_GOOGLE_CLIENT_SECRET"),
+    // **Settings first, the environment second** (see `signinKeys`): the id and the
+    // secret are one pair from one place, so a provider is never half-configured by a
+    // pasted id meeting an environment secret.
+    id: () => signinKeys("google").id,
+    secret: () => signinKeys("google").secret,
+    enabled: () => signinKeys("google").enabled,
     authorize: () => env("NUVIO_GOOGLE_AUTHORIZE_URL", "https://accounts.google.com/o/oauth2/v2/auth"),
     token: () => env("NUVIO_GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token"),
     userinfo: () => env("NUVIO_GOOGLE_USERINFO_URL", "https://openidconnect.googleapis.com/v1/userinfo"),
@@ -54,8 +68,9 @@ const PROVIDERS = {
   },
   github: {
     label: "GitHub",
-    id: () => env("NUVIO_GITHUB_CLIENT_ID"),
-    secret: () => env("NUVIO_GITHUB_CLIENT_SECRET"),
+    id: () => signinKeys("github").id,
+    secret: () => signinKeys("github").secret,
+    enabled: () => signinKeys("github").enabled,
     authorize: () => env("NUVIO_GITHUB_AUTHORIZE_URL", "https://github.com/login/oauth/authorize"),
     token: () => env("NUVIO_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
     userinfo: () => env("NUVIO_GITHUB_USERINFO_URL", "https://api.github.com/user"),
@@ -70,7 +85,8 @@ export const authProviders = () =>
   Object.entries(PROVIDERS).map(([key, p]) => ({
     key,
     label: p.label,
-    configured: Boolean(p.id() && p.secret()),
+    // A row switched off in Settings is not a way in, however complete its pair is.
+    configured: Boolean(p.enabled?.() !== false && p.id() && p.secret()),
   }));
 
 /** Is anything to sign in with set up at all? */
@@ -223,6 +239,20 @@ export const signOut = (req) => {
 };
 
 /**
+ * **The callback to register with the provider — one function, so the string cannot
+ * drift.** `origin` is where the request came in; `NUVIO_PUBLIC_URL` wins when it is set,
+ * which is what a server behind a proxy wants. The desktop app pins its port and sets
+ * `NUVIO_PUBLIC_URL` to match (see `desktop/main.js`), because a callback registered
+ * against a port the app picks at random each launch is a callback that stops working on
+ * the next launch.
+ */
+export const redirectUri = (providerKey, origin) =>
+  `${trimSlash(env("NUVIO_PUBLIC_URL") || origin)}/auth/${providerKey}/callback`;
+
+/** Whether a provider can finish a sign-in right now (the same test the UI is given). */
+const usable = (p) => Boolean(p && p.enabled?.() !== false && p.id() && p.secret());
+
+/**
  * Where to send the browser to sign in.
  *
  * `origin` is where this request came in — the preview origin, a LAN address, the desktop
@@ -232,14 +262,14 @@ export const signOut = (req) => {
  */
 export function startUrl(providerKey, origin, next = "") {
   const p = PROVIDERS[providerKey];
-  if (!p || !p.id() || !p.secret()) return null;
+  if (!usable(p)) return null;
   clean();
   const state = randomBytes(18).toString("base64url");
   pending.set(state, { provider: providerKey, expires: Date.now() + STATE_MS, next });
-  const redirectUri = `${trimSlash(env("NUVIO_PUBLIC_URL") || origin)}/auth/${providerKey}/callback`;
+  const back = redirectUri(providerKey, origin);
   const url = new URL(p.authorize());
   url.searchParams.set("client_id", p.id());
-  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("redirect_uri", back);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", p.scope);
   url.searchParams.set("state", state);
@@ -248,7 +278,7 @@ export function startUrl(providerKey, origin, next = "") {
     url.searchParams.set("access_type", "online");
     url.searchParams.set("prompt", "select_account");
   }
-  return { url: url.toString(), state, redirectUri };
+  return { url: url.toString(), state, redirectUri: back };
 }
 
 /**
@@ -260,7 +290,7 @@ export function startUrl(providerKey, origin, next = "") {
 export async function finish(providerKey, { code = "", state = "", origin = "" } = {}) {
   const p = PROVIDERS[providerKey];
   if (!p) throw new Error("That sign-in is not one this app offers.");
-  if (!p.id() || !p.secret()) throw new Error(`${p.label} sign-in is not configured on this server.`);
+  if (!usable(p)) throw new Error(`${p.label} sign-in is not set up — add its client id and secret in Settings → Sign in.`);
   clean();
   // **The state is the anti-forgery half.** Only a value this server minted, for this
   // provider, and not yet spent, can finish a sign-in — a code delivered to someone else's
@@ -270,13 +300,13 @@ export async function finish(providerKey, { code = "", state = "", origin = "" }
   pending.delete(state);
   if (!code) throw new Error("The provider did not return a code.");
 
-  const redirectUri = `${trimSlash(env("NUVIO_PUBLIC_URL") || origin)}/auth/${providerKey}/callback`;
+  const back = redirectUri(providerKey, origin);
   const body = new URLSearchParams({
     client_id: p.id(),
     client_secret: p.secret(),
     code,
     grant_type: "authorization_code",
-    redirect_uri: redirectUri,
+    redirect_uri: back,
   });
   const tokenRes = await fetch(p.token(), {
     method: "POST",

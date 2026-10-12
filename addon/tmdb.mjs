@@ -10,7 +10,15 @@
 
 import { activeLanguage, activeRefreshMinutes } from "./settings.mjs";
 
-const BASE = "https://api.themoviedb.org/3";
+/**
+ * Where TMDB lives.
+ *
+ * `TMDB_BASE_URL` overrides it, the same way `NUVIO_GOOGLE_AUTHORIZE_URL` overrides the
+ * provider endpoint in `addon/auth.mjs` — it is how the test suite points the whole client
+ * at a stand-in and checks what a row really asks for, instead of taking a description of
+ * it on trust. Read once, at import: the app itself never sets it.
+ */
+const BASE = process.env.TMDB_BASE_URL || "https://api.themoviedb.org/3";
 
 /**
  * How long a TMDB response is reused.

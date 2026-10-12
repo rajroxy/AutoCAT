@@ -121,6 +121,19 @@ const DEFAULTS = {
     anilist: { enabled: false, key: "" },
     mydramalist: { enabled: false, key: "" },
   },
+  // **Sign in — Google and GitHub.** Each needs a client id and a client secret, and
+  // the **secret never leaves this file** (see `publicSettings`: the id is reported
+  // verbatim because it is public by design — it travels in the authorize URL — and the
+  // secret only as a boolean). They live in Settings rather than only in the environment
+  // because a machine that runs this app from a folder has nowhere else to put them, and
+  // a provider with no keys is a button that cannot finish a sign-in. `signinKeys` reads
+  // this first and the environment second, so `NUVIO_GOOGLE_CLIENT_ID` and friends work
+  // exactly as they did. `enabled` is the switch every other provider row has: off, the
+  // provider is not offered even with keys set.
+  signin: {
+    google: { enabled: true, clientId: "", clientSecret: "" },
+    github: { enabled: true, clientId: "", clientSecret: "" },
+  },
   // Add-ons and plugins the user added. They live **on the server**, not only in the
   // page, because reading a stream needs a server-side request: a browser cannot
   // call another host's `/stream/...` unless that host sends permissive CORS
@@ -236,6 +249,19 @@ export function publicSettings() {
     providers: mask("providers"),
     tracking: mask("tracking"),
     debrid: mask("debrid"),
+    // **The sign-in pair, half public and half masked.** A client id is in the URL the
+    // browser is sent to, so it is handed back verbatim — the page shows it and the
+    // callback it belongs with. The secret is never returned; the page only learns
+    // whether one is set, the same rule as every other key here.
+    signin: Object.fromEntries(
+      Object.keys(DEFAULTS.signin).map((k) => {
+        // The pair **as it is in effect** — Settings first, the environment second — so
+        // the page shows the id a sign-in would actually use, whether it was pasted here
+        // or set as `NUVIO_GOOGLE_CLIENT_ID` on the machine.
+        const { id, secret, enabled } = signinKeys(k);
+        return [k, { enabled, clientId: id.slice(0, 200), hasSecret: Boolean(secret) }];
+      }),
+    ),
     // OpenSubtitles is not a plain `mask()` group: the login is a second secret on
     // the same row, so it is reported the same way a key is — as a boolean.
     subtitles: {
@@ -320,6 +346,27 @@ export const activeCountry = () => String(load().country || process.env.NUVIO_RE
 
 /** The provider asked to supply catalog content ("tmdb" unless TVDB is chosen). */
 export const activeContentSource = () => (load().content?.source === "tvdb" ? "tvdb" : "tmdb");
+
+/**
+ * **One provider's sign-in pair: Settings first, then the environment.**
+ *
+ * The client id is public (it is in the URL the browser is sent to) and the secret is
+ * not, and both are asked for by name here rather than read where they are used, so
+ * `addon/auth.mjs` never has to know where a key came from. `enabled` is the row's own
+ * switch: with it off, a pair that is set is not offered as a way in.
+ */
+const SIGNIN_ENV = {
+  google: ["NUVIO_GOOGLE_CLIENT_ID", "NUVIO_GOOGLE_CLIENT_SECRET"],
+  github: ["NUVIO_GITHUB_CLIENT_ID", "NUVIO_GITHUB_CLIENT_SECRET"],
+};
+
+export function signinKeys(provider) {
+  const held = load().signin?.[provider] || {};
+  const [idEnv, secretEnv] = SIGNIN_ENV[provider] || [];
+  const id = String(held.clientId || "").trim() || (idEnv ? String(process.env[idEnv] || "").trim() : "");
+  const secret = String(held.clientSecret || "").trim() || (secretEnv ? String(process.env[secretEnv] || "").trim() : "");
+  return { id, secret, enabled: held.enabled !== false };
+}
 
 /** The effective TMDB key: the one set in Settings first, then the environment. */
 export const tmdbKey = () => load().providers?.tmdb?.key || process.env.TMDB_API_KEY || "";
