@@ -581,7 +581,7 @@ const forBoth = (build) => ({ movie: build(MOVIE_GENRES), show: build(SHOW_GENRE
 const decadeGenres = (type, list) =>
   list
     .filter((g) => (VERIFIED.genreDecades?.[type]?.[g]?.count ?? 0) > 0)
-    .map((g) => genreDecade(`${g} ◆ 1950 → Present`, g, VERIFIED.genreDecades.from));
+    .map((g) => genreDecade(`${g} 1950 → Present`, g, VERIFIED.genreDecades.from));
 
 /**
  * The plain Discover card's five orders, unchanged: the newest, the most popular and
@@ -615,10 +615,10 @@ const discoverRow = (suffix = "", take) => [
 const discoverPlusRow = (take) => [
   // The best reviewed titles with a real audience behind them: 2000 votes is a floor
   // that keeps a handful of 10s from topping the row.
-  curated("Acclaimed", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 2000 }, take),
+  curated("Critically Acclaimed", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 2000 }, take),
   // This year and last: the same question as Acclaimed, asked of what is new — a floor
   // of 200 votes, because a title a month old has not had time to collect 2000.
-  curated("Picks", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 200, within: 540 }, take),
+  curated("Staff Picks", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 200, within: 540 }, take),
   // Well reviewed and barely seen — the ceiling is the point: a gem nobody has found
   // cannot have ten thousand votes.
   curated("Hidden Gems", { sort_by: "vote_average.desc", "vote_average.gte": 7, "vote_count.gte": 50, "vote_count.lte": 600 }, take),
@@ -626,9 +626,9 @@ const discoverPlusRow = (take) => [
   curated("Cult Classics", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 500, before: 2000 }, take),
   // The canon: the highest rated of the most seen, so the row is the titles everyone
   // already knows rather than the ones only a few do.
-  curated("Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 5000 }, take),
+  curated("All-Time Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 5000 }, take),
   // Out now, and good — a low floor, because a title released this week has few votes.
-  curated("Fresh", { sort_by: "popularity.desc", "vote_average.gte": 6.5, "vote_count.gte": 20, within: 90 }, take),
+  curated("Fresh This Week", { sort_by: "popularity.desc", "vote_average.gte": 6.5, "vote_count.gte": 20, within: 90 }, take),
 ];
 
 /**

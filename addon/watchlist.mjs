@@ -102,7 +102,11 @@ export function list(state) {
  * is also the shape a TMDB meta arrives in, so nothing has to be re-derived.
  */
 export function watchedKeys() {
-  return [...load().values()].filter((i) => i.state === "watched").map((i) => keyOf(i));
+  // **Watching counts too.** A title you have started belongs in the Watching row and
+  // nowhere else, exactly as a finished one belongs in Watched — so both states are
+  // hidden from every other row and from search. Only a title still *planned* keeps
+  // showing up around the app, which is the point of planning it.
+  return [...load().values()].filter((i) => i.state === "watched" || i.state === "watching").map((i) => keyOf(i));
 }
 
 /** How many titles sit in each state — what the Watchlist card reports. */

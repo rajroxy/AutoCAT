@@ -69,11 +69,11 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="452.9" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">Moods</text>
-    <text x="140" y="569.1" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">&amp; Vibes</text>
-    <text x="140" y="673.7" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Mind Bending  ·  Feel Good</text>
-    <text x="140" y="719.2" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Slow Burn  ·  Tearjerkers</text>
-    <text x="140" y="764.6" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Dark &amp; Gritty  ·  +33 more</text>
+    <text x="140" y="448.8" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">Moods</text>
+    <text x="140" y="583.2" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">&amp; Vibes</text>
+    <text x="140" y="692.4" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Mind Bending  ·  Feel Good</text>
+    <text x="140" y="737.8" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Slow Burn  ·  Tearjerkers</text>
+    <text x="140" y="783.2" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Dark &amp; Gritty  ·  +33 more</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>

@@ -1,13 +1,5 @@
 [
   {
-    "collection": "watchlist",
-    "title": "Watchlist",
-    "subtitle": "Watching · Plan to Watch · Watched",
-    "row": "movie",
-    "svg": "covers/movies/watchlist.svg",
-    "png": "covers/movies/watchlist.png"
-  },
-  {
     "collection": "on-the-board",
     "title": "On the Board",
     "subtitle": "Now Playing",
@@ -25,8 +17,8 @@
   },
   {
     "collection": "discover-top-10",
-    "title": "Discover ◆ Top 25",
-    "subtitle": "Latest ◆ Top 25 · Newest ◆ Top 25 · Trending ◆ Top 25 · Popular ◆ Top 25 · Top Rated ◆ Top 25",
+    "title": "Discover Plus",
+    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks · Fresh This Week",
     "row": "movie",
     "svg": "covers/movies/discover-top-10.svg",
     "png": "covers/movies/discover-top-10.png"
@@ -56,6 +48,14 @@
     "png": "covers/movies/top-rated-by-genre.png"
   },
   {
+    "collection": "genre-from-decades",
+    "title": "Genre from Decades",
+    "subtitle": "Action 1950 → Present · Adventure 1950 → Present · Animation 1950 → Present · Comedy 1950 → Present · Crime 1950 → Present · Documentary 1950 → Present · Drama 1950 → Present · Family 1950 → Present · Fantasy 1950 → Present · History 1950 → Present · Horror 1950 → Present · Music 1950 → Present · Mystery 1950 → Present · Romance 1950 → Present · Science Fiction 1950 → Present · Thriller 1950 → Present · War 1950 → Present · Western 1950 → Present",
+    "row": "movie",
+    "svg": "covers/movies/genre-from-decades.svg",
+    "png": "covers/movies/genre-from-decades.png"
+  },
+  {
     "collection": "genres",
     "title": "Genres",
     "subtitle": "Action · Adventure · Animation · Comedy · Crime · Documentary · Drama · Family · Fantasy · History · Horror · Music · Mystery · Romance · Science Fiction · Thriller · War · Western",
@@ -66,7 +66,7 @@
   {
     "collection": "popular-by-decade",
     "title": "Popular by ◆ Decade",
-    "subtitle": "Popular in 1950s · Popular in 1960s · Popular in 1970s · Popular in 1980s · Popular in 1990s · Popular in 2000s · Popular in 2010s · Popular in 2020s",
+    "subtitle": "Popular in 2020s · Popular in 2010s · Popular in 2000s · Popular in 1990s · Popular in 1980s · Popular in 1970s · Popular in 1960s · Popular in 1950s",
     "row": "movie",
     "svg": "covers/movies/popular-by-decade.svg",
     "png": "covers/movies/popular-by-decade.png"
@@ -74,7 +74,7 @@
   {
     "collection": "top-rated-by-decade",
     "title": "Top Rated ◆ Decade",
-    "subtitle": "Top Rated in 1950s · Top Rated in 1960s · Top Rated in 1970s · Top Rated in 1980s · Top Rated in 1990s · Top Rated in 2000s · Top Rated in 2010s · Top Rated in 2020s",
+    "subtitle": "Top Rated in 2020s · Top Rated in 2010s · Top Rated in 2000s · Top Rated in 1990s · Top Rated in 1980s · Top Rated in 1970s · Top Rated in 1960s · Top Rated in 1950s",
     "row": "movie",
     "svg": "covers/movies/top-rated-by-decade.svg",
     "png": "covers/movies/top-rated-by-decade.png"
@@ -82,18 +82,10 @@
   {
     "collection": "decades",
     "title": "Decades",
-    "subtitle": "1950s · 1960s · 1970s · 1980s · 1990s · 2000s · 2010s · 2020s",
+    "subtitle": "2020s · 2010s · 2000s · 1990s · 1980s · 1970s · 1960s · 1950s",
     "row": "movie",
     "svg": "covers/movies/decades.svg",
     "png": "covers/movies/decades.png"
-  },
-  {
-    "collection": "genre-from-decades",
-    "title": "Genre from ◆ Decades",
-    "subtitle": "Action ◆ 1950 → Present · Adventure ◆ 1950 → Present · Animation ◆ 1950 → Present · Comedy ◆ 1950 → Present · Crime ◆ 1950 → Present · Documentary ◆ 1950 → Present · Drama ◆ 1950 → Present · Family ◆ 1950 → Present · Fantasy ◆ 1950 → Present · History ◆ 1950 → Present · Horror ◆ 1950 → Present · Music ◆ 1950 → Present · Mystery ◆ 1950 → Present · Romance ◆ 1950 → Present · Science Fiction ◆ 1950 → Present · Thriller ◆ 1950 → Present · War ◆ 1950 → Present · Western ◆ 1950 → Present",
-    "row": "movie",
-    "svg": "covers/movies/genre-from-decades.svg",
-    "png": "covers/movies/genre-from-decades.png"
   },
   {
     "collection": "continental",
@@ -106,7 +98,7 @@
   {
     "collection": "countries",
     "title": "Countries",
-    "subtitle": "United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Nigeria · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Chile · Peru · Egypt · South Africa · Kenya · Morocco · Ghana · Israel · Saudi Arabia · United Arab Emirates · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · Sri Lanka · New Zealand · Ukraine · Czech Republic · Hungary · Romania · Finland · Switzerland · Belgium · Austria · Bulgaria · Serbia · Croatia · Iceland · Slovakia · Slovenia · Lithuania · Latvia · Estonia · Bosnia and Herzegovina · Albania · North Macedonia · Malta · Luxembourg · Cyprus · Moldova · Georgia · Kazakhstan · Nepal · Lebanon · Iraq · Jordan · Kuwait · Qatar · Venezuela · Uruguay · Ecuador · Bolivia · Paraguay · Costa Rica · Panama · Dominican Republic · Puerto Rico · Guatemala · Cuba · Tunisia · Algeria · Senegal · Afghanistan · American Samoa · Andorra · Angola · Antarctica · Antigua and Barbuda · Armenia · Aruba · Azerbaijan · Bahamas · Bahrain · Belarus · Belize · Benin · Bermuda · Bhutan · Botswana · British Indian Ocean Territory · Brunei Darussalam · Burkina Faso · Burundi · Cambodia · Cameroon · Cape Verde · Central African Republic · Chad · Comoros · Congo (DRC) · Congo (Republic) · Cote D'Ivoire · Czechoslovakia · Djibouti · Dominica · East Germany · El Salvador · Eritrea · Ethiopia · Faeroe Islands · Falkland Islands · Fiji · French Polynesia · French Southern Territories · Gabon · Gambia · Gibraltar · Greenland · Guadaloupe · Guam · Guinea · Guinea-Bissau · Guyana · Haiti · Holy See · Honduras · Iran · Jamaica · Kiribati · Kosovo · Kyrgyz Republic · Lao People's Democratic Republic · Liberia · Libyan Arab Jamahiriya · Liechtenstein · Macao · Madagascar · Malawi · Mali · Martinique · Mauritania · Mauritius · Mayotte · Monaco · Mongolia · Montenegro · Mozambique · Myanmar · Namibia · Nauru · Netherlands Antilles · Nicaragua · Niger · Niue · Norfolk Island · North Korea · Northern Ireland · Oman · Palestinian Territory · Papua New Guinea · Reunion · Rwanda · Samoa · Serbia and Montenegro · Somalia · South Georgia and the South Sandwich Islands · South Sudan · Soviet Union · St. Kitts and Nevis · Sudan · Suriname · Svalbard & Jan Mayen Islands · Swaziland · Syrian Arab Republic · Tajikistan · Tanzania · Timor-Leste · Togo · Tokelau · Trinidad and Tobago · Turkmenistan · Turks and Caicos Islands · Tuvalu · Uganda · US Virgin Islands · Uzbekistan · Western Sahara · Yemen · Yugoslavia · Zambia · Zimbabwe",
+    "subtitle": "United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Nigeria · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Chile · Peru · Egypt · South Africa · Morocco · Israel · Saudi Arabia · United Arab Emirates · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · New Zealand · Ukraine · Czech Republic · Hungary · Romania · Finland · Switzerland · Belgium · Austria · Bulgaria · Serbia · Croatia · Iceland · Slovakia · Slovenia · Lithuania · Latvia · Estonia · Bosnia and Herzegovina · North Macedonia · Luxembourg · Georgia · Kazakhstan · Lebanon · Venezuela · Uruguay · Dominican Republic · Cuba · Tunisia · Algeria · Cambodia · Iran · Lao People's Democratic Republic · Palestinian Territory",
     "row": "movie",
     "svg": "covers/movies/countries.svg",
     "png": "covers/movies/countries.png"
@@ -145,23 +137,15 @@
   },
   {
     "collection": "global-ott-top-10",
-    "title": "Global OTT ◆ Top 10",
-    "subtitle": "Netflix ◆ Top 10 · Prime Video ◆ Top 10 · Disney+ ◆ Top 10 · Max ◆ Top 10 · Apple TV+ ◆ Top 10 · Paramount+ ◆ Top 10",
+    "title": "Global | Top 10",
+    "subtitle": "Latest | Top 10 · Newest | Top 10 · Trending | Top 10 · Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
     "row": "movie",
     "svg": "covers/movies/global-ott-top-10.svg",
     "png": "covers/movies/global-ott-top-10.png"
   },
   {
-    "collection": "global-ott-popular",
-    "title": "Popular Global OTT",
-    "subtitle": "Popular Netflix · Popular Prime Video · Popular Disney+ · Popular Max · Popular Apple TV+ · Popular Paramount+",
-    "row": "movie",
-    "svg": "covers/movies/global-ott-popular.svg",
-    "png": "covers/movies/global-ott-popular.png"
-  },
-  {
     "collection": "global-ott",
-    "title": "Global OTT",
+    "title": "Global",
     "subtitle": "Netflix · Netflix Originals · Prime Video · Prime Video Originals · Disney+ · Disney+ Originals · Max · Max Originals · Apple TV+ · Apple TV+ Originals · Paramount+ · Paramount+ Originals",
     "row": "movie",
     "svg": "covers/movies/global-ott.svg",
@@ -169,48 +153,48 @@
   },
   {
     "collection": "regional-ott-top-10",
-    "title": "Regional OTT ◆ Top 10",
+    "title": "Regional | Top 10",
     "subtitle": "",
     "row": "movie",
     "svg": "covers/movies/regional-ott-top-10.svg",
     "png": "covers/movies/regional-ott-top-10.png"
   },
   {
-    "collection": "regional-ott-popular",
-    "title": "Popular Regional OTT",
-    "subtitle": "",
-    "row": "movie",
-    "svg": "covers/movies/regional-ott-popular.svg",
-    "png": "covers/movies/regional-ott-popular.png"
-  },
-  {
     "collection": "regional-ott",
-    "title": "Regional OTT",
+    "title": "Regional",
     "subtitle": "",
     "row": "movie",
     "svg": "covers/movies/regional-ott.svg",
     "png": "covers/movies/regional-ott.png"
   },
   {
+    "collection": "watchlist",
+    "title": "Watchlist",
+    "subtitle": "Watching · Plan to Watch · Watched",
+    "row": "movie",
+    "svg": "covers/movies/watchlist.svg",
+    "png": "covers/movies/watchlist.png"
+  },
+  {
+    "collection": "upcoming",
+    "title": "Upcoming",
+    "subtitle": "Upcoming",
+    "row": "movie",
+    "svg": "covers/movies/upcoming.svg",
+    "png": "covers/movies/upcoming.png"
+  },
+  {
     "collection": "custom",
-    "title": "Custom",
-    "subtitle": "My List",
+    "title": "Library",
+    "subtitle": "My List · My List · My List · My List · My List · My List",
     "row": "movie",
     "svg": "covers/movies/custom.svg",
     "png": "covers/movies/custom.png"
   },
   {
-    "collection": "watchlist",
-    "title": "Watchlist",
-    "subtitle": "Watching · Plan to Watch · Watched",
-    "row": "show",
-    "svg": "covers/shows/watchlist.svg",
-    "png": "covers/shows/watchlist.png"
-  },
-  {
     "collection": "on-the-board",
     "title": "On the Board",
-    "subtitle": "Airing Today · Airing This Week · On the Air",
+    "subtitle": "Airing Today · On the Air",
     "row": "show",
     "svg": "covers/shows/on-the-board.svg",
     "png": "covers/shows/on-the-board.png"
@@ -225,8 +209,8 @@
   },
   {
     "collection": "discover-top-10",
-    "title": "Discover ◆ Top 25",
-    "subtitle": "Latest ◆ Top 25 · Newest ◆ Top 25 · Trending ◆ Top 25 · Popular ◆ Top 25 · Top Rated ◆ Top 25",
+    "title": "Discover Plus",
+    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks · Fresh This Week",
     "row": "show",
     "svg": "covers/shows/discover-top-10.svg",
     "png": "covers/shows/discover-top-10.png"
@@ -256,6 +240,14 @@
     "png": "covers/shows/top-rated-by-genre.png"
   },
   {
+    "collection": "genre-from-decades",
+    "title": "Genre from Decades",
+    "subtitle": "Action & Adventure 1950 → Present · Animation 1950 → Present · Comedy 1950 → Present · Crime 1950 → Present · Documentary 1950 → Present · Drama 1950 → Present · Family 1950 → Present · Kids 1950 → Present · Mystery 1950 → Present · News 1950 → Present · Reality 1950 → Present · Sci-Fi & Fantasy 1950 → Present · Soap 1950 → Present · Talk 1950 → Present · War & Politics 1950 → Present · Western 1950 → Present",
+    "row": "show",
+    "svg": "covers/shows/genre-from-decades.svg",
+    "png": "covers/shows/genre-from-decades.png"
+  },
+  {
     "collection": "genres",
     "title": "Genres",
     "subtitle": "Action & Adventure · Animation · Comedy · Crime · Documentary · Drama · Family · Kids · Mystery · News · Reality · Sci-Fi & Fantasy · Soap · Talk · War & Politics · Western",
@@ -266,7 +258,7 @@
   {
     "collection": "popular-by-decade",
     "title": "Popular by ◆ Decade",
-    "subtitle": "Popular in 1950s · Popular in 1960s · Popular in 1970s · Popular in 1980s · Popular in 1990s · Popular in 2000s · Popular in 2010s · Popular in 2020s",
+    "subtitle": "Popular in 2020s · Popular in 2010s · Popular in 2000s · Popular in 1990s · Popular in 1980s · Popular in 1970s · Popular in 1960s · Popular in 1950s",
     "row": "show",
     "svg": "covers/shows/popular-by-decade.svg",
     "png": "covers/shows/popular-by-decade.png"
@@ -274,7 +266,7 @@
   {
     "collection": "top-rated-by-decade",
     "title": "Top Rated ◆ Decade",
-    "subtitle": "Top Rated in 1950s · Top Rated in 1960s · Top Rated in 1970s · Top Rated in 1980s · Top Rated in 1990s · Top Rated in 2000s · Top Rated in 2010s · Top Rated in 2020s",
+    "subtitle": "Top Rated in 2020s · Top Rated in 2010s · Top Rated in 2000s · Top Rated in 1990s · Top Rated in 1980s · Top Rated in 1970s · Top Rated in 1960s · Top Rated in 1950s",
     "row": "show",
     "svg": "covers/shows/top-rated-by-decade.svg",
     "png": "covers/shows/top-rated-by-decade.png"
@@ -282,18 +274,10 @@
   {
     "collection": "decades",
     "title": "Decades",
-    "subtitle": "1950s · 1960s · 1970s · 1980s · 1990s · 2000s · 2010s · 2020s",
+    "subtitle": "2020s · 2010s · 2000s · 1990s · 1980s · 1970s · 1960s · 1950s",
     "row": "show",
     "svg": "covers/shows/decades.svg",
     "png": "covers/shows/decades.png"
-  },
-  {
-    "collection": "genre-from-decades",
-    "title": "Genre from ◆ Decades",
-    "subtitle": "Action & Adventure ◆ 1950 → Present · Animation ◆ 1950 → Present · Comedy ◆ 1950 → Present · Crime ◆ 1950 → Present · Documentary ◆ 1950 → Present · Drama ◆ 1950 → Present · Family ◆ 1950 → Present · Kids ◆ 1950 → Present · Mystery ◆ 1950 → Present · News ◆ 1950 → Present · Reality ◆ 1950 → Present · Sci-Fi & Fantasy ◆ 1950 → Present · Soap ◆ 1950 → Present · Talk ◆ 1950 → Present · War & Politics ◆ 1950 → Present · Western ◆ 1950 → Present",
-    "row": "show",
-    "svg": "covers/shows/genre-from-decades.svg",
-    "png": "covers/shows/genre-from-decades.png"
   },
   {
     "collection": "continental",
@@ -306,7 +290,7 @@
   {
     "collection": "countries",
     "title": "Countries",
-    "subtitle": "United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Nigeria · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Chile · Peru · Egypt · South Africa · Kenya · Morocco · Israel · Saudi Arabia · United Arab Emirates · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · Sri Lanka · New Zealand · Ukraine · Czech Republic · Hungary · Romania · Finland · Switzerland · Belgium · Austria · Bulgaria · Serbia · Croatia · Iceland · Slovakia · Lithuania · Latvia · Estonia · Bosnia and Herzegovina · Luxembourg · Cyprus · Moldova · Georgia · Kazakhstan · Lebanon · Iraq · Jordan · Kuwait · Qatar · Venezuela · Uruguay · Ecuador · Bolivia · Dominican Republic · Puerto Rico · Guatemala · Cuba · Tunisia · British Indian Ocean Territory · Czechoslovakia · East Germany · Honduras · Iran · Jamaica · North Korea · Northern Ireland · Serbia and Montenegro · Soviet Union · Syrian Arab Republic · Tonga · Yugoslavia",
+    "subtitle": "United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Egypt · South Africa · Israel · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · New Zealand · Czech Republic · Hungary · Finland · Belgium · Austria",
     "row": "show",
     "svg": "covers/shows/countries.svg",
     "png": "covers/shows/countries.png"
@@ -314,7 +298,7 @@
   {
     "collection": "runtimes",
     "title": "Runtimes",
-    "subtitle": "4 Episodes · 6 Episodes · 8 Episodes · 10 Episodes · 12 Episodes · 16 Episodes · 20 Episodes · 24 Episodes",
+    "subtitle": "4 Episodes · 6 Episodes · 8 Episodes · 10 Episodes · 12 Episodes · 16 Episodes · 20 Episodes · 24 Episodes · 28 Episodes · 32 Episodes · 40 Episodes · 50 Episodes · 60 Episodes · 80 Episodes · 100+ Episodes",
     "row": "show",
     "svg": "covers/shows/runtimes.svg",
     "png": "covers/shows/runtimes.png"
@@ -345,23 +329,15 @@
   },
   {
     "collection": "global-ott-top-10",
-    "title": "Global OTT ◆ Top 10",
-    "subtitle": "Netflix ◆ Top 10 · Prime Video ◆ Top 10 · Disney+ ◆ Top 10 · Max ◆ Top 10 · Apple TV+ ◆ Top 10 · Paramount+ ◆ Top 10",
+    "title": "Global | Top 10",
+    "subtitle": "Latest | Top 10 · Newest | Top 10 · Trending | Top 10 · Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
     "row": "show",
     "svg": "covers/shows/global-ott-top-10.svg",
     "png": "covers/shows/global-ott-top-10.png"
   },
   {
-    "collection": "global-ott-popular",
-    "title": "Popular Global OTT",
-    "subtitle": "Popular Netflix · Popular Prime Video · Popular Disney+ · Popular Max · Popular Apple TV+ · Popular Paramount+",
-    "row": "show",
-    "svg": "covers/shows/global-ott-popular.svg",
-    "png": "covers/shows/global-ott-popular.png"
-  },
-  {
     "collection": "global-ott",
-    "title": "Global OTT",
+    "title": "Global",
     "subtitle": "Netflix · Netflix Originals · Prime Video · Prime Video Originals · Disney+ · Disney+ Originals · Max · Max Originals · Apple TV+ · Apple TV+ Originals · Paramount+ · Paramount+ Originals",
     "row": "show",
     "svg": "covers/shows/global-ott.svg",
@@ -369,32 +345,40 @@
   },
   {
     "collection": "regional-ott-top-10",
-    "title": "Regional OTT ◆ Top 10",
+    "title": "Regional | Top 10",
     "subtitle": "",
     "row": "show",
     "svg": "covers/shows/regional-ott-top-10.svg",
     "png": "covers/shows/regional-ott-top-10.png"
   },
   {
-    "collection": "regional-ott-popular",
-    "title": "Popular Regional OTT",
-    "subtitle": "",
-    "row": "show",
-    "svg": "covers/shows/regional-ott-popular.svg",
-    "png": "covers/shows/regional-ott-popular.png"
-  },
-  {
     "collection": "regional-ott",
-    "title": "Regional OTT",
+    "title": "Regional",
     "subtitle": "",
     "row": "show",
     "svg": "covers/shows/regional-ott.svg",
     "png": "covers/shows/regional-ott.png"
   },
   {
+    "collection": "watchlist",
+    "title": "Watchlist",
+    "subtitle": "Watching · Plan to Watch · Watched",
+    "row": "show",
+    "svg": "covers/shows/watchlist.svg",
+    "png": "covers/shows/watchlist.png"
+  },
+  {
+    "collection": "upcoming",
+    "title": "Upcoming",
+    "subtitle": "Upcoming",
+    "row": "show",
+    "svg": "covers/shows/upcoming.svg",
+    "png": "covers/shows/upcoming.png"
+  },
+  {
     "collection": "custom",
-    "title": "Custom",
-    "subtitle": "My List",
+    "title": "Library",
+    "subtitle": "My List · My List · My List · My List · My List · My List",
     "row": "show",
     "svg": "covers/shows/custom.svg",
     "png": "covers/shows/custom.png"

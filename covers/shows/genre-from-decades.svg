@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Genre from ◆ Decades — shows collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
-  <title>Genre from ◆ Decades — shows collection cover</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Genre from Decades — shows collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <title>Genre from Decades — shows collection cover</title>
   <defs>
     <linearGradient id="titleFill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFFFFF"/>
@@ -101,11 +101,11 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="458.7" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">Genre from</text>
-    <text x="140" y="574.9" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">◆ Decades</text>
-    <text x="140" y="677.1" font-family="Inter" font-size="29" font-weight="600" letter-spacing="5.80" fill="rgba(231,235,243,0.52)">Action &amp; Adventure ◆ 1950 → Present</text>
-    <text x="140" y="718.3" font-family="Inter" font-size="29" font-weight="600" letter-spacing="5.80" fill="rgba(231,235,243,0.52)">Animation ◆ 1950 → Present</text>
-    <text x="140" y="759.5" font-family="Inter" font-size="29" font-weight="600" letter-spacing="5.80" fill="rgba(231,235,243,0.52)">Comedy ◆ 1950 → Present  ·  +13 more</text>
+    <text x="140" y="450.7" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">Genre from</text>
+    <text x="140" y="585.1" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">Decades</text>
+    <text x="140" y="693.5" font-family="Inter" font-size="31" font-weight="600" letter-spacing="6.20" fill="rgba(231,235,243,0.52)">Action &amp; Adventure 1950 → Present</text>
+    <text x="140" y="737.5" font-family="Inter" font-size="31" font-weight="600" letter-spacing="6.20" fill="rgba(231,235,243,0.52)">Animation 1950 → Present</text>
+    <text x="140" y="781.5" font-family="Inter" font-size="31" font-weight="600" letter-spacing="6.20" fill="rgba(231,235,243,0.52)">Comedy 1950 → Present  ·  +13 more</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>

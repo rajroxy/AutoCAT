@@ -12,6 +12,30 @@
         "hasBetterPoster": true,
         "addedAt": "2026-10-07T14:10:52.253Z",
         "updatedAt": "2026-10-07T14:10:52.253Z"
+      },
+      {
+        "id": "tmdb:337314",
+        "type": "series",
+        "name": "Dark Side: Riku Rantala & Kale Puonti",
+        "poster": "https://image.tmdb.org/t/p/w500/8OyC7vFuPBPEcYJXFUJMY2fJWxO.jpg",
+        "background": "https://image.tmdb.org/t/p/w780/eNmUmiKZhHyI91tPk7IprPOrBJn.jpg",
+        "releaseInfo": "2026",
+        "description": "A new Finnish true crime series in which Riku Rantala and Kalevi Puonti explore ten criminal cases from Finland. Cinematic, AI-generated dramatizations transport viewers right into the heart of the events. Keep the lights on—this is *Pimeä Puoli* (The Dark Side)!",
+        "releaseDate": "2026-10-02",
+        "addedAt": "2026-10-12T06:30:58.931Z",
+        "updatedAt": "2026-10-12T06:30:58.931Z"
+      },
+      {
+        "id": "tmdb:337078",
+        "type": "series",
+        "name": "Debipokkho",
+        "poster": "https://image.tmdb.org/t/p/w500/45ZkzELfsnrCju1AvWOOJ8sok2i.jpg",
+        "background": "https://image.tmdb.org/t/p/w780/ucqyiw3xn63KjlYTXFN3mIZrxE4.jpg",
+        "releaseInfo": "2026",
+        "description": "Ishani returns to the Sheel mansion when a sacred golden tongue goes missing, only to be blamed for the theft. As another shocking secret comes to light, she finds herself trapped among a family full of hidden motives. Two wills and a sinister riddle could change her fate forever.",
+        "releaseDate": "2026-10-02",
+        "addedAt": "2026-10-12T06:31:13.319Z",
+        "updatedAt": "2026-10-12T06:31:13.319Z"
       }
     ],
     "add-cards": [
@@ -39,19 +63,13 @@
         "addedAt": "2026-10-10T06:27:44.273Z",
         "updatedAt": "2026-10-10T06:27:44.273Z"
       }
-    ],
-    "add-cards-2": []
+    ]
   },
   "meta": [
     {
       "id": "add-cards",
       "name": "My List",
       "order": 0
-    },
-    {
-      "id": "add-cards-2",
-      "name": "Row 2",
-      "order": 1
     }
   ]
 }

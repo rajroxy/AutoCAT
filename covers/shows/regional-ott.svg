@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Regional OTT — shows collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
-  <title>Regional OTT — shows collection cover</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Regional — shows collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <title>Regional — shows collection cover</title>
   <defs>
     <linearGradient id="titleFill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFFFFF"/>
@@ -73,9 +73,8 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="533.7" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">Regional OTT</text>
-    <text x="140" y="638.4" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">10  ·  3Cat  ·  5  ·  7plus  ·  9Now</text>
-    <text x="140" y="683.8" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">ABC iview  ·  +122 more</text>
+    <text x="140" y="561.4" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">Regional</text>
+    <text x="140" y="670.6" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Crunchyroll  ·  Viki</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>

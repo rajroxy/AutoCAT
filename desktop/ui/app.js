@@ -50,6 +50,8 @@ const KEY = {
   section: "nuvio.settingsSection",
   accent: "nuvio.accent",
   motion: "nuvio.motion",
+  font: "nuvio.font",
+  blur: "nuvio.blur",
   // The resolved accent colours, written for the boot script in `index.html`.
   theme: "nuvio.theme",
   pickCards: "nuvio.pickCards",
@@ -205,6 +207,25 @@ const accentOf = (id) => ACCENTS.find(([key]) => key === id) || ACCENTS[0];
  * of these; it offers none now, so this is the only place the face is named.
  */
 const FONT_STACK = 'Inter Tight, Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+
+/**
+ * The two faces the app can be set in.
+ *
+ * Both are local families — nothing is downloaded, so the app reads the same offline.
+ * **Inter** is the default; **Condensed** is the same voice in a narrower cut, which is
+ * what a long title on a row wants when it would otherwise be clipped.
+ */
+const FONTS = [
+  ["inter", "Inter", "The default face — the stack the app has always worn."],
+  ["condensed", "Condensed", "A narrower cut of the same face, so long titles fit a row."],
+];
+const FONT_STACKS = {
+  inter: FONT_STACK,
+  // The narrow faces first, so the cut actually shows on a machine that has one
+  // (Roboto Condensed on Android, Arial Narrow where Office is installed); everything
+  // else falls back to the same face the default uses.
+  condensed: '"Roboto Condensed", "Arial Narrow", "Helvetica Neue Condensed", "Liberation Sans Narrow", "Inter Tight", Inter, system-ui, sans-serif',
+};;
 
 /**
  * How much the app moves.
@@ -385,37 +406,34 @@ const SETTINGS_GROUPS = [
     // and the assistant.
     group: "",
     sections: [
+      // **The board reads in the order you would think of them.** Who you are, what
+      // the artwork looks like, what the numbers are, how it looks and moves, what it
+      // sounds like, then what goes in the rows, what it tells you about, what you
+      // filled yourself, and where its content comes from.
       ["profile", "Profile"],
-      // **Where the way in is set up.** Its own tile rather than more rows on Profile: the
-      // account card says *who* you are, and this says what makes the Google and GitHub
-      // buttons appear at all.
       ["signin", "Sign in"],
-      ["content", "Content"],
       ["posters", "Posters"],
-      // **Looks, placed, and moving are three questions.** "Appearance & layout" was one
-      // pane answered with one accent row and one layout list, so finding the animation
-      // setting meant reading past two things it was not.
-      ["appearance", "Appearance"],
-      ["layout", "Layout"],
-      ["animation", "Animation"],
-      ["sound", "Sound"],
-      ["notifications", "Notifications"],
-      // **The card you fill yourself.** It was "Custom Rows" here and "Custom" on Home —
-      // two names for one thing, neither of them the word the card should wear.
-      ["customrows", "Library"],
-      ["tracking", "Trackers"],
-      ["providers", "Providers"],
-      ["addons", "Add-ons"],
-      // **Websites you added yourself are where a stream can come from**, the same idea as
-      // an add-on you pasted — so they sit beside the add-ons, and are called what they are.
-      ["customsites", "Website"],
-      ["debrid", "Debrid"],
-      // The network, not the content: which resolver every request uses is a property of
-      // the machine, not a catalogue choice.
-      ["dns", "DNS"],
-      // Playback, not content: subtitles are what happens to the picture once it plays.
-      ["subtitles", "Subtitles"],
       ["ratings", "Ratings"],
+      ["appearance", "Accent"],
+      ["animation", "Animation"],
+      ["layout", "Layout"],
+      ["sound", "Sound"],
+      ["font", "Font"],
+      // **Content alone.** Region and the SFW/NSFW switch are one subject.
+      ["content", "Content"],
+      ["notifications", "Notifications"],
+      // **Library alone.** The card you fill yourself.
+      ["customrows", "Library"],
+      ["addons", "Add-ons"],
+      ["debrid", "Debrid"],
+      // **The network, alone.** Which resolver every request uses is a property of the
+      // machine, not a catalogue choice.
+      ["dns", "Network"],
+      ["providers", "Providers"],
+      ["tracking", "Trackers"],
+      // **Playback, not content**: resolution, audio and subtitle are what happens once
+      // a title plays.
+      ["playback", "Playback"],
       ["ai", "Assistant"],
     ],
   },
@@ -445,8 +463,8 @@ const LIVE_SETTINGS_GROUPS = [
       ["livecountries", "Countries"],
       ["liverefresh", "Refresh"],
       ["addons", "Add-ons"],
-      ["dns", "DNS"],
-      ["appearance", "Appearance"],
+      ["dns", "Network"],
+      ["appearance", "Accent"],
       ["layout", "Layout"],
       ["animation", "Animation"],
       ["sound", "Sound"],
@@ -582,6 +600,10 @@ const state = {
   settingsSection: localStorage.getItem(KEY.section) || "profile",
   accent: localStorage.getItem(KEY.accent) || "gold",
   motion: localStorage.getItem(KEY.motion) || "auto",
+  // The face the app is set in — Inter, or the condensed cut of it.
+  font: localStorage.getItem(KEY.font) || "inter",
+  // Blur the page behind a popup (the assistant, a dialog). On unless turned off.
+  blur: localStorage.getItem(KEY.blur) !== "0",
   // **Sound and notifications.** Each is a small map of switches rather than
   // than a single flag, because they are separate questions: a click when you press
   // something is not the same as music under the browsing, and a calendar reminder is not
@@ -973,16 +995,15 @@ async function watchedPast(meta, ratio) {
  */
 function posterOf(m) {
   if (!m) return "";
-  if (!state.ai?.enabled || !state.ai?.enhanceArtwork) return m.poster || "";
   if (m.hasBetterPoster) return m.poster || "";           // already the good one
-  if (state.ai.enhanceMissing === false) return m.poster || "";
+  // **The same treatment, without a switch for it.** A poster the service could not
+  // cover is upscaled rather than left at the small size it arrived in.
   return tmdbUpscale(m.poster);
 }
 
 function backdropOf(m) {
   if (!m) return "";
   const url = m.background || "";
-  if (!state.ai?.enabled || !state.ai?.enhanceArtwork) return url;
   return url.replace("/w780/", "/w1280/");
 }
 
@@ -1925,7 +1946,7 @@ function signInCard() {
               class: "btn focusable",
               type: "button",
               id: `sign-in-${p.key}`,
-              text: `Continue with ${p.label}`,
+              text: `Sign in with ${p.label}`,
               // **A plain navigation, not a fetch.** The provider's page is a different
               // origin and the handshake has to happen in the address bar: this page
               // leaves, the provider comes back to `/auth/<provider>/callback`, and the
@@ -1951,7 +1972,7 @@ function signInCard() {
       ? null
       : el("p", {
           class: "option-desc",
-          text: "Google and GitHub appear here as well — paste a client id and secret for either one in Settings → Sign in, and register the callback it shows there.",
+          text: "Google and GitHub appear here as well — switch one on in Settings → Sign in and paste the two values its app gives you.",
         }),
   );
 }
@@ -2025,7 +2046,7 @@ function renderPeople() {
       "section",
       { class: "profiles" },
       el("p", { class: "hero-kicker", text: "Profiles" }),
-      el("h1", { class: "view-title", text: "Who's watching?" }),
+      el("h1", { class: "view-title", text: "Who is watching?" }),
       el("p", { class: "view-hint", text: "Pick a profile to start. How you want to watch comes next." }),
       el(
         "div",
@@ -5063,12 +5084,17 @@ function playClick() {
 const musicGain = () => (Math.max(0, Math.min(100, Number(state.sound?.musicVolume ?? 35))) / 100) * 0.055;
 
 function startMusic() {
+  // **Ask for the context first.** A browser holds an AudioContext suspended until the
+  // first gesture, and `audio()` is what resumes it — so a context that came up at boot
+  // stayed suspended for good, because the "already running" branch below never asked
+  // again and the music was silent however many times you pressed something.
+  const now = audio();
   if (music) {
     // Already running: just follow the volume slider.
-    music.master.gain.setTargetAtTime(musicGain(), audioCtx.currentTime, 0.4);
+    if (now) music.master.gain.setTargetAtTime(musicGain(), now.currentTime, 0.4);
     return;
   }
-  const ctx = audio();
+  const ctx = now;
   if (!ctx) return;
   const master = ctx.createGain();
   master.gain.value = 0.0001;
@@ -5231,7 +5257,16 @@ const QUALITY_CHOICES = [
   ["480", "480p"],
 ];
 
-/** The subtitle languages, as Settings → Subtitles offers them. */
+/** The audio languages a player prefers — the same vocabulary the app is browsed in. */
+const audioChoices = () => {
+  // The server publishes languages as objects (`{code, label}`), the fallback as pairs.
+  const list = (state.options.languages || []).length
+    ? state.options.languages
+    : FALLBACK_LANGUAGES.map(([code, label]) => ({ code, label }));
+  return [["", "Stream default"], ...list.map((l) => (Array.isArray(l) ? l : [l.code, l.label]))];
+};
+
+/** The subtitle languages, as Settings → Playback offers them. */
 const subtitleChoices = () => [
   ["", `Follow the app (${String(state.language || "en-US").slice(0, 2)})`],
   ...(state.options.subtitleLanguages || []),
@@ -5344,12 +5379,6 @@ async function renderTitle(type, id) {
             title: "Ask about this title",
             onclick: () => openAssistant({ ...meta, description: meta.description || (data.tagline || "") }),
           }),
-          // **Subtitle and Quality sit with Play.** Both answer a question about
-          // *this* play — which language the subtitles come in, which resolution to
-          // reach for — so they belong beside the button that starts it rather than
-          // three screens into Settings.
-          subtitlePick(),
-          qualityPick(),
           // The pin buttons live on the page now, not in a modal.
           el("div", { class: "title-pins", id: "title-pins" }, ...pinButtons(meta)),
         ),
@@ -6879,21 +6908,21 @@ function paneSignin() {
   const rows = [
     [
       "google", "Google", "https://console.cloud.google.com/apis/credentials",
-      "Google Cloud Console → APIs & Services → Credentials → Create credentials → OAuth client ID → Web application. Paste the id and the secret here, and add the redirect URI below to that client's Authorized redirect URIs.",
+      "A Google sign-in app of your own. Paste its two values here and add the redirect URI below to that app's Authorized redirect URIs.",
     ],
     [
       "github", "GitHub", "https://github.com/settings/developers",
-      "GitHub → Settings → Developer settings → OAuth Apps → New OAuth App. The \"Authorization callback URL\" is the redirect URI below, character for character.",
+      "A GitHub sign-in app of your own. Its \"Authorization callback URL\" is the redirect URI below, character for character.",
     ],
   ];
 
   return [
     el("p", {
       class: "option-desc",
-      text: "Each provider needs an application of your own — a client id and a client secret it gives you — and one redirect URI registered exactly. Paste the pair here; the buttons then appear on the account card in Settings → Profile. The secret is stored on the server and never travels back to this page.",
+      text: "Google and GitHub sign-in, each behind one switch. Turn one on and paste the two values its app gives you; a Sign in with that provider button then appears on the account card in Settings → Profile, and signing in comes straight back here.",
     }),
     ...rows.map(([slug, label, consoleUrl, note]) => {
-      const held = state.signin[slug] || (state.signin[slug] = { enabled: true, clientId: "", hasSecret: false });
+      const held = state.signin[slug] || (state.signin[slug] = { enabled: false, clientId: "", hasSecret: false });
       const configured = Boolean((state.account?.providers || []).find((p) => p.key === slug)?.configured);
       const redirect = (state.account?.redirects || {})[slug] || "";
       const idInput = el("input", {
@@ -6901,15 +6930,15 @@ function paneSignin() {
         type: "text",
         id: `signin-${slug}-id`,
         value: held.clientId || "",
-        placeholder: "Client ID",
-        "aria-label": `${label} client ID`,
+        placeholder: `${label} app ID`,
+        "aria-label": `${label} app ID`,
       });
       const secretInput = el("input", {
         class: "text-input focusable",
         type: "password",
         id: `signin-${slug}-secret`,
-        placeholder: held.hasSecret ? "•••••••• (set — paste a new secret to replace)" : "Client secret",
-        "aria-label": `${label} client secret`,
+        placeholder: held.hasSecret ? "•••••••• (set — paste a new one to replace)" : `${label} app secret`,
+        "aria-label": `${label} app secret`,
       });
       const status = el("span", { class: "source-status", text: "" });
       // **Both halves, in one press.** Storing them apart is what leaves a provider half
@@ -6921,7 +6950,7 @@ function paneSignin() {
         const clientSecret = secretInput.value.trim();
         if (!clientId && !clientSecret) {
           status.className = "source-status bad";
-          status.textContent = "Paste the client id and the client secret.";
+          status.textContent = `Paste the ${label} app ID and app secret.`;
           return;
         }
         const patch = { enabled: true };
@@ -6939,7 +6968,7 @@ function paneSignin() {
       return el("div", { class: `provider${configured ? " active" : ""}` },
         el("div", { class: "provider-head" },
           el("div", {},
-            el("span", { class: "option-title", text: label }),
+            el("span", { class: "option-title", text: `${label} login` }),
             el("span", { class: `badge ${configured ? "on" : "off"}`, text: configured ? "ready" : held.hasSecret ? "half set" : "not set up" }),
           ),
           el("label", { class: "switch", title: `Offer ${label} as a way in` },
@@ -6957,7 +6986,7 @@ function paneSignin() {
           ),
         ),
         el("p", { class: "option-desc", text: note }),
-        el("div", { class: "source-form" }, idInput, secretInput,
+        el("div", { class: "source-form", hidden: held.enabled === false }, idInput, secretInput,
           el("button", { class: "btn primary focusable", type: "button", id: `signin-${slug}-save`, text: "Save keys", onclick: save }),
           held.hasSecret
             ? el("button", {
@@ -6977,7 +7006,7 @@ function paneSignin() {
               })
             : null,
         ),
-        el("div", { class: "signin-redirect" },
+        el("div", { class: "signin-redirect", hidden: held.enabled === false },
           el("span", { class: "signin-redirect-label", text: "Redirect URI" }),
           el("code", { class: "signin-redirect-value", text: redirect || `…/auth/${slug}/callback` }),
           redirect
@@ -7005,7 +7034,7 @@ function paneSignin() {
         // the pair comes from is not on screen — and a pane that asks for a value with no
         // way to go and get it is a dead end. This is the same visible-signup-link pattern
         // the Assistant pane uses.
-        el("div", { class: "provider-check" },
+        el("div", { class: "provider-check", hidden: held.enabled === false },
           el("a", { class: "ai-signup", href: consoleUrl, target: "_blank", rel: "noreferrer", text: `Create a ${label} sign-in app` }),
           status,
         ),
@@ -7250,6 +7279,11 @@ function paneProviders() {
     ),
     toggleRow(state.enrich.tmdb !== false, "TMDB artwork & ratings", "Switches the tagged posters and the extra ratings on or off for every row — off, a title keeps the artwork and rating TMDB served it.", (e) => setEnrich("tmdb", e.target.checked)),
     toggleRow(state.enrich.tvdb !== false, "Fill TMDB's gaps with TVDB", "For each title TVDB knows (by IMDb id), supplies the fields TMDB left empty — name, year, overview and artwork. Never overwrites a field TMDB already answered. Needs the TVDB key above.", (e) => setEnrich("tvdb", e.target.checked)),
+    // **Subtitles belong with the providers.** A subtitle service is another place a
+    // stream can come from — a key, a switch, a check — so it lives here rather than in
+    // a Settings tile of its own.
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    ...paneSubtitles(),
   ];
 }
 
@@ -7271,17 +7305,17 @@ const RATING_SERVICES = [
 function paneRatings() {
   const source = state.ratings?.source || "free";
   return [
-    el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Ratings service" }),
-      el("p", { class: "option-desc", text: "What the ratings row on a title page is built from. TMDB's own score is always shown — it arrives with the title." }),
-      ...RATING_SERVICES.map(([id, label, desc]) =>
-        radioRow(source === id, "ratingservice", label, desc, () => {
-          state.ratings = { ...state.ratings, source: id };
-          writeJSON(KEY.ratings, state.ratings);
-          pushSettings({ ratings: { source: id } });
-          render();
-        }),
-      ),
+    // **One box per service, the same shape Content uses.** These were stacked rows
+    // inside one "Ratings service" panel, which read as a list inside a list; as boxes
+    // they sit in the pane's own board, and the chosen one wears the accent like every
+    // other choice in Settings.
+    ...RATING_SERVICES.map(([id, label, desc]) =>
+      radioRow(source === id, "ratingservice", label, desc, () => {
+        state.ratings = { ...state.ratings, source: id };
+        writeJSON(KEY.ratings, state.ratings);
+        pushSettings({ ratings: { source: id } });
+        render();
+      }),
     ),
     source === "mdblist"
       ? el("div", { class: "group-head" },
@@ -7461,25 +7495,13 @@ function aiProviderRow(slug, label, signup, note) {
 
 function paneAi() {
   return [
-    toggleRow(state.ai.enabled, "Enable AI", "Turns on the assistant and its options.", (e) => {
+    toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
       pushSettings({ ai: { enabled: state.ai.enabled } });
       render();
     }),
     state.ai.enabled ? [
-      toggleRow(state.ai.enhanceArtwork, "Classic posters & banners → high quality", "Requests the next-bigger artwork size so older posters and banners look modern.", (e) => {
-        state.ai.enhanceArtwork = e.target.checked;
-        writeJSON(KEY.ai, state.ai);
-        pushSettings({ ai: { enhanceArtwork: state.ai.enhanceArtwork } });
-        render();
-      }),
-      toggleRow(state.ai.enhanceMissing !== false, "Give the same treatment to posters without a better poster", "Titles the poster service could not cover (no IMDb id) still get the high-quality artwork treatment.", (e) => {
-        state.ai.enhanceMissing = e.target.checked;
-        writeJSON(KEY.ai, state.ai);
-        pushSettings({ ai: { enhanceMissing: state.ai.enhanceMissing } });
-        render();
-      }),
       // **No "Pick the cards for you" here.** The card editor belongs to the Profile
       // pane, and this is the AI pane: one switch about someone else's cards in the
       // middle of the provider keys was a setting in the wrong room.
@@ -7577,7 +7599,11 @@ function applyTheme() {
   const root = document.documentElement;
   // **The typeface is one custom property.** Written here with the accent, and written
   // into the boot record below, so the first paint is already in the chosen face.
-  root.style.setProperty("--font", FONT_STACK);
+  root.style.setProperty("--font", FONT_STACKS[state.font] || FONT_STACK);
+  // A variable font can be squeezed as well as swapped, and it costs nothing where the
+  // engine ignores it: the condensed cut is a little narrower than the default.
+  root.classList.toggle("font-condensed", state.font === "condensed");
+  root.classList.toggle("blur-off", state.blur === false);
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
@@ -7664,6 +7690,55 @@ function paneAppearance() {
   ];
 }
 
+/** Settings → Font: the face the app is set in. */
+function paneFont() {
+  return [
+    ...FONTS.map(([value, title, desc]) =>
+      radioRow(state.font === value, "font", title, desc, () => {
+        state.font = value;
+        localStorage.setItem(KEY.font, value);
+        applyTheme();
+        render();
+      }),
+    ),
+  ];
+}
+
+/**
+ * Settings → Playback: resolution, audio and subtitle.
+ *
+ * These three answer a question about **how a title plays**, not what a row holds. Two
+ * of them used to sit beside Play on a title page, which put a global preference in the
+ * middle of one title's own actions; they live here now, where they are set once.
+ */
+function panePlayback() {
+  const resolution = dropdown(QUALITY_CHOICES, state.prefs?.quality || "auto", (value) => savePrefs({ quality: value }), "Resolution");
+  const audio = dropdown(audioChoices(), state.prefs?.audio || "", (value) => savePrefs({ audio: value }), "Audio");
+  const subtitle = dropdown(subtitleChoices(), state.subtitles?.language || "", (value) => {
+    state.subtitles = { ...state.subtitles, language: value };
+    writeJSON(KEY.subtitles, state.subtitles);
+    pushSettings({ subtitles: { language: value } });
+    render();
+  }, "Subtitle");
+  return [
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Resolution" }),
+      el("p", { class: "option-desc", text: "The ceiling a stream may reach for. Auto takes whatever the source offers; 1080p never plays a larger one." }),
+      el("div", { class: "source-form" }, resolution.node),
+    ),
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Audio" }),
+      el("p", { class: "option-desc", text: "Which audio language a player prefers when a stream carries more than one." }),
+      el("div", { class: "source-form" }, audio.node),
+    ),
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Subtitle" }),
+      el("p", { class: "option-desc", text: "Which subtitle language the player asks for. It follows what the app is browsed in until you pick one here." }),
+      el("div", { class: "source-form" }, subtitle.node),
+    ),
+  ];
+}
+
 function paneLayout() {
   return LAYOUTS.map(([value, title, desc]) =>
     radioRow(state.layout === value, "layout", title, desc, () => {
@@ -7692,6 +7767,14 @@ function paneAnimation() {
         render();
       }),
     ),
+    // **The blur behind a popup.** The assistant, a dialog and the player's own panels
+    // open over a page; this decides whether the page behind them is blurred out.
+    toggleRow(state.blur !== false, "Blur the screen behind a popup", "When the assistant or a dialog opens over a card, a catalog or a title, the page behind it is blurred rather than only dimmed.", (e) => {
+      state.blur = e.target.checked;
+      localStorage.setItem(KEY.blur, state.blur ? "1" : "0");
+      applyTheme();
+      render();
+    }),
   ];
 }
 
@@ -7707,6 +7790,10 @@ function paneSound() {
     state.sound = { ...state.sound, ...patch };
     writeJSON(KEY.sound, state.sound);
     pushSettings({ sound: state.sound });
+    // **The switch has to be heard.** The AudioContext starts on a press, and a switch
+    // flipped after that press was only read at the next one — so turning the music on
+    // did nothing until a reload. This reads the new setting now.
+    syncSound();
     render();
   };
   const volumeInput = el("input", {
@@ -8255,9 +8342,7 @@ function renderSettings() {
     tracking: paneTracking,
     providers: paneProviders,
     debrid: paneDebrid,
-    subtitles: paneSubtitles,
     dns: paneDns,
-    customsites: paneCustomSites,
     customrows: paneCustomRows,
     ratings: paneRatings,
     ai: paneAi,
@@ -8265,6 +8350,8 @@ function renderSettings() {
     addons: paneAddonsPlugins,
     plugins: paneAddonsPlugins,
     layout: paneLayout,
+    font: paneFont,
+    playback: panePlayback,
     appearance: paneAppearance,
     animation: paneAnimation,
     sound: paneSound,

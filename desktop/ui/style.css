@@ -1164,7 +1164,9 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    sticky, so a long list of sections cannot fall out of view while its options are read. */
 .settings-nav { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 16px; }
 .settings-group-box { display: flex; flex-direction: column; gap: 8px; }
-.settings-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* **One column.** The doors to the sections used to sit two to a row; they are a single
+   column now, so the board reads top to bottom in the order the settings belong in. */
+.settings-tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .settings-tab {
   text-align: left;
   border: 0;
@@ -1184,13 +1186,12 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 /* **The options, in the same board layout.** One grid holds everything a pane hands back:
    a switch takes half a row, so two sit side by side, and anything wider — a panel, a
    form, a list of sources — spans the whole width. */
-.setting-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+/* **One grid, up and down.** The options used to sit two to a row; every one of them now
+   takes the full width in a single column, so a pane reads as one list rather than a board
+   you scan left and right. */
+.setting-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
 .setting-grid > * { grid-column: 1 / -1; min-width: 0; }
-.setting-grid > .option { grid-column: auto; margin-bottom: 0; }
-@media (max-width: 1100px) {
-  .setting-grid { grid-template-columns: minmax(0, 1fr); }
-  .setting-grid > .option { grid-column: 1 / -1; }
-}
+.setting-grid > .option { grid-column: 1 / -1; margin-bottom: 0; }
 .settings-tab:hover { background: var(--panel-2); color: var(--text); transform: translateY(-2px); }
 .settings-tab.active { background: rgba(var(--accent-rgb), 0.22); color: #fff; }
 .settings-pane { min-width: 0; }
@@ -1669,7 +1670,7 @@ button:focus-visible,
   height: 28px;
   padding: 0;
   border-radius: 10px;
-  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  border: 0;
   background: rgba(var(--accent-rgb), 0.14);
   color: var(--accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -2120,8 +2121,9 @@ body { background: var(--ink); }
    is spent on what you act on. */
 
 /* The tag arrows keep their accent plate on purpose — a stroked chevron on a flat
-   tinted plate is what makes them read as something to press. */
-.chip-arrow { border: 1px solid rgba(var(--accent-rgb), 0.45); }
+   tinted plate is what makes them read as something to press. **No outline**: the
+   plate itself is the affordance. */
+.chip-arrow { border: 0; }
 
 /* The guide's header needs its rule: every row under it keeps one, and without it
    the time ruler floats away from the grid it labels. */
@@ -3402,6 +3404,14 @@ select.text-input,
 #ai-model {
   accent-color: var(--accent) !important;
 }
+/* **The volume bar is the accent's, not the browser's.** A range input with no rule of
+   its own is drawn in the engine's blue whatever the theme is, so the one slider in
+   Settings was the one control that ignored the accent. */
+.settings-pane input[type="range"],
+.text-input[type="range"] {
+  accent-color: var(--accent);
+  height: 22px;
+}
 select option:checked,
 select option:hover {
   background: rgba(var(--accent-rgb), 0.38) !important;
@@ -3476,3 +3486,14 @@ echo "done"
   overflow-wrap: anywhere;
   user-select: all;
 }
+
+/* **The blur behind a popup, switchable.** The assistant, a dialog and the account
+   sheet all draw a scrim over the page; this is the switch that decides whether that
+   scrim blurs the page behind it (Settings → Animation). Off, the scrim is a dim only. */
+.blur-off .assistant-overlay,
+.blur-off .modal-backdrop,
+.blur-off .overlay-backdrop { backdrop-filter: none !important; }
+
+/* **The condensed cut** (Settings → Font): the narrow stack is asked for in `--font`,
+   and this squeezes whatever face actually loaded where the engine can. */
+.font-condensed body { font-stretch: 87.5%; }

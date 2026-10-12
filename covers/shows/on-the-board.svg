@@ -82,10 +82,9 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="475.7" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">On the</text>
-    <text x="140" y="591.8" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">Board</text>
-    <text x="140" y="696.5" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Airing Today  ·  Airing This Week</text>
-    <text x="140" y="741.9" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">On the Air</text>
+    <text x="140" y="494.2" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">On the</text>
+    <text x="140" y="628.6" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">Board</text>
+    <text x="140" y="737.8" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Airing Today  ·  On the Air</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>

@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Discover ◆ Top 25 — movies collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
-  <title>Discover ◆ Top 25 — movies collection cover</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Discover Plus — movies collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <title>Discover Plus — movies collection cover</title>
   <defs>
     <linearGradient id="titleFill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFFFFF"/>
@@ -74,11 +74,11 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="452.9" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">Discover</text>
-    <text x="140" y="569.1" font-family="Inter" font-size="121" font-weight="800" letter-spacing="-4.24" fill="url(#titleFill)">◆ Top 25</text>
-    <text x="140" y="673.7" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Latest ◆ Top 25</text>
-    <text x="140" y="719.2" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Newest ◆ Top 25</text>
-    <text x="140" y="764.6" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Trending ◆ Top 25  ·  +2 more</text>
+    <text x="140" y="448.8" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">Discover</text>
+    <text x="140" y="583.2" font-family="Inter" font-size="140" font-weight="800" letter-spacing="-4.90" fill="url(#titleFill)">Plus</text>
+    <text x="140" y="692.4" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Critically Acclaimed  ·  Staff Picks</text>
+    <text x="140" y="737.8" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Hidden Gems  ·  Cult Classics</text>
+    <text x="140" y="783.2" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">All-Time Landmarks  ·  +1 more</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
