@@ -3760,7 +3760,7 @@ function voicePad() {
   return el(
     "button",
     {
-      class: "voice-pad focusable",
+      class: "btn primary voice-pad focusable",
       type: "button",
       id: "voice-pad",
       title: "Speak up — say what you want to watch",
@@ -3768,6 +3768,7 @@ function voicePad() {
       onclick: () => startVoice(null),
     },
     micMark(),
+    el("span", { text: "Speak" }),
   );
 }
 
@@ -3777,7 +3778,10 @@ function renderHome() {
   // **No heading under the switch.** It used to draw "Movies" or "Shows" on a line
   // of its own, directly under the Movies / Shows buttons that already say exactly
   // that — a second label for the same fact, pushing the grid down for nothing.
-  return [heroBlock(), rowSwitch(), collectionGrid(state.row), voicePad()].filter(Boolean);
+  // **The voice button rides with the Movies / Shows switch.** It was a floating disc in the
+  // corner; it belongs on the line between the banner and the first card, at the right of the
+  // switch, and it is the app's own rounded button rather than a circle.
+  return [heroBlock(), el("div", { class: "home-switch-row" }, rowSwitch(), voicePad()), collectionGrid(state.row)].filter(Boolean);
 }
 
 /** One catalog row on a collection page: label, shuffle, explore. */
@@ -4979,7 +4983,15 @@ function renderVodCalendar() {
     if (open) return;
     const items = calendarPins();
     plans.replaceChildren(
-      el("h3", { class: "section-title", text: "Your plans" }),
+      el(
+        "div",
+        { class: "plans-head" },
+        el("h3", { class: "section-title", text: "Your plans" }),
+        // **The switch sits on the plans line.** The calendar reads the row you are on (see
+        // `calRow`), so the switch that says which row that is belongs on this screen, right
+        // of the heading.
+        rowSwitch(),
+      ),
       items.length
         ? el("div", { class: "grid-titles" }, ...items.map((m) => calendarCard(m, { date: true })))
         : el("p", { class: "empty", text: "Nothing planned from the calendar yet — plan a release above." }),
@@ -5324,7 +5336,15 @@ function renderLiveCalendar() {
     if (open) return;
     const items = calendarPins();
     plans.replaceChildren(
-      el("h3", { class: "section-title", text: "Your plans" }),
+      el(
+        "div",
+        { class: "plans-head" },
+        el("h3", { class: "section-title", text: "Your plans" }),
+        // **The switch sits on the plans line.** The calendar reads the row you are on (see
+        // `calRow`), so the switch that says which row that is belongs on this screen, right
+        // of the heading.
+        rowSwitch(),
+      ),
       items.length
         ? el("div", { class: "grid-titles" }, ...items.map((m) => calendarCard(m, { date: true })))
         : el("p", { class: "empty", text: "Nothing planned yet — plan a release or a programme to see it here." }),

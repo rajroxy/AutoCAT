@@ -233,24 +233,26 @@ body {
 /* One card per profile, and **nothing under it**: no pencil, no cross, no Add slot. */
 /* **The voice pad.** Fixed to the bottom-right so it is on Home and never over the rows:
    one drawn microphone on the accent plate, the same weight as the Filter button. */
+/* **The line the voice button shares with the switch.** The switch keeps the space it always
+   had between the banner and the cards; the voice button is pushed to the right of it. */
+.home-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.home-switch-row .row-switch { margin-right: 0; }
+/* **A rounded button, not a disc.** The app has no circles in it: the voice control is the
+   same plate as Filter or Play — a drawn microphone and the word, in the app's own radius. */
 .voice-pad {
-  position: fixed;
-  right: 26px;
-  bottom: 26px;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #0b0c10;
-  cursor: pointer;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-weight: 800;
 }
-.voice-pad:hover, .voice-pad:focus-visible { filter: brightness(1.08); box-shadow: var(--hl); }
-.voice-pad svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.voice-pad svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+/* **The calendar's plans line, with the switch on it.** */
+.plans-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.plans-head .section-title { margin: 0; }
+.plans-head .row-switch { margin: 0; }
 
 /* **Room for the ring on the other lines of chips and rows of cards.** Every one of these is
    a scroll or clip box, and a 3px ring drawn outside a chip or a card was being cut on its
@@ -832,13 +834,19 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    dark label the detail page's *Play* wears — it is the one control in the bar that does
    something, and it was a grey pill beside a grey field. Hover brightens rather than
    recolouring, and the open panel switches to the deeper accent so the state still reads. */
+/* **The accent plate, and nothing happens to it on hover.** Play does not change colour under
+   the cursor, so neither does this: the app's own ring is the answer, and the plate stays the
+   colour it was. It is a little bigger than it was too — it read as a small control inside a
+   tall bar. */
 .search-filter-btn {
+  height: 46px;
+  padding: 0 22px;
   background: var(--accent);
   border-color: transparent;
   color: #0b0c10;
   font-weight: 800;
 }
-.search-filter-btn:hover, .search-filter-btn:focus-visible { background: var(--accent); filter: brightness(1.1); color: #0b0c10; }
+.search-filter-btn:hover, .search-filter-btn:focus-visible { background: var(--accent); color: #0b0c10; }
 .search-filter-btn:active { background: var(--accent-deep); }
 .search-filter-btn.on { background: var(--accent-deep); border-color: transparent; color: #0b0c10; }
 
@@ -4503,6 +4511,20 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .settings-pane .group-head,
 .settings-pane p.option-title,
 .settings-pane .option-desc { display: none; }
+
+/* **One box per option, in every pane, in both modes.** The Content pane's rows are one box
+   each; the panes that gathered theirs inside a `.provider` panel read as one clump of
+   controls squeezed into a single card — the "very compact" board. The panel's own chrome is
+   what goes: what is left is the rows, each its own box, spaced the way Content's are. The
+   markup is shared by VOD and by the IPTV profile, so one rule does both. */
+.settings-pane .provider {
+  padding: 0;
+  margin-bottom: 12px;
+  border: 0;
+  background: none;
+}
+.settings-pane .provider > * + * { margin-top: 10px; }
+.settings-pane .option { background: var(--panel); }
 
 /* ---------------------------------------------------------- the sign-in page */
 
