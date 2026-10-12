@@ -164,10 +164,22 @@ async function specsFor(entry, media, opts = {}) {
     // would mean each row naming `primary_release_date` or `first_air_date` itself, and
     // the same row would then be two different rows for a film and a show.
     case "curated": {
-      const { within, before, ...rest } = entry.params || {};
+      const { within, before, future, ...rest } = entry.params || {};
       const params = { ...rest };
       if (Number.isFinite(within)) params[`${dateField(media)}.gte`] = iso(new Date(Date.now() - within * 864e5));
       if (Number.isFinite(before)) params[`${dateField(media)}.lte`] = `${before}-12-31`;
+      // **"Upcoming", said once for either media type.** A film sorts on
+      // `primary_release_date` and a show on `first_air_date`, so a row that means "what
+      // arrives next" asks for `date.asc` and gets the right field for what it is; and
+      // `future: N` is the window from today to N days out.
+      if (params.sort_by === "date.asc" || params.sort_by === "date.desc") {
+        params.sort_by = `${dateField(media)}.${params.sort_by.split(".")[1]}`;
+      }
+      if (Number.isFinite(future)) {
+        const now = Date.now();
+        params[`${dateField(media)}.gte`] = iso(new Date(now));
+        params[`${dateField(media)}.lte`] = iso(new Date(now + future * 864e5));
+      }
       return [page(params, entry.take)];
     }
 

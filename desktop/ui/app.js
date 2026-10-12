@@ -217,15 +217,21 @@ const FONT_STACK = 'Inter Tight, Inter, system-ui, -apple-system, "Segoe UI", Ro
  */
 const FONTS = [
   ["inter", "Inter", "The default face — the stack the app has always worn."],
-  ["condensed", "Condensed", "A narrower cut of the same face, so long titles fit a row."],
+  ["grotesk", "Grotesk", "A tighter, more geometric stack for titles and rows — Helvetica and its neighbours where they exist."],
+  ["system", "System UI", "Whatever face this machine's own interface is set in."],
+  ["serif", "Serif", "Georgia and its neighbours — a reading-first look for titles and summaries."],
+  ["mono", "Monospace", "Fixed-width type, so ratings, years and timecodes line up."],
 ];
+// **Every stack is local.** Nothing is downloaded, so the app reads the same offline, and
+// each one goes through real families a machine is likely to have rather than a single
+// name that silently falls back to the default.
 const FONT_STACKS = {
   inter: FONT_STACK,
-  // The narrow faces first, so the cut actually shows on a machine that has one
-  // (Roboto Condensed on Android, Arial Narrow where Office is installed); everything
-  // else falls back to the same face the default uses.
-  condensed: '"Roboto Condensed", "Arial Narrow", "Helvetica Neue Condensed", "Liberation Sans Narrow", "Inter Tight", Inter, system-ui, sans-serif',
-};;
+  grotesk: 'Helvetica Neue, Helvetica, Inter Tight, Inter, Arial, system-ui, sans-serif',
+  system: 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif',
+  serif: 'Georgia, "Iowan Old Style", Cambria, "Times New Roman", serif',
+  mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+};
 
 /**
  * How much the app moves.
@@ -324,12 +330,14 @@ const TRACKER_GROUPS = [
     // keep the titles this app has no Western equivalent for?) under two headings.
     // MyDramaList belongs beside MAL and AniList, not under a heading of its own.
     title: "Asian",
-    hint: "The catalogues that keep anime and Asian drama as their own lists — MAL, AniList and MyDramaList.",
+    hint: "The catalogues that keep anime and Asian drama as their own lists — MyDramaList, MAL and AniList.",
     divider: true,
     services: [
+      // **MyDramaList leads this group.** It is the one that answers for the Asian drama a
+      // Western tracker has no list for, so it is first, then MAL, then AniList.
+      ["mydramalist", "MyDramaList", "Asian drama lists, ratings and watched episodes — MDL."],
       ["myanimelist", "MyAnimeList", "Anime lists and watched episodes — MAL."],
       ["anilist", "AniList", "Anime and manga lists, with airing progress."],
-      ["mydramalist", "MyDramaList", "Asian drama lists, ratings and watched episodes — MDL."],
     ],
   },
 ];
@@ -371,7 +379,7 @@ const AI_PROVIDERS = [
 // a Nuvio plugin (a repository of scrapers). The Nuvio add-on and CloudStream repo
 // entries are gone.
 const ADDON_TYPES = [
-  ["stremio", "Stremio add-on", "A Stremio add-on URL — its manifest is read for you, so its catalogs, metadata, streams and subtitles all appear as providers."],
+  ["stremio", "Addons", "A Stremio add-on URL — its manifest is read for you, so its catalogs, metadata, streams and subtitles all appear as providers."],
 ];
 // **Nuvio plugins are gone.** A plugin is Javascript the Nuvio app runs itself; the
 // settings pane, the source type and the server-side runner for it have all been
@@ -598,6 +606,8 @@ const state = {
   options: { languages: [], countries: [] },
   searchVocab: null,
   settingsSection: localStorage.getItem(KEY.section) || "profile",
+  // The Library row currently being renamed, if any — see `paneCustomRows`.
+  customRowEdit: "",
   accent: localStorage.getItem(KEY.accent) || "gold",
   motion: localStorage.getItem(KEY.motion) || "auto",
   // The face the app is set in — Inter, or the condensed cut of it.
@@ -963,7 +973,10 @@ async function setWatchState(item, next) {
   // The watchlist card *is* its contents, so a pin or an unpin redraws it now —
   // unlike every other card, which holds its artwork until the next launch.
   forgetCardArt(watchlistCard());
-  refreshPins(item);
+  // **And the screen behind it changes too**: a title that just went into Watching has
+  // left every other row, and the row that received it has to show it.
+  const wasPinned = refreshPins(item);
+  if (!wasPinned) render();
 }
 
 /**
@@ -1326,6 +1339,30 @@ function emptyRowText(catalog) {
  * (A row used to stop dead after its first window, which is what "this row does
  * not scroll" meant.)
  */
+/** The keys of the titles this profile has started or finished, as the store names them. */
+function ownedKeys() {
+  const out = new Set();
+  for (const [key, value] of Object.entries(state.watchlist || {})) {
+    if (value === "watching" || value === "watched") out.add(key);
+  }
+  return out;
+}
+
+/**
+ * **A title you started is not on the rest of the app.**
+ *
+ * The server drops those titles from every row and from search, but a row can be
+ * answered from a cache taken before the pin, and then a title you are watching sits on
+ * Home anyway. This is the same rule read on the client, where the pin is known the
+ * moment it is made — the two places it *does* belong are kept whole.
+ */
+function hideOwned(metas, catalog) {
+  if (catalog && (catalog.kind === "watchlist" || catalog.kind === "custom")) return metas;
+  const owned = ownedKeys();
+  if (!owned.size) return metas;
+  return metas.filter((m) => !owned.has(watchKey(m)));
+}
+
 async function fillStrip(strip, catalog) {
   let skip = 0;
   let done = false;
@@ -1339,22 +1376,28 @@ async function fillStrip(strip, catalog) {
     if (busy || done) return;
     busy = true;
     try {
-      const { metas } = await fetchCatalog(catalog, skip);
+      const { metas: raw } = await fetchCatalog(catalog, skip);
+      const metas = hideOwned(raw, catalog);
       if (!skip) strip.replaceChildren();
-      if (!metas.length) {
+      // **The page is what the server sent, not what survived the filter.** Looking at
+      // `metas` here would count a page of titles you are watching as the end of the
+      // row; `raw` is the window the row actually asked for.
+      if (!raw.length) {
         done = true;
         strip.removeEventListener("scroll", onScroll);
         // The end of a row is always said; an empty watchlist row is not (see
         // `emptyRowText`), so there the strip simply stays empty.
         const said = skip ? "End of catalog." : emptyRowText(catalog);
-        if (said) strip.append(el("p", { class: skip ? "empty strip-end" : "empty", text: said }));
+        // A page that was entirely titles you are watching is not "end of catalog" —
+        // the row simply has nothing left to draw on this screen.
+        if (said && raw.length === 0) strip.append(el("p", { class: skip ? "empty strip-end" : "empty", text: said }));
         return;
       }
       for (const m of metas) strip.append(posterCard(m, { watch: catalog.kind === "watchlist" }));
       // A For You row hands its titles to the card's *other* rows — see
       // `forYouServed` — so two of them cannot open on the same film.
       if (catalog.kind === "recommend") noteForYouServed(catalog.id, metas);
-      skip += metas.length;
+      skip += raw.length;
     } catch (err) {
       done = true;
       strip.removeEventListener("scroll", onScroll);
@@ -4121,7 +4164,10 @@ function renderSearch() {
     try {
       const p = new URLSearchParams(resultQuery());
       if (searchStart > 0) p.set("start", String(searchStart));
-      const { metas = [], next = null } = await get(`/search.json?${p.toString()}`);
+      const { metas: raw = [], next = null } = await get(`/search.json?${p.toString()}`);
+      // **Search never shows what you are already watching** — the Watched and Watching
+      // rows are where those titles are (see `hideOwned`).
+      const metas = hideOwned(raw);
       if (!more) {
         titles.replaceChildren();
         // **The suggestion list closes when the results arrive.** It stayed open over
@@ -4857,7 +4903,6 @@ function sourceBody(source) {
               el("div", { class: "chips" }, ...resourceToggles(resources.filter((r) => r !== "stream"))),
             )
           : null,
-        line("Catalogs", providers),
       ];
   const nodes = lines.filter(Boolean);
   if (nodes.length) return nodes;
@@ -5083,6 +5128,21 @@ function playClick() {
 /** The music's own ceiling: the volume setting is a percentage of a quiet pad. */
 const musicGain = () => (Math.max(0, Math.min(100, Number(state.sound?.musicVolume ?? 35))) / 100) * 0.055;
 
+/**
+ * **The browsing loop is lofi.** A slow four-chord figure on a soft electric-piano
+ * timbre — a low root, a mellow chord above it — with a touch of tape hiss and a slow
+ * tremolo over the top, so what plays under the rows is the thing the switch promises
+ * rather than a drone. Nothing is downloaded: it is four oscillators, one noise buffer
+ * and two filters, and it stops the instant the switch goes off.
+ */
+const LOFI_CHORDS = [
+  [220.0, 261.63, 329.63, 392.0],   // Am7
+  [146.83, 174.61, 220.0, 293.66],  // Dm7
+  [196.0, 246.94, 293.66, 349.23],  // G7
+  [130.81, 196.0, 246.94, 329.63],  // Cmaj7
+];
+const LOFI_BAR = 7.2; // seconds a chord is held
+
 function startMusic() {
   // **Ask for the context first.** A browser holds an AudioContext suspended until the
   // first gesture, and `audio()` is what resumes it — so a context that came up at boot
@@ -5098,38 +5158,85 @@ function startMusic() {
   if (!ctx) return;
   const master = ctx.createGain();
   master.gain.value = 0.0001;
+  // A low ceiling: lofi is a muffled register, so the top end is rolled away.
   const filter = ctx.createBiquadFilter();
   filter.type = "lowpass";
-  filter.frequency.value = 620;
+  filter.frequency.value = 1050;
+  filter.Q.value = 0.6;
+  // The slow swell that makes a held chord breathe instead of sitting still.
+  const trem = ctx.createGain();
+  trem.gain.value = 0.86;
   const lfo = ctx.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = 0.17;
   const lfoGain = ctx.createGain();
-  lfo.frequency.value = 0.06;
-  lfoGain.gain.value = 190;
-  lfo.connect(lfoGain).connect(filter.frequency);
-  // A minor-ish stack, so the loop reads as ambience rather than a melody.
-  const voices = [110, 164.81, 220, 329.63].map((hz, i) => {
+  lfoGain.gain.value = 0.13;
+  lfo.connect(lfoGain).connect(trem.gain);
+  filter.connect(trem).connect(master).connect(ctx.destination);
+  // Four voices: the root hums as a sine, the chord above it is soft triangles.
+  const voices = LOFI_CHORDS[0].map((hz, i) => {
     const osc = ctx.createOscillator();
-    osc.type = i % 2 ? "sine" : "triangle";
-    osc.frequency.value = hz;
-    osc.detune.value = i * 4;
-    osc.connect(filter);
-    return osc;
+    osc.type = i === 0 ? "sine" : "triangle";
+    osc.frequency.value = i === 0 ? hz / 2 : hz;
+    osc.detune.value = i * 5 - 4;
+    const voice = ctx.createGain();
+    voice.gain.value = i === 0 ? 0.5 : 0.24;
+    osc.connect(voice).connect(filter);
+    return { osc, voice };
   });
-  filter.connect(master).connect(ctx.destination);
+  // **Tape hiss.** A looped quiet noise through a highpass — the one sound that makes a
+  // pad read as a record rather than as a synthesiser.
+  const hiss = ctx.createBufferSource();
+  try {
+    const frames = Math.floor(ctx.sampleRate * 1.4);
+    const buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+    const chan = buf.getChannelData(0);
+    let seed = 12345;
+    for (let i = 0; i < frames; i++) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      chan[i] = ((seed / 0x7fffffff) * 2 - 1) * 0.16;
+    }
+    hiss.buffer = buf;
+    hiss.loop = true;
+    const hissFilter = ctx.createBiquadFilter();
+    hissFilter.type = "highpass";
+    hissFilter.frequency.value = 3800;
+    const hissGain = ctx.createGain();
+    hissGain.gain.value = 0.05;
+    hiss.connect(hissFilter).connect(hissGain).connect(master);
+  } catch {
+    /* no buffer support — the pad still plays */
+  }
   const at = ctx.currentTime;
-  for (const osc of [...voices, lfo]) osc.start(at);
+  for (const v of voices) v.osc.start(at);
+  try { hiss.start(at); } catch { /* nothing to start */ }
+  lfo.start(at);
   master.gain.linearRampToValueAtTime(musicGain(), at + 2.5);
-  music = { master, voices, lfo, filter };
+  // The chord moves on a timer, retuned rather than rebuilt, so the change is a slide
+  // and there is no click between chords.
+  let bar = 0;
+  const step = () => {
+    bar = (bar + 1) % LOFI_CHORDS.length;
+    const chord = LOFI_CHORDS[bar];
+    const when = ctx.currentTime;
+    voices.forEach((v, i) => {
+      v.osc.frequency.setTargetAtTime(i === 0 ? chord[0] / 2 : chord[i], when, 0.8);
+    });
+  };
+  const timer = setInterval(step, LOFI_BAR * 1000);
+  music = { master, voices: voices.map((v) => v.osc), lfo, filter, hiss, timer };
 }
 
 function stopMusic() {
   if (!music) return;
-  const { master, voices, lfo } = music;
+  const { master, voices, lfo, hiss, timer } = music;
+  if (timer) clearInterval(timer);
   const at = audioCtx.currentTime;
   master.gain.setTargetAtTime(0.0001, at, 0.3);
   // The voices are stopped a beat later, once the fade is done.
   setTimeout(() => {
     for (const osc of [...voices, lfo]) { try { osc.stop(); } catch { /* already stopped */ } }
+    try { hiss?.stop(); } catch { /* already stopped */ }
   }, 1200);
   music = null;
 }
@@ -6407,15 +6514,6 @@ function paneDns() {
       el("button", { class: "btn subtle focusable", type: "button", id: "dns-test", text: "Test DNS", onclick: () => testDnsNow(status) }),
       status,
     ),
-    el("div", { class: "group-head" },
-      el("span", { class: "option-title", text: "What it applies to" }),
-      el("span", { class: "option-desc", text: "Everything the server requests, because they all fetch through the same door." }),
-    ),
-    el("p", {
-      class: "option-desc",
-      text: "Metadata (TMDB, TVDB, MDBList, the trackers, posters), the AI providers, Stremio add-ons, subtitles, debrid APIs, Custom Websites, every scraper tier, the stream proxy, and catalog and stream fetches. The embedded player is a separate process and keeps the system resolver.",
-    }),
-    el("p", { class: "option-desc", text: "DNS changes how domains resolve." }),
   ];
 }
 
@@ -7423,12 +7521,31 @@ function aiProviderRow(slug, label, signup, note) {
           const value = input.value.trim();
           if (!value) return;
           state.ai.hasKey = { ...(state.ai.hasKey || {}), [slug]: true };
-          // The first key pasted becomes the provider in use.
-          if (!state.ai.provider) state.ai.provider = slug;
+          // **The key you just pasted is the one you meant to use.** It used to stay on
+          // whatever provider was picked before, so pasting a second key and pressing
+          // Test answered about the first one — which reads as "my key does not work".
+          state.ai.provider = slug;
           writeJSON(KEY.ai, state.ai);
-          await pushSettings({ ai: { keys: { [slug]: value }, provider: state.ai.provider } });
+          status.className = "source-status";
+          status.textContent = "Saving…";
+          await pushSettings({ ai: { keys: { [slug]: value }, provider: slug } });
           input.value = "";
           render();
+          // Save and test in one press: the answer is whether the provider accepted it.
+          const check = document.getElementById(`ai-${slug}-models`)?.closest(".provider")?.querySelector(".provider-check .source-status");
+          try {
+            const res = await post("/ai/verify", { provider: slug });
+            const said = res?.text || (res?.ok ? "connected" : "not connected");
+            if (check) {
+              check.className = `source-status ${res?.ok ? "ok" : "bad"}`;
+              check.textContent = said;
+            }
+          } catch (err) {
+            if (check) {
+              check.className = "source-status bad";
+              check.textContent = `saved, but could not check — ${err.message}`;
+            }
+          }
         },
       }),
       hasKey
@@ -7559,13 +7676,10 @@ const FALLBACK_COUNTRIES = [["US", "United States"], ["IN", "India"], ["GB", "Un
  * left is the one switch that really does change a row's contents.
  */
 function paneContent() {
-  // **Where the app is comes first.** The Region is what the Regional OTT cards are
-  // made of and what a search starts on, so it belongs at the top of Content rather
-  // than in Appearance, where it would read as a colour.
+  // **No Region picker.** The Regional OTT card publishes the countries the Countries
+  // card covers (see `regionalOtt`), so there is no one region to point the app at; the
+  // country a *search* starts on is picked on the search screen itself.
   return [
-    el("p", { class: "option-title", text: "Region" }),
-    el("p", { class: "option-desc", text: "Where the app is. The Regional OTT cards are this region's own services, and the search screen starts on it — the Country chips can still be changed per search." }),
-    paneRegion(),
     radioRow(state.safe, "safe", "SFW", "Safe for work — adult titles excluded (TMDB default).", () => {
       state.safe = true; writeJSON(KEY.safe, true); pushSettings({ safe: true }); render();
     }),
@@ -7600,9 +7714,6 @@ function applyTheme() {
   // **The typeface is one custom property.** Written here with the accent, and written
   // into the boot record below, so the first paint is already in the chosen face.
   root.style.setProperty("--font", FONT_STACKS[state.font] || FONT_STACK);
-  // A variable font can be squeezed as well as swapped, and it costs nothing where the
-  // engine ignores it: the condensed cut is a little narrower than the default.
-  root.classList.toggle("font-condensed", state.font === "condensed");
   root.classList.toggle("blur-off", state.blur === false);
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
@@ -7619,74 +7730,35 @@ function applyTheme() {
   }
 }
 
-/**
- * **The Region.**
- *
- * One place where the app is, instead of two half-answers: the server keeps `country`
- * and every read that depends on it follows — the Regional OTT cards are that region's
- * own services (the region rides in the row id, so two regions never collide), and the
- * search screen starts on it. Changing it re-reads the cards, because the rows the old
- * region published are not the rows the new one publishes.
- */
-async function setRegion(code) {
-  const value = String(code || "").toUpperCase();
-  if (!value || value === state.country) return;
-  state.country = value;
-  localStorage.setItem(KEY.country, value);
-  pushSettings({ country: value });
-  await refreshCollections();
-  render();
-}
-
-function paneRegion() {
-  // **The server's own country list**, which is objects (`{code, name, services}`), not
-  // the pairs a dropdown reads — so it is mapped, and the service count rides along:
-  // it is how many Regional OTT rows that region is going to have.
-  const list = (state.options.countries || [])
-    .filter((c) => c && c.code)
-    .map((c) => [String(c.code).toUpperCase(), c.services ? `${c.name} · ${c.services} rows` : c.name]);
-  // A country the server no longer offers is still the one stored here, so it is put
-  // back at the top rather than letting the picker show some other region's name.
-  if (state.country && !list.some(([code]) => code === state.country)) list.unshift([state.country, state.country]);
-  const pick = dropdown(list.length ? list : FALLBACK_COUNTRIES, state.country, setRegion, "Region");
-  pick.node.id = "region-pick";
-  return pick.node;
-}
-
 /** Settings → Appearance: the accent colour, and how much the app moves. */
 function paneAppearance() {
   return [
-    el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Accent colour" }),
-      el("p", { class: "option-desc", text: "The colour the app is painted in — buttons, chips, highlights, borders. Gold is the default; pick another and the whole app follows." }),
-      el("div", { class: "accent-row" },
-        ...ACCENTS.map(([id, label, , base]) =>
-          el("button", {
-            class: `accent-swatch focusable${state.accent === id ? " active" : ""}`,
-            type: "button",
-            id: `accent-${id}`,
-            title: label,
-            "aria-label": label,
-            "aria-pressed": String(state.accent === id),
-            style: `--swatch: ${base}`,
-            onclick: () => {
-              state.accent = id;
-              localStorage.setItem(KEY.accent, id);
-              applyTheme();
-              render();
-            },
-          }),
+    el("span", { class: "option-title", text: "Accent colour" }),
+    el("p", { class: "option-desc", text: "The colour the app is painted in — buttons, chips, highlights, borders. Gold is the default; pick another and the whole app follows." }),
+    // **One colour, one box.** The swatches were a row of bare circles with their names
+    // only in a tooltip; each is a box of its own now, the same shape every other choice
+    // in Settings has, with its name written on it.
+    el("div", { class: "accent-grid" },
+      ...ACCENTS.map(([id, label, , base]) =>
+        el("button", {
+          class: `accent-box focusable${state.accent === id ? " active" : ""}`,
+          type: "button",
+          id: `accent-${id}`,
+          "aria-label": label,
+          "aria-pressed": String(state.accent === id),
+          style: `--swatch: ${base}`,
+          onclick: () => {
+            state.accent = id;
+            localStorage.setItem(KEY.accent, id);
+            applyTheme();
+            render();
+          },
+        },
+          el("span", { class: "accent-dot" }),
+          el("span", { class: "accent-name", text: label }),
         ),
       ),
-      el("div", { class: "provider-check" }, el("span", { class: "source-status", text: `Accent: ${accentOf(state.accent)[1]}` })),
     ),
-    // **There is no typeface setting.** The app is set in one face — the stack in
-    // `--font`, which is local families and the system UI face, so nothing is downloaded
-    // and the app reads the same offline.
-    el("p", {
-      class: "option-desc",
-      text: "The app is set in Inter, condensed to fit the rows — one face for the wordmark, the titles and the controls. There is no other typeface to choose.",
-    }),
   ];
 }
 
@@ -7805,7 +7877,7 @@ function paneSound() {
   return [
     el("p", { class: "option-desc", text: "Nothing here is on until you turn it on, and nothing plays over a title once it is playing." }),
     toggleRow(sound.clicks, "A click when you press something", "A short, soft tick on a button, a tile and a card — never on a scroll, and never on a screen you did not press.", (e) => set({ clicks: e.target.checked })),
-    toggleRow(sound.music, "Music while you browse", "A quiet loop under the app until you press Play. It stops the moment a title starts, and never plays in the player.", (e) => set({ music: e.target.checked })),
+    toggleRow(sound.music, "Lofi music while you browse", "A slow four-chord lofi loop under the app until you press Play. It stops the moment a title starts, and never plays in the player.", (e) => set({ music: e.target.checked })),
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Music volume" }),
       el("p", { class: "option-desc", text: "How loud the browsing music is, against the title you are about to play." }),
@@ -8196,12 +8268,25 @@ function paneCustomRows() {
   newName.addEventListener("input", () => setNote(""));
 
   const rowEditor = (row, index) => {
-    const input = el("input", { class: "text-input focusable", type: "text", id: `custom-row-name-${row.id}`, maxlength: "40", value: row.name });
+    // **The name is read-only until you press Edit.** A row was an always-live text box
+    // next to a button called Edit, which promised an edit mode the field never had. The
+    // field is greyed out while the row is at rest, and Edit turns it into a rename box
+    // with the button itself becoming Save.
+    const editing = state.customRowEdit === row.id;
+    const input = el("input", {
+      class: "text-input focusable",
+      type: "text",
+      id: `custom-row-name-${row.id}`,
+      maxlength: "40",
+      value: row.name,
+      ...(editing ? {} : { disabled: "disabled" }),
+    });
+    if (editing) input.focus?.();
     // **No "2 cards" label.** It counted the cards in the row, which is the one thing this
     // pane is not about: the rows are named and ordered here, and what is in them is said
     // on the card itself. A number that changes as you add titles was a counter to keep
     // reading, not information.
-    return el("div", { class: "site-row", id: `customrow-${row.id}` },
+    return el("div", { class: `site-row custom-row${editing ? " editing" : ""}`, id: `customrow-${row.id}` },
       el("div", { class: "site-body" },
         el("div", { class: "source-form" },
           input,
@@ -8222,6 +8307,26 @@ function paneCustomRows() {
           disabled: index >= rows.length - 1,
           onclick: () => moveCustomRow(row.id, 1),
         }),
+        // **Edit third, Delete last.** Edit is the everyday press on this row; Delete is
+        // the one you should have to reach for past it.
+        el("button", {
+          class: "btn primary focusable",
+          type: "button",
+          id: `custom-row-edit-${row.id}`,
+          text: editing ? "Save" : "Edit",
+          onclick: async () => {
+            if (!editing) {
+              state.customRowEdit = row.id;
+              render();
+              return;
+            }
+            const res = await post("/custom-rows/rename", { id: row.id, name: input.value.trim() }).catch(() => null);
+            state.customRowEdit = "";
+            if (res?.ok !== true) setNote(res?.message || "Could not rename that row.");
+            await loadCustomRows();
+            render();
+          },
+        }),
         el("button", {
           class: "btn subtle focusable",
           type: "button",
@@ -8231,23 +8336,8 @@ function paneCustomRows() {
           title: rows.length <= 1 ? "The card needs at least one row" : "Delete this row and the cards in it",
           onclick: async () => {
             const res = await post("/custom-rows/delete", { id: row.id }).catch(() => null);
-            setNote(res?.message || "Deleted.", res?.ok === true);
-            await loadCustomRows();
-            render();
-          },
-        }),
-        // **Edit, and it sits after the arrows.** It was called "Rename" and lived in the
-        // name field, before the order controls — so the buttons read Edit, ↑, ↓, Delete in
-        // no order at all. It is the same action the Website rows offer, under the same
-        // word, in the same place: last but one, after the two that move the row.
-        el("button", {
-          class: "btn primary focusable",
-          type: "button",
-          id: `custom-row-edit-${row.id}`,
-          text: "Edit",
-          onclick: async () => {
-            const res = await post("/custom-rows/rename", { id: row.id, name: input.value.trim() }).catch(() => null);
-            setNote(res?.message || "Saved.", res?.ok === true);
+            if (res?.ok !== true) setNote(res?.message || "Could not delete that row.");
+            state.customRowEdit = "";
             await loadCustomRows();
             render();
           },
@@ -8275,7 +8365,10 @@ function paneCustomRows() {
         disabled: rows.length >= max,
         onclick: async () => {
           const res = await post("/custom-rows/add", { name: newName.value.trim() }).catch(() => null);
-          setNote(res?.message || (res?.ok ? "Added." : "Could not add that row."), res?.ok === true);
+          // **Nothing is said on success.** The row appears in the list below; the note
+          // used to repeat the name back — "Added "Row 2"." — next to the button that
+          // had just done it. A failure still speaks.
+          if (res?.ok !== true) setNote(res?.message || "Could not add that row.");
           newName.value = "";
           await loadCustomRows();
           render();
@@ -8396,8 +8489,9 @@ function renderSettings() {
   // its switches sit two to a row and its panels stay full width — the same board idea one
   // level down. Nothing about a pane's own internals is restated here; this only decides
   // how the pieces it hands back are laid out.
+  // **No heading repeating the tile.** The tile you pressed already names this pane, so
+  // the name is not printed a second time over the options.
   const body = el("section", { class: "setting" },
-    el("h3", { text: active[1] }),
     el("div", { class: "setting-grid" }, ...(panes[active[0]] || paneProfile)()),
   );
 
@@ -11280,7 +11374,78 @@ async function openPlayer(url, title, opts = {}) {
       ? `${trackLabel(only, 0)} — the stream's only audio track.`
       : "This stream declares one audio track, and the browser does not list it — so there is nothing here to choose between.";
 
-    gearPanel.replaceChildren(
+    // **Who is serving it, and at what size.** The Drawer lists every stream; these two
+    // sections answer the two questions the drawer is actually opened for — which
+    // provider answered for this title, and whether there is a sharper copy — without
+    // leaving the picture to find out.
+    const mergeable = shown.filter((x) => (x.torrent ? x.magnet : x.url));
+    const sizeOf = (x) => {
+      const text = `${x.name || ""} ${x.title || ""} ${x.quality || ""} ${x.resolution || ""}`.toLowerCase();
+      const hit = text.match(/\b(2160|1440|1080|720|576|480|360)p?\b/) || text.match(/\b(4k|uhd)\b/);
+      if (!hit) return 0;
+      return hit[1] === "4k" || hit[1] === "uhd" ? 2160 : Number(hit[1]);
+    };
+    const label = (x) => x.name || x.source || x.title || "Stream";
+    const pick = async (x) => {
+      if (!x) return;
+      gearPanel.hidden = true;
+      await attach(x);
+      if (!drawer.hidden) drawSources(shown, currentSource);
+    };
+    // One row per provider, the stream that provider serves that fits the ceiling
+    // best — pressing it switches to that one.
+    const byProvider = new Map();
+    for (const x of mergeable) {
+      const key = label(x);
+      const held = byProvider.get(key);
+      if (!held || sizeOf(x) > sizeOf(held)) byProvider.set(key, x);
+    }
+    const here = mergeable.find((x) => (x.torrent ? x.magnet : x.url) === currentSource);
+    const providerRows = [...byProvider.entries()].map(([name, x]) => {
+      const active = (x.torrent ? x.magnet : x.url) === currentSource;
+      const count = mergeable.filter((y) => label(y) === name).length;
+      return el("button", {
+        class: `stream focusable${active ? " active" : ""}`,
+        type: "button",
+        text: `${name}${count > 1 ? ` · ${count}` : ""}`,
+        onclick: () => pick(x),
+      });
+    });
+    // One row per height the list actually offers, tallest first, plus Auto.
+    const heights = [...new Set(mergeable.map(sizeOf).filter(Boolean))].sort((a, b) => b - a);
+    const ceiling = Number(state.prefs?.quality || 0);
+    const bestAt = (h) => mergeable
+      .filter((x) => sizeOf(x) === h)
+      .sort((a, b) => (b.seeders || 0) - (a.seeders || 0))[0];
+    const resRows = [
+      el("button", {
+        class: `stream focusable${ceiling ? "" : " active"}`,
+        type: "button",
+        text: "Auto — the best this list offers",
+        onclick: () => pick(mergeable[0]),
+      }),
+      ...heights.map((h) => el("button", {
+        class: `stream focusable${ceiling === h ? " active" : ""}`,
+        type: "button",
+        text: `${h}p — ${mergeable.filter((x) => sizeOf(x) === h).length} stream(s)`,
+        onclick: () => pick(bestAt(h)),
+      })),
+    ];
+
+    // **The children are filtered.** `replaceChildren` prints anything that is not a
+    // node, so a `null` section would come out as the word "null" in the panel.
+    gearPanel.replaceChildren(...[
+      mergeable.length
+        ? el("h3", { class: "row-head", text: "Providers" })
+        : null,
+      mergeable.length ? el("div", { class: "stream-list" }, ...providerRows) : null,
+      heights.length
+        ? el("h3", { class: "row-head", text: "Resolution" })
+        : null,
+      heights.length ? el("div", { class: "stream-list" }, ...resRows) : null,
+      here
+        ? el("p", { class: "option-desc", text: `Playing from ${label(here)}${sizeOf(here) ? ` at ${sizeOf(here)}p` : ""}.` })
+        : null,
       el("h3", { class: "row-head", text: "Subtitles" }),
       el("div", { class: "stream-list" },
         ...(subs.length ? subs : [el("p", { class: "empty", text: "This stream carries no subtitles." })]),
@@ -11295,7 +11460,7 @@ async function openPlayer(url, title, opts = {}) {
         text: "A subtitle this stream does not carry, fetched from the services set up in Settings → Subtitles for the title — and the episode — you are watching.",
       }),
       osList,
-    );
+    ].filter(Boolean));
     drawOpenSubtitles();
   };
 
@@ -11342,7 +11507,7 @@ async function openPlayer(url, title, opts = {}) {
           // on the thing you are watching, and the drawer of other streams sits next
           // to them.
           el("button", {
-            class: "player-icon focusable", type: "button", id: "player-settings", title: "Audio & subtitles",
+            class: "player-icon focusable", type: "button", id: "player-settings", title: "Providers, quality, audio & subtitles",
             onclick: () => {
               const opening = gearPanel.hidden;
               drawTracks();

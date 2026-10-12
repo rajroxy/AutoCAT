@@ -519,47 +519,57 @@ const globalOtt = {
 };
 
 /**
- * Regional OTT rows for **one** region's services.
+ * Regional OTT rows — **every country the Countries card publishes**.
  *
- * These cards used to publish every region's services (107 rows per card, most of
- * them unwatchable from where you are). The country setting picks one, so a card
- * now holds that country's services — up to `LOCAL_LIMIT` per row type — and each
- * row is scoped to that country's region.
+ * A card per region, driven by the Region setting, was one answer to "which services
+ * are mine?" and it was the wrong shape: the Countries card already lists the
+ * countries this build covers, so the Regional OTT card publishes **those countries'
+ * own services**, each row scoped to the country it was verified in.
  *
- * **The Region scopes the card.** `code` is the country set in Settings → Content:
- * the rows are that region's own services, which is what "Regional" names. It
- * briefly published every region's rows instead, each carrying its own region — a
- * 128-row card of services from markets you are not in, which is the "Regional OTT
- * shows every country" that a Region setting exists to answer. A region the data
- * holds nothing for keeps the full list rather than drawing an empty card.
+ * Countries the regional data holds no services of their own for are skipped rather
+ * than filled in with the worldwide pair again, so the card has one row per real
+ * service instead of a hundred copies of the same two.
  */
-function regionalOtt(kind, code = "") {
+function regionalOtt(kind) {
   const build = (type, media) => {
-    // **The card publishes exactly what the Region picker promises.** `localServices` is
-    // the same list Settings counts (`services` in `appOptions`): the country's own
-    // verified services **plus the two worldwide ones** (Crunchyroll and Viki), which
-    // carry no region of their own and so used to be filtered straight back out of the
-    // row set — no country ever showed them.
-    //
-    // It used to fall back to **every region's services** when the country held none.
-    // That is the 128-row card of Australian, Indian and Brazilian services behind a
-    // picker reading "Nigeria · 4 rows": no matching OTT for the country selected. A
-    // region the facts hold nothing local for now shows the worldwide services alone,
-    // which is the honest answer and the one the picker already counted.
-    const services = localServices(code, media);
-    // Two services could share a name; disambiguate so two rows can never collide on
-    // the same catalog id.
+    const perCountry = [];
+    const seen = new Set();
+    for (const [name, code] of COUNTRIES) {
+      if (!countryHasContent(name, type)) continue;
+      const local = localFor(name, type);
+      if (!local.length) continue;
+      for (const svc of local) {
+        // The same service can be listed for two countries (a pan-regional platform);
+        // the region is part of the row's identity, so each one is its own row, and a
+        // true duplicate of the same service *in the same region* is dropped.
+        // **The region is an ISO code TMDB understands**, never the country's name —
+        // `watch_region` takes the code, and a row carrying "JAPAN" would answer
+        // nothing.
+        const region = String(svc.region || code).toUpperCase();
+        const key = `${svc.id}:${region}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        perCountry.push({ svc, code, region });
+      }
+    }
+    // A service that appears in more than one country keeps its name and wears the
+    // country beside it, so two rows can never read as the same one.
     const nameCount = new Map();
-    for (const svc of services) nameCount.set(svc.name, (nameCount.get(svc.name) || 0) + 1);
-    const label = (svc) => (nameCount.get(svc.name) > 1 ? `${svc.name} (${svc.id})` : svc.name);
-    return services.map((svc) => {
-      // The row carries its own region: this is what makes one service row usable
-      // from the region it was verified in instead of one country's five. A service with
-      // no region of its own (Crunchyroll, Viki) is scoped to the region in Settings.
-      const region = String(svc.region || "").toUpperCase() || code || null;
-      if (kind === "top10") return provider(`${label(svc)} | Top 10`, svc.id, region, TOP10);
-      return provider(label(svc), svc.id, region);
+    for (const row of perCountry) nameCount.set(row.svc.name, (nameCount.get(row.svc.name) || 0) + 1);
+    const rows = perCountry.map(({ svc, code, region }) => {
+      const label = nameCount.get(svc.name) > 1 ? `${svc.name} · ${code}` : svc.name;
+      return kind === "top10"
+        ? provider(`${label} | Top 10`, svc.id, region, TOP10)
+        : provider(label, svc.id, region);
     });
+    // The worldwide pair (Crunchyroll, Viki) belong to every region, so they are added
+    // once at the end rather than once per country.
+    for (const svc of WORLDWIDE) {
+      rows.push(kind === "top10"
+        ? provider(`${svc.name} | Top 10`, svc.id, null, TOP10)
+        : provider(svc.name, svc.id, null));
+    }
+    return rows;
   };
   return { movie: build("movie", "movie"), show: build("tv", "tv") };
 }
@@ -581,7 +591,10 @@ const forBoth = (build) => ({ movie: build(MOVIE_GENRES), show: build(SHOW_GENRE
 const decadeGenres = (type, list) =>
   list
     .filter((g) => (VERIFIED.genreDecades?.[type]?.[g]?.count ?? 0) > 0)
-    .map((g) => genreDecade(`${g} 1950 → Present`, g, VERIFIED.genreDecades.from));
+    // **The row is named `Action | 1950 → Present`.** The separator is the vertical bar
+    // every other composed name in the app wears (`Netflix | Top 10`); the glyph that
+    // used to sit here was not in Inter and came out as a box on the covers.
+    .map((g) => genreDecade(`${g} | 1950 → Present`, g, VERIFIED.genreDecades.from));
 
 /**
  * The plain Discover card's five orders, unchanged: the newest, the most popular and
@@ -774,7 +787,20 @@ const buildCollections = (code = "") => {
     // **What is on its way, under your own list.** One row per row type: what is
     // coming to cinemas, and what airs next — sorted by the date it arrives, so the
     // nearest thing is the first thing, not the most popular thing.
-    catalogs: both([preset("Upcoming", "upcoming")]),
+    // **Every country that has something on the way, not just Hollywood.** The card used
+    // to be TMDB's own US-centric list (one row for films, one for shows), so what was
+    // out next in Tokyo, Seoul, Mumbai or Lagos was nowhere on it. Each row below is one
+    // of the big film industries read in **release-date order from today forward**, which
+    // is what "upcoming" means, so the nearest arrival is the first thing on it.
+    catalogs: both([
+      preset("Upcoming", "upcoming"),
+      curated("Upcoming in Japan", { with_origin_country: "JP", sort_by: "date.asc", future: 120 }),
+      curated("Upcoming in Korea", { with_origin_country: "KR", sort_by: "date.asc", future: 120 }),
+      curated("Upcoming in India", { with_origin_country: "IN", sort_by: "date.asc", future: 120 }),
+      curated("Upcoming in France", { with_origin_country: "FR", sort_by: "date.asc", future: 120 }),
+      curated("Upcoming in Nigeria", { with_origin_country: "NG", sort_by: "date.asc", future: 120 }),
+      curated("Upcoming in China", { with_origin_country: "CN", sort_by: "date.asc", future: 120 }),
+    ]),
   },
   {
     key: "discover",
@@ -873,8 +899,8 @@ const buildCollections = (code = "") => {
     scene: "regional-ott-top-10",
     titleOnly: true,
     catalogs: {
-      movie: [...top10Periods(), ...regionalOtt("top10", code).movie],
-      show: [...top10Periods(), ...regionalOtt("top10", code).show],
+      movie: [...top10Periods(), ...regionalOtt("top10").movie],
+      show: [...top10Periods(), ...regionalOtt("top10").show],
     },
   },
   {
@@ -882,7 +908,7 @@ const buildCollections = (code = "") => {
     lines: ["Regional"],
     scene: "regional-ott",
     titleOnly: true,
-    catalogs: regionalOtt("all", code),
+    catalogs: regionalOtt("all"),
   },
 
   {

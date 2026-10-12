@@ -27,7 +27,7 @@
    are tinted from `--accent-rgb` now, so the whole app's ruling changes with the accent
    the way the chips and buttons already do. Panels keep their neutral hairline: a
    border around a box is a box's edge, not a rule across the page. */
-:root { --rule: rgba(var(--accent-rgb), 0.3); --rule-soft: rgba(var(--accent-rgb), 0.16); }
+:root { --rule: rgba(var(--accent-rgb), 0.55); --rule-soft: rgba(var(--accent-rgb), 0.16); }
 hr { border: 0; height: 1px; background: var(--rule); }
 .topbar { border-bottom-color: var(--rule-soft); }
 .detail-row { border-bottom-color: var(--rule-soft); }
@@ -88,7 +88,7 @@ body {
   padding: 16px 40px;
   background: linear-gradient(180deg, rgba(8, 9, 12, 0.97), rgba(8, 9, 12, 0.74));
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 /* No app logo / app label — the profile switcher takes the top-left slot. */
@@ -159,7 +159,7 @@ body {
   gap: 12px;
   width: 220px;
   padding: 26px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   background: var(--panel);
   color: inherit;
@@ -262,13 +262,13 @@ body {
 /* Vertical rule after the calendar, separating the controls from the nav. */
 .top-divider {
   flex: none;
-  width: 1px;
+  width: 2px;
   height: 28px;
   /* **The rule beside the arrow wears the accent**, like every other rule in the app.
      It was white at 55% — the one line in the top bar that stayed grey whatever colour
      the app was wearing, which is what "the vertical line does not follow the accent
      on different pages" was. */
-  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.06), var(--rule) 50%, rgba(var(--accent-rgb), 0.06));
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.2), var(--rule) 50%, rgba(var(--accent-rgb), 0.2));
 }
 
 /* **The arrow's rule sits closer than the bar's own gap.** The topbar spaces its
@@ -280,7 +280,7 @@ body {
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-size: 16px;
@@ -365,7 +365,7 @@ body {
 .icon-box {
   display: block;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
   background: var(--panel);
   color: inherit;
@@ -528,7 +528,7 @@ body {
   width: min(380px, 42vw);
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
   background: var(--panel-2) center/cover no-repeat;
 }
@@ -610,7 +610,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   align-items: center;
   margin-bottom: 34px;
   padding: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   background:
     radial-gradient(120% 140% at 88% 20%, rgba(var(--accent-rgb), 0.14), transparent 60%),
@@ -626,7 +626,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
   background: var(--panel-2) center/cover no-repeat;
 }
@@ -716,7 +716,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   width: 100%;
   min-height: 60px;
   padding: 8px 10px 8px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 14px;
   background: var(--panel-2);
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
@@ -762,7 +762,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   height: 42px;
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font: inherit;
@@ -795,7 +795,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   display: flex;
   flex-direction: column;
   padding: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 12px;
   background: #101219;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
@@ -815,7 +815,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   gap: 10px;
   margin: 0 0 24px;
   padding: 16px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius);
   background: var(--panel);
 }
@@ -881,7 +881,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .result-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .result {
   display: flex; flex-direction: column; gap: 3px; text-align: left;
-  padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius); background: var(--panel); color: inherit; cursor: pointer;
 }
 .result:hover { border-color: rgba(var(--accent-rgb), 0.5); }
@@ -895,7 +895,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .graph-legend .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .graph-legend .dot.leaf { width: 7px; height: 7px; background: rgba(231, 235, 243, 0.5); }
 
-.graph { width: 100%; height: auto; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius); background: var(--panel); margin-bottom: 26px; }
+.graph { width: 100%; height: auto; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); margin-bottom: 26px; }
 .graph-edge { stroke: rgba(231, 235, 243, 0.28); stroke-width: 1; }
 .graph-edge.faint { stroke: rgba(231, 235, 243, 0.12); }
 .graph-node { fill: rgba(231, 235, 243, 0.7); }
@@ -904,7 +904,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .graph-node.leaf { fill: rgba(231, 235, 243, 0.45); }
 .graph-label { fill: rgba(231, 235, 243, 0.82); font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 600; }
 
-.source-providers { padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius); background: var(--panel); margin-bottom: 12px; }
+.source-providers { padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); margin-bottom: 12px; }
 .source-providers-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--accent-rgb), 0.13); color: #e8dfc8; }
@@ -912,7 +912,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 
 /* ------------------------------------------------------------- providers */
 
-.provider { padding: 16px 18px; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius); background: var(--panel); }
+.provider { padding: 16px 18px; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); }
 .provider-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .provider-head .option-title { display: inline-block; }
 .badge { display: inline-block; margin-left: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
@@ -929,7 +929,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .provider-check { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
 
 .ai-body { display: flex; flex-direction: column; gap: 10px; }
-.ai-ask { padding: 16px 18px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius); background: var(--panel); }
+.ai-ask { padding: 16px 18px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); }
 .ai-ask-form { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .ai-ask-form .text-input { flex: 1; }
 
@@ -975,7 +975,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .vis-section > .group-head { margin-bottom: 10px; }
 
 .vis-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
   background: var(--panel);
   padding: 6px 12px 10px;
@@ -986,37 +986,66 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .vis-card-rows {
   margin: 2px 0 4px 10px;
   padding-left: 12px;
-  border-left: 1px solid rgba(255, 255, 255, 0.10);
+  border-left: 1px solid rgba(255, 255, 255, 0.20);
 }
 .vis-card-rows .vis-option {
   padding-top: 4px;
   padding-bottom: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 .vis-card-rows .vis-option:first-child { border-top: 0; }
 .vis-option.vis-sub .option-title { font-weight: 600; font-size: 14px; }
 .vis-option.vis-sub .option-desc { display: none; }
+/* **What is chosen is visible at a glance** (Settings → Profile): a card, a catalog row
+   or a tag this profile shows wears the accent, and the one that does not is dimmed. The
+   boxes sit inside a bordered block, so the tint has to be set here rather than left to
+   the generic `.option:has(input:checked)` rule. */
+.vis-option:has(input:checked) {
+  border-color: rgba(var(--accent-rgb), 0.6);
+  background: rgba(var(--accent-rgb), 0.14);
+}
+.vis-option:has(input:checked) .option-title { color: #fff; }
+.vis-card-rows .vis-option:not(:has(input:checked)) { opacity: 0.62; }
+.vis-option:has(input:checked) input { accent-color: var(--accent); }
 
-.accent-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 4px; }
-.accent-swatch {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  background: var(--swatch);
+/* **One colour, one box** (Settings → Accent). The swatches were a wrap of bare circles
+   whose names lived in a tooltip; each is a full-width box now, the same shape every other
+   choice in Settings has — a dot of the colour and the name written beside it — stacked up
+   and down the column. */
+.accent-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 4px 0 4px; }
+.accent-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius);
   cursor: pointer;
-  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
-.accent-swatch:hover { transform: translateY(-2px); }
-.accent-swatch.active { border-color: #fff; }
-.accent-swatch.active::after {
-  content: "";
-  position: absolute;
-  inset: -7px;
-  border-radius: 50%;
-  border: 1px solid var(--accent);
+.accent-box:hover { background: var(--panel-2); transform: translateY(-2px); }
+.accent-box.active {
+  border-color: rgba(var(--accent-rgb), 0.65);
+  background: rgba(var(--accent-rgb), 0.14);
+  color: #fff;
 }
+.accent-dot {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 8px;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+.accent-box.active .accent-dot { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85); }
+.accent-name { min-width: 0; }
 
 /* ------------------------------------------------------------------ explore */
 
@@ -1038,7 +1067,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   font-size: 14px;
   color: var(--text);
   background: var(--panel-2);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   padding: 10px 13px;
   min-width: 200px;
@@ -1054,7 +1083,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   align-items: center;
   gap: 14px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
   background: var(--panel-2);
 }
@@ -1082,15 +1111,28 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius);
   background: var(--panel-2);
 }
-.site-art { width: 38px; aspect-ratio: 2 / 3; border-radius: 6px; object-fit: cover; flex: none; background: rgba(255, 255, 255, 0.05); }
+.site-art { width: 38px; aspect-ratio: 2 / 3; border-radius: 6px; object-fit: cover; flex: none; background: rgba(255, 255, 255, 0.14); }
 .site-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .site-domain { font-size: 13.5px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .site-pattern { font-size: 12px; color: var(--muted); word-break: break-all; }
 .site-row .btn { flex: none; }
+/* **A Library row is a settings box, not a website row.** It wore the darker
+   `--panel-2` the website rows wear, which made it read as a different kind of thing
+   than every box around it; it is the same panel and the same border now. */
+.custom-row { background: var(--panel); border-color: rgba(255, 255, 255, 0.22); }
+.custom-row .text-input:disabled {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.18);
+  cursor: default;
+  -webkit-text-fill-color: var(--muted);
+  opacity: 1;
+}
+.custom-row.editing { border-color: rgba(var(--accent-rgb), 0.5); }
 /* The row's action slot — Edit/Delete, or Save/Cancel while it is being edited. */
 .site-actions { display: flex; gap: 8px; flex: none; align-items: center; }
 /* The editor a site's Edit button opens, inside its row. */
@@ -1127,7 +1169,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   flex: none;
   width: var(--poster-w);
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 12px;
   overflow: hidden;
   background: var(--panel);
@@ -1162,7 +1204,29 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    two to a row, each one the door to its section, the one you are in filled with the
    accent — and each group keeps its own panel so the grouping stays legible. The panel is
    sticky, so a long list of sections cannot fall out of view while its options are read. */
-.settings-nav { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 16px; }
+/* **The doors scroll on their own.** The board is long enough to run past a short
+   window, and it used to drag the whole page with it; it keeps one scrollbar of its own
+   now, so the pane on the right stays where it was put. */
+.settings-nav {
+  position: sticky;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 128px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.settings-nav::-webkit-scrollbar { width: 8px; }
+.settings-nav::-webkit-scrollbar-track { background: transparent; }
+.settings-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+.settings-nav::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-rgb), 0.55); }
 .settings-group-box { display: flex; flex-direction: column; gap: 8px; }
 /* **One column.** The doors to the sections used to sit two to a row; they are a single
    column now, so the board reads top to bottom in the order the settings belong in. */
@@ -1229,7 +1293,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   align-items: flex-start;
   padding: 16px 18px;
   margin-bottom: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
   background: var(--panel);
   cursor: pointer;
@@ -1293,7 +1357,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   position: relative;
   aspect-ratio: 16 / 9;
   background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
@@ -1359,13 +1423,13 @@ button:focus-visible,
 
 /* ------------------------------------------------------- Movies / Shows switch */
 
-.row-switch { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); margin: 26px 0 34px; }
+.row-switch { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.18); margin: 26px 0 34px; }
 .row-btn { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; padding: 9px 22px; border-radius: 999px; cursor: pointer; }
 .row-btn:hover { color: var(--text); }
 .row-btn.active { background: linear-gradient(160deg, var(--accent), var(--accent-deep)); color: #14110a; }
 
 /* The vertical divider between Watchlist and the rest of the cards. */
-.v-divider { align-self: stretch; width: 1px; min-height: 120px; margin: 0 6px; background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.08), rgba(var(--accent-rgb), 0.9) 18%, rgba(var(--accent-rgb), 0.9) 82%, rgba(var(--accent-rgb), 0.08)); }
+.v-divider { align-self: stretch; width: 2px; min-height: 120px; margin: 0 6px; background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.95) 18%, rgba(var(--accent-rgb), 0.95) 82%, rgba(var(--accent-rgb), 0.2)); }
 .icons.rows .v-divider { flex: none; }
 
 .view-hint.inline { display: inline; margin: 0 0 0 12px; }
@@ -1383,7 +1447,7 @@ button:focus-visible,
 .crumb.current { color: var(--text); font-size: 19px; }
 .crumb-sep { color: var(--faint); }
 .explore-head .cat-tools { margin-left: auto; }
-.cat-menu { position: absolute; z-index: 30; margin-top: 44px; max-height: 320px; overflow: auto; min-width: 260px; padding: 6px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius); background: var(--panel-2); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); }
+.cat-menu { position: absolute; z-index: 30; margin-top: 44px; max-height: 320px; overflow: auto; min-width: 260px; padding: 6px; border: 1px solid rgba(255, 255, 255, 0.20); border-radius: var(--radius); background: var(--panel-2); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); }
 .menu-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 9px; cursor: pointer; }
 .menu-item:hover, .menu-item.active { background: rgba(var(--accent-rgb), 0.14); }
 .sentinel { min-height: 60px; padding: 20px 0; text-align: center; }
@@ -1393,9 +1457,11 @@ button:focus-visible,
 .explore-shuffles { display: block; }
 .explore-shuffles .shuffle-row { margin-bottom: 18px; }
 .h-divider {
-  height: 1px;
+  /* **A rule you can see.** At one pixel and two thirds alpha the divider faded into the
+     page on a dim screen; it is two pixels and nearly solid, with the soft ends kept. */
+  height: 2px;
   margin: 4px 0 22px;
-  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.08), rgba(var(--accent-rgb), 0.65) 12%, rgba(var(--accent-rgb), 0.65) 88%, rgba(var(--accent-rgb), 0.08));
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.95) 12%, rgba(var(--accent-rgb), 0.95) 88%, rgba(var(--accent-rgb), 0.2));
 }
 
 /* ------------------------------------------------------ Live TV & Sports */
@@ -1430,7 +1496,7 @@ button:focus-visible,
   flex-direction: column;
   gap: 8px;
   padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius);
   background: var(--panel);
   color: inherit;
@@ -1457,16 +1523,16 @@ button:focus-visible,
 .search-channels { flex-wrap: wrap; overflow: visible; }
 
 /* The Guide: TiviMate's shape — time across the top, channels down the left. */
-.guide { display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
-.guide-head { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: var(--panel-2); }
+.guide { display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+.guide-head { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255, 255, 255, 0.18); background: var(--panel-2); }
 .guide-corner { flex: none; width: 220px; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
 .guide-times { position: relative; flex: 1; display: flex; }
-.guide-time { flex: 1; padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--muted); border-left: 1px solid rgba(255, 255, 255, 0.06); }
+.guide-time { flex: 1; padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--muted); border-left: 1px solid rgba(255, 255, 255, 0.15); }
 .guide-now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); }
 .guide-body { display: flex; flex-direction: column; max-height: 62vh; overflow-y: auto; }
-.guide-row { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.guide-row { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
 .guide-row:last-child { border-bottom: 0; }
-.guide-channel { flex: none; width: 220px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0; border-right: 1px solid rgba(255, 255, 255, 0.06); background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.guide-channel { flex: none; width: 220px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0; border-right: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .guide-channel:hover { background: rgba(var(--accent-rgb), 0.08); }
 .guide-num { flex: none; width: 22px; font-size: 11px; color: var(--faint); }
 .guide-logo { flex: none; width: 28px; height: 28px; object-fit: contain; }
@@ -1516,7 +1582,7 @@ button:focus-visible,
 .cal-dow { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); text-align: center; padding-bottom: 6px; }
 .cal-cell {
   display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
-  min-height: 76px; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: 76px; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 12px; background: var(--panel); color: inherit; font: inherit; cursor: pointer;
 }
 .cal-cell.blank { border: 0; background: transparent; cursor: default; }
@@ -1547,7 +1613,7 @@ button:focus-visible,
 .cal-live { display: flex; flex-direction: column; gap: 6px; }
 .cal-live-row {
   display: grid; grid-template-columns: 148px 34px minmax(0, 1fr); align-items: center;
-  gap: 12px; padding: 9px 12px; border: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px; padding: 9px 12px; border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px; background: var(--panel); color: inherit; font: inherit;
   text-align: left; cursor: pointer;
 }
@@ -1931,7 +1997,7 @@ body { background: var(--ink); }
 .hero { border: 0; }
 .hero-art { border: 0; }
 
-.row-switch { border: 0; background: rgba(255, 255, 255, 0.06); }
+.row-switch { border: 0; background: rgba(255, 255, 255, 0.15); }
 
 .result,
 .provider,
@@ -2127,7 +2193,7 @@ body { background: var(--ink); }
 
 /* The guide's header needs its rule: every row under it keeps one, and without it
    the time ruler floats away from the grid it labels. */
-.guide-head { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.guide-head { border-bottom: 1px solid rgba(255, 255, 255, 0.18); }
 
 /* Top-bar controls rest as bare glyphs and fill under the cursor. */
 .icon-btn { background: transparent; }
@@ -2343,7 +2409,7 @@ textarea:focus-visible {
 }
 /* A Live TV card's wall is **channel logos**, not posters: they are drawn whole on
    their own plate instead of being cropped to fill the slot. */
-.content-tile.logo { object-fit: contain; padding: 7px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+.content-tile.logo { object-fit: contain; padding: 7px; background: rgba(255, 255, 255, 0.14); border-radius: 10px; }
 .content-tile.logo-text { display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--faint); }
 
 /* **Full screen has no scrollbar.** The fullscreen element is the document itself, so
@@ -2582,7 +2648,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 /* The rule between Director and Writer is the **same accent rule** every other
    divider in the app uses. This override used to repaint it plain grey, which is
    what made it the one divider that did not look like the app's. */
-.v-divider { flex: none; align-self: stretch; width: 1px; }
+.v-divider { flex: none; align-self: stretch; width: 2px; }
 
 /* Studios and networks: rectangular cards, logo on a plate, name under it. */
 .company-strip { display: flex; gap: 14px; overflow-x: auto; padding: 8px 4px 12px; scrollbar-width: none; }
@@ -2595,7 +2661,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .company-card:hover, .company-card:focus-visible { background: var(--panel-2); }
 .company-logo-wrap {
   display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 9;
-  border-radius: 8px; background: rgba(255, 255, 255, 0.06); overflow: hidden;
+  border-radius: 8px; background: rgba(255, 255, 255, 0.15); overflow: hidden;
 }
 .company-logo { max-width: 78%; max-height: 74%; object-fit: contain; }
 .company-initials { font-size: 24px; font-weight: 800; color: var(--faint); }
@@ -2962,7 +3028,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   max-height: 84vh;
   overflow-y: auto;
   padding: 34px 36px 30px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 24px;
   background: var(--panel);
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
@@ -3065,7 +3131,7 @@ select.player-rate option { background: #14161c; color: var(--text); }
 /* **Which add-ons answered.** A small flat block under the Sources head: one line per
    add-on you have, so one that has nothing for this title still shows up in the drawer
    instead of reading as missing from the player. A failed one is marked, not hidden. */
-.drawer-addons { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); }
+.drawer-addons { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.14); }
 .drawer-addon { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .drawer-addon-failed { color: #ff9d9d; }
 
@@ -3123,7 +3189,7 @@ select.player-rate option { background: #14161c; color: var(--text); }
 .stream-list { display: flex; flex-direction: column; gap: 8px; }
 .stream {
   display: flex; flex-direction: column; gap: 3px; padding: 11px 13px; text-align: left;
-  border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.07); color: inherit; cursor: pointer;
+  border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.16); color: inherit; cursor: pointer;
 }
 .stream:hover, .stream:focus-visible { background: rgba(255, 255, 255, 0.14); }
 .stream.active { background: rgba(var(--accent-rgb), 0.24); }
@@ -3343,7 +3409,7 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
 .dropdown-btn {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; font: inherit; font-size: 14px; color: var(--text); text-align: left;
-  background: rgba(255, 255, 255, 0.07); border: 0; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16); border: 0; border-radius: 10px;
   padding: 10px 14px; cursor: pointer;
 }
 .dropdown-btn:hover { background: rgba(255, 255, 255, 0.11); }
@@ -3477,7 +3543,7 @@ echo "done"
   flex: 1 1 320px;
   min-width: 0;
   padding: 9px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   background: var(--panel-2);
   color: var(--text);
