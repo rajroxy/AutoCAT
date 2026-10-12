@@ -10,9 +10,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scopedFile } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FILE = process.env.NUVIO_PREFS_FILE || path.join(__dirname, "user-preferences.json");
+const BASE_FILE = process.env.NUVIO_PREFS_FILE || path.join(__dirname, "user-preferences.json");
+
+/* A preference belongs to the person watching — see `scope.mjs`. */
+const file = () => scopedFile(BASE_FILE, "user-preferences");
 
 const DEFAULTS = {
   // Run the Custom Websites search when Play is pressed.
@@ -32,11 +36,14 @@ const DEFAULTS = {
 };
 
 let cache = null;
+let cacheFile = "";
 
 function load() {
-  if (cache) return cache;
+  const f = file();
+  if (cache && f === cacheFile) return cache;
+  cacheFile = f;
   try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(cacheFile, "utf8"));
     cache = { ...DEFAULTS, ...(parsed && typeof parsed === "object" ? parsed : {}) };
   } catch {
     cache = { ...DEFAULTS };
@@ -46,7 +53,7 @@ function load() {
 
 function persist() {
   try {
-    fs.writeFileSync(FILE, JSON.stringify(load(), null, 2) + "\n");
+    fs.writeFileSync(cacheFile, JSON.stringify(load(), null, 2) + "\n");
   } catch {
     /* read-only fs — the in-memory copy still applies for this run */
   }

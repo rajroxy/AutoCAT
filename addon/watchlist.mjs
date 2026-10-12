@@ -22,6 +22,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scopedFile, setFallbackScope } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_FILE = process.env.NUVIO_WATCHLIST_FILE || path.join(__dirname, "watchlist.json");
@@ -45,30 +46,22 @@ const BASE_FILE = process.env.NUVIO_WATCHLIST_FILE || path.join(__dirname, "watc
    so a third profile starts with an empty watchlist rather than a copy of the
    first one's.
    ============================================================================ */
-let scope = "";
-let FILE = BASE_FILE;
-const cleanScope = (who) => String(who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 32);
-
-/** Point the store at one profile's file. Called by the routes before they read. */
-export function setScope(who) {
-  const next = cleanScope(who);
-  if (next === scope) return;
-  scope = next;
-  FILE = next ? path.join(__dirname, `watchlist.${next}.json`) : BASE_FILE;
-  cache = null;
-  if (!next) return;
-  try {
-    if (fs.existsSync(FILE)) return;
-    const marker = path.join(__dirname, "watchlist.scope");
-    if (fs.existsSync(marker) || !fs.existsSync(BASE_FILE)) return;
-    fs.writeFileSync(FILE, fs.readFileSync(BASE_FILE));
-    fs.writeFileSync(marker, `${next}\n`);
-  } catch {
-    /* a read-only fs: the empty store works for this run */
+/**
+ * **The file this store is pointed at, asked for *now*.** See the same note in
+ * `settings.mjs` and the reason for it in `scope.mjs`.
+ */
+const file = () => {
+  const next = scopedFile(BASE_FILE, "watchlist");
+  if (next !== cacheFile) {
+    cacheFile = next;
+    cache = null;
   }
-}
+  return next;
+};
 
-/** The states a pinned title can be in, in the order they are shown. */
+/** Kept for callers that are not a request. */
+export const setScope = (who) => { setFallbackScope(who); };
+
 export const STATES = ["planned", "watching", "watched"];
 
 /** The label each state is published under, in the app and in the manifest. */
@@ -105,12 +98,15 @@ export function cleanItem(item, state) {
 const clean = (item, state) => cleanItem(item, state);
 
 let cache = null;
+let cacheFile = BASE_FILE;
 
 function load() {
+  // The cache belongs to one profile's file — resolve which profile this is *first*.
+  const f = file();
   if (cache) return cache;
   cache = new Map();
   try {
-    const raw = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    const raw = JSON.parse(fs.readFileSync(f, "utf8"));
     const items = Array.isArray(raw) ? raw : raw?.items;
     for (const item of items || []) {
       if (item && item.id && isState(item.state)) cache.set(keyOf(item), { ...item });
@@ -123,7 +119,7 @@ function load() {
 
 function save() {
   try {
-    fs.writeFileSync(FILE, JSON.stringify({ items: [...load().values()] }, null, 2) + "\n");
+    fs.writeFileSync(file(), JSON.stringify({ items: [...load().values()] }, null, 2) + "\n");
   } catch {
     /* read-only fs — the in-memory copy still works for this run */
   }

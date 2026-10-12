@@ -31,6 +31,7 @@ import {
   title as collectionTitle,
 } from "../scripts/collections.mjs";
 import { get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
+import { cleanScope, rescope, withScope } from "./scope.mjs";
 import { askAI, askAbout, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
 import {
   STATES,
@@ -42,7 +43,6 @@ import {
   unpin as watchlistUnpin,
   metasFor as watchlistMetas,
   watchedKeys,
-  setScope as watchlistSetScope,
 } from "./watchlist.mjs";
 import {
   DEFAULT_ROW,
@@ -60,10 +60,9 @@ import {
   add as customAdd,
   remove as customRemove,
   metasFor as customMetas,
-  setScope as customSetScope,
 } from "./customrows.mjs";
 import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, isOttSort } from "./catalogs.mjs";
-import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys, setSettingsScope, settingsScope } from "./settings.mjs";
+import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
 import { applyPosters, postersEnabled, checkPosterService, imdbId } from "./posters.mjs";
 import { applyContentSource, contentSourceActive, contentSourceStats } from "./tvdb.mjs";
@@ -1489,29 +1488,55 @@ function customPayload() {
  * A caller that sends no `who` — Stremio reading the addon, a script, the test suite —
  * keeps the plain files and sees exactly what it saw before.
  */
-const scopeStores = (who) => {
-  watchlistSetScope(who);
-  customSetScope(who);
-  // **The keys and the add-ons are the profile's too.** They were one file for the
-  // machine, so a TMDB key, a debrid account or an M3U URL added while one profile was
-  // on showed up in every profile. A **new** profile re-derives what the server has
-  // already cached from those settings: the stream answers and the TMDB answers were
-  // built with the old profile's key and add-ons, so they are dropped rather than
-  // handed to the profile that just arrived.
-  // **A cache built for one profile is not handed to the next.** Only a move *between*
-  // two profiles drops them: a request that carries no `who` at all is an asset or a
-  // client outside the app, and rebuilding every cached answer each time a font loads
-  // would be a cost with nothing to show for it.
-  const was = settingsScope();
-  if (setSettingsScope(who) && was && who) {
+/**
+ * **Who is watching rides with the request.**
+ *
+ * Every profile-owned store — settings and keys, the Library, the watchlist, the saved
+ * sites, the preferences, the resolver — is a file per profile, and the file is derived
+ * from `who` **when it is used**, inside this scope, not from a variable set at the top
+ * of the handler and read after an `await` (see `scope.mjs` for why that was wrong).
+ *
+ * The two process-wide caches need the same treatment, because they hold *answers built
+ * with a profile's key and add-ons*: the TMDB key is re-pointed at this profile before
+ * anything is fetched, and a move between two profiles drops both caches rather than
+ * handing one person the other's streams. A request that carries no `who` at all is an
+ * asset or a client outside the app, so it neither re-points anything nor clears
+ * anything — rebuilding every cached answer each time a font loads would be a cost with
+ * nothing to show for it.
+ */
+let lastScoped = "";
+export async function handleAddon(req, res, pathname, origin) {
+  const who = cleanScope(new URL(req.url ?? "/", "http://localhost").searchParams.get("who"));
+  return withScope(who, async () => {
     try { setKey(tmdbKey()); } catch { /* the TMDB module owns its own key */ }
-    clearStreamCache();
-    clearTmdbCache();
-  }
+    if (who !== lastScoped) {
+      lastScoped = who;
+      if (who) {
+        clearStreamCache();
+        clearTmdbCache();
+      }
+    }
+    return serveAddon(req, res, pathname, origin);
+  });
+}
+
+/**
+ * **A POST may name the profile in its body.** The URL carries it too, so this is a
+ * no-op for the app — but a caller that sends only a body still lands in the right
+ * profile, and a move between two profiles drops the caches built for the other one
+ * rather than answering with them.
+ */
+const scopeStores = (who) => {
+  const next = cleanScope(who);
+  if (!next || next === lastScoped) return;
+  lastScoped = next;
+  rescope(next);
+  try { setKey(tmdbKey()); } catch { /* the TMDB module owns its own key */ }
+  clearStreamCache();
+  clearTmdbCache();
 };
 
-export async function handleAddon(req, res, pathname, origin) {
-  scopeStores(new URL(req.url ?? "/", "http://localhost").searchParams.get("who"));
+async function serveAddon(req, res, pathname, origin) {
   // Settings are read/written by the app's Settings screen. The keys live on the
   // server so the addon can use them; the response only says whether one is set.
   if (pathname === "/settings" || pathname === "/settings.json") {

@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { currentScope, scopedFile, setFallbackScope } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Overridable so tests never touch the real settings file.
@@ -34,33 +35,113 @@ const BASE_FILE = process.env.NUVIO_SETTINGS_FILE || path.join(__dirname, "setti
    making the first request. A marker keeps that to a single profile, so a second
    profile starts with the defaults rather than a copy of the first one's keys.
    ============================================================================ */
-let scope = "";
-let FILE = BASE_FILE;
-const cleanScope = (who) => String(who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 32);
+/** The file the cache above was built from — a different profile is a different file. */
+let cacheFile = BASE_FILE;
 
-/** Point the store at one profile's file. Returns true when the scope changed. */
-export function setSettingsScope(who) {
-  const next = cleanScope(who);
-  if (next === scope) return false;
-  scope = next;
-  FILE = next ? path.join(__dirname, `settings.${next}.json`) : BASE_FILE;
-  cache = null;
-  if (next) {
-    try {
-      const marker = path.join(__dirname, "settings.scope");
-      if (!fs.existsSync(FILE) && !fs.existsSync(marker) && fs.existsSync(BASE_FILE)) {
-        fs.writeFileSync(FILE, fs.readFileSync(BASE_FILE));
-        fs.writeFileSync(marker, `${next}\n`);
-      }
-    } catch {
-      /* a read-only fs: the defaults work for this run */
-    }
+/**
+ * **The file this store is pointed at, asked for *now*.**
+ *
+ * Not a variable set once at the start of a request: the handler awaits (a body, a
+ * provider), another profile's request can arrive in that gap, and a file chosen
+ * earlier would then be reading — or writing — the wrong person's settings. The scope
+ * rides with the work instead (see `scope.mjs`), and this is where it is turned into a
+ * file name, at the moment of use.
+ */
+const file = () => {
+  const next = scopedFile(BASE_FILE, "settings");
+  if (next !== cacheFile) {
+    cacheFile = next;
+    cache = null;
   }
-  return true;
+  return next;
+};
+
+/* ============================================================================
+   **A second profile is its own app, not a copy of the first.**
+   ----------------------------------------------------------------------------
+   When profiles got their own files, an install that already had keys and add-ons
+   had them in the plain file, and the **migration handed that file to the profile
+   that was on** so nobody lost their app (see `settings.scope`, which records
+   which profile that was). The app also pushes the add-ons it already holds back
+   up when the server has none, so that seed could be written into a *second*
+   profile — which is exactly "Profile 2 is showing Profile 1's add-ons".
+   So a profile that is not the seeded one, asked for the first time, drops the
+   fields that are **byte-for-byte the seeded profile's** and that the seeded
+   profile actually changed: identical means inherited, and something the user
+   never configured is not the second profile's own choice. A field the second
+   profile set differently is left exactly as it is, and the pass runs once.
+   ============================================================================ */
+const SPLIT_IGNORE = new Set(["profile", "who", "updated"]);
+
+/** The profile the plain file was handed to ("" = the migration never ran). */
+function seededScope() {
+  try {
+    return fs.readFileSync(path.join(__dirname, "settings.scope"), "utf8").trim();
+  } catch {
+    return "";
+  }
 }
 
-/** The profile the store is pointing at ("" = the plain file). */
-export const settingsScope = () => scope;
+/**
+ * The identity of one entry in a list setting — what makes two entries "the same add-on"
+ * rather than "the same bytes". A source is its `url`: the status line on it is a liveness
+ * check that changes with every request, and the catalogue names it reports are fetched,
+ * so comparing entries verbatim would never see two profiles' add-on lists as the same list
+ * even when they are the same seven add-ons.
+ */
+const listKey = (entry) => String(entry?.url || entry?.id || JSON.stringify(entry));
+
+/** Every entry's identity in a list setting, sorted, so two lists compare as sets. */
+const setOf = (list) => (Array.isArray(list) ? [...new Set(list.map(listKey))].sort().join("\u0000") : null);
+
+/**
+ * Drop what a **non-seeded** profile only has because it inherited it. Returns true if it did.
+ *
+ * Two ways a field is recognised as inherited: it is byte-for-byte the seeded profile's
+ * (an object, a switch, a scalar), or it is a list of the same entries (the add-ons). In
+ * both cases the seeded profile must actually have *chosen* something — an identical pair
+ * of defaults is two profiles agreeing with the app, not an inheritance — and the second
+ * profile must not have chosen differently, because then the field is its own.
+ */
+function splitInherited(doc) {
+  const who = currentScope();
+  const seed = seededScope();
+  if (!who || !seed || who === seed) return false;
+  const flag = path.join(__dirname, `settings.split.${who}`);
+  try {
+    if (fs.existsSync(flag)) return false;
+  } catch {
+    return false;
+  }
+  let seeded = null;
+  try {
+    seeded = JSON.parse(fs.readFileSync(path.join(__dirname, `settings.${seed}.json`), "utf8"));
+  } catch {
+    /* the seeded profile has no file of its own — nothing to compare against */
+  }
+  let changed = false;
+  if (seeded) {
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    for (const key of Object.keys(doc)) {
+      if (SPLIT_IGNORE.has(key)) continue;
+      const theirs = seeded[key];
+      if (theirs === undefined || same(doc[key], DEFAULTS[key])) continue;
+      const mine = doc[key];
+      const inherited = Array.isArray(mine) && Array.isArray(theirs)
+        ? setOf(mine) !== null && setOf(mine) === setOf(theirs)
+        : same(mine, theirs);
+      if (!inherited) continue;
+      doc[key] = structuredClone(DEFAULTS[key]);
+      changed = true;
+    }
+  }
+  try {
+    fs.writeFileSync(flag, `${seed}\n`);
+  } catch {
+    /* read-only fs: it will try again next launch */
+  }
+  return changed;
+}
 
 const DEFAULTS = {
   profile: "VOD",
@@ -242,23 +323,38 @@ function merge(base, next) {
 }
 
 function load() {
+  // **Resolve the profile's file first.** The cache belongs to *a* file, so asking for
+  // a warm cache before asking which profile this is would hand the last profile's
+  // settings to the next one — the exact leak this file-per-profile arrangement is for.
+  const f = file();
   if (cache) return cache;
   try {
-    cache = merge(structuredClone(DEFAULTS), JSON.parse(fs.readFileSync(FILE, "utf8")));
+    cache = merge(structuredClone(DEFAULTS), JSON.parse(fs.readFileSync(f, "utf8")));
   } catch {
     cache = structuredClone(DEFAULTS);
   }
   cache.profile = currentProfile(cache.profile);
+  if (splitInherited(cache)) {
+    try {
+      fs.writeFileSync(f, JSON.stringify(cache, null, 2) + "\n");
+    } catch {
+      /* read-only fs — the in-memory copy is the split one for this run */
+    }
+  }
   return cache;
 }
 
 export const getSettings = () => load();
 
 export function updateSettings(patch) {
-  const next = merge(load(), patch || {});
+  const clean = { ...(patch || {}) };
+  // `who` rides on every request so the server knows whose file to write; it is not a
+  // setting, and a file that records which profile is on is a file that can be copied.
+  delete clean.who;
+  const next = merge(load(), clean);
   cache = next;
   try {
-    fs.writeFileSync(FILE, JSON.stringify(next, null, 2) + "\n");
+    fs.writeFileSync(file(), JSON.stringify(next, null, 2) + "\n");
   } catch {
     /* read-only fs — keep the in-memory copy */
   }

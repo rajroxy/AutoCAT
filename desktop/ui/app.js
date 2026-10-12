@@ -143,7 +143,49 @@ function migrateScope() {
   }
   return moved;
 }
+/**
+ * **A second profile starts as its own app, not as a copy of the first.**
+ *
+ * The migration above hands an install's existing settings to the profile that is on,
+ * so nobody loses the app they had. A profile that is **not** the install's first one
+ * can still be holding that copy — the same add-ons, the same region — because it was
+ * written for "the machine" and then filed under whoever happened to be on.
+ *
+ * Two things count as *the same* here, and the server makes the same distinction when it
+ * does its half (see `splitInherited` in `addon/settings.mjs`): a list is the same list
+ * when it holds the **same entries** — an add-on is its URL, not its last liveness check,
+ * which changes with every request — and anything else must be byte-for-byte equal. A
+ * value this profile chose differently is different, and stays. The pass runs once.
+ */
+function splitInheritedLocal() {
+  const who = activeScope();
+  if (!who || who === HOME_PROFILE) return 0;
+  const flag = `nuvio.split@${who}`;
+  try {
+    if (localStorage.getItem(flag) !== null) return 0;
+    const identity = (value) => {
+      const parsed = (() => { try { return JSON.parse(value); } catch { return undefined; } })();
+      if (!Array.isArray(parsed)) return String(value);
+      return parsed.map((entry) => String(entry?.url || entry?.id || JSON.stringify(entry))).sort().join("\u0000");
+    };
+    let dropped = 0;
+    for (const [name, raw] of Object.entries(SETTING_KEYS)) {
+      if (MACHINE_KEYS.has(name)) continue;
+      const mine = localStorage.getItem(`${raw}@${who}`);
+      const home = localStorage.getItem(`${raw}@${HOME_PROFILE}`);
+      if (mine === null || home === null || identity(mine) !== identity(home)) continue;
+      localStorage.removeItem(`${raw}@${who}`);
+      dropped += 1;
+    }
+    localStorage.setItem(flag, String(dropped));
+    return dropped;
+  } catch {
+    /* nothing to read — the defaults apply, which is the right answer anyway */
+    return 0;
+  }
+}
 migrateScope();
+splitInheritedLocal();
 
 const PINNED = /\| Top 10|^Upcoming$|Airing Today|On the Air|Now Playing|^Latest|^Newest|^Trending|^Plan to Watch$|^Watching$|^Watched$/;
 
@@ -1042,7 +1084,12 @@ function mergeServerSettings(res) {
     if (res.sources.length || !state.sources.length) {
       state.sources = migrateSources(res.sources);
       writeJSON(KEY.sources, state.sources);
-    } else {
+    } else if (activeScope() === HOME_PROFILE) {
+      // **Only the install's own profile hands its add-ons up.** This is the one path
+      // that writes a device's existing add-ons to the server, and it exists for the
+      // install that had them before the server kept them — which is the first profile.
+      // Letting every profile do it is how a second profile ended up holding the first
+      // one's add-ons, over and over, after they had been taken off it.
       pushSettings({ sources: state.sources });
     }
   }
@@ -2623,14 +2670,17 @@ const plusMark = () =>
     svgNode("path", { d: "M24 13v22M13 24h22" }));
 
 /**
- * One profile on the picker: the tile you enter with, and the tools under it.
+ * One profile on the picker: the card you enter with, and its own two controls.
  *
- * **The pencil opens Rename; Rename opens the field; Rename becomes Save.** Three steps,
- * in that order, and each one is a press: the pencil (a pencil is an *intent*, not a
- * name being edited) puts a **Rename** button under the profile's label; pressing Rename
- * turns the tile's name into a field and the Rename button into **Save**; pressing Save
- * keeps it. Escape backs all the way out. The button keeps its place between the pencil
- * and the cross, so nothing moves between the three states.
+ * **Rename is inside the card, under the name** — a card that holds a person's name and
+ * then offers to change it should hold the button that does it, rather than sending you
+ * to a row of marks underneath. Save takes its place, so the field and the button that
+ * commits it are together, inside the same card.
+ *
+ * The card is therefore a wrapper (a `div`) with the *enter* target as its own button
+ * inside — a button cannot legally contain another button — and the profile's tools
+ * (the pencil that opens the cross, and the cross itself) stay under the card, because
+ * removing somebody is not something to put a thumb next to their name.
  */
 function personSlot(person, active, editing, count, menu) {
   const field = editing
@@ -2650,10 +2700,6 @@ function personSlot(person, active, editing, count, menu) {
     });
     queueMicrotask(() => field.focus());
   }
-  // 2. **Rename**, and 3. **Save** in its place. While the name is *closed* it sits in
-  //    the tools row, under the card; while the name is *open* it lives **inside the
-  //    card**, directly under the field it commits — the button that keeps a name is not
-  //    a tool beside the card, it belongs to the thing being edited.
   const renameBtn = el(
     "button",
     {
@@ -2670,17 +2716,16 @@ function personSlot(person, active, editing, count, menu) {
   const tools = el(
     "div",
     { class: "profile-tools" },
-    // 1. The pencil: it only opens the menu, it never edits anything itself.
+    // The pencil: it opens this profile's tools. It never edits anything itself.
     el(
       "button",
       {
         class: `profile-tool focusable${menu ? " on" : ""}`,
         type: "button",
-        title: menu ? `Close the tools for ${person.name}` : `Edit ${person.name}`,
-        "aria-label": menu ? `Close the tools for ${person.name}` : `Edit ${person.name}`,
+        title: menu ? `Close the tools for ${person.name}` : `Tools for ${person.name}`,
+        "aria-label": menu ? `Close the tools for ${person.name}` : `Tools for ${person.name}`,
         "aria-expanded": String(Boolean(menu)),
         onclick: () => {
-          // Pressing it again puts the tools away — and closes the field with them.
           if (menu) { state.renameMenu = ""; state.renaming = ""; }
           else { state.renameMenu = person.id; state.renaming = ""; }
           render();
@@ -2690,9 +2735,8 @@ function personSlot(person, active, editing, count, menu) {
         svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
         svgNode("path", { d: "M14.5 5.5l4 4" })),
     ),
-    // Rename, while the pencil is open and the name is not being edited.
-    menu && !editing ? renameBtn : null,
-    count > 1
+    // The cross belongs to the open tools, and only ever appears with them.
+    menu && count > 1
       ? el(
           "button",
           {
@@ -2726,16 +2770,22 @@ function personSlot(person, active, editing, count, menu) {
     "div",
     { class: `profile-slot${active ? " active" : ""}` },
     el(
-      "button",
-      {
-        class: `profile-tile focusable${active ? " active" : ""}`,
-        type: "button",
-        "aria-current": active ? "true" : undefined,
-        onclick: () => choosePerson(person.id),
-      },
-      el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
-      el("span", { class: "profile-tile-name", text: person.name }),
-      el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
+      "div",
+      { class: `profile-tile${active ? " active" : ""}` },
+      el(
+        "button",
+        {
+          class: "profile-tile-hit focusable",
+          type: "button",
+          "aria-current": active ? "true" : undefined,
+          title: active ? `${person.name} — the profile you are on` : `Switch to ${person.name}`,
+          onclick: () => choosePerson(person.id),
+        },
+        el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
+        el("span", { class: "profile-tile-name", text: person.name }),
+        el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
+      ),
+      el("div", { class: "profile-card-tools" }, renameBtn),
     ),
     tools,
   );

@@ -16,9 +16,14 @@ import fs from "node:fs";
 import dns from "node:dns";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scopedFile } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FILE = process.env.NUVIO_DNS_FILE || path.join(__dirname, "dns-config.json");
+const BASE_FILE = process.env.NUVIO_DNS_FILE || path.join(__dirname, "dns-config.json");
+
+/* The resolver is chosen per profile like every other setting, so one profile turning
+   on AdGuard does not silently change where the other one's requests resolve. */
+const file = () => scopedFile(BASE_FILE, "dns-config");
 
 /** The resolvers Settings offers. `servers` empty means "type your own". */
 export const DNS_PRESETS = [
@@ -65,11 +70,14 @@ export const isResolverAddress = (value) => {
 };
 
 let cache = null;
+let cacheFile = "";
 
 function load() {
-  if (cache) return cache;
+  const f = file();
+  if (cache && f === cacheFile) return cache;
+  cacheFile = f;
   try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(cacheFile, "utf8"));
     cache = { ...DEFAULTS, ...(parsed && typeof parsed === "object" ? parsed : {}) };
   } catch {
     cache = { ...DEFAULTS };
@@ -83,7 +91,7 @@ function load() {
 
 function persist() {
   try {
-    fs.writeFileSync(FILE, JSON.stringify(load(), null, 2) + "\n");
+    fs.writeFileSync(cacheFile, JSON.stringify(load(), null, 2) + "\n");
   } catch {
     /* read-only fs — the in-memory copy still applies for this run */
   }

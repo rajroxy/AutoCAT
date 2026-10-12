@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scopedFile, setFallbackScope } from "./scope.mjs";
 import { cleanItem } from "./watchlist.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,29 +30,22 @@ const BASE_FILE = process.env.NUVIO_CUSTOM_FILE || path.join(__dirname, "customr
    person watching, not to the machine — see the same note in `watchlist.mjs`, which this
    follows exactly: `customrows.<who>.json`, the plain file for callers that send no
    `who` (Stremio, a script), and the first scoped caller inheriting what was there. */
-let scope = "";
-let FILE = BASE_FILE;
-const cleanScope = (who) => String(who || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 32);
-
-/** Point the store at one profile's file. Called by the routes before they read. */
-export function setScope(who) {
-  const next = cleanScope(who);
-  if (next === scope) return;
-  scope = next;
-  FILE = next ? path.join(__dirname, `customrows.${next}.json`) : BASE_FILE;
-  cache = null;
-  metalist = null;
-  if (!next) return;
-  try {
-    if (fs.existsSync(FILE)) return;
-    const marker = path.join(__dirname, "customrows.scope");
-    if (fs.existsSync(marker) || !fs.existsSync(BASE_FILE)) return;
-    fs.writeFileSync(FILE, fs.readFileSync(BASE_FILE));
-    fs.writeFileSync(marker, `${next}\n`);
-  } catch {
-    /* a read-only fs: the empty store works for this run */
+/**
+ * **The file this store is pointed at, asked for *now*.** See the same note in
+ * `settings.mjs` and the reason for it in `scope.mjs`.
+ */
+const file = () => {
+  const next = scopedFile(BASE_FILE, "customrows");
+  if (next !== cacheFile) {
+    cacheFile = next;
+    cache = null;
+    metalist = null;
   }
-}
+  return next;
+};
+
+/** Kept for callers that are not a request. */
+export const setScope = (who) => { setFallbackScope(who); };
 
 /** The row the Watchlist card publishes after its three state rows. */
 export const DEFAULT_ROW = "add-cards";
@@ -71,14 +65,17 @@ export const rowIdFor = (index) => (index === 0 ? DEFAULT_ROW : `${DEFAULT_ROW}-
 const keyOf = (item) => `${item?.type === "movie" ? "movie" : "series"}:${String(item?.id || "")}`;
 
 let cache = null;
+let cacheFile = BASE_FILE;
 /** The custom card's rows: `[{ id, name, order }]`, in the user's order. */
 let metalist = null;
 
 function load() {
+  // The cache belongs to one profile's file — resolve which profile this is *first*.
+  const f = file();
   if (cache) return cache;
   cache = new Map();
   try {
-    const raw = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    const raw = JSON.parse(fs.readFileSync(f, "utf8"));
     const rows = raw?.rows && typeof raw.rows === "object" ? raw.rows : {};
     for (const [id, items] of Object.entries(rows)) {
       const kept = new Map();
@@ -103,10 +100,12 @@ function load() {
  * beside the rows you manage.
  */
 function loadMeta() {
+  // Resolve the profile's file first: the cache belongs to one file (see `load`).
+  const f = file();
   if (metalist) return metalist;
   let raw = null;
   try {
-    raw = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    raw = JSON.parse(fs.readFileSync(f, "utf8"));
   } catch {
     /* no file yet */
   }
@@ -130,7 +129,7 @@ function saveMeta() {
   const rows = {};
   for (const [id, items] of load()) rows[id] = [...items.values()];
   try {
-    fs.writeFileSync(FILE, JSON.stringify({ rows, meta: loadMeta() }, null, 2) + "\n");
+    fs.writeFileSync(file(), JSON.stringify({ rows, meta: loadMeta() }, null, 2) + "\n");
   } catch {
     /* read-only fs */
   }
@@ -140,7 +139,7 @@ function save() {
   const rows = {};
   for (const [id, items] of load()) rows[id] = [...items.values()];
   try {
-    fs.writeFileSync(FILE, JSON.stringify({ rows, meta: loadMeta() }, null, 2) + "\n");
+    fs.writeFileSync(file(), JSON.stringify({ rows, meta: loadMeta() }, null, 2) + "\n");
   } catch {
     /* read-only fs — the in-memory copy still works for this run */
   }

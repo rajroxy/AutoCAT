@@ -195,21 +195,49 @@ body {
   margin: 22px 0 10px;
 }
 
+/* **The card, with the *enter* target inside it.** A card that shows a person's name and
+   then offers to rename it has to hold the button that does it, and a button cannot sit
+   inside a button — so the card is a wrapper and the big surface above the controls is
+   the button you enter with. `padding: 0` is what lets that button reach the card's own
+   edge, so the whole top of the card is the target, exactly as it was. */
 .profile-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 220px;
-  padding: 26px 18px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   background: var(--panel);
   color: inherit;
   font: inherit;
-  cursor: pointer;
+  cursor: default;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
+
+/* The way in: the avatar, the name and the line under it, one button filling the top. */
+.profile-tile-hit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 26px 18px 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+/* **No ring of its own.** The keyboard ring is drawn around the *card* (`:has` below),
+   not around the inner surface, so the highlight is not clipped inside the card. */
+.profile-tile-hit:focus-visible { outline: none; box-shadow: none; }
+.profile-tile:has(.profile-tile-hit:focus-visible) { box-shadow: var(--hl); }
+/* The card's own controls — Rename, under the name, inside the card. */
+.profile-card-tools { display: flex; justify-content: center; gap: 8px; padding: 0 18px 18px; }
+/* The card being renamed keeps its own padding: the field takes the name's place. */
+.profile-tile.editing { padding: 26px 18px; cursor: default; }
 
 .profile-tile:hover, .profile-tile:focus-visible {
   transform: translateY(-3px);
@@ -222,17 +250,15 @@ body {
 .profile-tile-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
 .profile-tile-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
 
-/* **A profile is the tile you enter with, and the two tools under it.** Renaming and
-   removing cannot live inside the tile — the tile *is* a button, and a button inside a
-   button is not a thing — so they sit under it, small and quiet, and the tile keeps the
-   whole of its own surface as the target. */
+/* **The tools under the card.** Rename lives inside the card now; what is left here is
+   the pencil (which opens the cross) and the cross itself — removing a profile is not
+   something to put a thumb next to somebody's name. */
 .profile-slot { display: flex; flex-direction: column; gap: 10px; width: 220px; }
 .profile-slot .profile-tile { width: 100%; }
-/* **The tools are for the tile you are editing.** Both marks used to stand under every
-   tile at all times, so a screen that asks *who is watching* also offered to delete each
-   of them. The rename mark is the way in — it stays — and the cross belongs to the edit. */
+/* **The tools are for the card whose pencil is open.** Both marks used to stand under
+   every card at all times, so a screen that asks *who is watching* also offered to
+   delete each of them. The pencil is the way in; the cross belongs to it. */
 .profile-tools { display: flex; justify-content: center; gap: 8px; }
-.profile-slot:not(.editing) .profile-tool.danger { display: none; }
 .profile-tool {
   display: grid;
   place-items: center;
@@ -269,8 +295,6 @@ body {
 }
 .profile-rename:hover, .profile-rename:focus-visible { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
 .profile-rename.save { background: linear-gradient(160deg, var(--accent), var(--accent-deep)); color: #14110a; }
-/* The cross belongs to the open pencil, the way it belongs to the edit. */
-.profile-slot:not(.editing) .profile-tools .profile-rename ~ .profile-tool.danger { display: grid; }
 .tool-mark { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* **The name is edited where it is read.** The tile keeps its shape; the field takes the
@@ -302,7 +326,7 @@ body {
 
 /* **The slot that is not a profile yet.** Dashed and quiet, so it reads as a place to
    put one rather than as somebody who already exists. */
-.profile-tile.add { border-style: dashed; border-color: rgba(255, 255, 255, 0.16); background: transparent; }
+.profile-tile.add { padding: 26px 18px; cursor: pointer; border-style: dashed; border-color: rgba(255, 255, 255, 0.16); background: transparent; }
 .profile-tile.add .avatar { background: rgba(255, 255, 255, 0.05); color: var(--muted); }
 .profile-tile.add:hover .avatar { color: var(--accent); }
 .plus-mark { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }

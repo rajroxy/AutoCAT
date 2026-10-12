@@ -67,3 +67,19 @@ addon/customrows.scope
 # the pre-scope file. Both are runtime state, and neither is source.
 addon/settings.*.json
 addon/settings.scope
+
+# **Every store is one file per profile now, not just the watchlist.** The saved sites,
+# the resolver and the general preferences follow the same shape, with the same marker
+# recording which profile inherited the pre-scope file — and the same one-time
+# `settings.split.<who>` marker, which records that a profile has been checked for a
+# copy of another profile's settings. All runtime state, none of it source.
+addon/custom-sites.*.json
+addon/repositories.*.json
+addon/dns-config.*.json
+addon/user-preferences.*.json
+addon/custom-sites.scope
+addon/repositories.scope
+addon/dns-config.scope
+addon/user-preferences.scope
+addon/settings.split.*
+.tmp/

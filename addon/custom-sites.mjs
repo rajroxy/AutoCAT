@@ -21,6 +21,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scopedFile } from "./scope.mjs";
 import { fetchStaticHTML } from "../scraper/tier1.js";
 import { renderJS } from "../scraper/tier2.js";
 import { browserSearch } from "../scraper/tier3.js";
@@ -29,8 +30,14 @@ import { extractStreams } from "../scraper/index.js";
 import { cookieHeader } from "../scraper/sessions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FILE = process.env.NUVIO_CUSTOM_SITES_FILE || path.join(__dirname, "custom-sites.json");
-const REPO_FILE = process.env.NUVIO_REPOSITORIES_FILE || path.join(__dirname, "repositories.json");
+const BASE_FILE = process.env.NUVIO_CUSTOM_SITES_FILE || path.join(__dirname, "custom-sites.json");
+const BASE_REPO_FILE = process.env.NUVIO_REPOSITORIES_FILE || path.join(__dirname, "repositories.json");
+
+/* **The sites a profile saved are that profile's.** They were one file for the machine, so
+   a site added while one profile was on was in every profile's pane and every profile's
+   search. The file is chosen from the profile the request is for — see `scope.mjs`. */
+const file = () => scopedFile(BASE_FILE, "custom-sites");
+const repoFile = () => scopedFile(BASE_REPO_FILE, "repositories");
 
 /**
  * **The tags a site can wear.** `Live TV` stands where `Anime` used to: a site that carries
@@ -54,10 +61,13 @@ const empty = () => Object.fromEntries(CATEGORY_KEYS.map((k) => [k, []]));
 /* ------------------------------------------------------------------- the stores */
 
 let store = null;
+let storeFile = "";
 function load() {
-  if (store) return store;
+  const f = file();
+  if (store && f === storeFile) return store;
+  storeFile = f;
   try {
-    const parsed = JSON.parse(fs.readFileSync(FILE, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(storeFile, "utf8"));
     const base = empty();
     for (const k of CATEGORY_KEYS) if (Array.isArray(parsed?.[k])) base[k] = parsed[k].filter((s) => s && s.url);
     store = base;
@@ -68,17 +78,20 @@ function load() {
 }
 const persist = () => {
   try {
-    fs.writeFileSync(FILE, JSON.stringify(load(), null, 2) + "\n");
+    fs.writeFileSync(storeFile, JSON.stringify(load(), null, 2) + "\n");
   } catch {
     /* read-only fs — the in-memory copy still applies for this run */
   }
 };
 
 let repos = null;
+let reposFile = "";
 function loadRepos() {
-  if (repos) return repos;
+  const f = repoFile();
+  if (repos && f === reposFile) return repos;
+  reposFile = f;
   try {
-    const parsed = JSON.parse(fs.readFileSync(REPO_FILE, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(reposFile, "utf8"));
     repos = { repositories: Array.isArray(parsed?.repositories) ? parsed.repositories : [] };
   } catch {
     repos = { repositories: [] };
@@ -87,7 +100,7 @@ function loadRepos() {
 }
 const persistRepos = () => {
   try {
-    fs.writeFileSync(REPO_FILE, JSON.stringify(loadRepos(), null, 2) + "\n");
+    fs.writeFileSync(reposFile, JSON.stringify(loadRepos(), null, 2) + "\n");
   } catch {
     /* read-only fs */
   }
