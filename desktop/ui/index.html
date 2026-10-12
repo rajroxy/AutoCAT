@@ -21,12 +21,15 @@
       // style.css), so an old choice cannot leave someone on a face the app no longer has.
       if (theme.motion === "off") root.classList.add("motion-off");
       if (theme.motion === "full") root.classList.add("motion-full");
+      // The glow is carried too: without it here the app painted its rings without the
+      // halo and grew it a frame later — the glow looked like it had not taken.
+      if (theme.glow === true) root.classList.add("glow-on");
     }
   } catch (e) { /* no stored theme yet: the default is the right answer */ }
 </script>
 <!-- `?v=` is the cache-buster: bump it whenever style.css or app.js changes, or
      browsers keep showing the old UI long after the server has moved on. -->
-<link rel="stylesheet" href="./style.css?v=20261012n">
+<link rel="stylesheet" href="./style.css?v=20261012p">
 </head>
 <body>
   <!-- Boot screen. It covers the app until the first screen is drawn, then fades
@@ -198,6 +201,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./app.js?v=20261012n"></script>
+  <script type="module" src="./app.js?v=20261012p"></script>
 </body>
 </html>

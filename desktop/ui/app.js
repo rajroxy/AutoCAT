@@ -188,6 +188,11 @@ const ACCENTS = [
   ["indigo", "Indigo", "122, 130, 236", "#7a82ec", "#4c53bd"],
   ["lime", "Lime", "166, 214, 90", "#a6d65a", "#769f2f"],
   ["ice", "Ice", "126, 208, 226", "#7ed0e2", "#4b9cb1"],
+  // **Two more ends.** A plum that sits between the violet and the magenta without being
+  // either, and a mint between the teal and the green — so the board has a colour for a
+  // screen the first fourteen do not.
+  ["plum", "Plum", "186, 130, 220", "#ba82dc", "#8a52b0"],
+  ["mint", "Mint", "84, 214, 160", "#54d6a0", "#2f9d73"],
 ];
 
 const accentOf = (id) => ACCENTS.find(([key]) => key === id) || ACCENTS[0];
@@ -1848,9 +1853,13 @@ function syncProfileMark() {
   const title = `${currentPerson().name} · ${state.profile} — switch profile`;
   button.title = title;
   button.setAttribute("aria-label", title);
-  if (button.dataset.mark === state.profile) return;
-  button.dataset.mark = state.profile;
-  const mark = avatarNode(state.profile);
+  // **A person, not a mode.** This corner drew the VOD/IPTV mark, which answers "which
+  // mode am I in?" — but the mode is already named on the tab bar and on the switch
+  // screen, and the corner is the *profile* control. It wears the profile mark again:
+  // one glyph that means "you are here", in both modes and on every screen.
+  if (button.dataset.mark === "person") return;
+  button.dataset.mark = "person";
+  const mark = avatarNode("");
   if (mark) button.replaceChildren(mark);
 }
 
@@ -7626,31 +7635,6 @@ function paneAi() {
       // middle of the provider keys was a setting in the wrong room.
       el("p", { class: "option-desc", text: "Pick a free provider and paste its API key. The key is stored on the server, never in the page, and the Ask box falls back to a plain search when no key is set." }),
       ...AI_PROVIDERS.map(([slug, label, signup, note]) => aiProviderRow(slug, label, signup, note)),
-      el("div", { class: "provider" },
-        el("span", { class: "option-title", text: "Model" }),
-        el("p", { class: "option-desc", text: "Auto, or a name the provider serves. This box is for a model that is not in the picker above — a brand-new name, or one from your own account." }),
-        el("div", { class: "source-form" },
-          el("input", {
-            class: "text-input focusable",
-            type: "text",
-            id: "ai-model",
-            value: state.ai.model || "",
-            placeholder: "Model (optional)",
-          }),
-          el("button", {
-            class: "btn primary focusable",
-            type: "button",
-            text: "Save model",
-            onclick: async (e) => {
-              const value = e.target.closest(".provider").querySelector("#ai-model").value.trim();
-              state.ai.model = value;
-              writeJSON(KEY.ai, state.ai);
-              await pushSettings({ ai: { model: value } });
-              render();
-            },
-          }),
-        ),
-      ),
     ] : null,
   ];
 }
@@ -7727,7 +7711,7 @@ function applyTheme() {
   // the first paint**. Without it the app painted its default gold and then
   // re-tinted a frame later — the "golden accent on boot" flash.
   try {
-    localStorage.setItem(KEY.theme, JSON.stringify({ base, rgb, deep, motion: state.motion }));
+    localStorage.setItem(KEY.theme, JSON.stringify({ base, rgb, deep, motion: state.motion, glow: state.glow === true }));
   } catch {
     /* private mode — the app still tints, it just flashes on the next boot */
   }
@@ -7765,7 +7749,6 @@ function paneAppearance() {
           ),
         ),
       ),
-      el("div", { class: "provider-check" }, el("span", { class: "source-status", text: `Accent: ${accentOf(state.accent)[1]}` })),
     ),
     // **The ring is the highlight; the glow is optional.** The ring is what says "this
     // one", and it is always drawn. The halo around it is a look rather than information,
