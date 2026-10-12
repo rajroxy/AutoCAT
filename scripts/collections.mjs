@@ -745,7 +745,10 @@ const buildCollections = (code = "") => {
     key: "discover-top-10",
     lines: ["Discover", "Plus"],
     scene: "spotlight-top-10",
-    catalogs: both(discoverPlusRow(TOP25)),
+    // **The two Discover cards' catalogs are the other way round.** The verified orders
+    // (Latest / Newest / Trending / Popular / Top Rated) read on the Plus card and the
+    // verdicts (Acclaimed, Hidden Gems, Cult Classics) on the plain one.
+    catalogs: both(discoverRow()),
   },
   {
     key: "on-the-board",
@@ -804,7 +807,7 @@ const buildCollections = (code = "") => {
     key: "discover",
     lines: ["Discover"],
     scene: "discover",
-    catalogs: both(discoverRow()),
+    catalogs: both(discoverPlusRow(TOP25)),
   },
   {
     key: "popular-by-genre",

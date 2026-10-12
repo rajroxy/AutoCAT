@@ -198,6 +198,41 @@ const ACCENTS = [
 const accentOf = (id) => ACCENTS.find(([key]) => key === id) || ACCENTS[0];
 
 /**
+ * **The marks a profile can wear.**
+ *
+ * Six drawn glyphs — nothing downloaded, so every one works with no network — and the
+ * choice is stored per profile (`state.people[].avatar`). The two mode marks (VOD and
+ * IPTV) are deliberately not in here: a mode is a way of watching, and it keeps its own
+ * mark on the mode screen.
+ */
+const AVATARS = ["person", "star", "heart", "bolt", "moon", "cat"];
+
+/** One avatar mark, by name. */
+function avatarMark(kind) {
+  const svg = (...paths) => svgNode("svg", { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" }, ...paths);
+  switch (kind) {
+    case "star":
+      return svg(svgNode("path", { d: "M24 7l4.8 10.9 11.7 1.2-8.8 7.9 2.5 11.6L24 32.7 13.8 38.6l2.5-11.6-8.8-7.9 11.7-1.2z" }));
+    case "heart":
+      return svg(svgNode("path", { d: "M24 41S7.5 30.5 7.5 20.2A8.6 8.6 0 0 1 24 15.8a8.6 8.6 0 0 1 16.5 4.4C40.5 30.5 24 41 24 41z" }));
+    case "bolt":
+      return svg(svgNode("path", { d: "M27.5 5L11 28.5h9.5L18.5 43 35 19.5h-9.5z" }));
+    case "moon":
+      return svg(svgNode("path", { d: "M31 6a17 17 0 1 0 9.5 13.5A13 13 0 0 1 31 6z" }));
+    case "cat":
+      return svg(
+        svgNode("path", { d: "M12.5 17.5L14.5 8l7 4.2a15 15 0 0 1 5 0l7-4.2 2 9.5a12.5 12.5 0 0 1 0 14 13.5 13.5 0 0 1-23 0z" }),
+        svgNode("path", { d: "M18.5 25h.01M29.5 25h.01" }),
+      );
+    default:
+      return svg(svgNode("circle", { cx: "24", cy: "17", r: "7.5" }), svgNode("path", { d: "M10 40c0-7.5 6.3-12 14-12s14 4.5 14 12" }));
+  }
+}
+
+/** The mark a stored profile wears: its own avatar, or the plain profile mark. */
+const personMark = (person) => avatarMark(person?.avatar || "person");
+
+/**
  * The typefaces Settings offers.
  *
  * Every one is a **stack, not a download**: the app has to work with no network and no
@@ -1888,7 +1923,11 @@ function signInCard() {
   // What this machine remembers. It is what makes the card useful before anything is
   // typed: the name is filled in, and the button says whose session it would resume.
   const local = account.local || null;
-  const live = providers.filter((p) => p.configured);
+  // **The one provider button this card draws, keys or no keys.** GitHub is the sign-in
+  // this app offers; it used to be drawn only once its own app ID and secret had been
+  // pasted, so on a fresh install the normal way in was invisible and this machine's name
+  // read as the app's account system.
+  const github = providers.find((p) => p.key === "github") || { key: "github", label: "GitHub", configured: false };
   // A provider's refusal comes back on the hash (`#/settings?signin_error=…`); this
   // app's own comes back on the state, so it survives the redraw that shows it.
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
@@ -1991,37 +2030,41 @@ function signInCard() {
         el("span", {
           class: "option-desc",
           text: local
-            ? `This machine remembers ${local.name}. Continue as them, or type another name.`
-            : "A name is the whole account, and it stays on this machine — no password, and nothing sent anywhere.",
+            ? `Sign in with GitHub, or continue as ${local.name} — the name on this machine.`
+            : "Sign in with GitHub, or give this machine a name — no password, and nothing sent anywhere.",
         }),
       ),
     ),
     said ? el("p", { class: "signin-said", text: said }) : null,
-    // **The providers lead, this machine's account follows.** Google and GitHub are the
-    // accounts that belong to *you* — a list, a history, an avatar that is not a letter —
-    // and this machine's own name is the one that works when they are not set up. So the
-    // buttons come first and the name comes under a rule, where it reads as the fallback
-    // it is rather than as the app's own account system.
-    live.length
-      ? el(
-          "div",
-          { class: "account-row account-buttons" },
-          ...live.map((p) =>
-            el("button", {
-              class: "btn focusable",
-              type: "button",
-              id: `sign-in-${p.key}`,
-              text: `Sign in with ${p.label}`,
-              // **A plain navigation, not a fetch.** The provider's page is a different
-              // origin and the handshake has to happen in the address bar: this page
-              // leaves, the provider comes back to `/auth/<provider>/callback`, and the
-              // server returns here with a cookie set.
-              onclick: () => { location.href = `/auth/${p.key}/start?next=${encodeURIComponent("/app/#/settings")}`; },
-            }),
-          ),
-        )
-      : null,
-    live.length ? el("div", { class: "h-divider", "aria-hidden": "true" }) : null,
+    // **GitHub leads, then this machine's own name.** The provider button comes first
+    // because it is the account that is actually yours — a list, a history, a face — and
+    // the name under the rule is the way in that works before any keys exist. Google is
+    // not offered here: one provider ahead of the local option is what this pane is for,
+    // and GitHub is it.
+    el("div", { class: "account-row account-buttons" },
+      el("button", {
+        class: "btn primary focusable",
+        type: "button",
+        id: "sign-in-github",
+        text: "Sign in with GitHub",
+        title: "Sign in with your GitHub account",
+        onclick: () => {
+          if (github.configured) {
+            // **A plain navigation, not a fetch.** The provider's page is a different
+            // origin, so the handshake has to happen in the address bar.
+            location.href = `/auth/github/start?next=${encodeURIComponent("/app/#/settings")}`;
+            return;
+          }
+          const note = document.getElementById("github-note");
+          if (note) {
+            note.hidden = false;
+            note.textContent = "GitHub sign-in needs its app keys: paste the GitHub app ID and app secret below, and this button starts the handshake.";
+          }
+        },
+      }),
+    ),
+    el("p", { class: "source-status bad", id: "github-note", hidden: true }),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
     el("div", { class: "account-row account-buttons" }, nameField, emailField, continueBtn),
     local
       ? el("button", {
@@ -2033,12 +2076,6 @@ function signInCard() {
           onclick: forgetAccount,
         })
       : null,
-    live.length
-      ? null
-      : el("p", {
-          class: "option-desc",
-          text: "Google and GitHub appear here as well — switch one on in Settings → Sign in and paste the two values its app gives you.",
-        }),
   );
 }
 
@@ -2112,30 +2149,15 @@ function renderPeople() {
       { class: "profiles" },
       el("p", { class: "hero-kicker", text: "Profiles" }),
       el("h1", { class: "view-title", text: "Who is watching?" }),
-      el("p", { class: "view-hint", text: "Pick a profile to start. How you want to watch comes next." }),
+      el("p", { class: "view-hint", text: "Pick a profile to start. How you want to watch comes next. Names and marks are under Settings → Profile." }),
       el(
         "div",
         { class: "profile-grid" },
-        ...people.map((person) => personSlot(person, person.id === current.id, renaming === person.id, people.length)),
-        // **The slot that is not a profile yet.** Drawn dashed and named for what it
-        // does, so adding a profile is on the screen rather than hidden in Settings.
-        el(
-          "div",
-          { class: "profile-slot" },
-          el(
-            "button",
-            {
-              class: "profile-tile focusable add",
-              type: "button",
-              id: "profile-add",
-              title: "Add a profile",
-              onclick: addPerson,
-            },
-            el("span", { class: "avatar", "aria-hidden": "true" }, plusMark()),
-            el("span", { class: "profile-tile-name", text: "Add profile" }),
-            el("span", { class: "profile-tile-sub", text: "a new name and mark" }),
-          ),
-        ),
+        // **The boot screen only picks.** Adding, renaming and removing are settings, so
+        // the grid is a list of ways in — no dashed "Add profile" slot, no rename and
+        // delete axes floating under the tiles. Everything you can change about a profile
+        // is in Settings → Profile.
+        ...people.map((person) => personSlot(person, person.id === current.id)),
       ),
     ),
   ];
@@ -2146,78 +2168,15 @@ const plusMark = () =>
   svgNode("svg", { class: "plus-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
     svgNode("path", { d: "M24 13v22M13 24h22" }));
 
-/** One profile on the picker: the tile you enter with, and the two tools under it. */
-function personSlot(person, active, editing, count) {
-  const tools = el(
-    "div",
-    { class: "profile-tools" },
-    el(
-      "button",
-      {
-        class: "profile-tool focusable",
-        type: "button",
-        title: `Rename ${person.name}`,
-        "aria-label": `Rename ${person.name}`,
-        onclick: () => { state.renaming = person.id; render(); },
-      },
-      svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-        svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
-        svgNode("path", { d: "M14.5 5.5l4 4" }),
-      ),
-    ),
-    count > 1
-      ? el(
-          "button",
-          {
-            class: "profile-tool danger focusable",
-            type: "button",
-            title: `Remove ${person.name}`,
-            "aria-label": `Remove ${person.name}`,
-            onclick: () => removePerson(person.id),
-          },
-          svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-            svgNode("path", { d: "M6 6l12 12M18 6L6 18" }),
-          ),
-        )
-      : null,
-  );
-  if (editing) {
-    const field = el("input", {
-      class: "profile-name-field",
-      type: "text",
-      maxlength: "24",
-      value: person.name,
-      "aria-label": `Name for ${person.name}`,
-    });
-    const commit = () => renamePerson(person.id, field.value);
-    field.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); commit(); }
-      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; render(); }
-    });
-    queueMicrotask(() => field.focus());
-    return el(
-      "div",
-      { class: "profile-slot editing" },
-      el(
-        "div",
-        { class: "profile-tile active" },
-        el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
-        field,
-        el(
-          "div",
-          { class: "profile-rename-actions" },
-          el("button", { class: "btn focusable", type: "button", text: "Save", onclick: commit }),
-          el("button", {
-            class: "btn subtle focusable",
-            type: "button",
-            text: "Cancel",
-            onclick: () => { state.renaming = ""; render(); },
-          }),
-        ),
-      ),
-      tools,
-    );
-  }
+/**
+ * One profile on the picker: the tile you enter with.
+ *
+ * The rename and remove axes used to hang under every tile here, and a dashed "Add
+ * profile" sat at the end of the grid — a screen whose whole job is "pick one" carrying
+ * four ways to change the list. All of that is Settings → Profile now, so this is the
+ * tile: the person's own mark, their name, and what pressing it does.
+ */
+function personSlot(person, active) {
   return el(
     "div",
     { class: `profile-slot${active ? " active" : ""}` },
@@ -2229,11 +2188,10 @@ function personSlot(person, active, editing, count) {
         "aria-current": active ? "true" : false,
         onclick: () => choosePerson(person.id),
       },
-      el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
+      el("span", { class: "avatar", "aria-hidden": "true" }, personMark(person)),
       el("span", { class: "profile-tile-name", text: person.name }),
       el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
     ),
-    tools,
   );
 }
 
@@ -5680,54 +5638,69 @@ async function renderList(kind, id, type, extra = "") {
   if (kind === "season") return renderSeason(id, extra);
   const media = type === "series" ? "series" : "movie";
   const heading = { person: "Credits", company: "From this studio", network: "On this network", genre: "In this genre", keyword: "With this tag", season: "Episodes", collection: "In this franchise" }[kind] || "Titles";
+  // **A person, a studio and a network show everything at once.** These three screens put
+  // half their answer behind a Movies / Shows toggle: a director's films and their series
+  // were two screens, and a network's films and its shows were two more. They read both
+  // rows into one grid now — the head counts each — and the toggle is gone from them. The
+  // genre and keyword screens keep it: there, the type really is the question.
+  const BOTH = kind === "person" || kind === "company" || kind === "network";
+  const kinds = BOTH ? ["movie", "series"] : [media];
 
   // **The list keeps going.** These screens used to draw whatever one TMDB discover
   // page held — twenty titles — and stop, which is the "cap" on a network's or a
   // studio's titles. The server pages its discover lists now, so this reads the next
   // page when you reach the end instead of pretending that was the whole list.
   const grid = el("div", { class: "grid-titles" });
-  const count = el("h2", { class: "view-title", text: `Loading ${media === "movie" ? "films" : "shows"}…` });
+  const count = el("h2", { class: "view-title", text: `Loading ${BOTH ? "films and shows" : media === "movie" ? "films" : "shows"}…` });
   const more = el("button", { class: "btn subtle focusable", type: "button", text: "Load more", id: "list-more" });
   const foot = el("div", { class: "cat-tools" }, more);
-  let page = 1;
-  let hasMore = true;
-  let busy = false;
   const seen = new Set();
-  const path = (n) => `/list/${kind}/${encodeURIComponent(id)}${extra ? `/${encodeURIComponent(extra)}` : ""}.json${listQuery(media)}${n > 1 ? `&page=${n}` : ""}`;
+  // One pager per row type, so "Load more" continues both without one of them stalling
+  // the other.
+  const each = Object.fromEntries(kinds.map((k) => [k, { page: 1, hasMore: true, busy: false }]));
+  const noun = (k, n) => `${n} ${k === "movie" ? "film" : "show"}${n === 1 ? "" : "s"}`;
+  const tally = () => {
+    if (!BOTH) return noun(media, seen.size);
+    const per = kinds.map((k) => [...seen].filter((key) => key.startsWith(`${k}:`)).length);
+    return kinds.map((k, i) => noun(k, per[i])).join(" · ");
+  };
+  const path = (k, n) => `/list/${kind}/${encodeURIComponent(id)}${extra ? `/${encodeURIComponent(extra)}` : ""}.json${listQuery(k)}${n > 1 ? `&page=${n}` : ""}`;
 
-  const load = async () => {
-    if (busy || !hasMore) return;
-    busy = true;
+  const load = async (k) => {
+    const box = each[k];
+    if (!box || box.busy || !box.hasMore) return;
+    box.busy = true;
     try {
-      const data = await get(path(page));
-      hasMore = Boolean(data.more);
-      page += 1;
+      const data = await get(path(k, box.page));
+      box.hasMore = Boolean(data.more);
+      box.page += 1;
       for (const m of data.metas || []) {
-        const key = `${m.type}:${m.id}`;
+        const t = m.type || k;
+        const key = `${t}:${m.id}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        grid.append(posterCard(m, { caption: false }));
+        grid.append(posterCard({ ...m, type: t }, { caption: false }));
       }
-      count.textContent = `${seen.size} ${media === "movie" ? "films" : "shows"}`;
-      foot.hidden = !hasMore;
-      if (!seen.size) grid.append(el("p", { class: "empty", text: "Nothing here for this row." }));
+      count.textContent = tally();
+      foot.hidden = !kinds.some((x) => each[x].hasMore);
     } catch (err) {
-      hasMore = false;
-      foot.hidden = true;
+      box.hasMore = false;
+      foot.hidden = !kinds.some((x) => each[x].hasMore);
       if (!seen.size) grid.append(el("p", { class: "empty", text: `Could not load this list — ${err.message}` }));
     } finally {
-      busy = false;
+      box.busy = false;
     }
   };
-  more.addEventListener("click", load);
-  await load();
+  more.addEventListener("click", () => kinds.forEach(load));
+  await Promise.all(kinds.map(load));
+  if (!seen.size) grid.append(el("p", { class: "empty", text: "Nothing here for this row." }));
   // **The list keeps loading as you reach the end.** A *Load more* button at the foot
   // makes the first page look like a ceiling — the reported "20 cap" — so the foot is
   // watched and the next page is read as it comes into view. The button stays as a
   // manual fallback for a page with no `IntersectionObserver`.
   if (typeof IntersectionObserver === "function") {
     const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) load();
+      if (entries.some((e) => e.isIntersecting)) for (const k of kinds) load(k);
     }, { rootMargin: "700px" });
     io.observe(foot);
   }
@@ -5738,16 +5711,20 @@ async function renderList(kind, id, type, extra = "") {
         el("p", { class: "hero-kicker", text: heading }),
         count,
       ),
-      el("div", { class: "row-switch" },
-        ...[['movie', 'Movies'], ['series', 'Shows']].map(([value, label]) =>
-          el("button", {
-            class: `row-btn focusable${media === value ? " active" : ""}`,
-            type: "button",
-            text: label,
-            onclick: () => go(`#/l/${kind}/${encodeURIComponent(id)}?type=${value}`),
-          })
-        ),
-      ),
+      // **No toggle where the answer is both.** A person's credits, a studio's films and a
+      // network's shows are one list on these screens, so there is no type to switch.
+      BOTH
+        ? null
+        : el("div", { class: "row-switch" },
+            ...[['movie', 'Movies'], ['series', 'Shows']].map(([value, label]) =>
+              el("button", {
+                class: `row-btn focusable${media === value ? " active" : ""}`,
+                type: "button",
+                text: label,
+                onclick: () => go(`#/l/${kind}/${encodeURIComponent(id)}?type=${value}`),
+              })
+            ),
+          ),
     ),
     grid,
     foot,
@@ -6994,6 +6971,9 @@ function visRow(checked, level, id, title, desc, depth = 0) {
  * profile pane says so — see the note at the foot of the pane.
  */
 function paneSignin() {
+  // **The way in lives in the Sign in pane.** The account card was in Settings → Profile,
+  // under the mode it belonged to; the pane actually named for signing in showed only the
+  // app keys, so the buttons that sign you in were in a different room from their name.
   const rows = [
     [
       "google", "Google", "https://console.cloud.google.com/apis/credentials",
@@ -7006,9 +6986,10 @@ function paneSignin() {
   ];
 
   return [
+    signInCard(),
     el("p", {
       class: "option-desc",
-      text: "Google and GitHub sign-in, each behind one switch. Turn one on and paste the two values its app gives you; a Sign in with that provider button then appears on the account card in Settings → Profile, and signing in comes straight back here.",
+      text: "The GitHub sign-in above works once its app keys are pasted here. Google is kept for a config that already has it; GitHub is the one the account card offers.",
     }),
     ...rows.map(([slug, label, consoleUrl, note]) => {
       const held = state.signin[slug] || (state.signin[slug] = { enabled: false, clientId: "", hasSecret: false });
@@ -7183,10 +7164,109 @@ function paneProfile() {
         ? "Switch off anything this profile should not show, then press Done. Off by default: with the editor closed, everything shows and nothing is hidden."
         : "This is the profile the app is using. Open the profile icon in the top bar to switch; press Edit to choose which rows, cards and catalogs this profile shows.",
     }),
-    // **The mode, then the account.** Settings → Profile is where a person looks for
-    // "who am I signed in as", so the sign-in card sits directly under the mode it belongs
-    // to, inside the same grid as everything else on this pane.
-    signInCard(),
+    // **Who you are, then how you watch.** The name and the mark come first — they are
+    // the profile itself — and the two modes are chosen under them. Adding, renaming and
+    // removing profiles lives here too: the picker you meet at boot is a picker, and
+    // everything you can *change* about a profile is a setting.
+    (() => {
+      const me = currentPerson();
+      const nameField = el("input", {
+        class: "text-input focusable",
+        type: "text",
+        id: "profile-name",
+        maxlength: "24",
+        value: me.name,
+        placeholder: "Profile name",
+        "aria-label": "Profile name",
+      });
+      const commit = () => renamePerson(me.id, nameField.value);
+      nameField.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); commit(); }
+      });
+      return el("div", { class: "provider" },
+        el("span", { class: "option-title", text: "Profile name" }),
+        el("div", { class: "source-form" }, nameField,
+          el("button", { class: "btn primary focusable", type: "button", text: "Rename", onclick: commit }),
+        ),
+      );
+    })(),
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Avatar" }),
+      el("div", { class: "avatar-grid" },
+        ...AVATARS.map((kind) => {
+          const me = currentPerson();
+          const on = (me.avatar || "person") === kind;
+          return el("button", {
+            class: `avatar-pick focusable${on ? " active" : ""}`,
+            type: "button",
+            id: `avatar-${kind}`,
+            title: kind,
+            "aria-label": `Use the ${kind} mark`,
+            "aria-pressed": String(on),
+            onclick: () => {
+              savePeople(profileList().map((p) => (p.id === me.id ? { ...p, avatar: kind } : p)));
+              render();
+            },
+          }, avatarMark(kind));
+        }),
+      ),
+    ),
+    // **How you watch, under who you are.** The two modes are this profile's own, so the
+    // picker sits in the same pane as the name it belongs to.
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "How you watch" }),
+      el("div", { class: "mode-grid" },
+        ...PROFILES.map((name) => el("button", {
+          class: `profile-tile focusable${name === state.profile ? " active" : ""}`,
+          type: "button",
+          "aria-current": name === state.profile ? "true" : false,
+          onclick: () => chooseProfile(name),
+        },
+          el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(name)),
+          el("span", { class: "profile-tile-name", text: name }),
+          el("span", { class: "profile-tile-sub", text: name === state.profile ? "current mode" : "switch to this mode" }),
+        )),
+      ),
+    ),
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Profiles" }),
+      ...profileList().map((p) => {
+        if (state.renaming === p.id) {
+          const field = el("input", {
+            class: "text-input focusable",
+            type: "text",
+            maxlength: "24",
+            value: p.name,
+            "aria-label": `Name for ${p.name}`,
+          });
+          const commit = () => renamePerson(p.id, field.value);
+          field.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") { e.preventDefault(); commit(); }
+            if (e.key === "Escape") { e.preventDefault(); state.renaming = ""; render(); }
+          });
+          queueMicrotask(() => field.focus());
+          return el("div", { class: "account-row" }, field,
+            el("button", { class: "btn primary focusable", type: "button", text: "Save", onclick: commit }),
+            el("button", { class: "btn subtle focusable", type: "button", text: "Cancel", onclick: () => { state.renaming = ""; render(); } }),
+          );
+        }
+        return el("div", { class: "account-row" },
+          el("span", { class: "avatar small", "aria-hidden": "true" }, personMark(p)),
+          el("div", { class: "account-body" },
+            el("span", { class: "option-title", text: p.name }),
+            el("span", { class: "option-desc", text: p.id === state.who ? "Current profile" : "Another profile" }),
+          ),
+          p.id !== state.who
+            ? el("button", { class: "btn subtle focusable", type: "button", text: "Switch", onclick: () => choosePerson(p.id) })
+            : null,
+          el("button", { class: "btn subtle focusable", type: "button", text: "Rename", onclick: () => { state.renaming = p.id; render(); } }),
+          profileList().length > 1
+            ? el("button", { class: "btn subtle focusable", type: "button", text: "Remove", onclick: () => removePerson(p.id) })
+            : null,
+        );
+      }),
+      el("button", { class: "btn focusable", type: "button", id: "profile-add", text: "Add profile", onclick: addPerson }),
+    ),
 
     editing ? el("div", { class: "vis-editor" },
       el("section", { class: "vis-section" },
@@ -7220,9 +7300,32 @@ function visCard(card, v) {
   const rows = rowOf(card).catalogs;
   const shownRows = rows.filter((cat) => v.catalogs[cat.id] !== false).length;
   const shown = v.cards[card.key] !== false;
-  return el("div", { class: `vis-card${shown ? "" : " off"}` },
-    visRow(shown, "card", card.key, titleOf(card), rows.length ? `${shownRows} of ${rows.length} catalog rows on` : "No catalog rows yet"),
-    rows.length
+  // **A card that is off has no rows to pick.** Its catalog rows are not drawn at all —
+  // switching Movies off and still being shown a hundred movie rows to switch off one by
+  // one is the editor arguing with itself. And every card folds: the rows sit behind its
+  // own head, so a board of twenty cards can be read a card at a time.
+  const open = shown && (state.openCards || {})[card.key] !== false;
+  return el("div", { class: `vis-card${shown ? "" : " off"}${open ? " open" : ""}` },
+    el("div", { class: "vis-card-head" },
+      visRow(shown, "card", card.key, titleOf(card), rows.length ? `${shownRows} of ${rows.length} catalog rows on` : "No catalog rows yet"),
+      rows.length
+        ? el("button", {
+            class: "vis-fold focusable",
+            type: "button",
+            "aria-expanded": String(open),
+            "aria-label": `${open ? "Fold" : "Show"} the catalog rows of ${titleOf(card)}`,
+            title: open ? "Fold its catalog rows away" : "Show its catalog rows",
+            text: open ? "▾" : "▸",
+            onclick: (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              state.openCards = { ...(state.openCards || {}), [card.key]: !open };
+              render();
+            },
+          })
+        : null,
+    ),
+    open
       ? el("div", { class: "vis-card-rows" },
           ...rows.map((cat) => visRow(v.catalogs[cat.id] !== false, "catalog", cat.id, cat.name, "", 1)),
         )
