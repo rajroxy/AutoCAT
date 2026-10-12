@@ -580,6 +580,18 @@ const TOP10 = 10;
 // cover's filename (see the card's own entry for the name and its rows).
 const TOP25 = 25;
 const both = (list) => ({ movie: list, show: list.map((e) => ({ ...e })) });
+/**
+ * The Upcoming card's rows for one row type: the worldwide list first, then one per
+ * country the Countries card publishes, each in arrival order from today forward.
+ *
+ * The first row is what the card's own **spotlight** frame reads (see `startSpotlight`),
+ * so it is the worldwide one — "what is next", not "what is next in Japan".
+ */
+const UPCOMING_ROWS = (type) => [
+  curated("Upcoming", { sort_by: "date.asc", future: 180 }),
+  ...countriesFor(type).map(([name, code]) =>
+    curated(`Upcoming in ${name}`, { with_origin_country: code, sort_by: "date.asc", future: 120 })),
+];
 const forBoth = (build) => ({ movie: build(MOVIE_GENRES), show: build(SHOW_GENRES) });
 
 /**
@@ -793,15 +805,19 @@ const buildCollections = (code = "") => {
     // out next in Tokyo, Seoul, Mumbai or Lagos was nowhere on it. Each row below is one
     // of the big film industries read in **release-date order from today forward**, which
     // is what "upcoming" means, so the nearest arrival is the first thing on it.
-    catalogs: both([
-      preset("Upcoming", "upcoming"),
-      curated("Upcoming in Japan", { with_origin_country: "JP", sort_by: "date.asc", future: 120 }),
-      curated("Upcoming in Korea", { with_origin_country: "KR", sort_by: "date.asc", future: 120 }),
-      curated("Upcoming in India", { with_origin_country: "IN", sort_by: "date.asc", future: 120 }),
-      curated("Upcoming in France", { with_origin_country: "FR", sort_by: "date.asc", future: 120 }),
-      curated("Upcoming in Nigeria", { with_origin_country: "NG", sort_by: "date.asc", future: 120 }),
-      curated("Upcoming in China", { with_origin_country: "CN", sort_by: "date.asc", future: 120 }),
-    ]),
+    // **Every country the Countries card publishes, in arrival order.** This was six
+    // hand-written rows (Japan, Korea, India, France, Nigeria, China), so what was out
+    // next in Seoul or Lagos was on the card and what was out next in Istanbul, Warsaw or
+    // Manila was nowhere — the same "not just Hollywood" argument the Countries card is
+    // built on, applied to what is coming rather than to what exists. The list is
+    // `countriesFor`, the one function the Countries card, the search chips and the
+    // continent rows all read, so the two cards can never disagree about which countries
+    // there are. `date.asc` + `future` is the row's own shorthand: nearest arrival first,
+    // from today to four months out, on the right date field for each row type.
+    catalogs: {
+      movie: UPCOMING_ROWS("movie"),
+      show: UPCOMING_ROWS("show"),
+    },
   },
   {
     key: "discover",

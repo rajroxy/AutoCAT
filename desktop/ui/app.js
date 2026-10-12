@@ -286,7 +286,6 @@ const SPEEDS = [
 ];
 
 const MOTIONS = [
-  ["auto", "Follow system", "Animate, unless this device asks for reduced motion."],
   ["full", "Always animate", "Smooth view transitions and hover motion, whatever the system prefers."],
   ["off", "No animation", "Nothing moves — for slow devices and for people who do not want it."],
 ];
@@ -656,7 +655,10 @@ const state = {
   // The Library row currently being renamed, if any — see `paneCustomRows`.
   customRowEdit: "",
   accent: localStorage.getItem(KEY.accent) || "gold",
-  motion: localStorage.getItem(KEY.motion) || "auto",
+  // **Two choices, not three.** "Follow system" was the third and it is gone from the
+  // pane, so a machine that still has it stored resolves to Always animate — which is
+  // what it was already doing everywhere except a device asking for reduced motion.
+  motion: localStorage.getItem(KEY.motion) === "off" ? "off" : "full",
   // The face the app is set in — Inter, or the condensed cut of it.
   font: localStorage.getItem(KEY.font) || "inter",
   // **A glow around the highlight** (Settings → Accent). The ring itself is always
@@ -1524,9 +1526,22 @@ async function fillStrip(strip, catalog) {
         // The end of a row is always said; an empty watchlist row is not (see
         // `emptyRowText`), so there the strip simply stays empty.
         const said = skip ? "End of catalog." : emptyRowText(catalog);
-        // A page that was entirely titles you are watching is not "end of catalog" —
-        // the row simply has nothing left to draw on this screen.
-        if (said && raw.length === 0) strip.append(el("p", { class: skip ? "empty strip-end" : "empty", text: said }));
+        // **A row that came back with nothing is not drawn.** It used to stand there
+        // under its title with one grey line in it — on a card with many rows (the OTT
+        // cards, the Upcoming card) that was a screen of empty shelves, and a title over
+        // nothing reads as a broken app rather than as "this service has nothing here".
+        // The whole row goes, title, Explore button and all. Your own rows (the Library,
+        // the Watchlist) are always drawn: an empty row you filled yourself is a row you
+        // are about to fill, not a catalog that failed to answer.
+        if (!skip && said) {
+          const row = strip.closest(".cat-row");
+          if (row) row.remove();
+          // A strip that is on a page of its own (the collection's first row) has no
+          // `.cat-row` above it, so there the line is still the honest answer.
+          else strip.append(el("p", { class: "empty", text: said }));
+        } else if (said) {
+          strip.append(el("p", { class: "empty strip-end", text: said }));
+        }
         return;
       }
       for (const m of metas) strip.append(posterCard(m, { watch: catalog.kind === "watchlist" }));
@@ -2234,18 +2249,21 @@ function openGithubSignIn() {
     el("div", { class: "assistant-card" },
       el("p", { class: "assistant-kicker", text: "Sign in" }),
       el("h2", { class: "assistant-title", text: "GitHub" }),
-      el("p", { class: "option-desc", text: github.configured
-        ? "GitHub asks you to approve Nuvio, then hands you back here signed in. Nothing is stored but your name, your address and your picture."
-        : "GitHub signs people in through an application registered on your own GitHub account, and only you can register it. It takes one minute, once — after that this button is a normal sign-in." }),
+      el("p", { class: "pane-note", text: github.configured
+        ? "GitHub's own page opens — you sign in there with your GitHub name and password, exactly as you would anywhere, and press Authorize. That page is GitHub's; this app never sees the password, and what comes back is only your name, your address and your picture."
+        : "Every app that offers \"Sign in with GitHub\" has one GitHub application registered once, in its own name — that is the only way GitHub signs anyone in, and no app can skip it. Here you are the app's owner, so that one registration is yours: the form is already filled in, and it takes a minute. After that this is a plain Sign in with GitHub — GitHub's own page, your own name and password." }),
+      el("p", { class: "pane-note", text: github.configured
+        ? ""
+        : "The Client ID and the secret are the app's identity badge, not yours. They are not your login and they cannot sign anyone in on their own — they are what tells GitHub which app is asking." }),
       github.configured
         ? el("div", { class: "account-row account-buttons" },
             el("button", { class: "btn primary focusable", type: "button", id: "github-continue", text: "Continue to GitHub", onclick: go }),
             el("button", { class: "btn subtle focusable", type: "button", id: "github-same-tab", text: "Or open it in this tab", onclick: () => { location.href = start; } }),
           )
         : el("div", { class: "github-setup" },
-            el("p", { class: "option-desc", text: "1. GitHub fills this form in for you — press Register application at the bottom of it." }),
+            el("p", { class: "pane-note", text: "1. GitHub fills this form in for you — press Register application at the bottom of it." }),
             el("a", { class: "btn subtle focusable", id: "github-register", href: registerUrl, target: "_blank", rel: "noreferrer noopener", text: "Open GitHub's registration form" }),
-            el("p", { class: "option-desc", text: "2. Copy the two values it gives you here. The callback is already in the form." }),
+            el("p", { class: "pane-note", text: "2. Copy the two values it gives you here. The callback is already in the form." }),
             el("div", { class: "signin-redirect" },
               el("span", { class: "signin-redirect-label", text: "Callback" }),
               el("span", { class: "signin-redirect-value", id: "github-redirect", text: redirect }),
@@ -2991,6 +3009,14 @@ const heroCandidates = () => state.collections.filter((c) => cardVisible(c) && r
 
 /** The card the banner shows — one pick at launch, a new one every ten seconds. */
 function heroCard() {
+  // **The banner's card is the card its picture came from.** The labels were picked at
+  // random while the shot came from whichever card owns the Now Playing row, so the two
+  // could be different cards — and on a card whose cover is a board of names (Countries,
+  // Genres, Runtimes) the banner read as *that* card with a film's still under it. The
+  // card that owns the row is the one whose name, tags and cover belong above the shot;
+  // the random pick is only a fallback for a build with no Now Playing row at all.
+  const src = heroSource();
+  if (src?.card) { heroKey = src.card.key; return src.card; }
   const cards = heroCandidates();
   if (!cards.length) return null;
   const hit = cards.find((c) => c.key === heroKey);
@@ -4760,6 +4786,13 @@ function renderVodCalendar() {
    * appears only once you have used it is a section you cannot find on the first visit.
    */
   function drawPlans() {
+    // **A day that is open takes the screen; the plans come back when it closes.** With
+    // a release list under the grid, the plans below it were a second, older list the eye
+    // had to step past — and the day you just opened is what you are looking at. Close the
+    // day and they are there again, unchanged.
+    const open = Boolean(state.calendar.day);
+    plans.hidden = open;
+    if (open) return;
     const items = calendarPins();
     plans.replaceChildren(
       el("h3", { class: "section-title", text: "Your plans" }),
@@ -6034,7 +6067,9 @@ async function openAssistant(meta) {
     el("div", { class: "assistant-card" },
       el("p", { class: "assistant-kicker", text: "Assistant" }),
       el("h2", { class: "assistant-title", text: meta.name || "this title" }),
-      el("p", { class: "option-desc", text: "Ask what it is about, whether it is worth starting, or who it is for. The answer comes from the AI provider set in Settings → Assistant." }),
+      el("p", { class: "option-desc", text: meta.type === "series"
+        ? "Ask what it is about, whether it is worth starting, or how long it takes to get going. The answer comes from the AI provider set in Settings → Assistant."
+        : "Ask what it is about, whether it is worth your evening, or what to watch after it. The answer comes from the AI provider set in Settings → Assistant." }),
       el("div", { class: "assistant-form" }, question,
         el("button", { class: "btn primary focusable", type: "button", id: "assistant-ask", text: "Ask" }),
       ),
@@ -6046,7 +6081,7 @@ async function openAssistant(meta) {
         // **The list is longer than the box**: every chip asks something the metadata on
         // the page does not answer, and the row wraps — a suggestion line that hides
         // behind a scroll is a suggestion nobody reads.
-        ...ASK_QUESTIONS.map((q) =>
+        ...(ASK_QUESTIONS[meta.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie).map((q) =>
           el("button", { class: "chip focusable", type: "button", text: q, onclick: () => { question.value = q; ask(); } }),
         ),
       ),
@@ -6099,20 +6134,40 @@ async function openAssistant(meta) {
  * overview, the year, the runtime and the cast already say is not worth a chip. Each one
  * is a sentence you would actually type, so pressing it is the same as asking it.
  */
-const ASK_QUESTIONS = [
-  "What is it about?",
-  "Is it worth my time?",
-  "What is it like, without spoilers?",
-  "What should I watch after this?",
-  "Who is this for?",
-  "Anything I should know before starting?",
-  "Is it a slow burn, or does it start fast?",
-  "How heavy or violent does it get?",
-  "What makes it stand out from others like it?",
-  "Is there anything after the credits?",
-  "Is it better as a binge or an episode a week?",
-  "How does it compare with the book?",
-];
+const ASK_QUESTIONS = {
+  // A film is one sitting: what it is, whether it is worth the evening, and what to put on
+  // after it.
+  movie: [
+    "What is it about?",
+    "Is it worth my time?",
+    "What is it like, without spoilers?",
+    "What should I watch after this?",
+    "Who is this for?",
+    "Anything I should know before starting?",
+    "Does it start fast, or take its time?",
+    "How heavy or violent does it get?",
+    "What makes it stand out from other films like it?",
+    "Is there anything after the credits?",
+    "Is it a cinema film I should watch properly?",
+    "Who is the standout performance in it?",
+  ],
+  // A series is a commitment: which episode hooks you, whether it sticks the landing, and
+  // how long you are signing up for.
+  series: [
+    "What is it about?",
+    "Is it worth starting?",
+    "What is it like, without spoilers?",
+    "What should I watch after this?",
+    "Who is this for?",
+    "Anything I should know before starting?",
+    "How many episodes before it gets good?",
+    "Does it stick the landing or fall apart at the end?",
+    "Is it better as a binge or an episode a week?",
+    "Which season is the best one?",
+    "Anything I should know before the next season?",
+    "Should I watch it with anyone, or alone?",
+  ],
+};
 
 /** The pin buttons for a title — the same ones the quick-look modal draws. */
 function pinButtons(item) {
@@ -6179,16 +6234,38 @@ function libraryPicker(item, rows, on) {
     el("span", { text: on.length ? `${customLabel()} · added` : "Add to Library" }),
   );
   let grace = null;
+  /**
+   * **The list is anchored to the button, not nested in the row.** The row of four is a
+   * flex line inside a card that clips its own contents, so a list positioned under the
+   * button was cut off — or squeezed into the button's own box, which is what made the
+   * button look like its label was changing. `position: fixed` puts it over the page
+   * instead, and it is re-placed while it is open so it follows the button as the page
+   * scrolls.
+   */
+  function place() {
+    const r = btn.getBoundingClientRect();
+    const width = Math.max(240, r.width);
+    menu.style.minWidth = `${width}px`;
+    menu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - width - 12))}px`;
+    menu.style.top = `${r.bottom + 6}px`;
+    menu.style.maxHeight = `${Math.max(140, Math.min(264, innerHeight - r.bottom - 24))}px`;
+  }
   function open() {
     if (grace) { clearTimeout(grace); grace = null; }
+    place();
     menu.hidden = false;
     root.classList.add("open");
     btn.setAttribute("aria-expanded", "true");
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
   }
   function close() {
+    if (menu.hidden) return;
     menu.hidden = true;
     root.classList.remove("open");
     btn.setAttribute("aria-expanded", "false");
+    window.removeEventListener("scroll", place, true);
+    window.removeEventListener("resize", place);
   }
   function later() { if (grace) clearTimeout(grace); grace = setTimeout(close, 260); }
   root.addEventListener("pointerenter", open);
@@ -6458,9 +6535,7 @@ function openTrailer(t) {
     "aria-label": `Play the ${t.name || "trailer"}`,
     style: `background-image: url("https://img.youtube.com/vi/${key}/hqdefault.jpg")`,
     onclick: () => start(),
-  },
-    el("span", { class: "trailer-cover-play", "aria-hidden": "true", text: "▶" }),
-  );
+  });
 
   const overlay = el("div", { class: "trailer-overlay", role: "dialog", "aria-modal": "true", "aria-label": `${t.name} trailer` },
     el("div", { class: "trailer-shell" },
@@ -6522,6 +6597,8 @@ function openTrailer(t) {
     cover.hidden = true;
     if (document.activeElement === cover) playBtn.focus?.();
   };
+  /** The cover is up until the picture is really moving — see `onStateChange`. */
+  const coverUp = () => !cover.hidden;
   playBtn.addEventListener("click", toggle);
   seek.addEventListener("input", () => { dragging = true; });
   seek.addEventListener("change", () => {
@@ -6552,9 +6629,11 @@ function openTrailer(t) {
         onReady: (e) => { e.target.playVideo(); tick = setInterval(paint, 500); },
         onStateChange: (e) => {
           paint(e);
-          // **Once, and a beat after the picture starts.** The title card is painted for
-          // the opening second; lifting on the first playing frame would show it.
-          if (!lifted && e?.data === 1) { lifted = true; setTimeout(liftCover, 1500); }
+          // **Lift only when the picture is really running.** A paused or blocked player
+          // is YouTube's own frame — its big play button, its title card, its logo — so
+          // the cover stays over it until the clip is playing. Then one beat more, because
+          // YouTube's title card is painted for the opening second.
+          if (!lifted && e?.data === 1 && coverUp()) { lifted = true; setTimeout(liftCover, 1500); }
         },
       },
     });
@@ -7783,7 +7862,7 @@ function paneRatings() {
     // the services; this is the one line that says how they differ — a page read per site
     // against one key that has already read them all — since a caption under a row is
     // hidden app-wide and the difference is exactly what the choice is about.
-    el("p", { class: "player-note", text: (RATING_SERVICES.find(([id]) => id === source) || [])[2] || "" }),
+    el("p", { class: "pane-note", id: "ratings-note", text: (RATING_SERVICES.find(([id]) => id === source) || [])[2] || "" }),
     source === "mdblist"
       ? el("div", { class: "group-head" },
           el("span", { class: "option-title", text: "MDBList" }),

@@ -798,6 +798,18 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .search-input::-webkit-search-cancel-button { display: none; }
 .search-input::placeholder { color: var(--faint); }
 .search-input:focus { outline: none; }
+/* **The highlight is the bar's own ring.** The field is `.focusable`, so the keyboard rule
+   drew a 3px accent outline around the *field* — a sharp-cornered rectangle sitting inside
+   a 14px rounded bar, which is the box in the screenshot. The bar draws the highlight for
+   its field instead: same ring as a card or a button, same radius as the bar. */
+.search-bar .search-input:focus-visible,
+.search-bar .search-input:focus { outline: none !important; box-shadow: none !important; }
+.search-bar:has(.search-input:focus-visible),
+.search-bar:has(.search-input:focus) {
+  background: var(--panel);
+  border-color: transparent;
+  box-shadow: var(--hl);
+}
 /* A named control, not an empty square: the funnel plus the word, in the app's own
    button shape. */
 .search-filter-btn {
@@ -819,13 +831,16 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 }
 .search-filter-btn svg { width: 17px; height: 17px; }
 .search-filter-btn:hover, .search-filter-btn:focus-visible {
-  /* **The accent, on hover and on the press.** It was a shade of grey on a bar whose
-     every other control answers in the app's colour, so the one button that opens the
-     filters looked inert. */
-  background: rgba(var(--accent-rgb), 0.24);
+  /* **The ring is the answer, not a second accent fill.** The button is inside the search
+     bar, and on hover it was *both* accent-tinted *and* accent-ringed on top of that — two
+     ways of saying the same thing, and the one control in the bar that shouted. It keeps
+     the app's highlight ring (every `.focusable` has it) and answers with a plain light
+     fill; the accent fill is for the state that means something, which is the panel being
+     open (`.on`, below). */
+  background: rgba(255, 255, 255, 0.09);
   color: #fff;
 }
-.search-filter-btn:active { background: rgba(var(--accent-rgb), 0.36); }
+.search-filter-btn:active { background: rgba(255, 255, 255, 0.14); }
 .search-filter-btn.on { background: var(--accent); border-color: var(--accent); color: #0b0c10; }
 
 /* The bar is the suggestion panel's own box: without a positioning context here the
@@ -1788,11 +1803,15 @@ button:focus-visible,
      ring, and the top of the tags themselves once the line had been stepped, were cut off
      by the window's edge. The padding is that room, and `scroll-snap` is what keeps the
      line landing on whole rows instead of between two. */
-  max-height: 76px;
+  /* **Exactly two rows, and the rest behind a scroll.** The window is the two rows plus
+     the 4px of room the highlight needs above the first one — no more, so the third row
+     is never half-visible under it. The arrows step a row at a time and `scroll-snap`
+     makes the step land on a row instead of between two. */
+  max-height: 74px;
   padding: 4px 2px;
   overflow-y: auto;
   scroll-behavior: smooth;
-  scroll-snap-type: y proximity;
+  scroll-snap-type: y mandatory;
   scroll-padding-top: 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -3640,6 +3659,7 @@ select option:hover {
    the callback registered with it is character-for-character the one this server sends, so
    the string is shown in a monospace block that can be read off the screen and copied whole
    — never wrapped mid-URL by a stray break, and never so faint it reads as a note. */
+.github-setup .text-input { background: var(--panel-2); }
 .signin-redirect { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .signin-redirect-label { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .signin-redirect-value {
@@ -4045,20 +4065,12 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   cursor: pointer;
 }
 .trailer-cover[hidden] { display: none; }
-.trailer-cover-play {
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  background: rgba(12, 14, 18, 0.72);
-  color: #fff;
-  font-size: 26px;
-  line-height: 1;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
-  transition: transform var(--quick) var(--ease), background var(--quick) var(--ease);
-}
-.trailer-cover:hover .trailer-cover-play { transform: scale(1.06); background: var(--accent); color: #0b0b0b; }
+/* **No mark on it.** The cover is the clip's own artwork and nothing else — the play
+   control belongs to the panel's bar, which is the app's control, and a big ▶ in the
+   middle of the picture is the one thing every other player already draws. The cover
+   answers the cursor with the app's ring and a little light instead. */
+.trailer-cover { transition: box-shadow var(--quick) var(--ease), filter var(--quick) var(--ease); }
+.trailer-cover:hover, .trailer-cover:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--accent); filter: brightness(1.12); }
 
 /* ============================================================================
    **Add to Library: one button, and the rows are under it.**
@@ -4107,3 +4119,68 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .github-setup { display: flex; flex-direction: column; gap: 10px; }
 .github-setup .btn { align-self: flex-start; text-decoration: none; }
 .github-setup .text-input { flex: 1 1 240px; min-width: 0; }
+
+
+/* ============================================================================
+   **Already accented: no highlight on top of it.**
+   ----------------------------------------------------------------------------
+   The highlight is how the app says "this is the one under your cursor". A tab
+   that is already on (Home, Movies, Shows), a tag you already picked (All, Airing
+   today, United States), a filled primary button — they say the same thing in the
+   app's own colour, and a ring on top of that is the app pointing at something you
+   have already chosen. One rule at the end of the sheet, because every surface
+   above it draws its own highlight and this is the only place that can take it
+   back from all of them at once. A primary button still answers the cursor with a
+   touch more light, so it does not read as dead.
+   ============================================================================ */
+.row-btn.active:hover, .row-btn.active:focus-visible,
+.filter-chip.active:hover, .filter-chip.active:focus-visible,
+.chip.active:hover, .chip.active:focus-visible,
+.search-filter-btn.on:hover, .search-filter-btn.on:focus-visible,
+.accent-card.active:hover, .accent-card.active:focus-visible,
+.settings-tab.active:hover, .settings-tab.active:focus-visible,
+.btn.pin.active:hover, .btn.pin.active:focus-visible,
+.menu-item.active:hover, .dropdown-item.active:hover,
+.option:has(input:checked):hover, .vis-option:has(input:checked):hover,
+.icon-btn.active:hover, .icon-btn.active:focus-visible,
+.btn.primary:hover, .btn.primary:focus-visible {
+  box-shadow: none;
+}
+.btn.primary:hover { filter: brightness(1.1); }
+.btn.primary { transition: filter var(--quick) var(--ease), background var(--quick) var(--ease); }
+
+/* ============================================================================
+   **No title is ever cut.** Two lines the layout can clip without meaning to: a
+   row's own heading (the `.cat-name` over a catalog, a `.row-head` over a title
+   page's section) sitting in a scroller whose top edge lands on the line box, and
+   the uppercase kicker above a name. Both take the room their ascent needs.
+   ============================================================================ */
+.cat-name, .row-head, .section-title, .icon-name, .hero-kicker, .view-title, .cal-month {
+  overflow: visible;
+  line-height: 1.45;
+}
+.cat-head { align-items: center; margin-bottom: 10px; }
+.cat-name { padding: 3px 2px 4px; }
+
+/* **The Library picker floats over the page.** It is `position: fixed` and placed
+   under the button by `libraryPicker`, so the row of four cannot clip it and it is
+   never squeezed into the button's own box. */
+.library-pop-menu { position: fixed; z-index: 400; }
+.library-pop-menu .dropdown-item { display: block; width: 100%; text-align: left; }
+.library-pop-menu .dropdown-item + .dropdown-item { border-top: 1px solid rgba(255, 255, 255, 0.05); }
+
+/* **A description that is meant to be read.** Every `.option-desc` in the app is hidden
+   ("no subtext"), which is right for a caption under a switch and wrong for the one or two
+   places where the words *are* the answer: what a rating service reads, what pressing Sign
+   in with GitHub actually does. Those use this, and it is a paragraph: it wraps, it is
+   legible, and it is capped at a comfortable measure. */
+.pane-note {
+  display: block;
+  margin: 0;
+  max-width: 78ch;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--muted);
+}
+.pane-note + .pane-note { margin-top: 8px; }
+.pane-note:empty { display: none; }
