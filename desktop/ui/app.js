@@ -761,7 +761,7 @@ const state = {
   // **The sign-in rows.** Each holds the *effective* pair as the server reports it —
   // `clientId` is public and comes back verbatim (`""` when it is an environment one and
   // unset), `hasSecret` only says whether a secret is in place. See `paneSignin`.
-  signin: readJSON(KEY.signin, { google: { enabled: true }, github: { enabled: true } }),
+  signin: readJSON(KEY.signin, { google: { enabled: true } }),
   // The Custom card's label (a setting — see Settings → Content).
   customLabel: "Library",
   sources: migrateSources(readJSON(KEY.sources, [])),
@@ -1046,7 +1046,7 @@ function mergeServerSettings(res) {
   if (res.signin) {
     // One row per provider, merged rather than replaced: a server that only reports one of
     // the two must not blank the other's row.
-    for (const slug of ["google", "github"]) {
+    for (const slug of ["google"]) {
       const row = res.signin[slug];
       if (!row) continue;
       state.signin[slug] = {
@@ -2145,37 +2145,23 @@ function syncProfileMark() {
 }
 
 /**
- * **Signing in — the account, and however you want to make one.**
+ * **Signing in — the account this machine keeps.**
  *
- * **Google and GitHub come first**, and they are ordinary OAuth: the account stays with the
- * provider, this app only keeps the profile behind its own cookie. Their keys are pasted in
- * **Settings → Sign in**, with the exact callback to register shown beside the box.
- *
- * **This machine's account comes second** — a name and an optional address, on this machine
- * (`addon/account.json`, no password, nothing verified, nothing sent anywhere) and it is the
- * way in that works on a fresh install, before any keys exist. It answers the same
- * `/auth/me` and sets the same session cookie, so a provider sign-in and this one are the
- * same thing to everything downstream; the only difference is that this one survives a
- * restart, because the file keeps the session id it has already accepted.
+ * A name and an optional address, on this machine (`addon/account.json`, no password,
+ * nothing verified, nothing sent anywhere). It is the way in that works on a fresh install,
+ * with no keys and no registration anywhere, and it answers `/auth/me` and sets the session
+ * cookie like any other sign-in would — the only difference is that it survives a restart,
+ * because the file keeps the session id it has already accepted.
  *
  * **What was wrong with the card.** Every `.option-desc` in the app is hidden by the
  * "no subtext" rule, so a card made only of an `.option-desc` was the word **Sign in** with
  * nothing to press: on a machine with no provider keys it drew *zero* controls. What it
  * draws now is the thing itself — a name, an address if you have one, and Continue.
  */
-/** The GitHub mark — the one picture a sign-in screen needs. */
-const githubMark = () =>
-  svgNode("svg", { class: "github-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-    svgNode("path", { d: "M12 1.8a10.2 10.2 0 0 0-3.23 19.9c.51.09.7-.22.7-.5v-1.9c-2.84.62-3.44-1.2-3.44-1.2-.46-1.18-1.13-1.5-1.13-1.5-.93-.63.07-.62.07-.62 1.02.07 1.56 1.05 1.56 1.05.91 1.56 2.4 1.11 2.98.85.09-.66.36-1.11.64-1.37-2.27-.26-4.65-1.13-4.65-5.04 0-1.11.4-2.02 1.05-2.73-.11-.26-.46-1.3.1-2.71 0 0 .86-.27 2.81 1.05a9.75 9.75 0 0 1 5.11 0c1.95-1.32 2.8-1.05 2.8-1.05.56 1.41.21 2.45.11 2.71.65.71 1.05 1.62 1.05 2.73 0 3.92-2.39 4.78-4.67 5.03.37.32.7.94.7 1.9v2.82c0 .28.18.6.7.5A10.2 10.2 0 0 0 12 1.8Z" }));
 
 /**
- * **The sign-in screen.** GitHub is the door; the machine's own name is the second one.
- *
- * This pane used to be a box with a button in it, and the button opened a *setup* panel
- * that talked about Client IDs before it offered a way in. It is a sign-in screen now: the
- * mark, the one thing to press, and — under a rule — the name this machine keeps. The
- * one-time registration is still there, behind **Set up on this server**, because it is
- * something the app's owner does once and a person signing in never has to see.
+ * **The sign-in card.** One heading, the two fields and the button — the account this
+ * machine keeps, which is the way in that works before anything else is set up anywhere.
  */
 function signInCard() {
   const account = state.account || {};
@@ -2183,11 +2169,6 @@ function signInCard() {
   // What this machine remembers. It is what makes the card useful before anything is
   // typed: the name is filled in, and the button says whose session it would resume.
   const local = account.local || null;
-  // **The one provider button this card draws, keys or no keys.** GitHub is the sign-in
-  // this app offers; it used to be drawn only once its own app ID and secret had been
-  // pasted, so on a fresh install the normal way in was invisible and this machine's name
-  // read as the app's account system.
-  const github = providers.find((p) => p.key === "github") || { key: "github", label: "GitHub", configured: false };
   // A provider's refusal comes back on the hash (`#/settings?signin_error=…`); this
   // app's own comes back on the state, so it survives the redraw that shows it.
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
@@ -2290,56 +2271,12 @@ function signInCard() {
         el("span", {
           class: "option-desc",
           text: local
-            ? `Sign in with GitHub, or continue as ${local.name} — the name on this machine.`
-            : "Sign in with GitHub, or give this machine a name — no password, and nothing sent anywhere.",
+            ? `Continue as ${local.name} — the name on this machine.`
+            : "This machine's own account — a name, and an address if you want one. No password, and nothing sent anywhere.",
         }),
       ),
     ),
     said ? el("p", { class: "signin-said", text: said }) : null,
-    // **GitHub leads, then this machine's own name.** The provider button comes first
-    // because it is the account that is actually yours — a list, a history, a face — and
-    // the name under the rule is the way in that works before any keys exist. Google is
-    // not offered here: one provider ahead of the local option is what this pane is for,
-    // and GitHub is it.
-    // **The screen itself.** The mark, the one door, and — behind a second button — the
-    // one-time registration only the app's owner ever needs.
-    el("div", { class: "github-login" },
-      el("span", { class: "signin-mark", "aria-hidden": "true" }, githubMark()),
-      el("p", { class: "pane-note", text: github.configured
-        ? "GitHub's own page opens, you sign in there as you would anywhere, and the app comes back with your name and picture. Nothing of your password is ever here."
-        : "GitHub is the way in. One application has to be registered once, on this server's own account — press Set up on this server and the form is filled in for you." }),
-      el("button", {
-        class: "btn subtle focusable",
-        type: "button",
-        id: "sign-in-page",
-        text: "Open the sign-in page",
-        title: "The full-page sign-in: GitHub, and this machine's own account",
-        onclick: () => go("#/signin"),
-      }),
-      el("button", {
-        class: "btn primary focusable",
-        type: "button",
-        id: "sign-in-github",
-        text: "Continue with GitHub",
-        title: github.configured
-          ? "Sign in with your GitHub account"
-          : "Sign in with GitHub — one app has to be registered first",
-        // **A panel, always.** The button used to stop dead when the server had no GitHub
-        // keys, with a line of small print under it naming two environment variables; now
-        // it opens the panel that does the signing in, and the panel is also where that
-        // one-time registration happens (see `openGithubSignIn`).
-        onclick: () => openGithubSignIn(),
-      }),
-      el("button", {
-        class: "btn subtle focusable",
-        type: "button",
-        id: "sign-in-setup",
-        text: "Set up on this server",
-        title: "Register this app on GitHub, once, as its owner",
-        onclick: () => openGithubSignIn(true),
-      }),
-    ),
-    el("div", { class: "h-divider", "aria-hidden": "true" }),
     el("div", { class: "account-row account-buttons" }, nameField, emailField, continueBtn),
     local
       ? el("button", {
@@ -2354,131 +2291,6 @@ function signInCard() {
   );
 }
 
-/**
- * **The GitHub sign-in, in one of the app's own panels.**
- *
- * Pressing the button used to do one of two things: nothing at all — with a line of small
- * print under it naming two environment variables — or a browser window, which a blocker
- * can refuse, and which leaves the app behind. It opens a panel now: the panel is the
- * sign-in, GitHub's own page opens in a window beside it the moment you continue, and the
- * panel watches for the session coming back and reloads into it.
- *
- * **One step cannot be automated away, and the panel is honest about it.** GitHub signs a
- * person in only through an application registered once on that person's own account, and
- * only its owner can register one — so a fresh install has no way in until that step is
- * done. The panel does it: it opens GitHub's registration form with the app's name and the
- * exact callback filled in already, then takes the two values GitHub hands back and stores
- * them on this server (Settings first, the environment second — see `signinKeys`). After
- * that the button signs in normally, on this machine, for good.
- */
-function openGithubSignIn(setup = false) {
-  const github = (state.account?.providers || []).find((p) => p.key === "github") || { configured: false };
-  // **Setup only when it is needed.** A server that already has the app registered opens
-  // straight onto Continue; the form is one press away for the owner (see the pane).
-  const wantsSetup = setup || !github.configured;
-  const redirect = state.account?.redirects?.github || `${location.origin}/auth/github/callback`;
-  const start = `/auth/github/start?next=${encodeURIComponent("/app/#/settings")}`;
-  const status = el("p", { class: "player-note", text: "" });
-  let watch = null;
-  const stopWatch = () => { if (watch) { clearInterval(watch); watch = null; } };
-  const close = () => {
-    document.removeEventListener("keydown", onKey, true);
-    stopWatch();
-    dropSharp();
-    overlay.remove();
-  };
-  const onKey = (e) => { if (e.key !== "Escape") return; e.stopPropagation(); close(); };
-  /** Watch for the session the GitHub window brings back, then come back signed in. */
-  const follow = (popup) => {
-    status.textContent = "Waiting for GitHub…";
-    stopWatch();
-    watch = setInterval(async () => {
-      try {
-        const me = await (await fetch(`${API}/auth/me`)).json();
-        if (me?.user) {
-          stopWatch();
-          try { popup?.close(); } catch { /* already gone */ }
-          location.reload();
-          return;
-        }
-      } catch { /* not back yet — the next beat tries again */ }
-      if (popup && popup.closed) { stopWatch(); status.textContent = "The GitHub window was closed before it finished."; }
-    }, 1200);
-  };
-  /** The ordinary handshake: GitHub's page in a window, this panel waiting for it. */
-  const go = () => {
-    const popup = window.open(start, "nuvio-github-signin", "width=560,height=760,menubar=no,toolbar=no");
-    // A blocked window is not a dead end: the same URL in this tab always works.
-    if (!popup) { location.href = start; return; }
-    follow(popup);
-  };
-
-  const idField = el("input", { class: "text-input focusable", type: "text", id: "github-client-id", placeholder: "Client ID", value: state.signin?.github?.clientId || "" });
-  const secretField = el("input", { class: "text-input focusable", type: "password", id: "github-client-secret", placeholder: state.signin?.github?.hasSecret ? "Client secret — already set" : "Client secret" });
-  const registerUrl = "https://github.com/settings/applications/new"
-    + `?oauth_application%5Bname%5D=${encodeURIComponent("AutoCAT")}`
-    + `&oauth_application%5Burl%5D=${encodeURIComponent(location.origin)}`
-    + `&oauth_application%5Bcallback_url%5D=${encodeURIComponent(redirect)}`;
-  const saveSetup = async () => {
-    const clientId = idField.value.trim();
-    if (!clientId) { status.textContent = "Paste the Client ID GitHub shows on the app's page."; return; }
-    status.textContent = "Saving…";
-    await pushSettings({ signin: { github: { enabled: true, clientId, clientSecret: secretField.value } } });
-    const me = await (await fetch(`${API}/auth/me`)).json().catch(() => null);
-    if (me) state.account = me;
-    // **Straight into the handshake.** The whole point of the two boxes is to get out of
-    // them, so the panel does not sit there asking for a second press.
-    if (me?.providers?.find((p) => p.key === "github")?.configured) go();
-    else { status.textContent = "Saved. GitHub still refuses the pair — check both values against the app's page."; render(); }
-  };
-
-  const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": "Sign in with GitHub", id: "github-panel" },
-    el("div", { class: "assistant-card" },
-      el("p", { class: "assistant-kicker", text: "Sign in" }),
-      el("h2", { class: "assistant-title", text: "GitHub" }),
-      el("p", { class: "pane-note", text: github.configured
-        ? "GitHub's own page opens — you sign in there with your GitHub name and password, exactly as you would anywhere, and press Authorize. That page is GitHub's; this app never sees the password, and what comes back is only your name, your address and your picture."
-        : "Every app that offers \"Sign in with GitHub\" has one GitHub application registered once, in its own name — that is the only way GitHub signs anyone in, and no app can skip it. Here you are the app's owner, so that one registration is yours: the form is already filled in, and it takes a minute. After that this is a plain Sign in with GitHub — GitHub's own page, your own name and password." }),
-      el("p", { class: "pane-note", text: github.configured
-        ? ""
-        : "The Client ID and the secret are the app's identity badge, not yours. They are not your login and they cannot sign anyone in on their own — they are what tells GitHub which app is asking." }),
-      el("div", { class: "signin-mark" }, githubMark()),
-      wantsSetup
-        ? el("div", { class: "github-setup" },
-            el("p", { class: "pane-note", text: "1. GitHub fills this form in for you — press Register application at the bottom of it." }),
-            el("a", { class: "btn subtle focusable", id: "github-register", href: registerUrl, target: "_blank", rel: "noreferrer noopener", text: "Open GitHub's registration form" }),
-            el("p", { class: "pane-note", text: "2. Copy the two values it gives you here. The callback is already in the form." }),
-            el("div", { class: "signin-redirect" },
-              el("span", { class: "signin-redirect-label", text: "Callback" }),
-              el("span", { class: "signin-redirect-value", id: "github-redirect", text: redirect }),
-            ),
-            el("div", { class: "account-row account-buttons" }, idField),
-            el("div", { class: "account-row account-buttons" }, secretField),
-            el("div", { class: "account-row account-buttons" },
-              el("button", { class: "btn primary focusable", type: "button", id: "github-save", text: "Save and sign in", onclick: saveSetup }),
-            ),
-          )
-        : el("div", { class: "account-row account-buttons" },
-            el("button", { class: "btn primary focusable", type: "button", id: "github-continue", text: "Continue to GitHub", onclick: go }),
-            el("button", { class: "btn subtle focusable", type: "button", id: "github-same-tab", text: "Or open it in this tab", onclick: () => { location.href = start; } }),
-            el("button", { class: "btn subtle focusable", type: "button", id: "github-setup", text: "Set up on this server", title: "Register this app on GitHub, once, as its owner", onclick: () => { close(); openGithubSignIn(true); } }),
-          ),
-      status,
-      el("div", { class: "assistant-actions" },
-        el("button", { class: "btn subtle focusable", type: "button", id: "github-close", text: "Close", onclick: close }),
-      ),
-    ),
-  );
-  document.addEventListener("keydown", onKey, true);
-  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
-  document.body.append(overlay);
-  // **Nothing of the page is left sharp behind the panel.** A copy of the card you
-  // pressed used to be drawn over the blur, exactly where it sits on the page — and on a
-  // title page that card *is* a trailer card, so a second copy of the clip sat beside the
-  // player, sharper than the page and ringed. The panel is the only thing on screen now;
-  // the page behind it is blurred and nothing of it is repeated.
-  dropSharp();
-}
 
 /** Sign out of the session. Whatever this machine remembers is left alone. */
 async function signOutAccount() {
@@ -2543,12 +2355,9 @@ async function signInOnThisMachine(name, email) {
 /**
  * **The sign-in screen.**
  *
- * The pane in Settings is a row of controls like every other pane; this is the page — the
- * shape a person already knows from every sign-in they have ever done: the mark at the
- * top, one heading, one way in, a rule, and the second door under it. GitHub's own page is
- * the way in (the app never sees a password — the window opens on GitHub, and what comes
- * back is a name and a picture), and this machine's own account is the door beneath it, for
- * a profile that never signs in anywhere.
+ * The pane in Settings is a row of controls like every other pane; this is the page: one
+ * heading, the fields, and the button. The account is this machine's own — a name and an
+ * address, kept in `addon/account.json`, with no password and nothing sent anywhere.
  *
  * A **profile** is not an account: a profile is who is watching, and it is made on the
  * profiles screen. This page is only about being *signed in* — a name, a picture and a
@@ -2557,7 +2366,6 @@ async function signInOnThisMachine(name, email) {
 function renderSignin() {
   const account = state.account || {};
   const local = account.local || null;
-  const github = (account.providers || []).find((p) => p.key === "github") || { configured: false };
   if (account.user) {
     const user = account.user;
     return [
@@ -2591,23 +2399,8 @@ function renderSignin() {
     el("h1", { class: "view-title", text: "Sign in" }),
     el("div", { class: "signin-page" },
       el("div", { class: "signin-card" },
-        el("span", { class: "signin-mark", "aria-hidden": "true" }, githubMark()),
         el("h2", { class: "signin-title", text: "Sign in to AutoCAT" }),
-        el("p", { class: "signin-sub", text: "Use your GitHub account — the app never sees your password, and what comes back is your name, your address and your picture." }),
-        el("button", {
-          class: "btn github focusable", type: "button", id: "signin-github",
-          text: "Sign in with GitHub",
-          onclick: () => openGithubSignIn(),
-        }),
-        github.configured
-          ? null
-          : el("button", {
-              class: "btn subtle focusable wide", type: "button", id: "signin-setup",
-              text: "Set up on this server",
-              onclick: () => openGithubSignIn(true),
-            }),
-        el("div", { class: "signin-rule", "aria-hidden": "true" }),
-        el("p", { class: "signin-sub", text: "Or sign in on this machine — a name, and nothing sent anywhere." }),
+        el("p", { class: "signin-sub", text: "This machine's own account — a name, and an address if you want one. Nothing is sent anywhere." }),
         el("div", { class: "signin-fields" }, nameField, emailField),
         el("button", {
           class: "btn primary focusable wide", type: "button", id: "signin-continue",
@@ -8079,45 +7872,17 @@ function visRow(checked, level, id, title, desc, depth = 0) {
 }
 
 /**
- * Settings → Sign in: the keys that make Google and GitHub buttons exist.
+ * Settings → Sign in: the account this machine keeps.
  *
- * **Why this pane is not the account card.** The card in Profile is *who you are* — the
- * session, the avatar, the one press that resumes it. This is the other half: a provider
- * cannot be signed in to until *you* have created an application with it, and that
- * application is a client id, a client secret and one redirect URI registered exactly. So
- * the pane is three things per provider — the two boxes, the switch, and **the callback
- * string to paste into the provider's console**, copied from here rather than assembled by
- * hand. A callback with a different host, port or trailing slash is the failure this
- * handshake cannot recover from, which is why the string comes from the server that will
- * receive it (`redirectUri` in `addon/auth.mjs`).
- *
- * Nothing here is required. This machine's own account works with nothing set up, and the
- * profile pane says so — see the note at the foot of the pane.
+ * **Why this pane is not a setup wizard.** It used to be two pairs of boxes — a client id
+ * and a client secret per provider — so "Sign in" showed you keys instead of a way in, and
+ * a provider whose registration was never finished here could never sign anyone in at all.
+ * Provider sign-in is gone; what is left is the account that always works: a name, an
+ * optional address, and Continue. Nothing to register, nothing to paste, nothing to get
+ * half-right.
  */
 function paneSignin() {
-  // **A sign-in, not a setup wizard.** This pane used to be two pairs of boxes — a client
-  // id and a client secret for Google and for GitHub — with the account card somewhere
-  // else entirely, so "Sign in" showed you keys instead of a way in. It shows the way in
-  // now: **Sign in with GitHub**, then this machine's own name.
-  //
-  // A GitHub sign-in is an OAuth app: one app registered once on GitHub, and its two
-  // values given to this server as `NUVIO_GITHUB_CLIENT_ID` and
-  // `NUVIO_GITHUB_CLIENT_SECRET` (the same two values could be pasted in Settings before;
-  // they are not something to type in per install). With them set, the button starts the
-  // ordinary GitHub handshake and comes back signed in. Without them, the button says so.
-  const github = (state.account?.providers || []).find((p) => p.key === "github");
-  return [
-    signInCard(),
-    // **Said once, in the panel that does it.** The button above opens a panel, and the
-    // panel is where the one-time GitHub registration happens — so this line names the
-    // step rather than two environment variables, and points at the way through it.
-    github?.configured
-      ? null
-      : el("p", {
-          class: "source-status",
-          text: "GitHub needs one application registered on the server's own account before it can sign anyone in. Press Set up on this server and the form opens filled in already.",
-        }),
-  ].filter(Boolean);
+  return [signInCard()];
 }
 
 /**

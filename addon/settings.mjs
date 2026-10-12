@@ -259,7 +259,6 @@ const DEFAULTS = {
   // provider is not offered even with keys set.
   signin: {
     google: { enabled: true, clientId: "", clientSecret: "" },
-    github: { enabled: true, clientId: "", clientSecret: "" },
   },
   // Add-ons and plugins the user added. They live **on the server**, not only in the
   // page, because reading a stream needs a server-side request: a browser cannot
@@ -499,7 +498,6 @@ export const activeContentSource = () => (load().content?.source === "tvdb" ? "t
  */
 const SIGNIN_ENV = {
   google: ["NUVIO_GOOGLE_CLIENT_ID", "NUVIO_GOOGLE_CLIENT_SECRET"],
-  github: ["NUVIO_GITHUB_CLIENT_ID", "NUVIO_GITHUB_CLIENT_SECRET"],
 };
 
 export function signinKeys(provider) {

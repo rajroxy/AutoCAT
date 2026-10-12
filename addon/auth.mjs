@@ -66,18 +66,6 @@ const PROVIDERS = {
     // The OpenID userinfo answer is already the shape we want.
     read: (info) => ({ id: String(info.sub || ""), name: info.name || info.email || "", email: info.email || "", picture: info.picture || "" }),
   },
-  github: {
-    label: "GitHub",
-    id: () => signinKeys("github").id,
-    secret: () => signinKeys("github").secret,
-    enabled: () => signinKeys("github").enabled,
-    authorize: () => env("NUVIO_GITHUB_AUTHORIZE_URL", "https://github.com/login/oauth/authorize"),
-    token: () => env("NUVIO_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
-    userinfo: () => env("NUVIO_GITHUB_USERINFO_URL", "https://api.github.com/user"),
-    emails: () => env("NUVIO_GITHUB_EMAILS_URL", "https://api.github.com/user/emails"),
-    scope: "read:user user:email",
-    read: (info) => ({ id: String(info.id || ""), name: info.name || info.login || "", email: info.email || "", picture: info.avatar_url || "" }),
-  },
 };
 
 /** The providers this build offers, and whether each one can actually finish a sign-in. */
@@ -328,14 +316,7 @@ export async function finish(providerKey, { code = "", state = "", origin = "" }
 
   const headers = { authorization: `Bearer ${token.access_token}`, accept: "application/json", "user-agent": "AutoCAT" };
   const info = await (await fetch(p.userinfo(), { headers })).json();
-  let user = p.read(info);
-  // **GitHub keeps the address private.** `/user` answers `email: null` for anyone whose
-  // address is not public, and the address is worth having — it is what names the account.
-  if (providerKey === "github" && !user.email) {
-    const list = await (await fetch(p.emails(), { headers })).json().catch(() => []);
-    const primary = Array.isArray(list) ? list.find((e) => e.primary) || list[0] : null;
-    if (primary?.email) user = { ...user, email: primary.email };
-  }
+  const user = p.read(info);
   if (!user.id) throw new Error(`The provider did not say who this is.`);
 
   const sessionId = randomBytes(24).toString("base64url");

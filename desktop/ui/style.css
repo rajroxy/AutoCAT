@@ -3797,7 +3797,6 @@ select option:hover {
    the callback registered with it is character-for-character the one this server sends, so
    the string is shown in a monospace block that can be read off the screen and copied whole
    — never wrapped mid-URL by a stray break, and never so faint it reads as a note. */
-.github-setup .text-input { background: var(--panel-2); }
 .signin-redirect { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .signin-redirect-label { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .signin-redirect-value {
@@ -4297,9 +4296,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 /* **The GitHub panel's one-time setup.** Two fields, the callback to copy and the button
    that uses them — one column, and the link to GitHub's registration form reads as a
    button because it is the next thing to press, not a footnote. */
-.github-setup { display: flex; flex-direction: column; gap: 10px; }
-.github-setup .btn { align-self: flex-start; text-decoration: none; }
-.github-setup .text-input { flex: 1 1 240px; min-width: 0; }
 
 
 /* ============================================================================
@@ -4516,12 +4512,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 /* **One mark, one door.** The sign-in pane is a screen rather than a box with a button
    in it: GitHub's own mark above the one thing to press, and the owner's one-time
    registration beside it as a second, quieter button. */
-.github-login { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 4px 0 2px; }
-.github-login .pane-note { max-width: 62ch; margin: 0; }
-.signin-mark { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, 0.10); }
-.signin-mark svg { width: 24px; height: 24px; fill: var(--text); }
-.signin-mark.big { width: 58px; height: 58px; }
-.signin-mark.big svg { width: 30px; height: 30px; }
 
 /* ============================================================================
    **The settings panel says only what the controls are.**
@@ -4552,17 +4542,12 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   background: var(--panel);
   text-align: center;
 }
-.signin-card .signin-mark { width: 58px; height: 58px; background: rgba(255, 255, 255, 0.08); }
-.signin-card .signin-mark svg { width: 32px; height: 32px; }
 .signin-title { margin: 2px 0 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
 .signin-sub { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); max-width: 46ch; }
 .signin-avatar { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; object-fit: cover; background: var(--panel-2); font-size: 24px; font-weight: 800; }
-.signin-rule { width: 100%; height: 1px; margin: 6px 0 2px; background: var(--rule-soft); }
 .signin-fields { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .signin-card .btn { width: 100%; }
 /* **GitHub's own green**, because this button is GitHub's door and not the app's accent. */
-.btn.github { background: #2da44e; color: #fff; font-weight: 700; }
-.btn.github:hover, .btn.github:focus-visible { background: #2c974b; }
 
 /* ============================================================================
    **One highlight on a profile card, and it is the card's.**
