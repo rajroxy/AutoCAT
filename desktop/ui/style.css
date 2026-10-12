@@ -3474,7 +3474,9 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
    the way a heading link does. */
 .strip-note { margin: 0; padding: 10px 2px; font-size: 14px; font-weight: 600; color: var(--text); }
 .strip-clickable { cursor: pointer; }
-.strip-clickable:hover { outline: 1px solid rgba(255, 255, 255, 0.09); outline-offset: 6px; border-radius: 12px; }
+/* The cue is the same accent ring everything else uses — it was a grey 1px **outline**,
+   which is the box-around-things this app does not draw. */
+.strip-clickable:hover { outline: none; box-shadow: 0 0 0 2px var(--accent); border-radius: 12px; }
 
 /* ---------------------------------------------- the add-on / plugin dropdowns */
 /* The source form's type field and the model picker are drawn by the same rule
@@ -3588,37 +3590,37 @@ select option:hover {
 
 
 /* ============================================================================
-   **What the accent does: the edge of the thing you are on.**
+   **Hover and choice: a ring on the one thing you are on — and no outlines.**
    ----------------------------------------------------------------------------
-   Three passes got this wrong. The first took the hairline off every surface, so a
-   hovered card and a chosen one were the same flat fill. The next put a grey line on
-   everything at rest. The last answered with a 2px accent ring and an accent wash over
-   the *whole* surface — a card lit up end to end, and a ring on the card plus a ring on
-   the poster inside it, which is the double highlight.
+   Four passes at one question, and both failure modes are now on the record. Flat
+   everything, and the highlight is invisible (a hovered card and a chosen one were the
+   same flat fill). A hairline on everything at rest, and the app is drawn in grey boxes
+   — that is the "outlines in the whole app", and it is not this app: **surfaces are flat
+   panels and bare glyphs, and the accent is spent on the one thing the cursor is on or
+   the one thing you picked.**
 
-   What the first version did is the thing to keep, and it is what is back: **every
-   surface keeps the same 1px hairline it always had, and the accent repaints that one
-   edge** when the cursor is on it or when it is the one you picked. The small things you
-   choose between — a menu row, a checked option, a planned day, a chosen chip — take a
-   light accent tint as well. Nothing is ringed, nothing is washed, nothing doubles.
+   So: nothing wears an outline at rest, and the highlight is a **2px accent ring** drawn
+   *outside* the box with `box-shadow` — no geometry changes, nothing is drawn over the
+   surface. The small rows you choose between take the accent tint too, and the buttons
+   this app fills in stay filled.
    ============================================================================ */
 
-/* The hairline every surface wears at rest — the app's own, not a new one. */
+/* **No outlines at rest — none.** Several passes left a 1px hairline on a card, a row,
+   a field or a button; this is the one statement that none of them has one, so no older
+   rule can put a box back around a surface. */
 .icon-box, .poster, .channel-card, .cat-tile, .company-card, .season-card,
-.trailer-card, .result, .provider, .source, .vis-card, .option, .vis-option,
-.cal-cell, .profile-tile, .site-row, .vis-card, .source-providers, .ai-ask {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.trailer-card, .result, .provider, .source, .source-providers, .vis-card,
+.vis-option, .option, .cal-cell, .profile-tile, .site-row, .ai-ask, .ep-row,
+.episode-item, .hero, .graph, .guide, .calendar, .icon-btn, .btn, .text-input,
+.search-bar, .search-input, .dropdown-btn, .chip, .filter-chip, .model-chip,
+.settings-tab, .menu-item, .dropdown-item, .row-switch, .row-btn, .toast,
+.strip-clickable {
+  border: 0;
 }
-.icon-btn, .text-input, .dropdown-btn, .search-bar, .modal-close {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.btn { border: 1px solid rgba(255, 255, 255, 0.14); }
 
-/* **The edge, and only the thing you are actually on.** A card's posters are not a
-   second target: pointing at artwork inside a card highlights the card. And no lift —
-   `transform` on hover made a card's rounded corners paint over the floated top bar,
-   which is the "upper corners and upper lines go over" that had to be fixed once
-   already. */
+/* **The highlight: one ring, outside the box, at full accent.** No lift — a transform on
+   hover made a card's rounded corners paint over the floated top bar, and it read as the
+   layout moving under the cursor. */
 .icon-box:hover, .icon-box:focus-visible,
 .poster:hover, .poster:focus-visible,
 .channel-card:hover, .channel-card:focus-visible,
@@ -3635,81 +3637,64 @@ select option:hover {
 .profile-tile:hover, .profile-tile:focus-visible,
 .ep-row:hover, .site-row:hover,
 .icon-btn:hover, .icon-btn:focus-visible,
-.btn:hover, .btn:focus-visible {
+.btn:hover, .btn:focus-visible,
+.dropdown-btn:hover, .dropdown-btn:focus-visible, .dropdown:focus-within .dropdown-btn {
   transform: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.45);
+  box-shadow: 0 0 0 2px var(--accent);
 }
-/* A poster inside a highlighted card keeps its own hairline: one edge is the highlight,
-   two are a frame around a frame. */
-.icon-box:hover .poster, .icon-box:focus-visible .poster { border-color: rgba(255, 255, 255, 0.08); }
+/* **A card's own posters are not a second target.** Pointing at artwork inside a card
+   highlights the card; a ring on both is the double highlight. */
+.icon-box:hover .poster, .icon-box:focus-visible .poster { box-shadow: none; }
+/* Nor does artwork lighten its face under the cursor. */
+.poster:hover, .poster:focus-visible { background: var(--panel); }
 
-/* **What is chosen keeps the accent edge**, a little stronger, with the light tint the
-   app uses for a row you picked. */
+/* **What is chosen keeps the ring**, with the accent tint on the rows you choose
+   between. */
 .option:has(input:checked), .vis-option:has(input:checked),
-.dropdown-btn[aria-expanded="true"], .menu-item.active,
+.menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"],
 .profile-tile.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.55);
+  box-shadow: 0 0 0 2px var(--accent);
   background: rgba(var(--accent-rgb), 0.16);
   color: #fff;
 }
-/* **The buttons that were filled stay filled.** The Movies/Shows switch and the active
-   chips were solid accent plates with dark text; the pass before this one flattened
-   them into the same light tint a settings row uses — which is the accent going missing
-   from the buttons, exactly as it looked. */
+.cal-cell.selected { box-shadow: 0 0 0 2px var(--accent); background: rgba(var(--accent-rgb), 0.16); }
+.cal-cell.today { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.45); }
+
+/* **The buttons that are filled stay filled.** Movies/Shows and the active chips are
+   solid accent plates with dark text — and a plate stays a plate while it is hovered. */
 .row-btn.active, .btn.pin.active {
   background: linear-gradient(160deg, var(--accent), var(--accent-deep));
   color: #14110a;
-  border-color: transparent;
   box-shadow: none;
 }
-.chip.active, .filter-chip.active, .model-chip.suggested {
-  background: var(--accent);
-  color: #0b0b0b;
-  border-color: transparent;
-  box-shadow: none;
-}
-/* **The section you are in, and Home's own tab**: the accent fill they already had. */
-.settings-tab.active, .tab[aria-selected="true"] {
-  background: rgba(var(--accent-rgb), 0.22);
-  border-color: rgba(var(--accent-rgb), 0.75);
-  color: #fff;
-  box-shadow: none;
-}
-/* The month grid's day: the tint the app already used for a planned day, and the
-   accent on its edge. */
-.cal-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.55); background: rgba(var(--accent-rgb), 0.16); }
-.cal-cell.today { box-shadow: none; border-color: rgba(var(--accent-rgb), 0.7); }
-
-/* **Pills answer the cursor in their own fill** — a 12px tag is too small to read a
-   border on, and a solid accent pill is the "whole button accented" the app does not
-   want. */
-.chip:hover, .chip:focus-visible,
-.model-chip:hover, .chip-more:hover,
-.filter-chip:hover, .search-filter-btn:hover {
-  box-shadow: none;
-  border-color: rgba(var(--accent-rgb), 0.5);
-  background: rgba(var(--accent-rgb), 0.18);
-  color: #fff;
-}
-button.chip:hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
-/* **A chip you have already chosen stays filled while you point at it.** The hover tint
-   above is for a chip you have *not* picked; on the active one it was replacing the solid
-   accent plate with a light wash, which is the accent disappearing under the cursor. */
+.chip.active, .filter-chip.active, .model-chip.suggested,
 .chip.active:hover, .filter-chip.active:hover, .model-chip.suggested:hover {
   background: var(--accent);
   color: #0b0b0b;
-  border-color: transparent;
-}
-
-/* **Dropdowns and menus.** The button turns the accent; the row under the cursor inside
-   the open menu is a tinted plate, no ring. */
-.dropdown-btn:hover, .dropdown-btn:focus-visible, .dropdown:focus-within .dropdown-btn {
   box-shadow: none;
-  border-color: rgba(var(--accent-rgb), 0.55);
+}
+/* **The section you are in, and Home's own tab: a fill, no ring** — a ring around a
+   full-width nav tile reads as a box. */
+.settings-tab.active, .tab[aria-selected="true"] {
+  background: rgba(var(--accent-rgb), 0.22);
+  color: #fff;
+  box-shadow: none;
+}
+.settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
+
+/* **Pills answer in their own fill.** A 12px tag is too small to ring: a chip you have
+   *not* picked takes the accent tint, and the picked one is already a solid plate. */
+.chip:not(.active):hover, .chip:not(.active):focus-visible,
+.model-chip:not(.suggested):hover, .chip-more:hover,
+.filter-chip:not(.active):hover, .search-filter-btn:hover {
+  box-shadow: none;
+  background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
 }
+button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
+
+/* **Menus.** The row under the cursor inside an open menu is a tinted plate; the button
+   that opens it wears the ring like everything else. */
 .dropdown-item { border-radius: 8px; }
 .dropdown-item:hover, .dropdown-item:focus-visible,
 .menu-item:hover, .menu-item:focus-visible,
@@ -3723,27 +3708,9 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
 .cat-name:hover, .row-head-link:hover, .row-head-link:focus-visible, .icon-name-link:hover { color: var(--accent); }
 .cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
 
-/* **A field you are typing in** shows it with its fill and its edge, not a ring. */
+/* **A field you are typing in** shows it with its fill, not with a box around it. */
 .text-input:focus, select:focus, select.text-input:focus, .search-input:focus {
   outline: none;
   box-shadow: none;
-  border-color: rgba(var(--accent-rgb), 0.55);
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.13);
 }
-
-/* **The settings column does not jump.** The nav tiles were lifting 2px under the
-   cursor, which on a column you are clicking down read as the list moving up under
-   your hand — the same "it goes to the top" the section offset was already fixed
-   for. The tile answers with its fill now, and the accent stays where it belongs:
-   on the section you are actually in. */
-.settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
-
-/* A poster in a row answers the cursor on its edge, not by lightening its whole
-   face — a photograph behind a fill is a photograph you cannot read. */
-.poster:hover, .poster:focus-visible { background: var(--panel); }
-
-/* **One ring, and it is on the outside.** The old inset ring (a 2px line drawn inside
-   the card's own edge, over the artwork) is answered by the halo above; nothing is
-   drawn on the inside of a card any more, which is what made a highlighted card look
-   like it had two lines at once.
- */
