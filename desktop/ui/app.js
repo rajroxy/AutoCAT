@@ -206,7 +206,7 @@ const accentOf = (id) => ACCENTS.find(([key]) => key === id) || ACCENTS[0];
  * in the page, so this is local families and the system UI face. Settings used to offer six
  * of these; it offers none now, so this is the only place the face is named.
  */
-const FONT_STACK = 'Inter, "Inter Tight", Roboto, system-ui, sans-serif';
+const FONT_STACK = '"Inter", system-ui, sans-serif';
 
 /**
  * The two faces the app can be set in.
@@ -217,19 +217,19 @@ const FONT_STACK = 'Inter, "Inter Tight", Roboto, system-ui, sans-serif';
  */
 const FONTS = [
   ["inter", "Inter", "The default face — the voice the app is written in."],
-  ["tight", "Inter Tight", "Inter, narrowed: the same voice in less width, so a long title fits its row."],
-  ["roboto", "Roboto", "The Android and Google TV face — plain, compact, built for small sizes."],
-  ["manrope", "Manrope", "A rounder, slightly geometric sans, for a softer reading of the same layout."],
+  ["condensed", "Condensed", "A narrower cut, so a long title fits its row without being clipped."],
+  ["rounded", "Rounded", "Softer terminals and a rounder bowl — the same layout, a gentler read."],
+  ["square", "Square", "A squarer, more geometric face with a technical edge."],
 ];
 // **Every face is shipped with the app** — a file in `./fonts`, declared in style.css —
 // rather than a name that has to be installed. A "font setting" that silently falls back
 // to the same face on a machine without it is a switch that does nothing, which is exactly
 // what the last one was.
 const FONT_STACKS = {
-  inter: 'Inter, "Inter Tight", Roboto, system-ui, sans-serif',
-  tight: '"Inter Tight", Inter, Roboto, system-ui, sans-serif',
-  roboto: 'Roboto, Inter, system-ui, sans-serif',
-  manrope: 'Manrope, Inter, system-ui, sans-serif',
+  inter: '"Inter", system-ui, sans-serif',
+  condensed: '"Barlow Semi Condensed", "Inter", system-ui, sans-serif',
+  rounded: '"Figtree", "Inter", system-ui, sans-serif',
+  square: '"Space Grotesk", "Inter", system-ui, sans-serif',
 };
 
 /**
@@ -1053,6 +1053,15 @@ function el(tag, props = {}, ...children) {
 /* ------------------------------------------------------------------- modal */
 
 let modalItem = null;
+
+/**
+ * Where the Settings section column was scrolled to.
+ *
+ * The column has its own scrollbar (there are nineteen tiles and a short window), and
+ * every press of a tile redraws the screen — so the offset has to be carried across the
+ * redraw or the column snaps back to its first tile the moment you choose one.
+ */
+let settingsNavScroll = 0;
 
 /** The state a pinned title is in, drawn on its watchlist row card. */
 function watchTag(m) {
@@ -4291,7 +4300,13 @@ function renderSearch() {
     el("span", { text: "Filters" }),
   );
 
-  if (resultQuery()) queueMicrotask(() => loadTitles(query));
+  // **A search screen opens empty.** The Country chip defaults to the region, so
+  // `resultQuery()` was never empty and the grid filled itself with the region's most
+  // popular titles the moment the screen opened — a wall of results for a search nobody
+  // had run. Only a URL that actually carries something (a `q`, a filter picked on
+  // another screen) starts a search by itself.
+  const askedFor = [...params.keys()].length > 0;
+  if (askedFor && resultQuery()) queueMicrotask(() => loadTitles(query));
 
   return [
     el("h1", { class: "view-title", text: "Search" }),
@@ -5125,126 +5140,39 @@ function playClick() {
 }
 
 /**
- * The music's own ceiling: the volume setting is a percentage of the pad's own level.
+ * **The browsing music is a track, not a drone.**
  *
- * **It was inaudible.** At `0.055` a 35% setting put the whole mix at 0.019 before the
- * chord voices' own gains, which came out under the fan of a laptop — the switch was on
- * and nothing could be heard over it. `0.22` puts the same setting at a level you notice
- * in a quiet room and can still talk over.
+ * The pad this used to be was four oscillators and two filters — a synthesiser tone
+ * that could hold a chord but had no beat, no bass line and no decay, which is what
+ * "pooo pooo" was. This is a real **lofi loop**: 26 seconds in `./audio/browse-loop.wav`
+ * — a Rhodes-ish chord figure over Am7 / Dm7 / G7 / Cmaj7 at 72 BPM, with a kick and a
+ * snare, swung hats, a bass line and a little vinyl hiss and crackle. It is rendered
+ * once, offline, and shipped as a file: the browser only has to decode it, with no
+ * oscillators, no chord timer, and no seam between bars.
  */
-const musicGain = () => (Math.max(0, Math.min(100, Number(state.sound?.musicVolume ?? 35))) / 100) * 0.22;
+const MUSIC_SRC = "./audio/browse-loop.wav";
+let musicEl = null;
 
-/**
- * **The browsing loop is lofi.** A slow four-chord figure on a soft electric-piano
- * timbre — a low root, a mellow chord above it — with a touch of tape hiss and a slow
- * tremolo over the top, so what plays under the rows is the thing the switch promises
- * rather than a drone. Nothing is downloaded: it is four oscillators, one noise buffer
- * and two filters, and it stops the instant the switch goes off.
- */
-const LOFI_CHORDS = [
-  [220.0, 261.63, 329.63, 392.0],   // Am7
-  [146.83, 174.61, 220.0, 293.66],  // Dm7
-  [196.0, 246.94, 293.66, 349.23],  // G7
-  [130.81, 196.0, 246.94, 329.63],  // Cmaj7
-];
-const LOFI_BAR = 7.2; // seconds a chord is held
+/** The level the volume slider is asking for, as the element's own volume. */
+const musicLevel = () => (Math.max(0, Math.min(100, Number(state.sound?.musicVolume ?? 35))) / 100) * 0.6;
 
 function startMusic() {
-  // **Ask for the context first.** A browser holds an AudioContext suspended until the
-  // first gesture, and `audio()` is what resumes it — so a context that came up at boot
-  // stayed suspended for good, because the "already running" branch below never asked
-  // again and the music was silent however many times you pressed something.
-  const now = audio();
-  if (music) {
-    // Already running: just follow the volume slider.
-    if (now) music.master.gain.setTargetAtTime(musicGain(), now.currentTime, 0.4);
-    return;
+  if (typeof Audio === "undefined") return;
+  if (!musicEl) {
+    musicEl = new Audio(MUSIC_SRC);
+    musicEl.loop = true;
+    musicEl.preload = "auto";
   }
-  const ctx = now;
-  if (!ctx) return;
-  const master = ctx.createGain();
-  master.gain.value = 0.0001;
-  // A low ceiling: lofi is a muffled register, so the top end is rolled away.
-  const filter = ctx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 1050;
-  filter.Q.value = 0.6;
-  // The slow swell that makes a held chord breathe instead of sitting still.
-  const trem = ctx.createGain();
-  trem.gain.value = 0.86;
-  const lfo = ctx.createOscillator();
-  lfo.type = "sine";
-  lfo.frequency.value = 0.17;
-  const lfoGain = ctx.createGain();
-  lfoGain.gain.value = 0.13;
-  lfo.connect(lfoGain).connect(trem.gain);
-  filter.connect(trem).connect(master).connect(ctx.destination);
-  // Four voices: the root hums as a sine, the chord above it is soft triangles.
-  const voices = LOFI_CHORDS[0].map((hz, i) => {
-    const osc = ctx.createOscillator();
-    osc.type = i === 0 ? "sine" : "triangle";
-    osc.frequency.value = i === 0 ? hz / 2 : hz;
-    osc.detune.value = i * 5 - 4;
-    const voice = ctx.createGain();
-    voice.gain.value = i === 0 ? 0.5 : 0.24;
-    osc.connect(voice).connect(filter);
-    return { osc, voice };
-  });
-  // **Tape hiss.** A looped quiet noise through a highpass — the one sound that makes a
-  // pad read as a record rather than as a synthesiser.
-  const hiss = ctx.createBufferSource();
-  try {
-    const frames = Math.floor(ctx.sampleRate * 1.4);
-    const buf = ctx.createBuffer(1, frames, ctx.sampleRate);
-    const chan = buf.getChannelData(0);
-    let seed = 12345;
-    for (let i = 0; i < frames; i++) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      chan[i] = ((seed / 0x7fffffff) * 2 - 1) * 0.16;
-    }
-    hiss.buffer = buf;
-    hiss.loop = true;
-    const hissFilter = ctx.createBiquadFilter();
-    hissFilter.type = "highpass";
-    hissFilter.frequency.value = 3800;
-    const hissGain = ctx.createGain();
-    hissGain.gain.value = 0.05;
-    hiss.connect(hissFilter).connect(hissGain).connect(master);
-  } catch {
-    /* no buffer support — the pad still plays */
-  }
-  const at = ctx.currentTime;
-  for (const v of voices) v.osc.start(at);
-  try { hiss.start(at); } catch { /* nothing to start */ }
-  lfo.start(at);
-  master.gain.linearRampToValueAtTime(musicGain(), at + 2.5);
-  // The chord moves on a timer, retuned rather than rebuilt, so the change is a slide
-  // and there is no click between chords.
-  let bar = 0;
-  const step = () => {
-    bar = (bar + 1) % LOFI_CHORDS.length;
-    const chord = LOFI_CHORDS[bar];
-    const when = ctx.currentTime;
-    voices.forEach((v, i) => {
-      v.osc.frequency.setTargetAtTime(i === 0 ? chord[0] / 2 : chord[i], when, 0.8);
-    });
-  };
-  const timer = setInterval(step, LOFI_BAR * 1000);
-  music = { master, voices: voices.map((v) => v.osc), lfo, filter, hiss, timer };
+  musicEl.volume = musicLevel();
+  // **A press is what starts it.** A browser refuses playback without a gesture, so the
+  // first press — or any press after one that was refused — asks again; calling `play()`
+  // on an element that is already playing is simply ignored.
+  if (musicEl.paused) musicEl.play().catch(() => { /* refused — the next press asks again */ });
 }
 
 function stopMusic() {
-  if (!music) return;
-  const { master, voices, lfo, hiss, timer } = music;
-  if (timer) clearInterval(timer);
-  const at = audioCtx.currentTime;
-  master.gain.setTargetAtTime(0.0001, at, 0.3);
-  // The voices are stopped a beat later, once the fade is done.
-  setTimeout(() => {
-    for (const osc of [...voices, lfo]) { try { osc.stop(); } catch { /* already stopped */ } }
-    try { hiss?.stop(); } catch { /* already stopped */ }
-  }, 1200);
-  music = null;
+  if (!musicEl) return;
+  musicEl.pause();
 }
 
 /** Music runs while browsing and gives way to the title being played. */
@@ -7312,10 +7240,11 @@ function panePosters() {
   return [
     toggleRow(stored.enabled === true, "Upgrade posters everywhere", "Replace the artwork with the poster service's version for every title; titles it cannot cover keep theirs.", (e) => savePosters({ enabled: e.target.checked })),
     // **One box per service, the same shape Content uses.** These were stacked rows
-    // inside one "Poster service" panel, which read as a list inside a list; as boxes
-    // they sit in the pane's own board and the chosen one wears the accent like every
-    // other choice in Settings. **No heading above them** — the tile you are on says
-    // Posters, and each box carries its own name.
+    // inside a panel, which read as a list inside a list; as boxes they sit in the
+    // pane's own board and the chosen one wears the accent. **No heading above them** —
+    // the tile you are on says which pane this is — and the line that explains what the
+    // choice does sits above them instead.
+    el("p", { class: "option-desc", text: "Which service supplies the artwork. Its pattern is filled in below; edit the pattern to use anything else — {imdb_id}, {tmdb_id}, {type} and {rpdb_key} are filled in per title." }),
     ...POSTER_SERVICES.map(([id, label, url, desc]) =>
       radioRow(current === id, "posterservice", label, desc, () => savePosters({ source: id, pattern: url, enabled: id !== "none" })),
     ),
@@ -7748,31 +7677,36 @@ function applyTheme() {
 
 /** Settings → Appearance: the accent colour, and how much the app moves. */
 function paneAppearance() {
+  // **As it was: one round swatch per colour.** The grid of tinted boxes was a change
+  // nobody asked for; this is the row the pane has always drawn — the colour itself,
+  // the chosen one ringed — with its name on the button for a screen reader.
   return [
-    // **One colour, one box.** The swatches were a row of bare circles with their names
-    // only in a tooltip; each is a box of its own now, the same shape every other choice
-    // in Settings has, with its name written on it.
-    el("div", { class: "accent-grid" },
-      ...ACCENTS.map(([id, label, rgb, base]) =>
-        el("button", {
-          class: `accent-box focusable${state.accent === id ? " active" : ""}`,
-          type: "button",
-          id: `accent-${id}`,
-          "aria-label": label,
-          "aria-pressed": String(state.accent === id),
-          style: `--swatch: ${base}; --swatch-rgb: ${rgb}`,
-          onclick: () => {
-            state.accent = id;
-            localStorage.setItem(KEY.accent, id);
-            applyTheme();
-            render();
-          },
-        },
-          el("span", { class: "accent-dot" }),
-          el("span", { class: "accent-name", text: label }),
+    el("div", { class: "provider" },
+      el("div", { class: "accent-row" },
+        ...ACCENTS.map(([id, label, , base]) =>
+          el("button", {
+            class: `accent-swatch focusable${state.accent === id ? " active" : ""}`,
+            type: "button",
+            id: `accent-${id}`,
+            title: label,
+            "aria-label": label,
+            "aria-pressed": String(state.accent === id),
+            style: `--swatch: ${base}`,
+            onclick: () => {
+              state.accent = id;
+              localStorage.setItem(KEY.accent, id);
+              applyTheme();
+              render();
+            },
+          }),
         ),
       ),
+      el("div", { class: "provider-check" }, el("span", { class: "source-status", text: `Accent: ${accentOf(state.accent)[1]}` })),
     ),
+    // The line under the row. It says what the setting *does* rather than naming the
+    // pane it is on — the section name is the tile on the left, and does not need
+    // saying twice.
+    el("p", { class: "option-desc", text: "Paints the whole app: buttons, chips, the ring on what you hover, the bar on the player. Fifteen choices, one at a time." }),
   ];
 }
 
@@ -8479,6 +8413,10 @@ function renderSettings() {
   // around a handful of them, and no heading to read first. `settingsGroups()` still
   // returns groups (a profile can add more), but a group with no name draws no box: its
   // tiles join the same grid as everyone else's.
+  // **The column keeps its place.** It has a scrollbar of its own (see `.settings-nav`),
+  // and pressing a tile far down it redraws the pane and put the column back at its top —
+  // which is what "it goes up when I click a menu" was. The offset is remembered here and
+  // re-applied to the new column a frame later.
   const nav = el("nav", { class: "settings-nav", "aria-label": "Settings sections" },
     ...settingsGroups().map((group) =>
       el("div", { class: `settings-tiles${group.group ? "" : " flat"}` },
@@ -8489,6 +8427,8 @@ function renderSettings() {
             "aria-current": id === active[0] ? "true" : false,
             text: label,
             onclick: () => {
+              const column = document.querySelector(".settings-nav");
+              settingsNavScroll = column ? column.scrollTop : 0;
               state.settingsSection = id;
               localStorage.setItem(KEY.section, id);
               render();
@@ -8508,6 +8448,10 @@ function renderSettings() {
   const body = el("section", { class: "setting" },
     el("div", { class: "setting-grid" }, ...(panes[active[0]] || paneProfile)()),
   );
+
+  // Put the column back where it was, once the new one is in the document.
+  const wanted = settingsNavScroll;
+  if (wanted) requestAnimationFrame(() => { const col = document.querySelector(".settings-nav"); if (col) col.scrollTop = wanted; });
 
   return [
     el("h1", { class: "view-title", text: "Settings" }),
@@ -8688,9 +8632,10 @@ async function render() {
   // the lists a name on a title opens (a credit, a studio, a network, a genre) and the
   // season screen — so the back arrow reads as the head of that page rather than one
   // control floating in the bar. Home and the rest keep the bare arrow.
-  document.getElementById("back-divider").hidden = !(
-    view === "list" && ["person", "company", "network", "genre", "season", "country", "keyword", "collection"].includes(parseHash().kind)
-  );
+  // **The rule follows the arrow wherever the arrow is.** It used to be drawn only on
+  // the lists a name on a title opens, so Settings, the Calendar and Search wore a bare
+  // arrow with nothing under it — the one place the bar looked unfinished.
+  document.getElementById("back-divider").hidden = ["home", "profiles", "modes"].includes(view);
   document.getElementById("settings").hidden = !onHome;
   document.getElementById("search").hidden = !onHome;
   document.getElementById("calendar").hidden = !onHome;

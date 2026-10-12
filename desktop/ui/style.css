@@ -1,9 +1,10 @@
-/* **The app carries its own typefaces.** Settings → Font offers four, and every one
-   of them is a file in `./fonts` rather than a name that happens to be installed — a
-   "font setting" that silently falls back to the same face on a machine without it is
-   a switch that does nothing. Inter is the default and the voice the app is written in;
-   the other three are the same kind of neutral sans a media app is set in, so every
-   choice is legible at a row's size. All four are Open Font License. */
+/* **The app carries its own typefaces.** Settings → Font offers four, and every one of
+   them is a file in `./fonts` rather than a name that happens to be installed — a "font
+   setting" that silently falls back to the same face on a machine without it is a switch
+   that does nothing, and four near-identical grotesques is a switch that looks like it
+   does nothing. These four are plainly different from each other: the app's own Inter, a
+   **narrow** cut, a **rounded** cut, and a **square geometric** one. All four are Open
+   Font License. */
 @font-face {
   font-family: "Inter";
   src: url("./fonts/Inter.woff2") format("woff2");
@@ -11,21 +12,39 @@
   font-display: swap;
 }
 @font-face {
-  font-family: "Inter Tight";
-  src: url("./fonts/InterTight.woff2") format("woff2");
-  font-weight: 100 900;
+  font-family: "Barlow Semi Condensed";
+  src: url("./fonts/BarlowSemiCondensed-400.woff2") format("woff2");
+  font-weight: 400;
   font-display: swap;
 }
 @font-face {
-  font-family: "Roboto";
-  src: url("./fonts/Roboto.woff2") format("woff2");
-  font-weight: 100 900;
+  font-family: "Barlow Semi Condensed";
+  src: url("./fonts/BarlowSemiCondensed-500.woff2") format("woff2");
+  font-weight: 500;
   font-display: swap;
 }
 @font-face {
-  font-family: "Manrope";
-  src: url("./fonts/Manrope.woff2") format("woff2");
-  font-weight: 100 900;
+  font-family: "Barlow Semi Condensed";
+  src: url("./fonts/BarlowSemiCondensed-600.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  src: url("./fonts/BarlowSemiCondensed-700.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Figtree";
+  src: url("./fonts/Figtree.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("./fonts/SpaceGrotesk-400.woff2") format("woff2");
+  font-weight: 300 700;
   font-display: swap;
 }
 
@@ -1043,43 +1062,28 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    whose names lived in a tooltip; each is a full-width box now, the same shape every other
    choice in Settings has — a dot of the colour and the name written beside it — stacked up
    and down the column. */
-.accent-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 4px; }
-.accent-box {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  padding: 12px 13px;
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 700;
-  text-align: left;
-  color: var(--text);
-  /* **Each box wears its own colour's greyness** — `--swatch-rgb` is the colour, so the
-     grid reads as the palette it is rather than fifteen identical grey plates. */
-  background: rgba(var(--swatch-rgb), 0.13);
-  border: 1px solid rgba(var(--swatch-rgb), 0.42);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.accent-box:hover { background: rgba(var(--swatch-rgb), 0.22); border-color: rgba(var(--swatch-rgb), 0.7); }
-.accent-box.active {
-  background: rgba(var(--swatch-rgb), 0.3);
-  border-color: var(--swatch);
-  box-shadow: inset 0 0 0 1px var(--swatch);
-  color: #fff;
-}
-.accent-dot {
-  width: 24px;
-  height: 24px;
-  flex: none;
-  border-radius: 8px;
+/* **The accent picker, as it was**: one round swatch per colour, wrapped, the chosen one
+   ringed with its own colour. */
+.accent-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 4px; }
+.accent-swatch {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   background: var(--swatch);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  position: relative;
 }
-.accent-box.active .accent-dot { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9); }
-.accent-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accent-swatch:hover, .accent-swatch:focus-visible { transform: translateY(-2px); }
+.accent-swatch.active { box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--swatch); }
+.accent-swatch.active::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+}
 
 /* ------------------------------------------------------------------ explore */
 
@@ -3599,96 +3603,84 @@ echo "done"
 
 
 /* ============================================================================
-   **The selection border — one line, one meaning.**
+   **Hovering, and what is chosen — a highlight, not an outline.**
    ----------------------------------------------------------------------------
-   The outline pass took the hairline off nearly every surface and left the app
-   saying "this one" with fills alone: a tile, a button, a chip, a card and a menu
-   all answered the cursor the same way, and the item you had *chosen* was
-   indistinguishable from the one you were merely over. Every one of those surfaces
-   carries a 1px border again, and it turns **accent** on hover, on keyboard focus
-   and on the chosen state. It is written at the end of the sheet on purpose: the
-   outline pass and the filled-field rules above set `border: 0` on the same
-   selectors, and this has to be the last word on it.
+   Two passes got this wrong in opposite directions. The outline pass took the
+   hairline off everything, so hover and *chosen* both read as the same flat fill.
+   The pass after it put a grey 1px border on every surface at rest, which is not
+   what the app is: **nothing wears a line until you point at it.** What comes back
+   is the first version's own language — the accent, spent on the one thing under
+   the cursor or the one thing you picked: a **ring and a tint**, no outline.
    ============================================================================ */
-.icon-btn,
-.profile-tile,
-.current-profile,
-.icon-box,
-.poster,
-.section-art,
-.btn,
-.search-bar,
-.search-filter-btn,
-.search-suggest,
-.search-filters,
-.search-input,
-.chip-more,
-.chip,
-.filter-chip,
-.result,
-.model-chip,
-.vis-card,
-.vis-option,
-.source,
-.provider,
-.source-providers,
-.ai-ask,
-.option,
-.modal-card,
-.modal-close,
-.cat-menu,
-.row-switch,
-.channel-card,
-.channel-art,
-.alpha-rail,
-.graph,
-.guide,
-.site-row,
-.dropdown-btn,
-.dropdown-menu,
-select,
-select.text-input,
-.text-input {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-}
-
-/* Pointing at it, tabbing to it, or having chosen it: the border is the accent. */
 .icon-btn:hover, .icon-btn:focus-visible,
 .btn:hover, .btn:focus-visible,
 .profile-tile:hover, .profile-tile:focus-visible,
 .icon-box:hover, .icon-box:focus-visible,
 .poster:hover, .poster:focus-visible,
+.cat-tile:hover, .cat-tile:focus-visible,
 .result:hover, .result:focus-visible,
-.option:hover,
-.option:has(input:checked),
-.vis-option:hover,
-.vis-option:has(input:checked),
-.provider:hover,
-.source:hover,
+.option:hover, .option:focus-visible,
+.vis-option:hover, .vis-option:focus-visible,
+.provider:hover, .provider:focus-visible,
+.source:hover, .source:focus-visible,
 .vis-card:hover,
 .chip:hover, .chip:focus-visible,
-.chip-more:hover,
+.chip-more:hover, .chip-more:focus-visible,
 .filter-chip:hover, .filter-chip:focus-visible,
-.model-chip:hover,
+.model-chip:hover, .model-chip:focus-visible,
 .channel-card:hover, .channel-card:focus-visible,
 .dropdown-btn:hover, .dropdown-btn:focus-visible,
 .dropdown:focus-within .dropdown-btn,
+.site-row:hover,
 .search-filter-btn:hover, .search-filter-btn:focus-visible,
-.site-row:hover {
-  border-color: rgba(var(--accent-rgb), 0.8);
+.row-btn:hover, .row-btn:focus-visible,
+.crumb:hover, .crumb:focus-visible,
+.menu-item:hover, .menu-item:focus-visible,
+.tab:hover, .tab:focus-visible {
+  /* The highlight: an accent ring drawn *outside* the box, so nothing about the
+     layout moves and nothing is outlined when it is at rest. */
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: #fff;
 }
 
-/* A chosen chip — a card's own tag, a filter that is on — is accent all the way. */
-.chip.active, .filter-chip.active, .model-chip.suggested, .dropdown-btn[aria-expanded="true"] {
-  border-color: var(--accent);
+/* What is **chosen** wears the same highlight and keeps it. */
+.chip.active, .filter-chip.active, .model-chip.suggested,
+.option:has(input:checked), .vis-option:has(input:checked),
+.dropdown-btn[aria-expanded="true"], .menu-item.active,
+.tab.active, .profile-tile.active, .settings-tab.active,
+.icon-box.active, .poster.active {
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.75);
+  background: rgba(var(--accent-rgb), 0.16);
+  color: #fff;
+}
+
+/* A menu, and the row under the cursor inside it. */
+.dropdown-item { border-radius: 8px; }
+.dropdown-item:hover, .dropdown-item:focus-visible,
+.menu-item:hover, .menu-item:focus-visible {
+  box-shadow: none;
   background: rgba(var(--accent-rgb), 0.2);
   color: #fff;
 }
 
-/* A field you are typing in reads as chosen, too. */
-.text-input:focus, select.text-input:focus, select:focus { border-color: rgba(var(--accent-rgb), 0.85); outline: none; }
+/* A field you are typing in reads as chosen, too — the ring, not a border. */
+.text-input:focus, select:focus, select.text-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
 
-/* A menu is a menu: its own line, and the row under the cursor is accent. */
-.dropdown-menu { border-radius: 12px; }
-.dropdown-item { border: 0; border-radius: 8px; }
-.dropdown-item:hover, .dropdown-item:focus-visible { background: rgba(var(--accent-rgb), 0.18); }
+/* A card's wall of artwork: the ring is enough there, no tint over a photograph. */
+.icon-box:hover, .poster:hover, .poster:focus-visible, .channel-card:hover { background: none; }
+.icon-box:hover { background: var(--panel-2); }
+
+/* **The descriptions come back — in Settings only.** The "no subtext anywhere"
+   rule hid every explanatory line in the app, and the ask was to take the *repeated
+   section name* off the right-hand pane, not to leave it wordless. A pane shows what
+   each control does again; nothing outside Settings changes. */
+/* `!important`, because the rule it is answering is `display: none !important` — one
+   app-wide suppression against one container that is allowed to speak. */
+.settings-pane .option-desc,
+.settings-pane .group-head .option-desc,
+.settings-pane .setting-grid .option-desc { display: block !important; }

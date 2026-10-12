@@ -141,7 +141,19 @@ async function complete(cfg, key, model, prompt, { maxTokens, system } = {}) {
         generationConfig: { temperature: 0, maxOutputTokens: budget },
       }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // **Say what the code means.** "HTTP 401" is the provider's answer, not an
+      // explanation: 401 is the key itself (wrong console, truncated, or revoked), 403 is
+      // a key that is real but not allowed to do this, and 429 is a quota.
+      const why = res.status === 401
+        ? `the key was refused (401) — it may be from another provider's console, or copied without its last characters`
+        : res.status === 403
+          ? `the key is not allowed to list models (403)`
+          : res.status === 429
+            ? `the free tier's rate limit was hit (429) — try again shortly`
+            : `HTTP ${res.status}`;
+      throw new Error(why);
+    }
     const data = await res.json();
     return (data?.candidates?.[0]?.content?.parts ?? []).map((p) => p?.text || "").join("");
   }
@@ -364,7 +376,10 @@ export async function aiModels(name) {
 export async function verifyAI(name, key) {
   const cfg = AI_PROVIDERS[name];
   if (!cfg) return { ok: false, text: "unknown AI provider" };
-  const useKey = key || aiKey(name);
+  // **A key is trimmed before it is used.** A paste from a browser or a password
+  // manager routinely carries a trailing space or newline, and the provider answers
+  // 401 for it — which reads as "my key does not work" when the key is fine.
+  const useKey = String(key || aiKey(name) || "").trim();
   if (!useKey) return { ok: false, text: "no key saved" };
   try {
     const url = cfg.shape === "gemini"

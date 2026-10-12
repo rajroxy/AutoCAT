@@ -640,8 +640,6 @@ const discoverPlusRow = (take) => [
   // The canon: the highest rated of the most seen, so the row is the titles everyone
   // already knows rather than the ones only a few do.
   curated("All-Time Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 5000 }, take),
-  // Out now, and good — a low floor, because a title released this week has few votes.
-  curated("Fresh This Week", { sort_by: "popularity.desc", "vote_average.gte": 6.5, "vote_count.gte": 20, within: 90 }, take),
 ];
 
 /**

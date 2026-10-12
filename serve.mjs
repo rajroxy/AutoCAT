@@ -37,6 +37,10 @@ const TYPES = {
   // `application/octet-stream` is refused by the font loader — the file arrives, and
   // the face is still reported as failed, which is a font setting that looks broken
   // rather than one that is missing.
+  // The browsing music is a file, so it needs an audio type.
+  ".wav": "audio/wav",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
   ".woff2": "font/woff2",
   ".woff": "font/woff",
   ".ttf": "font/ttf",

@@ -1482,6 +1482,11 @@ export async function handleAddon(req, res, pathname, origin) {
     if (req.method === "POST") {
       try {
         const patch = await readBody(req);
+        // **A pasted key is trimmed on the way in**, so a trailing space from the
+        // clipboard cannot be the reason a working key is refused (see `verifyAI`).
+        if (patch?.ai?.keys && typeof patch.ai.keys === "object") {
+          for (const name of Object.keys(patch.ai.keys)) patch.ai.keys[name] = String(patch.ai.keys[name] || "").trim();
+        }
         updateSettings(patch);
         setKey(tmdbKey());
         // **An add-on you just added has to play now.** Every cached stream answer was
