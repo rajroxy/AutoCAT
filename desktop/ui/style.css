@@ -3642,7 +3642,6 @@ select option:hover {
    and a halo around one of those is a glowing box, not a glow. Those keep the ring and
    take no light (the local `--hl` below wins over this one because the value is
    resolved on the element itself). */
-.glow-on { --hl: 0 0 0 3px var(--accent), 0 0 26px 5px rgba(var(--accent-rgb), 0.5); }
 
 /* ============================================================================
    **Hover and choice: a ring on the one thing you are on — and no outlines.**
@@ -3720,6 +3719,14 @@ select option:hover {
 .trailer-card:has(:focus-visible) {
   box-shadow: var(--hl);
 }
+/* **Every focus stop shows the highlight.** The ring was drawn by a list of rules, one
+   per kind of surface, and anything the list did not name — the banner's own poster, an
+   Upcoming tile, a title page's frame — took the keyboard with nothing on screen saying
+   where you were. This is the one rule that ends that: if it can be focused, it lights up.
+   The rules below it take the ring back off the *inner* half of a surface that already
+   rings as a whole, so nothing wears two. */
+.focusable:focus-visible { outline: none; box-shadow: var(--hl); }
+
 /* …and whatever is inside does not draw a second ring of its own. */
 .icon-box :focus-visible,
 .cat-tile :focus-visible,
@@ -3727,8 +3734,11 @@ select option:hover {
 .accent-card :focus-visible,
 .season-card :focus-visible,
 .company-card :focus-visible,
-.trailer-card :focus-visible {
+.trailer-card :focus-visible,
+.hero :focus-visible,
+.title-hero :focus-visible {
   outline: none;
+  box-shadow: none;
 }
 /* **A card's own posters are not a second target.** Pointing at artwork inside a card
    highlights the card; a ring on both is the double highlight. */
@@ -3817,18 +3827,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   background: rgba(255, 255, 255, 0.13);
 }
 
-/* **A full-width row never glows.** The halo is light around a *thing*; a row that spans
-   the whole pane would get a glowing box drawn round it instead, which is not what the
-   switch offers. These keep the ring and take no light — and they are last in the sheet
-   so they beat the hover rule above them at equal specificity. */
-.glow-on .option,
-.glow-on .option:has(input:checked),
-.glow-on .settings-tab,
-.glow-on .settings-tab:focus-visible,
-.glow-on .site-row,
-.glow-on .ep-row {
-  box-shadow: 0 0 0 3px var(--accent);
-}
 
 /* **Motion, smoothed.** The highlight, the fills and the panels all changed colour on a
    150ms linear-ish curve, which reads as a snap. Everything that answers the cursor now
@@ -3895,3 +3893,50 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 }
 .vis-fold:hover, .vis-fold:focus-visible { color: var(--text); box-shadow: var(--hl); outline: none; }
 .vis-card.off .vis-card-head .vis-option { opacity: 0.6; }
+
+/* ---------------------------------------------- the trailer's own controls */
+
+/* **This panel's controls, not YouTube's.** The embed's chrome is turned off and these
+   are drawn instead — play/pause, a real seek bar, the clock and fullscreen — so the clip
+   plays inside the app rather than inside somebody else's player. */
+.trailer-frame > * { position: absolute; inset: 0; width: 100%; height: 100%; }
+.trailer-controls { display: flex; align-items: center; gap: 12px; padding: 12px 6px 2px; }
+.trailer-btn {
+  flex: none;
+  width: 36px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.trailer-btn:hover, .trailer-btn:focus-visible { background: rgba(var(--accent-rgb), 0.28); color: #fff; }
+.trailer-seek {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  accent-color: var(--accent);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.trailer-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.trailer-seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 999px; background: var(--accent); }
+.trailer-clock { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }

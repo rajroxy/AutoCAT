@@ -650,7 +650,7 @@ const state = {
   font: localStorage.getItem(KEY.font) || "inter",
   // **A glow around the highlight** (Settings → Accent). The ring itself is always
   // drawn; the halo is a matter of taste, so it is a switch and it starts off.
-  glow: localStorage.getItem(KEY.glow) === "1",
+  glow: false,
   // Blur the page behind a popup (the assistant, a dialog). On unless turned off.
   blur: localStorage.getItem(KEY.blur) !== "0",
   // **Sound and notifications.** Each is a small map of switches rather than
@@ -2149,15 +2149,30 @@ function renderPeople() {
       { class: "profiles" },
       el("p", { class: "hero-kicker", text: "Profiles" }),
       el("h1", { class: "view-title", text: "Who is watching?" }),
-      el("p", { class: "view-hint", text: "Pick a profile to start. How you want to watch comes next. Names and marks are under Settings → Profile." }),
+      el("p", { class: "view-hint", text: "Pick a profile to start. How you want to watch comes next." }),
       el(
         "div",
         { class: "profile-grid" },
-        // **The boot screen only picks.** Adding, renaming and removing are settings, so
-        // the grid is a list of ways in — no dashed "Add profile" slot, no rename and
-        // delete axes floating under the tiles. Everything you can change about a profile
-        // is in Settings → Profile.
-        ...people.map((person) => personSlot(person, person.id === current.id)),
+        ...people.map((person) => personSlot(person, person.id === current.id, renaming === person.id, people.length)),
+        // **The slot that is not a profile yet.** Drawn dashed and named for what it
+        // does, so adding a profile is on the screen rather than hidden in Settings.
+        el(
+          "div",
+          { class: "profile-slot" },
+          el(
+            "button",
+            {
+              class: "profile-tile focusable add",
+              type: "button",
+              id: "profile-add",
+              title: "Add a profile",
+              onclick: addPerson,
+            },
+            el("span", { class: "avatar", "aria-hidden": "true" }, plusMark()),
+            el("span", { class: "profile-tile-name", text: "Add profile" }),
+            el("span", { class: "profile-tile-sub", text: "a new name and mark" }),
+          ),
+        ),
       ),
     ),
   ];
@@ -2168,15 +2183,78 @@ const plusMark = () =>
   svgNode("svg", { class: "plus-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
     svgNode("path", { d: "M24 13v22M13 24h22" }));
 
-/**
- * One profile on the picker: the tile you enter with.
- *
- * The rename and remove axes used to hang under every tile here, and a dashed "Add
- * profile" sat at the end of the grid — a screen whose whole job is "pick one" carrying
- * four ways to change the list. All of that is Settings → Profile now, so this is the
- * tile: the person's own mark, their name, and what pressing it does.
- */
-function personSlot(person, active) {
+/** One profile on the picker: the tile you enter with, and the two tools under it. */
+function personSlot(person, active, editing, count) {
+  const tools = el(
+    "div",
+    { class: "profile-tools" },
+    el(
+      "button",
+      {
+        class: "profile-tool focusable",
+        type: "button",
+        title: `Rename ${person.name}`,
+        "aria-label": `Rename ${person.name}`,
+        onclick: () => { state.renaming = person.id; render(); },
+      },
+      svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+        svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
+        svgNode("path", { d: "M14.5 5.5l4 4" }),
+      ),
+    ),
+    count > 1
+      ? el(
+          "button",
+          {
+            class: "profile-tool danger focusable",
+            type: "button",
+            title: `Remove ${person.name}`,
+            "aria-label": `Remove ${person.name}`,
+            onclick: () => removePerson(person.id),
+          },
+          svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+            svgNode("path", { d: "M6 6l12 12M18 6L6 18" }),
+          ),
+        )
+      : null,
+  );
+  if (editing) {
+    const field = el("input", {
+      class: "profile-name-field",
+      type: "text",
+      maxlength: "24",
+      value: person.name,
+      "aria-label": `Name for ${person.name}`,
+    });
+    const commit = () => renamePerson(person.id, field.value);
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); commit(); }
+      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; render(); }
+    });
+    queueMicrotask(() => field.focus());
+    return el(
+      "div",
+      { class: "profile-slot editing" },
+      el(
+        "div",
+        { class: "profile-tile active" },
+        el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
+        field,
+        el(
+          "div",
+          { class: "profile-rename-actions" },
+          el("button", { class: "btn focusable", type: "button", text: "Save", onclick: commit }),
+          el("button", {
+            class: "btn subtle focusable",
+            type: "button",
+            text: "Cancel",
+            onclick: () => { state.renaming = ""; render(); },
+          }),
+        ),
+      ),
+      tools,
+    );
+  }
   return el(
     "div",
     { class: `profile-slot${active ? " active" : ""}` },
@@ -2188,10 +2266,11 @@ function personSlot(person, active) {
         "aria-current": active ? "true" : false,
         onclick: () => choosePerson(person.id),
       },
-      el("span", { class: "avatar", "aria-hidden": "true" }, personMark(person)),
+      el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
       el("span", { class: "profile-tile-name", text: person.name }),
       el("span", { class: "profile-tile-sub", text: active ? "current profile" : "switch to this profile" }),
     ),
+    tools,
   );
 }
 
@@ -6056,33 +6135,131 @@ function trailersRow(trailers) {
  * requested when a card is pressed — nothing loads for a page that is merely open.
  */
 function openTrailer(t) {
+  const key = String(t.key || "");
+  let tick = null;
   const close = () => {
     document.removeEventListener("keydown", onKey);
+    if (tick) clearInterval(tick);
+    try { ytPlayer?.destroy?.(); } catch { /* nothing to stop */ }
     overlay.remove();
   };
   const onKey = (e) => {
     if (e.key === "Escape") close();
+    // The keyboard belongs to the panel while it is open: space is play/pause here, not
+    // "scroll the page behind it".
+    if (e.key === " " && document.activeElement?.closest(".trailer-shell")) {
+      e.preventDefault();
+      toggle();
+    }
   };
+
+  // **The app's own controls, not YouTube's.** The embed was drawn with YouTube's whole
+  // player around it — the red plate, the title card, the settings gear — which is
+  // somebody else's app sitting in the middle of this one. The chrome is turned off
+  // (`controls: 0`, `modestbranding`, no annotations) and this panel draws the controls:
+  // play/pause, a real seek bar, the time, and fullscreen.
+  const playBtn = el("button", {
+    class: "trailer-btn focusable",
+    type: "button",
+    id: "trailer-play",
+    text: "▶",
+    title: "Play",
+    "aria-label": "Play",
+  });
+  const seek = el("input", {
+    class: "trailer-seek focusable",
+    type: "range",
+    id: "trailer-seek",
+    min: "0",
+    max: "1000",
+    value: "0",
+    step: "1",
+    "aria-label": "Seek",
+  });
+  const clock = el("span", { class: "trailer-clock", text: "0:00 / 0:00" });
+  const full = el("button", {
+    class: "trailer-btn focusable",
+    type: "button",
+    id: "trailer-full",
+    text: "⛶",
+    title: "Fullscreen",
+    "aria-label": "Fullscreen",
+  });
+
   const overlay = el("div", { class: "trailer-overlay", role: "dialog", "aria-modal": "true", "aria-label": `${t.name} trailer` },
     el("div", { class: "trailer-shell" },
       el("div", { class: "trailer-bar" },
         el("span", { class: "trailer-heading", text: t.name || "Trailer" }),
         el("button", { class: "btn subtle focusable", type: "button", text: "Close", onclick: close }),
       ),
-      el("div", { class: "trailer-frame" },
-        el("iframe", {
-          src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.key)}?autoplay=1&rel=0&modestbranding=1`,
-          title: t.name || "Trailer",
-          allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
-          allowfullscreen: true,
-        }),
-      ),
+      el("div", { class: "trailer-frame" }, el("div", { id: "trailer-mount" })),
+      el("div", { class: "trailer-controls" }, playBtn, seek, clock, full),
     ),
   );
-  // A press on the backdrop — never on the frame — is the other way out.
+
+  let ytPlayer = null;
+  let dragging = false;
+  const mmss = (n) => {
+    const sec = Math.max(0, Math.floor(Number(n) || 0));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  };
+  const paint = () => {
+    if (!ytPlayer?.getDuration) return;
+    const now = ytPlayer.getCurrentTime?.() || 0;
+    const total = ytPlayer.getDuration?.() || 0;
+    if (!dragging && total) seek.value = String(Math.round((now / total) * 1000));
+    clock.textContent = `${mmss(now)} / ${mmss(total)}`;
+    const playing = ytPlayer.getPlayerState?.() === 1;
+    playBtn.textContent = playing ? "❚❚" : "▶";
+    playBtn.title = playing ? "Pause" : "Play";
+    playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+  };
+  const toggle = () => {
+    if (!ytPlayer?.getPlayerState) return;
+    if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
+    else ytPlayer.playVideo();
+  };
+  playBtn.addEventListener("click", toggle);
+  seek.addEventListener("input", () => { dragging = true; });
+  seek.addEventListener("change", () => {
+    dragging = false;
+    const total = ytPlayer?.getDuration?.() || 0;
+    if (total) ytPlayer.seekTo((Number(seek.value) / 1000) * total, true);
+  });
+  full.addEventListener("click", () => {
+    const frame = overlay.querySelector(".trailer-frame");
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else frame?.requestFullscreen?.();
+  });
+
+  // A press on the backdrop — never on the panel — is the other way out.
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   document.addEventListener("keydown", onKey);
   document.body.append(overlay);
+
+  // The IFrame API is fetched once, and only when a trailer is actually opened — nothing
+  // loads for a page that is merely open.
+  const boot = () => {
+    if (!window.YT?.Player) return;
+    ytPlayer = new window.YT.Player("trailer-mount", {
+      videoId: key,
+      playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0, iv_load_policy: 3, disablekb: 1, playsinline: 1, fs: 0 },
+      events: {
+        onReady: (e) => { e.target.playVideo(); tick = setInterval(paint, 500); },
+        onStateChange: paint,
+      },
+    });
+  };
+  if (window.YT?.Player) boot();
+  else {
+    const prior = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { prior?.(); boot(); };
+    if (!document.getElementById("yt-iframe-api")) {
+      const script = el("script", { id: "yt-iframe-api", src: "https://www.youtube.com/iframe_api" });
+      document.head.append(script);
+    }
+  }
+  const stop = setInterval(() => { if (!overlay.isConnected) clearInterval(stop); else if (window.YT?.Player && !ytPlayer) boot(); }, 400);
 }
 
 /**
@@ -6971,150 +7148,26 @@ function visRow(checked, level, id, title, desc, depth = 0) {
  * profile pane says so — see the note at the foot of the pane.
  */
 function paneSignin() {
-  // **The way in lives in the Sign in pane.** The account card was in Settings → Profile,
-  // under the mode it belonged to; the pane actually named for signing in showed only the
-  // app keys, so the buttons that sign you in were in a different room from their name.
-  const rows = [
-    [
-      "google", "Google", "https://console.cloud.google.com/apis/credentials",
-      "A Google sign-in app of your own. Paste its two values here and add the redirect URI below to that app's Authorized redirect URIs.",
-    ],
-    [
-      "github", "GitHub", "https://github.com/settings/developers",
-      "A GitHub sign-in app of your own. Its \"Authorization callback URL\" is the redirect URI below, character for character.",
-    ],
-  ];
-
+  // **A sign-in, not a setup wizard.** This pane used to be two pairs of boxes — a client
+  // id and a client secret for Google and for GitHub — with the account card somewhere
+  // else entirely, so "Sign in" showed you keys instead of a way in. It shows the way in
+  // now: **Sign in with GitHub**, then this machine's own name.
+  //
+  // A GitHub sign-in is an OAuth app: one app registered once on GitHub, and its two
+  // values given to this server as `NUVIO_GITHUB_CLIENT_ID` and
+  // `NUVIO_GITHUB_CLIENT_SECRET` (the same two values could be pasted in Settings before;
+  // they are not something to type in per install). With them set, the button starts the
+  // ordinary GitHub handshake and comes back signed in. Without them, the button says so.
+  const github = (state.account?.providers || []).find((p) => p.key === "github");
   return [
     signInCard(),
-    el("p", {
-      class: "option-desc",
-      text: "The GitHub sign-in above works once its app keys are pasted here. Google is kept for a config that already has it; GitHub is the one the account card offers.",
-    }),
-    ...rows.map(([slug, label, consoleUrl, note]) => {
-      const held = state.signin[slug] || (state.signin[slug] = { enabled: false, clientId: "", hasSecret: false });
-      const configured = Boolean((state.account?.providers || []).find((p) => p.key === slug)?.configured);
-      const redirect = (state.account?.redirects || {})[slug] || "";
-      const idInput = el("input", {
-        class: "text-input focusable",
-        type: "text",
-        id: `signin-${slug}-id`,
-        value: held.clientId || "",
-        placeholder: `${label} app ID`,
-        "aria-label": `${label} app ID`,
-      });
-      const secretInput = el("input", {
-        class: "text-input focusable",
-        type: "password",
-        id: `signin-${slug}-secret`,
-        placeholder: held.hasSecret ? "•••••••• (set — paste a new one to replace)" : `${label} app secret`,
-        "aria-label": `${label} app secret`,
-      });
-      const status = el("span", { class: "source-status", text: "" });
-      // **Both halves, in one press.** Storing them apart is what leaves a provider half
-      // configured — an id with the secret still in the box looks saved and never works.
-      // Either box may be left empty when the other half is already in place, so the id
-      // can be corrected without the secret being typed again.
-      const save = async () => {
-        const clientId = idInput.value.trim();
-        const clientSecret = secretInput.value.trim();
-        if (!clientId && !clientSecret) {
-          status.className = "source-status bad";
-          status.textContent = `Paste the ${label} app ID and app secret.`;
-          return;
-        }
-        const patch = { enabled: true };
-        if (clientId) patch.clientId = clientId;
-        if (clientSecret) patch.clientSecret = clientSecret;
-        state.signin[slug] = { ...held, ...patch, hasSecret: Boolean(held.hasSecret || clientSecret) };
-        writeJSON(KEY.signin, state.signin);
-        status.className = "source-status";
-        status.textContent = "Saving…";
-        await pushSettings({ signin: { [slug]: patch } });
-        render();
-      };
-      secretInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
-
-      return el("div", { class: `provider${configured ? " active" : ""}` },
-        el("div", { class: "provider-head" },
-          el("div", {},
-            el("span", { class: "option-title", text: `${label} login` }),
-            el("span", { class: `badge ${configured ? "on" : "off"}`, text: configured ? "ready" : held.hasSecret ? "half set" : "not set up" }),
-          ),
-          el("label", { class: "switch", title: `Offer ${label} as a way in` },
-            el("input", {
-              type: "checkbox",
-              checked: held.enabled !== false,
-              onchange: async (e) => {
-                state.signin[slug] = { ...held, enabled: e.target.checked };
-                writeJSON(KEY.signin, state.signin);
-                await pushSettings({ signin: { [slug]: { enabled: e.target.checked } } });
-                render();
-              },
-            }),
-            el("span", { class: "slider" }),
-          ),
-        ),
-        el("p", { class: "option-desc", text: note }),
-        el("div", { class: "source-form", hidden: held.enabled === false }, idInput, secretInput,
-          el("button", { class: "btn primary focusable", type: "button", id: `signin-${slug}-save`, text: "Save keys", onclick: save }),
-          held.hasSecret
-            ? el("button", {
-                class: "btn subtle focusable",
-                type: "button",
-                id: `signin-${slug}-clear`,
-                text: "Remove",
-                title: `Stop offering ${label}`,
-                onclick: async () => {
-                  state.signin[slug] = { ...held, clientId: "", hasSecret: false, enabled: false };
-                  writeJSON(KEY.signin, state.signin);
-                  // **Emptied, not hidden.** Clearing the boxes also reveals an environment
-                  // pair if the machine has one — which is why the pane says so underneath.
-                  await pushSettings({ signin: { [slug]: { clientId: "", clientSecret: "", enabled: false } } });
-                  render();
-                },
-              })
-            : null,
-        ),
-        el("div", { class: "signin-redirect", hidden: held.enabled === false },
-          el("span", { class: "signin-redirect-label", text: "Redirect URI" }),
-          el("code", { class: "signin-redirect-value", text: redirect || `…/auth/${slug}/callback` }),
-          redirect
-            ? el("button", {
-                class: "btn subtle focusable",
-                type: "button",
-                id: `signin-${slug}-copy`,
-                text: "Copy",
-                onclick: async (e) => {
-                  try {
-                    await navigator.clipboard.writeText(redirect);
-                    e.target.textContent = "Copied";
-                  } catch {
-                    // A browser that refuses the clipboard still shows the string; this
-                    // only says so rather than pretending the copy happened.
-                    e.target.textContent = "Select it and copy";
-                  }
-                  setTimeout(() => { e.target.textContent = "Copy"; }, 2000);
-                },
-              })
-            : null,
-        ),
-        // **The door to the console, as a link you can press.** Every `.option-desc` in
-        // the app is hidden by the "no subtext" rule, so the sentence above saying where
-        // the pair comes from is not on screen — and a pane that asks for a value with no
-        // way to go and get it is a dead end. This is the same visible-signup-link pattern
-        // the Assistant pane uses.
-        el("div", { class: "provider-check", hidden: held.enabled === false },
-          el("a", { class: "ai-signup", href: consoleUrl, target: "_blank", rel: "noreferrer", text: `Create a ${label} sign-in app` }),
-          status,
-        ),
-      );
-    }),
-    el("p", {
-      class: "option-desc",
-      text: "Nothing here is needed to sign in: the account card in Settings → Profile also offers a name for this machine, which is made here, stays here, and works before any keys exist.",
-    }),
-  ];
+    github?.configured
+      ? null
+      : el("p", {
+          class: "source-status",
+          text: "GitHub sign-in is not configured on this server yet. Register one GitHub OAuth app and set NUVIO_GITHUB_CLIENT_ID and NUVIO_GITHUB_CLIENT_SECRET, and the button above signs in normally.",
+        }),
+  ].filter(Boolean);
 }
 
 /**
@@ -7164,10 +7217,10 @@ function paneProfile() {
         ? "Switch off anything this profile should not show, then press Done. Off by default: with the editor closed, everything shows and nothing is hidden."
         : "This is the profile the app is using. Open the profile icon in the top bar to switch; press Edit to choose which rows, cards and catalogs this profile shows.",
     }),
-    // **Who you are, then how you watch.** The name and the mark come first — they are
-    // the profile itself — and the two modes are chosen under them. Adding, renaming and
-    // removing profiles lives here too: the picker you meet at boot is a picker, and
-    // everything you can *change* about a profile is a setting.
+    // **Only the name.** A profile's mark, its modes and adding or removing profiles were
+    // asked for in this pane and then taken back out of it: the name is the one thing that
+    // belongs to the profile you are looking at, and the rest is on the profile screen at
+    // boot, where it was already good.
     (() => {
       const me = currentPerson();
       const nameField = el("input", {
@@ -7190,84 +7243,6 @@ function paneProfile() {
         ),
       );
     })(),
-    el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Avatar" }),
-      el("div", { class: "avatar-grid" },
-        ...AVATARS.map((kind) => {
-          const me = currentPerson();
-          const on = (me.avatar || "person") === kind;
-          return el("button", {
-            class: `avatar-pick focusable${on ? " active" : ""}`,
-            type: "button",
-            id: `avatar-${kind}`,
-            title: kind,
-            "aria-label": `Use the ${kind} mark`,
-            "aria-pressed": String(on),
-            onclick: () => {
-              savePeople(profileList().map((p) => (p.id === me.id ? { ...p, avatar: kind } : p)));
-              render();
-            },
-          }, avatarMark(kind));
-        }),
-      ),
-    ),
-    // **How you watch, under who you are.** The two modes are this profile's own, so the
-    // picker sits in the same pane as the name it belongs to.
-    el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "How you watch" }),
-      el("div", { class: "mode-grid" },
-        ...PROFILES.map((name) => el("button", {
-          class: `profile-tile focusable${name === state.profile ? " active" : ""}`,
-          type: "button",
-          "aria-current": name === state.profile ? "true" : false,
-          onclick: () => chooseProfile(name),
-        },
-          el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(name)),
-          el("span", { class: "profile-tile-name", text: name }),
-          el("span", { class: "profile-tile-sub", text: name === state.profile ? "current mode" : "switch to this mode" }),
-        )),
-      ),
-    ),
-    el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Profiles" }),
-      ...profileList().map((p) => {
-        if (state.renaming === p.id) {
-          const field = el("input", {
-            class: "text-input focusable",
-            type: "text",
-            maxlength: "24",
-            value: p.name,
-            "aria-label": `Name for ${p.name}`,
-          });
-          const commit = () => renamePerson(p.id, field.value);
-          field.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") { e.preventDefault(); commit(); }
-            if (e.key === "Escape") { e.preventDefault(); state.renaming = ""; render(); }
-          });
-          queueMicrotask(() => field.focus());
-          return el("div", { class: "account-row" }, field,
-            el("button", { class: "btn primary focusable", type: "button", text: "Save", onclick: commit }),
-            el("button", { class: "btn subtle focusable", type: "button", text: "Cancel", onclick: () => { state.renaming = ""; render(); } }),
-          );
-        }
-        return el("div", { class: "account-row" },
-          el("span", { class: "avatar small", "aria-hidden": "true" }, personMark(p)),
-          el("div", { class: "account-body" },
-            el("span", { class: "option-title", text: p.name }),
-            el("span", { class: "option-desc", text: p.id === state.who ? "Current profile" : "Another profile" }),
-          ),
-          p.id !== state.who
-            ? el("button", { class: "btn subtle focusable", type: "button", text: "Switch", onclick: () => choosePerson(p.id) })
-            : null,
-          el("button", { class: "btn subtle focusable", type: "button", text: "Rename", onclick: () => { state.renaming = p.id; render(); } }),
-          profileList().length > 1
-            ? el("button", { class: "btn subtle focusable", type: "button", text: "Remove", onclick: () => removePerson(p.id) })
-            : null,
-        );
-      }),
-      el("button", { class: "btn focusable", type: "button", id: "profile-add", text: "Add profile", onclick: addPerson }),
-    ),
-
     editing ? el("div", { class: "vis-editor" },
       el("section", { class: "vis-section" },
         el("div", { class: "group-head" },
@@ -7808,13 +7783,12 @@ function applyTheme() {
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
   root.classList.toggle("motion-off", state.motion === "off");
-  root.classList.toggle("glow-on", state.glow === true);
   root.classList.toggle("motion-full", state.motion === "full");
   // Written out for the boot script in `index.html`, which applies them **before
   // the first paint**. Without it the app painted its default gold and then
   // re-tinted a frame later — the "golden accent on boot" flash.
   try {
-    localStorage.setItem(KEY.theme, JSON.stringify({ base, rgb, deep, motion: state.motion, glow: state.glow === true }));
+    localStorage.setItem(KEY.theme, JSON.stringify({ base, rgb, deep, motion: state.motion }));
   } catch {
     /* private mode — the app still tints, it just flashes on the next boot */
   }
@@ -7853,16 +7827,9 @@ function paneAppearance() {
         ),
       ),
     ),
-    // **The ring is the highlight; the glow is optional.** The ring is what says "this
-    // one", and it is always drawn. The halo around it is a look rather than information,
-    // so it is a switch — and it starts off, so the app is exactly as it was for anyone
-    // who never opens this pane.
-    toggleRow(state.glow, "Glow around the highlight", "A soft halo in the accent colour, around the ring on the card, button or row you are on.", (e) => {
-      state.glow = e.target.checked;
-      localStorage.setItem(KEY.glow, state.glow ? "1" : "0");
-      applyTheme();
-      render();
-    }),
+    // **No glow switch.** The highlight is the ring, full stop: an optional halo around
+    // it was a second look for the same information, and it never read the way it was
+    // meant to on a full-width row.
     // The line under the row. It says what the setting *does* rather than naming the
     // pane it is on — the section name is the tile on the left, and does not need
     // saying twice.
