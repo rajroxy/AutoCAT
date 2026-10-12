@@ -326,7 +326,7 @@ export async function finish(providerKey, { code = "", state = "", origin = "" }
     throw new Error(token.error_description || token.error || `The provider refused the sign-in (HTTP ${tokenRes.status}).`);
   }
 
-  const headers = { authorization: `Bearer ${token.access_token}`, accept: "application/json", "user-agent": "Nuvio" };
+  const headers = { authorization: `Bearer ${token.access_token}`, accept: "application/json", "user-agent": "AutoCAT" };
   const info = await (await fetch(p.userinfo(), { headers })).json();
   let user = p.read(info);
   // **GitHub keeps the address private.** `/user` answers `email: null` for anyone whose

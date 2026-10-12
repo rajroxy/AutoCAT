@@ -2735,6 +2735,58 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .source-line-label { flex: none; min-width: 76px; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
 .source-line .chips { margin: 0; }
 
+/* ============================================================================
+   **A season's two views.** The list is how a season has always been drawn; the
+   grid is the whole season in one screen. Two drawn marks sit at the top right of
+   the season head and the chosen one wears the accent — a fill, not a ring.
+   ============================================================================ */
+.season-head-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.season-views { display: inline-flex; gap: 6px; margin-left: auto; padding: 4px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); }
+.view-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--quick) var(--ease), color var(--quick) var(--ease);
+}
+.view-mark-art { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.view-mark:hover, .view-mark:focus-visible { background: rgba(var(--accent-rgb), 0.18); color: #fff; box-shadow: none; }
+.view-mark.active { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
+.view-mark.active:hover, .view-mark.active:focus-visible { background: rgba(var(--accent-rgb), 0.26); box-shadow: none; }
+
+/* **The grid.** The same episodes as the list, as cards: the still, its number, its
+   name and how long it runs. It fills the row instead of running a column, which is
+   what a season is for — counting how far you have to go. */
+.ep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 18px 16px;
+}
+.ep-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ep-card-art {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel-2);
+  aspect-ratio: 16 / 9;
+  cursor: pointer;
+}
+.ep-card-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ep-card-art .ep-play { opacity: 0; transition: opacity var(--quick) var(--ease); }
+.ep-card-art:hover .ep-play, .ep-card-art:focus-visible .ep-play { opacity: 1; }
+.ep-card-num { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.ep-card-title { font-size: 14.5px; font-weight: 700; line-height: 1.4; overflow: visible; }
+.ep-card-meta { font-size: 12px; color: var(--muted); }
+
 /* ------------------------------------------------------------- a title page */
 
 /* The title is a **page**, not a card over one: the banner, then everything about
@@ -4368,3 +4420,9 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .cat-name { padding: 10px 2px 5px; line-height: 1.6; }
 .icon-name { padding-top: 3px; line-height: 1.5; }
 .cat-head { margin-bottom: 14px; align-items: center; padding-top: 2px; }
+
+/* **The countdown on the player's Up-next card.** The next episode plays itself, so the
+   card says which one and how long there is to stop it. */
+.player-next-note { display: flex; align-items: center; gap: 12px; margin: 0; flex-wrap: wrap; }
+.player-next-count { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-variant-numeric: tabular-nums; }
+.player-next-title { font-size: 13.5px; font-weight: 700; color: var(--text); }

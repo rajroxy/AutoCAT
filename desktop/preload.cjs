@@ -3,4 +3,4 @@
 // desktop shell (the same UI runs in a browser/Capacitor where it is undefined).
 const { contextBridge } = require("electron");
 
-contextBridge.exposeInMainWorld("nuvio", { desktop: true });
+contextBridge.exposeInMainWorld("autocat", { desktop: true });

@@ -84,7 +84,7 @@ async function createWindow() {
   // The window loads the UI **from the embedded server** — the very origin that
   // answers /manifest.json, /catalog/*.json, /api/source (the add-on, plugin and
   // repository lookup) and the cover images. Over http every one of those is a
-  // same-origin request, so Stremio/Nuvio add-ons, CloudStream repos, the
+  // same-origin request, so Stremio add-ons, CloudStream repos, the
   // catalogs and the artwork behave in the desktop app exactly as they do in the
   // browser preview. Loaded from file:// they would all be cross-origin.
   mainWindow.webContents.on("did-fail-load", (_event, code, description, url) => {

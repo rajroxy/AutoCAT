@@ -91,7 +91,7 @@ function pluginNote(source, status) {
  * means exactly that), and retrying it would only double every legitimate miss.
  */
 const TRANSIENT_STATUS = new Set([502, 503, 504]);
-const ADDON_HEADERS = { accept: "application/json", "user-agent": "NuvioCollections/1.0" };
+const ADDON_HEADERS = { accept: "application/json", "user-agent": "AutoCAT/1.0" };
 
 async function addonFetch(url, ms, { retry = true } = {}) {
   const send = () => fetch(url, { headers: ADDON_HEADERS, signal: AbortSignal.timeout(ms) });
@@ -572,7 +572,7 @@ export async function channelStreams({ id, name = "", epgId = "", source: onlySo
 
   const ask = async (source, type, idPart) => {
     const res = await fetch(streamUrl(source.url, type, idPart), {
-      headers: { accept: "application/json", "user-agent": "NuvioCollections/1.0" },
+      headers: { accept: "application/json", "user-agent": "AutoCAT/1.0" },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });

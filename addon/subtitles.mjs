@@ -48,7 +48,7 @@
 import zlib from "node:zlib";
 import { subtitleServices, subtitleService, subtitleLanguage } from "./settings.mjs";
 
-const UA = process.env.NUVIO_OPENSUBTITLES_UA || "NuvioCollections v1.0";
+const UA = process.env.NUVIO_OPENSUBTITLES_UA || "AutoCAT v1.0";
 const TIMEOUT_MS = Number(process.env.NUVIO_SUBTITLES_TIMEOUT_MS) || 20000;
 const SEARCH_TTL_MS = Number(process.env.NUVIO_SUBTITLES_TTL_MS) || 10 * 60 * 1000;
 

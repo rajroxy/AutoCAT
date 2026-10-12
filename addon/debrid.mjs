@@ -38,7 +38,7 @@
  */
 import { debridServices, debridKey, DEBRID_ENV } from "./settings.mjs";
 
-const UA = "NuvioCollections/1.0";
+const UA = "AutoCAT/1.0";
 const LABELS = {
   realdebrid: "Real-Debrid",
   alldebrid: "AllDebrid",

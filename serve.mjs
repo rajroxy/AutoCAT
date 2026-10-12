@@ -1,4 +1,4 @@
-// Nuvio preview server: the cover gallery AND the catalog addon on one origin.
+// AutoCAT preview server: the cover gallery AND the catalog addon on one origin.
 //
 //   /                       → covers/index.html (the gallery)
 //   /covers/...             → cover assets (also served at /)
@@ -156,6 +156,6 @@ export function startServer({ port = Number(process.env.PORT) || 4173, host = "0
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   startServer().then((server) => {
     const { port } = server.address();
-    console.log(`Nuvio gallery + catalog addon → http://0.0.0.0:${port}`);
+    console.log(`AutoCAT gallery + catalog addon → http://0.0.0.0:${port}`);
   });
 }

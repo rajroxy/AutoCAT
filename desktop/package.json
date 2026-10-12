@@ -1,9 +1,9 @@
 {
-  "name": "nuvio-collections-app",
+  "name": "autocat-app",
   "productName": "AutoCAT",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop app for the Nuvio collection covers and catalogs. Web UI, wrapped by Electron \u2014 the same UI ports to Android TV via Capacitor.",
+  "description": "Desktop app for the AutoCAT collection covers and catalogs. Web UI, wrapped by Electron \u2014 the same UI ports to Android TV via Capacitor.",
   "type": "module",
   "main": "main.js",
   "scripts": {

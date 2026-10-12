@@ -426,7 +426,7 @@ export async function addRepository({ url } = {}) {
   if (!clean) return { ok: false, message: "Enter the repository's JSON URL." };
   let doc;
   try {
-    const res = await fetch(clean, { headers: { accept: "application/json", "user-agent": "NuvioCollections/1.0" } });
+    const res = await fetch(clean, { headers: { accept: "application/json", "user-agent": "AutoCAT/1.0" } });
     if (!res.ok) return { ok: false, message: `The repository answered HTTP ${res.status}.` };
     doc = await res.json();
   } catch (err) {
@@ -493,7 +493,7 @@ async function refreshSite(site, timeoutMs = 6000) {
     // showed as "Custom Sites could not be searched".
     const res = await fetch(site.url, {
       redirect: "follow",
-      headers: { "user-agent": "NuvioCollections/1.0" },
+      headers: { "user-agent": "AutoCAT/1.0" },
       signal: AbortSignal.timeout(timeoutMs),
     });
     const final = res.url;

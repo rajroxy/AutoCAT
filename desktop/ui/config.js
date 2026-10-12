@@ -5,15 +5,15 @@
 //                       A ?api=… query still overrides it if ever needed.
 //   Browser / preview → served by serve.mjs on the same origin (nothing to do)
 //   Android TV (APK)  → the app is a thin client: there is no Node server on the
-//                       device, so set NUVIO_HOST to the deployed host before
+//                       device, so set AUTOCAT_HOST to the deployed host before
 //                       building, e.g. "https://your-addon-host.example.com".
 //
 // `npm run android:sync` copies this file into the APK, so set it first, then sync.
-window.NUVIO_HOST = "";
+window.AUTOCAT_HOST = "";
 
 const params = new URLSearchParams(location.search);
 const fromQuery = params.get("api");
 // Capacitor serves the app from https://localhost, so a non-empty host is the
 // only way the packaged app can reach data — an empty one shows a clear message.
 const packaged = typeof window.Capacitor !== "undefined";
-window.NUVIO_API = fromQuery || window.NUVIO_HOST || (packaged ? "" : "");
+window.AUTOCAT_API = fromQuery || window.AUTOCAT_HOST || (packaged ? "" : "");

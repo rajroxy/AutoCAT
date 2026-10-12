@@ -12,7 +12,7 @@ import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
 
-export const CATALOG_ID_PREFIX = "nuvio-";
+export const CATALOG_ID_PREFIX = "autocat-";
 
 /**
  * The region the OTT rows are scoped to — the country set in Settings.

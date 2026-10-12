@@ -95,7 +95,7 @@ import { liveChannels, liveGuide, liveStatus, liveCountries, countrySpellings } 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WATCHLIST_FILE = path.join(__dirname, "watchlist.json");
 
-export const ADDON_ID = "community.nuvio.collections";
+export const ADDON_ID = "community.autocat.collections";
 export { CATALOG_ID_PREFIX };
 
 // **How many titles one request hands back — a chunk, never a cap.**
@@ -519,9 +519,9 @@ export function buildManifest(base) {
   return {
     id: ADDON_ID,
     version: "1.1.0",
-    name: s.profile || "Nuvio Collections",
+    name: s.profile || "AutoCAT Collections",
     description:
-      "Curated Nuvio collection rows — on the board, spotlight, genres, decades, countries, runtimes, moods, themes, OTT charts and your watchlist. One cover per card, live titles from TMDB.",
+      "Curated AutoCAT collection rows — on the board, spotlight, genres, decades, countries, runtimes, moods, themes, OTT charts and your watchlist. One cover per card, live titles from TMDB.",
     logo: `${root}/covers/movies/on-the-board.png`,
     background: `${root}/covers/movies/global-ott.png`,
     resources: ["catalog"],

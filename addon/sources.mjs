@@ -38,7 +38,7 @@ export function repoBases(url) {
 const TRANSIENT = new Set([502, 503, 504]);
 // One User-Agent for every outbound add-on call, this file and `streams.mjs` alike. A
 // request with no agent at all is the shape a host's bot rules are most likely to refuse.
-const ADDON_UA = "NuvioCollections/1.0";
+const ADDON_UA = "AutoCAT/1.0";
 
 async function getJSON(url, timeoutMs = 12000) {
   const send = () =>

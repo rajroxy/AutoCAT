@@ -17,7 +17,7 @@
 //   /api/source                       server-side add-on / plugin lookup
 //   /settings (GET/POST)              profile, providers, posters, AI
 
-const API = new URLSearchParams(location.search).get("api") || window.NUVIO_API || "";
+const API = new URLSearchParams(location.search).get("api") || window.AUTOCAT_API || "";
 
 // The top bar has no Movies/Shows labels any more — those are buttons on Home.
 const TABS = [["home", "Home"]];
@@ -66,6 +66,8 @@ const SETTING_KEYS = {
   sound: "nuvio.sound",
   notifications: "nuvio.notifications",
   liveRow: "nuvio.liveRow",
+  // How a season's episodes are drawn: one row each, or a grid of cards.
+  epView: "nuvio.epView",
   liveSource: "nuvio.liveSource",
   ottSort: "nuvio.ottSort",
 };
@@ -642,6 +644,8 @@ const state = {
   // Live TV & Sports: which of its two rows is showing, and the channels, groups
   // and guide the server has answered with.
   liveRow: localStorage.getItem(KEY.liveRow) || "livetv",
+  // Episodes as rows, or as a grid of cards — the season page's own two marks.
+  epView: localStorage.getItem(KEY.epView) === "grid" ? "grid" : "list",
   liveSource: readJSON(KEY.liveSource, { mode: "m3u", m3u: "", host: "", username: "", password: "", epg: "", providers: [], refreshMinutes: 0 }),
   live: { loading: false, loaded: false, all: [], total: 0, groups: [], rows: [], updated: 0, error: "", guide: null, guideLoading: false, guideError: "", guideCountry: "", guideCategory: "", guideSportsOnly: false },
   recordings: readJSON("nuvio.recordings", []),
@@ -5672,8 +5676,21 @@ function stopMusic() {
 }
 
 /** Music runs while browsing and gives way to the title being played. */
+/**
+ * Is the app still on its opening screen?
+ *
+ * The logo screen is silent — **no music, ever**. The music setting is remembered, so a
+ * profile that left it on used to have the loop come up with the first paint of the boot
+ * screen and under the logo. It waits for the app now: `endBoot` calls `syncSound` the
+ * moment the app is on screen, and this is what held it back until then.
+ */
+const bootScreenUp = () => {
+  const screen = document.getElementById("boot");
+  return Boolean(screen) && !screen.hidden && !screen.classList.contains("done");
+};
+
 function syncSound() {
-  const playing = Boolean(document.querySelector(".player"));
+  const playing = Boolean(document.querySelector(".player")) || bootScreenUp();
   if (state.sound?.music && state.sound.music !== "none" && !playing) startMusic();
   else stopMusic();
 }
@@ -6087,6 +6104,45 @@ async function renderSeason(showId, seasonNumber) {
     openSources({ ...showMeta, season: Number(current), episode: Number(m.episode || 0) });
   const label = seasons.find(([value]) => value === current)?.[1] || `Season ${current}`;
 
+  // **Two ways to read a season, and the marks to pick one.** A list answers "what
+  // happens in this one?" — a still, a title, how long it runs, when it aired, its
+  // synopsis. A grid answers "where am I?" — the whole season in one screen, which is
+  // how you count how far you have to go. Both are the same episodes; the choice is
+  // remembered per profile.
+  const epView = state.epView === "grid" ? "grid" : "list";
+  const setEpView = (value) => {
+    state.epView = value;
+    localStorage.setItem(KEY.epView, value);
+    render();
+  };
+  const viewMarks = el("div", { class: "season-views", role: "tablist", "aria-label": "Episode layout" },
+    el("button", {
+      class: `view-mark focusable${epView === "list" ? " active" : ""}`,
+      type: "button",
+      id: "season-view-list",
+      role: "tab",
+      "aria-selected": String(epView === "list"),
+      title: "Episode list",
+      "aria-label": "Episode list",
+      onclick: () => setEpView("list"),
+    }, svgNode("svg", { viewBox: "0 0 24 24", class: "view-mark-art", "aria-hidden": "true" },
+        svgNode("path", { d: "M4 7h16M4 12h16M4 17h10" }))),
+    el("button", {
+      class: `view-mark focusable${epView === "grid" ? " active" : ""}`,
+      type: "button",
+      id: "season-view-grid",
+      role: "tab",
+      "aria-selected": String(epView === "grid"),
+      title: "Episode grid",
+      "aria-label": "Episode grid",
+      onclick: () => setEpView("grid"),
+    }, svgNode("svg", { viewBox: "0 0 24 24", class: "view-mark-art", "aria-hidden": "true" },
+        svgNode("rect", { x: "4", y: "4", width: "7", height: "7", rx: "1.6" }),
+        svgNode("rect", { x: "13", y: "4", width: "7", height: "7", rx: "1.6" }),
+        svgNode("rect", { x: "4", y: "13", width: "7", height: "7", rx: "1.6" }),
+        svgNode("rect", { x: "13", y: "13", width: "7", height: "7", rx: "1.6" }))),
+  );
+
   return [
     el("article", { class: "season-page" },
       // **No backdrop banner and no way back button here.** The show's own page is one
@@ -6099,9 +6155,32 @@ async function renderSeason(showId, seasonNumber) {
             ? dropdown(seasons, current, (value) => go(`#/l/season/${encodeURIComponent(showId)}/${encodeURIComponent(value)}?type=series`)).node
             : el("h1", { class: "season-title", text: label }),
           el("span", { class: "season-sub", text: `${metas.length} episode${metas.length === 1 ? "" : "s"}` }),
+          // **Top right of the season page**, beside the count — the two marks that say
+          // how the episodes below are drawn.
+          metas.length ? viewMarks : null,
         ),
       ),
-      metas.length
+      metas.length && epView === "grid"
+        ? el("div", { class: "ep-grid" }, ...metas.map((m) =>
+            el("article", { class: "ep-card" },
+              el("button", {
+                class: "ep-card-art focusable",
+                type: "button",
+                title: `Play episode ${m.episode}`,
+                "aria-label": `Play episode ${m.episode} — ${episodeTitle(m)}`,
+                onclick: () => playEpisode(m),
+              },
+                m.poster
+                  ? el("img", { src: m.poster, alt: "", loading: "lazy" })
+                  : el("div", { class: "ep-still-empty", text: "No still" }),
+                el("span", { class: "ep-play", "aria-hidden": "true", text: "▶" }),
+              ),
+              el("span", { class: "ep-card-num", text: `Episode ${m.episode || ""}`.trim() }),
+              el("span", { class: "ep-card-title", text: episodeTitle(m) }),
+              el("span", { class: "ep-card-meta", text: [m.runtime ? `${m.runtime} min` : "", m.airDate || m.releaseInfo].filter(Boolean).join(" · ") }),
+            )
+          ))
+        : metas.length
         ? el("div", { class: "ep-list" }, ...metas.map((m) =>
             el("article", { class: "ep-row" },
               el("span", { class: "ep-num", text: String(m.episode || "") }),
@@ -8542,13 +8621,25 @@ function paneFont() {
  */
 function panePlayback() {
   const resolution = dropdown(QUALITY_CHOICES, state.prefs?.quality || "auto", (value) => savePrefs({ quality: value }), "Resolution");
+  // **Primary and secondary, for both tracks.** A stream that carries several audios or
+  // several subtitles is the normal case, not the exception — and "prefer Hindi" is only
+  // half an answer when the copy in front of you has English and Tamil. The player reads
+  // them in order: the primary if the stream has it, otherwise the secondary, otherwise
+  // what the stream itself calls the default.
   const audio = dropdown(audioChoices(), state.prefs?.audio || "", (value) => savePrefs({ audio: value }), "Audio");
+  const audio2 = dropdown(audioChoices(), state.prefs?.audio2 || "", (value) => savePrefs({ audio2: value }), "Audio 2");
   const subtitle = dropdown(subtitleChoices(), state.subtitles?.language || "", (value) => {
     state.subtitles = { ...state.subtitles, language: value };
     writeJSON(KEY.subtitles, state.subtitles);
     pushSettings({ subtitles: { language: value } });
     render();
   }, "Subtitle");
+  const subtitle2 = dropdown(subtitleChoices(), state.subtitles?.language2 || "", (value) => {
+    state.subtitles = { ...state.subtitles, language2: value };
+    writeJSON(KEY.subtitles, state.subtitles);
+    pushSettings({ subtitles: { language2: value } });
+    render();
+  }, "Subtitle 2");
   return [
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Resolution" }),
@@ -8557,13 +8648,28 @@ function panePlayback() {
     ),
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Audio" }),
-      el("p", { class: "option-desc", text: "Which audio language a player prefers when a stream carries more than one." }),
+      el("p", { class: "option-desc", text: "The audio language a player switches to when a stream carries more than one. Stream default leaves the choice to the file." }),
       el("div", { class: "source-form" }, audio.node),
     ),
     el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Secondary audio" }),
+      el("p", { class: "option-desc", text: "Played when the stream does not carry the audio above. Two languages cover nearly every release; a third is the stream's own default." }),
+      el("div", { class: "source-form" }, audio2.node),
+    ),
+    el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Subtitle" }),
-      el("p", { class: "option-desc", text: "Which subtitle language the player asks for. It follows what the app is browsed in until you pick one here." }),
+      el("p", { class: "option-desc", text: "The subtitle language the player turns on when the stream carries one. It follows what the app is browsed in until you pick one here." }),
       el("div", { class: "source-form" }, subtitle.node),
+    ),
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Secondary subtitle" }),
+      el("p", { class: "option-desc", text: "Used when the stream has no track in the language above. Subtitle *services* are searched for the same pair, in the same order." }),
+      el("div", { class: "source-form" }, subtitle2.node),
+    ),
+    el("div", { class: "provider" },
+      el("span", { class: "option-title", text: "Next episode" }),
+      el("p", { class: "option-desc", text: "An episode that finishes is followed by the next one in the season, after a countdown you can stop. Off, the season list comes up instead." }),
+      toggleRow(state.prefs?.autoNext !== false, "Play the next episode automatically", "Counts 8 seconds from the moment the episode ends. Cancel on the card plays nothing.", (e) => savePrefs({ autoNext: e.target.checked })),
     ),
   ];
 }
@@ -9447,6 +9553,8 @@ function endBoot() {
     return;
   }
   bootScreen.classList.add("done");
+  // The opening screen is off — *now* the browsing music may come up, if it is on.
+  syncSound();
   setTimeout(() => { bootScreen.hidden = true; }, 700);
 }
 
@@ -11948,10 +12056,14 @@ async function openPlayer(url, title, opts = {}) {
   // the others do not. The figure is the mute button: press it to go silent
   // and again to come back, which is what the speaker mark used to do.
   const volValue = el("span", { class: "player-vol-value", id: "player-vol-value", text: "100%" });
+  // **The marks say what the buttons do, not what a speaker sounds like.** They were a
+  // speaker with two flat lines (which read as an equals sign) and a speaker with sound
+  // waves (which says "there is audio", not "raise it"). They are a speaker **with a
+  // minus** and a speaker **with a plus** now — the same two signs the box is made of.
   const volDown = el("button", { class: "player-vol-btn focusable", type: "button", title: "Volume down (hold to keep lowering)", id: "player-vol-down" },
-    playerGlyph([svgNode("path", { d: "M4 9.5h3.3L11 6.6v10.8L7.3 14.5H4z" }), svgNode("path", { d: "M14.6 9.8h4.6M14.6 13.4h4.6" })]));
+    playerGlyph([svgNode("path", { d: "M4 9.5h3.3L11 6.6v10.8L7.3 14.5H4z" }), svgNode("path", { d: "M14.5 12.1h5.2" })]));
   const volUp = el("button", { class: "player-vol-btn focusable", type: "button", title: "Volume up (hold to keep raising)", id: "player-vol-up" },
-    playerGlyph([svgNode("path", { d: "M4 9.5h3.3L11 6.6v10.8L7.3 14.5H4z" }), svgNode("path", { d: "M14.8 9.6a3.6 3.6 0 0 1 0 4.8" }), svgNode("path", { d: "M17.3 7.4a7 7 0 0 1 0 9.2" })]));
+    playerGlyph([svgNode("path", { d: "M4 9.5h3.3L11 6.6v10.8L7.3 14.5H4z" }), svgNode("path", { d: "M17.1 9.5v5.2" }), svgNode("path", { d: "M14.5 12.1h5.2" })]));
   const volRamp = (delta) => setVolume((video.muted ? 0 : video.volume) + delta);
   holdable(volDown, -0.01, volRamp, () => syncVolume());
   holdable(volUp, 0.01, volRamp, () => syncVolume());
@@ -12187,7 +12299,79 @@ async function openPlayer(url, title, opts = {}) {
     }
   };
 
+  /**
+   * **The playback preferences, applied to the stream in front of you.**
+   *
+   * Settings → Playback names a **primary and a secondary** language for audio and for
+   * subtitles, and this is the half that uses them: when the manifest or the element
+   * lists more than one audio, the one in the primary language is switched on, and if the
+   * stream has no track in it, the secondary is. A stream with a subtitle track in either
+   * language gets it turned on; a stream with none is left alone — the Subtitle services
+   * below are searched for that same pair, in that same order (see `osQuery`).
+   *
+   * **Once per stream, and never over your own pick.** It runs as the tracks arrive (and
+   * when the panel is opened, in case they arrived while it was shut); the first time it
+   * actually changes something it stops asking. Picking a track by hand is therefore
+   * final — the preference will not switch it back a second later.
+   */
+  let prefsApplied = false;
+  const langOf = (t) => String(t?.lang || t?.language || t?.name || t?.label || "").toLowerCase();
+  const wantedLangs = (primary, secondary) =>
+    [primary, secondary].map((v) => String(v || "").toLowerCase()).filter(Boolean);
+  const pickIndex = (list, wants) => {
+    for (const want of wants) {
+      const i = list.findIndex((t) => langOf(t) === want || langOf(t).startsWith(want));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  function applyTrackPrefs() {
+    if (prefsApplied) return;
+    let changed = false;
+    const hlsAudio = Array.from(playerHls?.audioTracks || []);
+    const nativeAudio = Array.from(video.audioTracks || []);
+    const hlsSubs = Array.from(playerHls?.subtitleTracks || []);
+    const nativeSubs = Array.from(video.textTracks || []).filter(
+      (t) => (t.kind === "subtitles" || t.kind === "captions") && t.id !== OS_TRACK_ID,
+    );
+    // --- audio --------------------------------------------------------------------
+    const wants = wantedLangs(state.prefs?.audio, state.prefs?.audio2);
+    if (wants.length && hlsAudio.length > 1) {
+      const i = pickIndex(hlsAudio, wants);
+      if (i > 0 && Number(playerHls.audioTrack) !== i) { playerHls.audioTrack = i; changed = true; }
+    } else if (wants.length && nativeAudio.length > 1) {
+      const i = pickIndex(nativeAudio, wants);
+      if (i > 0 && !nativeAudio[i].enabled) {
+        for (const a of nativeAudio) a.enabled = false;
+        nativeAudio[i].enabled = true;
+        changed = true;
+      }
+    }
+    // --- subtitles ----------------------------------------------------------------
+    const subWants = wantedLangs(
+      state.subtitles?.language || String(state.language || "").slice(0, 2),
+      state.subtitles?.language2,
+    );
+    if (subWants.length && hlsSubs.length) {
+      const i = pickIndex(hlsSubs, subWants);
+      if (i >= 0 && Number(playerHls.subtitleTrack) !== i) {
+        playerHls.subtitleDisplay = true;
+        playerHls.subtitleTrack = i;
+        changed = true;
+      }
+    } else if (subWants.length && nativeSubs.length) {
+      const i = pickIndex(nativeSubs, subWants);
+      if (i >= 0 && nativeSubs[i].mode !== "showing") {
+        for (const t of nativeSubs) t.mode = "disabled";
+        nativeSubs[i].mode = "showing";
+        changed = true;
+      }
+    }
+    if (changed) prefsApplied = true;
+  }
+
   const drawTracks = () => {
+    applyTrackPrefs();
     const hlsAudio = Array.from(playerHls?.audioTracks || []);
     const hlsSubs = Array.from(playerHls?.subtitleTracks || []);
     const nativeAudio = Array.from(video.audioTracks || []);
@@ -12340,23 +12524,73 @@ async function openPlayer(url, title, opts = {}) {
   const episodes = Array.isArray(opts.episodes) ? opts.episodes : [];
   const epCard = el("aside", { class: "player-episodes", hidden: true });
   if (episodes.length) {
+    /**
+     * **The next episode plays itself, and you can stop it.**
+     *
+     * The card was a list: an episode ended, the season appeared, and you pressed the one
+     * you wanted. That is the right card, and the wrong default — a season is watched in
+     * order, so the only question at the end of an episode is "not yet?". So the next
+     * episode starts on its own, after a countdown you can see and stop (Setttings →
+     * Playback turns the whole thing off, and the list card comes back).
+     *
+     * **What "next" means** is the episode after the one that just finished — matched on
+     * the stream that is playing, so an out-of-order start continues in order rather than
+     * from the top.
+     */
+    const nextOf = (current) => {
+      const i = episodes.findIndex((ep) => ep.url === current);
+      return i >= 0 ? episodes[i + 1] || null : null;
+    };
+    let autoTimer = 0;
+    const cancelAuto = () => { clearInterval(autoTimer); autoTimer = 0; };
+    const playNext = async (ep) => {
+      cancelAuto();
+      epCard.hidden = true;
+      if (ep?.url) await openPlayer(ep.url, ep.name || title, { ...opts, episodes });
+    };
     video.addEventListener("ended", () => {
+      const next = nextOf(src);
+      cancelAuto();
       epCard.replaceChildren(
-        el("h3", { class: "row-head", text: "Up next in this season" }),
-        el("div", { class: "episode-list" }, ...episodes.map((ep) =>
-          el("button", {
-            class: `episode-item focusable${ep.url === src ? " active" : ""}`,
-            type: "button",
-            text: `${ep.season ? `S${ep.season}` : ""}${ep.episode ? `E${ep.episode}` : ""}${ep.episode ? " · " : ""}${ep.name || "Episode"}`,
-            onclick: async () => {
-              epCard.hidden = true;
-              if (ep.url) await openPlayer(ep.url, ep.name || title, { ...opts, episodes });
-            },
-          })
-        )),
+        el("h3", { class: "row-head", text: next ? "Up next" : "Up next in this season" }),
+        next && state.prefs?.autoNext !== false
+          ? el("p", { class: "player-next-note" },
+              el("span", { class: "player-next-count", text: "Next episode in 8" }),
+              el("span", { class: "player-next-title", text: `${next.season ? `S${next.season}` : ""}${next.episode ? `E${next.episode}` : ""}${next.episode ? " · " : ""}${next.name || "Episode"}` }),
+              el("button", {
+                class: "btn subtle focusable",
+                type: "button",
+                id: "cancel-auto-next",
+                text: "Cancel",
+                onclick: () => { cancelAuto(); epCard.replaceChildren(el("h3", { class: "row-head", text: "Up next in this season" }), epList()); },
+              }),
+            )
+          : null,
+        next && state.prefs?.autoNext !== false ? null : epList(),
       );
       epCard.hidden = false;
+      if (next && state.prefs?.autoNext !== false) {
+        let left = 8;
+        const tick = setTimeout(() => { /* the first second has already been shown */ }, 0);
+        clearTimeout(tick);
+        autoTimer = setInterval(() => {
+          left -= 1;
+          const node = epCard.querySelector(".player-next-count");
+          if (node) node.textContent = left > 0 ? `Next episode in ${left}` : "Starting…";
+          if (left <= 0) { cancelAuto(); playNext(next); }
+        }, 1000);
+      }
     });
+    function epList() {
+      return el("div", { class: "episode-list" }, ...episodes.map((ep) =>
+        el("button", {
+          class: `episode-item focusable${ep.url === src ? " active" : ""}`,
+          type: "button",
+          text: `${ep.season ? `S${ep.season}` : ""}${ep.episode ? `E${ep.episode}` : ""}${ep.episode ? " · " : ""}${ep.name || "Episode"}`,
+          onclick: () => playNext(ep),
+        }),
+      ));
+    }
   }
 
   const node = el(
@@ -12535,7 +12769,7 @@ async function openPlayer(url, title, opts = {}) {
           // are parsed after `loadSource`, so the panel is redrawn as they arrive —
           // otherwise it is filled from a list that did not exist yet, which is what
           // made it look permanently empty.
-          const redrawTracks = () => { if (!gearPanel.hidden) drawTracks(); };
+          const redrawTracks = () => { applyTrackPrefs(); if (!gearPanel.hidden) drawTracks(); };
           for (const event of [Hls.Events.MANIFEST_PARSED, Hls.Events.AUDIO_TRACKS_UPDATED, Hls.Events.SUBTITLE_TRACKS_UPDATED]) {
             if (event) playerHls.on(event, redrawTracks);
           }

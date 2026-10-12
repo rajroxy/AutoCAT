@@ -596,7 +596,7 @@ npm run android:open      # opens the project in Android Studio
 **Or let CI build it**: `.github/workflows/android-apk.yml` builds the debug APK on
 a runner with a JDK and the Android SDK and uploads it as the
 `nuvio-collections-debug-apk` artifact (Actions → Android TV APK → Run workflow).
-Set the repository variable `NUVIO_HOST` to bake the server host in.
+Set the repository variable `AUTOCAT_HOST` to bake the server host in.
 
 **This build cannot be compiled on the Freebuff sandbox**: there is no `java`,
 no `gradle` and no Android SDK (`ANDROID_HOME` is unset). Running the build there
@@ -618,19 +618,19 @@ bundling Node (`nodejs-mobile`). So before building, set the host in
 `ui/config.js`:
 
 ```js
-window.NUVIO_HOST = "https://your-addon-host.example.com";
+window.AUTOCAT_HOST = "https://your-addon-host.example.com";
 ```
 
 Use an **https** host: Android blocks cleartext HTTP. `serve.mjs` already
 advertises `https://` for any non-local host, so a deployed copy works directly —
 and so does the Freebuff preview url (`https://<preview-host>`), which is the
-quickest way to try the APK. With `NUVIO_HOST` empty the app starts and reports
+quickest way to try the APK. With `AUTOCAT_HOST` empty the app starts and reports
 that it cannot reach the server rather than failing silently.
 
 Then build and install:
 
 ```sh
-npm run android:sync     # after setting NUVIO_HOST — it is copied into the APK
+npm run android:sync     # after setting AUTOCAT_HOST — it is copied into the APK
 npm run android:build    # debug APK
 adb connect <tv-ip>:5555
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
