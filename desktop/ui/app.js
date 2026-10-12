@@ -2772,7 +2772,16 @@ function personSlot(person, active, editing, count, menu) {
     { class: `profile-slot${active ? " active" : ""}` },
     el(
       "div",
-      { class: `profile-tile${active ? " active" : ""}` },
+      {
+        class: `profile-tile${active ? " active" : ""}`,
+        // **The whole card is the target, as it always was.** The name is the button (a
+        // card cannot be one while it holds Rename); the card's own padding is the rest
+        // of the surface, and a press on the controls is not a press on the person.
+        onclick: (event) => {
+          if (event.target.closest(".profile-card-tools")) return;
+          choosePerson(person.id);
+        },
+      },
       el(
         "button",
         {

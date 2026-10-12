@@ -204,15 +204,18 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 220px;
-  padding: 0;
+  /* **The card's own padding is what sizes it.** Moving it onto the inner surface shrank
+     the Modes cards — they are the bare `.profile-tile`, with no inner surface — so it
+     stays here, where both cards (Modes and Profiles) are the size they always were. */
+  padding: 26px 18px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   background: var(--panel);
   color: inherit;
   font: inherit;
-  cursor: default;
+  cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -223,9 +226,10 @@ body {
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 26px 18px 6px;
-  /* The same corners as the card it fills, so a highlight drawn on either is one shape. */
-  border-radius: 19px 19px 0 0;
+  /* **No padding of its own.** The card carries it; this is only the surface you press,
+     and it sits inside the card's padding rather than replacing it. */
+  padding: 0;
+  border-radius: inherit;
   border: 0;
   background: transparent;
   color: inherit;
@@ -242,9 +246,9 @@ body {
 .profile-tile:focus-visible,
 .profile-tile:has(.profile-tile-hit:focus-visible) { box-shadow: var(--hl); }
 /* The card's own controls — Rename, under the name, inside the card. */
-.profile-card-tools { display: flex; justify-content: center; gap: 8px; padding: 0 18px 18px; }
-/* The card being renamed keeps its own padding: the field takes the name's place. */
-.profile-tile.editing { padding: 26px 18px; cursor: default; }
+.profile-card-tools { display: flex; justify-content: center; gap: 8px; }
+/* The card being renamed is the same card: the field takes the name's place. */
+.profile-tile.editing { cursor: default; }
 
 .profile-tile:hover, .profile-tile:focus-visible {
   transform: translateY(-3px);
@@ -337,7 +341,7 @@ body {
 
 /* **The slot that is not a profile yet.** Dashed and quiet, so it reads as a place to
    put one rather than as somebody who already exists. */
-.profile-tile.add { padding: 26px 18px; cursor: pointer; border-style: dashed; border-color: rgba(255, 255, 255, 0.16); background: transparent; }
+.profile-tile.add { cursor: pointer; border-style: dashed; border-color: rgba(255, 255, 255, 0.16); background: transparent; }
 .profile-tile.add .avatar { background: rgba(255, 255, 255, 0.05); color: var(--muted); }
 .profile-tile.add:hover .avatar { color: var(--accent); }
 .plus-mark { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
