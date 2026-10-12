@@ -260,17 +260,20 @@ const THEME_IDS = new Set(SEARCH_THEMES.map(([id]) => id));
  * publishes follows them, so nothing is out of reach and nothing is invented.
  */
 function countryChoices() {
+  const names = new Map(COUNTRIES.map(([name, code]) => [code, name]));
   const seen = new Set();
   const out = [];
-  const add = (name, code) => {
-    if (!name || !code || seen.has(code) || REMOVED_COUNTRY_CODES.has(code)) return;
-    seen.add(code);
-    out.push([code, name]);
-  };
-  // The countries with content lead, in the card's own order — the names people look for
-  // are at the top of the row — and the rest of TMDB's list follows them.
-  for (const [code, name] of countryVocab()) add(name, code);
-  for (const [name, code] of COUNTRIES) add(name, code);
+  // **Exactly the countries the Continental card publishes.** The row used to be this list
+  // plus every other country TMDB knows (215 names, most of them with nothing behind them);
+  // the continents card is the app's own answer to "which countries are there", so the
+  // filter and the region picker read the same list it draws its rows from.
+  for (const [, codes] of continentsWithContent()) {
+    for (const code of codes || []) {
+      if (!code || seen.has(code) || REMOVED_COUNTRY_CODES.has(code)) continue;
+      seen.add(code);
+      out.push([code, names.get(code) || code]);
+    }
+  }
   return out;
 }
 
@@ -1428,7 +1431,7 @@ function appOptions() {
     // A country published nowhere is not offered as a choice either (see
     // `REMOVED_COUNTRY_CODES`): a territory with no rows, no chips and no service
     // rows would otherwise still sit in the picker promising all three.
-    countries: COUNTRIES.filter(([, code]) => !REMOVED_COUNTRY_CODES.has(code)).map(([name, code]) => ({
+    countries: countryChoices().map(([code, name]) => ({
       code,
       name,
       services: localServices(code, "movie").length + localServices(code, "tv").length,

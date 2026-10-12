@@ -231,6 +231,35 @@ body {
 .profile-tile-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
 
 /* One card per profile, and **nothing under it**: no pencil, no cross, no Add slot. */
+/* **The voice pad.** Fixed to the bottom-right so it is on Home and never over the rows:
+   one drawn microphone on the accent plate, the same weight as the Filter button. */
+.voice-pad {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0b0c10;
+  cursor: pointer;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+.voice-pad:hover, .voice-pad:focus-visible { filter: brightness(1.08); box-shadow: var(--hl); }
+.voice-pad svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* **Room for the ring on the other lines of chips and rows of cards.** Every one of these is
+   a scroll or clip box, and a 3px ring drawn outside a chip or a card was being cut on its
+   top and left wherever the box had no padding of its own. */
+.cats, .chip-block, .chip-clamped .chip-track, .chip-track { padding-left: 4px; padding-right: 4px; }
+.chip-track { padding-top: 4px; }
+.icons, .grid-titles, .channel-strip, .people, .settings-nav { padding-left: 6px; padding-right: 6px; }
+.icons, .grid-titles { padding-top: 4px; }
+
 /* `align-items: center` is what keeps the card's rule level with its name: a flex
    row defaults to `stretch`, and a stretched item with its own height is placed from
    the top of the row instead — which is what left the rule sitting high. */
@@ -353,10 +382,14 @@ body {
 
 /* Briefly marks the row a catalog chip jumped to. */
 .cat-row.row-flash > .cat-head .cat-name { color: var(--accent); }
-.cat-row.row-flash { animation: row-flash 1.2s ease-out; }
+/* **The flash is rounded like everything else.** It is a 3px ring drawn *outside* the row
+   (see the keyframes), and a row has square corners — so jumping to a row from a tag painted
+   a square box around it, which is the box that showed up under the tags. The radius the ring
+   follows is the app's own. */
+.cat-row.row-flash { animation: row-flash 1.2s ease-out; border-radius: var(--radius); }
 /* What the alphabet rail jumps to, so the eye finds it — the same flash, on a
    poster rather than a row label. */
-.poster.row-flash { animation: row-flash 1.2s ease-out; }
+.poster.row-flash { animation: row-flash 1.2s ease-out; border-radius: 12px; }
 @keyframes row-flash {
   0% { background: rgba(var(--accent-rgb), 0.16); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.5); }
   100% { background: transparent; box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0); }
@@ -795,8 +828,19 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   background: rgba(255, 255, 255, 0.09);
   color: #fff;
 }
-.search-filter-btn:active { background: rgba(255, 255, 255, 0.14); }
-.search-filter-btn.on { background: var(--accent); border-color: var(--accent); color: #0b0c10; }
+/* **The Filter button is the play button of the search bar.** Same solid accent plate and
+   dark label the detail page's *Play* wears — it is the one control in the bar that does
+   something, and it was a grey pill beside a grey field. Hover brightens rather than
+   recolouring, and the open panel switches to the deeper accent so the state still reads. */
+.search-filter-btn {
+  background: var(--accent);
+  border-color: transparent;
+  color: #0b0c10;
+  font-weight: 800;
+}
+.search-filter-btn:hover, .search-filter-btn:focus-visible { background: var(--accent); filter: brightness(1.1); color: #0b0c10; }
+.search-filter-btn:active { background: var(--accent-deep); }
+.search-filter-btn.on { background: var(--accent-deep); border-color: transparent; color: #0b0c10; }
 
 /* The bar is the suggestion panel's own box: without a positioning context here the
    floating list anchored to the page wrapper, put itself under the filter panel and
@@ -1310,6 +1354,10 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   background: var(--panel-2);
 }
 .account-list .account-row.on { background: rgba(var(--accent-rgb), 0.14); }
+/* The sign-in card stretches every `.btn` to its own width; the rows are not that shape —
+   Use and Forget keep their own size and sit on the name's line. */
+.account-list .account-row { flex-wrap: nowrap; }
+.account-list .account-row .btn { width: auto; flex: none; }
 .account-badge {
   flex: none;
   padding: 4px 10px;

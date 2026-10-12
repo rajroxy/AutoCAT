@@ -635,32 +635,35 @@ const SETTINGS_GROUPS = [
       // the artwork looks like, what the numbers are, how it looks and moves, what it
       // sounds like, then what goes in the rows, what it tells you about, what you
       // filled yourself, and where its content comes from.
+      // **The order is the owner's.** Account first (it used to be named "Sign in" and
+      // sat second), then the profile, then how the app is dressed and what it moves like,
+      // then what goes in the rows, then where the content and the numbers come from, and
+      // the network last. "Interaction" reads as **Effects**.
+      ["signin", "Account"],
       ["profile", "Profile"],
-      ["signin", "Sign in"],
-      ["posters", "Posters"],
-      ["ratings", "Ratings"],
       ["appearance", "Accent"],
-      ["animation", "Motion"],
-      ["interaction", "Interaction"],
       ["layout", "Layout"],
-      ["sound", "Sound"],
+      ["animation", "Motion"],
+      ["interaction", "Effects"],
       ["font", "Font"],
+      ["sound", "Sound"],
+      ["customrows", "Library"],
       // **Content alone.** Region and the SFW/NSFW switch are one subject.
       ["content", "Content"],
-      ["notifications", "Notifications"],
-      // **Library alone.** The card you fill yourself.
-      ["customrows", "Library"],
-      ["addons", "Add-ons"],
-      ["debrid", "Debrid"],
-      // **The network, alone.** Which resolver every request uses is a property of the
-      // machine, not a catalogue choice.
-      ["dns", "Network"],
+      ["posters", "Posters"],
+      ["ratings", "Ratings"],
       ["providers", "Providers"],
       ["tracking", "Trackers"],
+      ["notifications", "Notifications"],
+      ["addons", "Add-ons"],
+      ["debrid", "Debrid"],
       // **Playback, not content**: resolution, audio and subtitle are what happens once
       // a title plays.
       ["playback", "Playback"],
       ["ai", "Assistant"],
+      // **The network, alone.** Which resolver every request uses is a property of the
+      // machine, not a catalogue choice.
+      ["dns", "Network"],
     ],
   },
 ];
@@ -685,22 +688,22 @@ const LIVE_SETTINGS_GROUPS = [
     // different guide density and different row heights.
     group: "",
     sections: [
+      // **Account and profile first, network last** — the same board and the same names as
+      // the other profile, so the two do not read as two different apps.
+      ["signin", "Account"],
+      ["profile", "Profile"],
+      ["appearance", "Accent"],
+      ["layout", "Layout"],
+      ["animation", "Motion"],
+      ["interaction", "Effects"],
+      ["sound", "Sound"],
+      ["notifications", "Notifications"],
       ["livesource", "Source"],
       ["liverefresh", "Refresh"],
       // **No Add-ons on this profile.** Live TV comes from your own M3U URL, file or
       // Xtream login (see Source); a Stremio add-on catalogues films and series, and one
       // sitting in the live settings only offered rows it could never fill.
       ["dns", "Network"],
-      ["appearance", "Accent"],
-      ["layout", "Layout"],
-      ["animation", "Motion"],
-      ["interaction", "Interaction"],
-      ["sound", "Sound"],
-      ["notifications", "Notifications"],
-      ["profile", "Profile"],
-      // Signing in is a property of the machine, not of a profile — so the live profile
-      // gets the same tile the other one has.
-      ["signin", "Sign in"],
     ],
   },
 ];
@@ -3732,13 +3735,49 @@ function rowSwitch() {
   );
 }
 
+/** The microphone, drawn the way the rest of the controls are. */
+const micMark = () =>
+  svgNode(
+    "svg",
+    { class: "voice-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+    svgNode("rect", { x: "9", y: "3", width: "6", height: "11", rx: "3" }),
+    svgNode("path", { d: "M5.5 11a6.5 6.5 0 0 0 13 0" }),
+    svgNode("path", { d: "M12 17.5V21" }),
+    svgNode("path", { d: "M8.5 21h7" }),
+  );
+
+/**
+ * **The voice pad: one press, and the app listens.**
+ *
+ * Speak-up-while-browsing had a switch in Settings and a microphone inside the Ask box, so
+ * *using* it meant finding a box first. It is a floating button on Home now, in the
+ * bottom-right corner where nothing else lives, and pressing it starts the same listener the
+ * Ask box uses — what you say becomes a search either way (see `startVoice` / `aiIntent`).
+ * Settings → Assistant turns it off.
+ */
+function voicePad() {
+  if (state.speak?.browse === false) return null;
+  return el(
+    "button",
+    {
+      class: "voice-pad focusable",
+      type: "button",
+      id: "voice-pad",
+      title: "Speak up — say what you want to watch",
+      "aria-label": "Speak up — say what you want to watch",
+      onclick: () => startVoice(null),
+    },
+    micMark(),
+  );
+}
+
 function renderHome() {
   // If this profile hides the row you were on, land on the one it does show.
   if (!rowEnabled(state.row)) setRow(rowEnabled("movie") ? "movie" : "series");
   // **No heading under the switch.** It used to draw "Movies" or "Shows" on a line
   // of its own, directly under the Movies / Shows buttons that already say exactly
   // that — a second label for the same fact, pushing the grid down for nothing.
-  return [heroBlock(), rowSwitch(), collectionGrid(state.row)].filter(Boolean);
+  return [heroBlock(), rowSwitch(), collectionGrid(state.row), voicePad()].filter(Boolean);
 }
 
 /** One catalog row on a collection page: label, shuffle, explore. */
@@ -4706,7 +4745,9 @@ function renderSearch() {
   if (askedFor && resultQuery()) queueMicrotask(() => loadTitles(query));
 
   return [
-    el("h1", { class: "view-title", text: "Search" }),
+    // **No big "Search" heading.** The bar names the screen beside the back arrow now, and
+    // the word was the same one twice on the same page.
+
     // **No Movies / Shows switch on this screen.** The row switch belongs where a row is
     // being browsed; a search box that asks "what is this called?" is not a row, and the
     // two buttons sat between the field and its own heading for no reason. What kind of
@@ -4977,7 +5018,8 @@ function renderVodCalendar() {
       "header",
       { class: "cal-head" },
       el("div", { class: "cal-title" },
-        el("h1", { class: "view-title", text: "Calendar" }),
+        // The bar names this screen; no second heading — see the note on Search.
+
         el("p", { class: "view-hint", text: `${calRow === "series" ? "Series" : "Films"} releasing this month${state.language ? ` · ${state.language}` : ""}` }),
       ),
       el("div", { class: "cal-nav" },
@@ -5161,7 +5203,8 @@ function renderLiveCalendar() {
       el(
         "div",
         { class: "cal-title" },
-        el("h1", { class: "view-title", text: "Calendar" }),
+        // The bar names this screen; no second heading — see the note on Search.
+
         el("p", {
           class: "view-hint",
           text: `${sports ? "Sport" : "Live TV"} · ${channels.length ? `${channels.length} channels` : "no channels yet"}`,
@@ -7742,9 +7785,10 @@ function aiAskRow() {
 }
 
 function startVoice(input) {
+  const say = (text) => { if (input) input.placeholder = text; };
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    input.placeholder = "Voice isn't available in this build — type instead.";
+    say("Voice isn't available in this build — type instead.");
     return;
   }
   const rec = new SR();
@@ -7758,7 +7802,7 @@ function startVoice(input) {
     }
   };
   rec.onerror = () => {
-    input.placeholder = "Couldn't hear that — type instead.";
+    say("Couldn't hear that — type instead.");
   };
   try {
     rec.start();
@@ -8183,7 +8227,7 @@ function paneProviders() {
  * that answers for every source it knows at once, films, series and anime alike.
  */
 const RATING_SERVICES = [
-  ["none", "None", "No extra ratings — the title page keeps TMDB's own score and nothing else."],
+  ["none", "None", ""],
   [
     "free",
     "Public pages (no key)",
@@ -9487,7 +9531,8 @@ function renderSettings() {
   if (wanted) requestAnimationFrame(() => { const col = document.querySelector(".settings-nav"); if (col) col.scrollTop = wanted; });
 
   return [
-    el("h1", { class: "view-title", text: "Settings" }),
+    // The bar names this screen; no second heading — see the note on Search.
+
     // **No "Profile: VOD" line.** The tile you are on already says what you are changing,
     // and the top bar already says which profile you are in.
     el("div", { class: "settings" }, nav, el("div", { class: "settings-pane" }, body)),
