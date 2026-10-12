@@ -3636,9 +3636,9 @@ select option:hover {
 .ep-row:hover, .site-row:hover,
 .icon-btn:hover, .icon-btn:focus-visible,
 .btn:hover, .btn:focus-visible {
-  box-shadow: none;
   transform: none;
-  border-color: rgba(var(--accent-rgb), 0.5);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.45);
 }
 /* A poster inside a highlighted card keeps its own hairline: one edge is the highlight,
    two are a frame around a frame. */
@@ -3646,19 +3646,40 @@ select option:hover {
 
 /* **What is chosen keeps the accent edge**, a little stronger, with the light tint the
    app uses for a row you picked. */
-.chip.active, .filter-chip.active, .model-chip.suggested,
 .option:has(input:checked), .vis-option:has(input:checked),
 .dropdown-btn[aria-expanded="true"], .menu-item.active,
-.settings-tab.active, .row-btn.active, .profile-tile.active,
-.tab[aria-selected="true"] {
-  box-shadow: none;
-  border-color: rgba(var(--accent-rgb), 0.75);
-  background: rgba(var(--accent-rgb), 0.14);
+.profile-tile.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.16);
   color: #fff;
+}
+/* **The buttons that were filled stay filled.** The Movies/Shows switch and the active
+   chips were solid accent plates with dark text; the pass before this one flattened
+   them into the same light tint a settings row uses — which is the accent going missing
+   from the buttons, exactly as it looked. */
+.row-btn.active, .btn.pin.active {
+  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  color: #14110a;
+  border-color: transparent;
+  box-shadow: none;
+}
+.chip.active, .filter-chip.active, .model-chip.suggested {
+  background: var(--accent);
+  color: #0b0b0b;
+  border-color: transparent;
+  box-shadow: none;
+}
+/* **The section you are in, and Home's own tab**: the accent fill they already had. */
+.settings-tab.active, .tab[aria-selected="true"] {
+  background: rgba(var(--accent-rgb), 0.22);
+  border-color: rgba(var(--accent-rgb), 0.75);
+  color: #fff;
+  box-shadow: none;
 }
 /* The month grid's day: the tint the app already used for a planned day, and the
    accent on its edge. */
-.cal-cell.selected { box-shadow: none; border-color: var(--accent); background: rgba(var(--accent-rgb), 0.14); }
+.cal-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.55); background: rgba(var(--accent-rgb), 0.16); }
 .cal-cell.today { box-shadow: none; border-color: rgba(var(--accent-rgb), 0.7); }
 
 /* **Pills answer the cursor in their own fill** — a 12px tag is too small to read a
@@ -3673,6 +3694,14 @@ select option:hover {
   color: #fff;
 }
 button.chip:hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
+/* **A chip you have already chosen stays filled while you point at it.** The hover tint
+   above is for a chip you have *not* picked; on the active one it was replacing the solid
+   accent plate with a light wash, which is the accent disappearing under the cursor. */
+.chip.active:hover, .filter-chip.active:hover, .model-chip.suggested:hover {
+  background: var(--accent);
+  color: #0b0b0b;
+  border-color: transparent;
+}
 
 /* **Dropdowns and menus.** The button turns the accent; the row under the cursor inside
    the open menu is a tinted plate, no ring. */
@@ -3713,7 +3742,8 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
    face — a photograph behind a fill is a photograph you cannot read. */
 .poster:hover, .poster:focus-visible { background: var(--panel); }
 
-/* The reported double highlight, spelled out: no ring anywhere on these, and no
-   accent wash over a surface that is being highlighted. */
-.icon-box:hover, .poster:hover, .poster:focus-visible, .channel-card:hover,
-.icon-box:focus-visible, .cat-tile:hover, .cat-tile:focus-visible { box-shadow: none; }
+/* **One ring, and it is on the outside.** The old inset ring (a 2px line drawn inside
+   the card's own edge, over the artwork) is answered by the halo above; nothing is
+   drawn on the inside of a card any more, which is what made a highlighted card look
+   like it had two lines at once.
+ */
