@@ -4588,3 +4588,57 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .profile-grid .profile-tile:has(.profile-tile-hit:focus-visible) {
   box-shadow: var(--hl);
 }
+
+/* ============================================================================
+   **Whatever already wears the accent does not also ring.**
+   ----------------------------------------------------------------------------
+   The ring is the app's answer to the *cursor* and to the keyboard — "this is what
+   a press would land on". An element that is already filled with the accent has
+   said something stronger and permanent: *this is chosen*. Ringing it as well
+   draws a box around the one thing on the row that already reads loudest, and on
+   a plate the accent border also sits on top of the accent fill, which is what
+   made a chosen chip, a chosen row and the open settings tile look boxed.
+   Everything below is a state that fills with the accent — a chosen chip, a
+   filter, a tag, a letter, a card, a row, an open menu or dropdown, the play
+   button, the player's own centre button, the Save on a profile. Hovering or
+   focusing one changes nothing about its shadow; the fill is the answer.
+   ============================================================================ */
+.btn.primary:hover, .btn.primary:focus-visible,
+.row-btn.active:hover, .row-btn.active:focus-visible,
+.btn.pin.active:hover, .btn.pin.active:focus-visible,
+.tab[aria-selected="true"]:hover, .tab[aria-selected="true"]:focus-visible,
+.chip.active:hover, .chip.active:focus-visible,
+.filter-chip.active:hover, .filter-chip.active:focus-visible,
+.search-filter-btn.on:hover, .search-filter-btn.on:focus-visible,
+.tag.on:hover, .tag.on:focus-visible,
+.alpha.on:hover, .alpha.on:focus-visible,
+.settings-tab.active:hover, .settings-tab.active:focus-visible,
+.option:has(input:checked):hover, .option:has(input:checked):focus-visible,
+.vis-option:has(input:checked):hover, .vis-option:has(input:checked):focus-visible,
+.model-chip.suggested:hover, .model-chip.suggested:focus-visible,
+.profile-rename.save:hover, .profile-rename.save:focus-visible,
+.profile-tool.on:hover, .profile-tool.on:focus-visible,
+.profile-tool.save:hover, .profile-tool.save:focus-visible,
+.cal-cell.selected:hover, .cal-cell.selected:focus-visible,
+.menu-item.active:hover, .menu-item.active:focus-visible,
+.dropdown-item.active:hover, .dropdown-item.active:focus-visible,
+.dropdown-btn[aria-expanded="true"]:hover, .dropdown-btn[aria-expanded="true"]:focus-visible,
+.view-mark.active:hover, .view-mark.active:focus-visible,
+.avatar-pick.active:hover, .avatar-pick.active:focus-visible,
+.episode-item.active:hover, .episode-item.active:focus-visible,
+.stream.active:hover, .stream.active:focus-visible,
+.accent-card.active:hover, .accent-card.active:focus-visible,
+.ep-play:hover, .ep-play:focus-visible,
+.player-center:hover, .player-center:focus-visible,
+.rec-btn:hover, .rec-btn:focus-visible,
+.chip-arrow:active:hover, .chip-arrow:active:focus-visible {
+  box-shadow: none;
+}
+
+/* **The card you are on does not answer the cursor at all.** It is already filled —
+   that is the answer — so hovering it draws nothing: no outer ring and no new inset
+   one, which is what "a box around what is already chosen" was. */
+.profile-grid .profile-tile.active:hover,
+.profile-grid .profile-tile.active:focus-visible {
+  box-shadow: none;
+}
