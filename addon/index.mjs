@@ -98,7 +98,10 @@ const WATCHLIST_FILE = path.join(__dirname, "watchlist.json");
 export const ADDON_ID = "community.nuvio.collections";
 export { CATALOG_ID_PREFIX };
 
-const PAGE_SIZE = 40;
+// **No forty-title window.** Every row was read forty at a time, so a card looked like
+// it stopped at forty titles whatever the catalogue held. The page is only the first
+// screen of a drop that is paged as you scroll; asking for more is free.
+const PAGE_SIZE = 200;
 
 /**
  * How much one search window reads.
@@ -1552,7 +1555,9 @@ export async function handleAddon(req, res, pathname, origin) {
           json(res, 400, { error: "month must be YYYY-MM" });
           return true;
         }
-        await applyPosters(data.metas);
+        // **No poster service in the calendar.** A calendar tile is a release date and a
+        // face; the rating artwork BetterPosters bakes in has no date on it and put a
+        // second, unrelated caption over the tile.
         await enrichRatings(data.metas);
         json(res, 200, data, 900);
       } catch (err) {

@@ -552,16 +552,18 @@ function regionalOtt(kind) {
         perCountry.push({ svc, code, region });
       }
     }
-    // A service that appears in more than one country keeps its name and wears the
-    // country beside it, so two rows can never read as the same one.
-    const nameCount = new Map();
-    for (const row of perCountry) nameCount.set(row.svc.name, (nameCount.get(row.svc.name) || 0) + 1);
-    const rows = perCountry.map(({ svc, code, region }) => {
-      const label = nameCount.get(svc.name) > 1 ? `${svc.name} · ${code}` : svc.name;
-      return kind === "top10"
-        ? provider(`${label} | Top 10`, svc.id, region, TOP10)
-        : provider(label, svc.id, region);
-    });
+    // **One row per service name.** A pan-regional platform listed for several countries
+    // used to be published once per country, each row wearing an ISO code (`Max · US`,
+    // `Max · CA`) — the same service under several names, and the code was a piece of the
+    // query leaking into the label. The first country a service is verified in is the
+    // region its row is read in; the name is only the name.
+    const byName = new Map();
+    for (const row of perCountry) if (!byName.has(row.svc.name)) byName.set(row.svc.name, row);
+    const rows = [...byName.values()].map(({ svc, region }) =>
+      kind === "top10"
+        ? provider(`${svc.name} | Top 10`, svc.id, region, TOP10)
+        : provider(svc.name, svc.id, region),
+    );
     // The worldwide pair (Crunchyroll, Viki) belong to every region, so they are added
     // once at the end rather than once per country.
     for (const svc of WORLDWIDE) {

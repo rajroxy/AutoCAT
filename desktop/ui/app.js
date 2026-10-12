@@ -43,6 +43,8 @@ const KEY = {
   posters: "nuvio.posters",
   ratings: "nuvio.ratings",
   ai: "nuvio.ai",
+  // Voice input, one flag per place it listens (see `paneAi`).
+  speak: "nuvio.speak",
   language: "nuvio.language",
   country: "nuvio.country",
   contentSource: "nuvio.contentSource",
@@ -513,7 +515,6 @@ const LIVE_SETTINGS_GROUPS = [
     group: "",
     sections: [
       ["livesource", "Source"],
-      ["livecountries", "Countries"],
       ["liverefresh", "Refresh"],
       ["addons", "Add-ons"],
       ["dns", "Network"],
@@ -568,7 +569,7 @@ const state = {
   // Live TV & Sports: which of its two rows is showing, and the channels, groups
   // and guide the server has answered with.
   liveRow: localStorage.getItem(KEY.liveRow) || "livetv",
-  liveSource: readJSON(KEY.liveSource, { mode: "dth", m3u: "", host: "", username: "", password: "", epg: "", providers: [], refreshMinutes: 0 }),
+  liveSource: readJSON(KEY.liveSource, { mode: "m3u", m3u: "", host: "", username: "", password: "", epg: "", providers: [], refreshMinutes: 0 }),
   live: { loading: false, loaded: false, all: [], total: 0, groups: [], rows: [], updated: 0, error: "", guide: null, guideLoading: false, guideError: "", guideCountry: "", guideCategory: "", guideSportsOnly: false },
   recordings: readJSON("nuvio.recordings", []),
   providers: readJSON(KEY.providers, { tmdb: { enabled: true }, tvdb: { enabled: false }, mdblist: { enabled: false } }),
@@ -601,6 +602,7 @@ const state = {
   // Which ratings service the title page reads (Settings → Ratings). Mirrored from the
   // server like everything else, so the pane draws before the first answer.
   ratings: readJSON(KEY.ratings, { source: "free" }),
+  speak: readJSON(KEY.speak, { browse: true, ask: true }),
   ai: readJSON(KEY.ai, {
     enabled: true,
     provider: "groq",
@@ -2384,22 +2386,48 @@ const plusMark = () =>
 
 /** One profile on the picker: the tile you enter with, and the two tools under it. */
 function personSlot(person, active, editing, count) {
+  // **The pencil becomes the save.** One tool, two states: at rest it is *Rename* —
+  // press it and the tile's name opens for typing — and while the name is open the same
+  // tool is the tick that keeps it. There is no Save/Cancel pair under the field: the
+  // tool you pressed is the tool that commits, and Escape still puts the old name back.
+  const field = editing
+    ? el("input", {
+        class: "profile-name-field",
+        type: "text",
+        maxlength: "24",
+        value: person.name,
+        "aria-label": `Name for ${person.name}`,
+      })
+    : null;
+  const commit = editing ? () => renamePerson(person.id, field.value) : null;
+  if (field) {
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); commit(); }
+      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; render(); }
+    });
+    queueMicrotask(() => field.focus());
+  }
   const tools = el(
     "div",
     { class: "profile-tools" },
     el(
       "button",
       {
-        class: "profile-tool focusable",
+        class: `profile-tool focusable${editing ? " save" : ""}`,
         type: "button",
-        title: `Rename ${person.name}`,
-        "aria-label": `Rename ${person.name}`,
-        onclick: () => { state.renaming = person.id; render(); },
+        title: editing ? `Save ${person.name}` : `Rename ${person.name}`,
+        "aria-label": editing ? "Save this name" : `Rename ${person.name}`,
+        onclick: () => {
+          if (editing) commit();
+          else { state.renaming = person.id; render(); }
+        },
       },
-      svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
-        svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
-        svgNode("path", { d: "M14.5 5.5l4 4" }),
-      ),
+      editing
+        ? svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+            svgNode("path", { d: "M5 13l4 4L19 7" }))
+        : svgNode("svg", { class: "tool-mark", viewBox: "0 0 24 24", "aria-hidden": "true" },
+            svgNode("path", { d: "M4.5 19.5h4L19 9l-4-4L4.5 15.5z" }),
+            svgNode("path", { d: "M14.5 5.5l4 4" })),
     ),
     count > 1
       ? el(
@@ -2418,19 +2446,6 @@ function personSlot(person, active, editing, count) {
       : null,
   );
   if (editing) {
-    const field = el("input", {
-      class: "profile-name-field",
-      type: "text",
-      maxlength: "24",
-      value: person.name,
-      "aria-label": `Name for ${person.name}`,
-    });
-    const commit = () => renamePerson(person.id, field.value);
-    field.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); commit(); }
-      if (event.key === "Escape") { event.preventDefault(); state.renaming = ""; render(); }
-    });
-    queueMicrotask(() => field.focus());
     return el(
       "div",
       { class: "profile-slot editing" },
@@ -2439,17 +2454,6 @@ function personSlot(person, active, editing, count) {
         { class: "profile-tile active" },
         el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
         field,
-        el(
-          "div",
-          { class: "profile-rename-actions" },
-          el("button", { class: "btn focusable", type: "button", text: "Save", onclick: commit }),
-          el("button", {
-            class: "btn subtle focusable",
-            type: "button",
-            text: "Cancel",
-            onclick: () => { state.renaming = ""; render(); },
-          }),
-        ),
       ),
       tools,
     );
@@ -2462,7 +2466,7 @@ function personSlot(person, active, editing, count) {
       {
         class: `profile-tile focusable${active ? " active" : ""}`,
         type: "button",
-        "aria-current": active ? "true" : false,
+        "aria-current": active ? "true" : undefined,
         onclick: () => choosePerson(person.id),
       },
       el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(person.name)),
@@ -4698,6 +4702,9 @@ function calendarCard(m, opts = {}) {
     // plate can carry sat on top of the artwork on every day of the grid; the date
     // cell and the poster itself already say what this is.
     posterCard(m, { kind: true, caption: false }),
+    // **The airing date, in the same voice the Upcoming card uses** — "Coming 9 Oct" —
+    // so a date on a calendar tile reads the way a date reads everywhere else in the app.
+    m.releaseDate ? el("span", { class: "cal-tag", text: upcomingTag(m) }) : null,
     // **The plan's own line.** The day list says it by being on that day; the plans list
     // is not on a day, so it says which date the plan was made for.
     opts.date && m.releaseDate ? el("span", { class: "cal-plan-date", text: planDayLabel(m.releaseDate) }) : null,
@@ -7346,7 +7353,12 @@ async function checkSubtitles() {
 
 function aiAskRow() {
   const input = el("input", { class: "text-input focusable", type: "text", placeholder: "Tell me what to watch…", id: "ai-ask" });
-  const mic = el("button", { class: "btn focusable", type: "button", text: "🎙 Voice", onclick: () => startVoice(input) });
+  // **Speak up is a setting, and this is where it shows.** With the Ask-AI microphone
+  // switched off in Settings → Assistant there is no button to press, rather than a
+  // button that does nothing.
+  const mic = state.speak?.ask === false
+    ? null
+    : el("button", { class: "btn focusable", type: "button", text: "🎙 Voice", onclick: () => startVoice(input) });
   const send = el("button", {
     class: "btn primary focusable",
     type: "button",
@@ -7825,18 +7837,24 @@ const RATING_SERVICES = [
 /** Settings → Ratings: which services the title page reads, and MDBList's key. */
 function paneRatings() {
   const source = state.ratings?.source || "free";
+  const pick = ([id, label, desc]) =>
+    radioRow(source === id, "ratingservice", label, desc, () => {
+      state.ratings = { ...state.ratings, source: id };
+      writeJSON(KEY.ratings, state.ratings);
+      pushSettings({ ratings: { source: id } });
+      render();
+    });
   return [
     // **One box per service, the same shape Content uses.** These were stacked rows
     // inside one "Ratings service" panel, which read as a list inside a list; as boxes
     // they sit in the pane's own board, and the chosen one wears the accent like every
     // other choice in Settings.
-    ...RATING_SERVICES.map(([id, label, desc]) =>
-      radioRow(source === id, "ratingservice", label, desc, () => {
-        state.ratings = { ...state.ratings, source: id };
-        writeJSON(KEY.ratings, state.ratings);
-        pushSettings({ ratings: { source: id } });
-        render();
-      }),
+    ...RATING_SERVICES.filter(([id]) => id === "none").map(pick),
+    // **The two real services, side by side.** They are the same choice read two ways —
+    // each site's own page, or one key that has already read them all — so they sit on
+    // one line, Public pages on the left and MDBList on the right, half the pane each.
+    el("div", { class: "rating-choice-row" },
+      ...RATING_SERVICES.filter(([id]) => id !== "none").map(pick),
     ),
     // **What the chosen service actually reads, in the pane.** The three rows above name
     // the services; this is the one line that says how they differ — a page read per site
@@ -8060,11 +8078,31 @@ function aiProviderRow(slug, label, signup, note) {
 }
 
 function paneAi() {
+  const speakSet = (key, on) => {
+    state.speak = { ...(state.speak || {}), [key]: on };
+    writeJSON(KEY.speak, state.speak);
+  };
   return [
     toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
       pushSettings({ ai: { enabled: state.ai.enabled } });
+      render();
+    }),
+    // **Speak up — two microphones, two rooms.** One listens while you are browsing the
+    // app (the search box and the voice button read it), and one only inside the Ask AI
+    // box. They are separate because the two are used differently: talking to the app is
+    // a shortcut, talking to the assistant is a conversation.
+    el("div", { class: "group-head" },
+      el("span", { class: "option-title", text: "Speak up" }),
+      el("span", { class: "option-desc", text: "Voice input, one switch per place it listens." }),
+    ),
+    toggleRow(state.speak?.browse !== false, "Speak up while browsing", "Show the microphone in the app's search and Ask boxes.", (e) => {
+      speakSet("browse", e.target.checked);
+      render();
+    }),
+    toggleRow(state.speak?.ask !== false, "Speak up in the Ask AI box", "Listen only inside the Ask AI box, and nowhere else.", (e) => {
+      speakSet("ask", e.target.checked);
       render();
     }),
     state.ai.enabled ? [
@@ -8393,7 +8431,7 @@ function paneNotifications() {
     el("p", { class: "option-desc", text: `Notifications for this profile (${state.profile}). A notification is drawn in the app; nothing leaves the machine and no account is needed.` }),
     toggleRow(n.calendar, "Pinned titles in the Calendar", "Tell me when a title I pinned to watch comes out, and when a pinned episode airs.", (e) => set({ calendar: e.target.checked })),
     toggleRow(n.releases, "New releases in my Library", "Tell me when something in the Library gets a new season or a new episode.", (e) => set({ releases: e.target.checked })),
-    toggleRow(n.live, "Live TV and sports", "Tell me before a pinned fixture starts, on the Live TV & Sports profile.", (e) => set({ live: e.target.checked })),
+
   ];
 }
 
@@ -10022,7 +10060,25 @@ function channelsCard() {
   });
 }
 
+/** **The Upcoming card, on the live side too.** The VOD home has one to the right of
+ * your own cards; this is the same glance — what is coming up next — next to the
+ * Recordings (or Highlights) card. */
+function liveUpcomingCard() {
+  return liveCard({
+    id: "open-live-upcoming",
+    title: "Upcoming",
+    sub: "What is on next",
+    rows: [el("div", { class: "guide-mini-row" },
+      el("span", { class: "guide-mini-name", text: "What is on next" }),
+      el("span", { class: "guide-mini-block bare", text: "Open the calendar" }))],
+    action: () => go("#/calendar"),
+  });
+}
+
 function recordingsCard() {
+  // **Highlights on the Sports row.** The Sports tab is about what happened, so the card
+  // that holds what you kept is named for it there — the same card, the name the row uses.
+  const sports = typeof liveRowKey === "function" && liveRowKey() === "sports";
   const list = recordingsGet();
   const upcoming = list.filter((r) => r.stop > Date.now()).slice(0, 6);
   const rows = upcoming.length
@@ -10036,7 +10092,7 @@ function recordingsCard() {
       )];
   return liveCard({
     id: "open-recordings",
-    title: "Recordings",
+    title: sports ? "Highlights" : "Recordings",
     sub: `${list.length} total · ${upcoming.length} upcoming`,
     rows,
     action: () => go("#/recordings"),
@@ -10117,7 +10173,7 @@ function renderLiveHome() {
   const nodes = [
     liveHeroBlock(),
     liveRowSwitch(),
-    el("div", { class: "icons grid live-cards" }, guideCard(), channelsCard(), recordingsCard()),
+    el("div", { class: "icons grid live-cards" }, guideCard(), channelsCard(), recordingsCard(), liveUpcomingCard()),
   ].filter(Boolean);
   if (state.live.loading && !state.live.loaded) {
     nodes.push(el("p", { class: "empty", text: "Reading the channel list…" }));
@@ -10558,16 +10614,14 @@ function paneLiveSource() {
       el("span", { class: "option-title", text: "Where the lineup comes from" }),
       el("p", {
         class: "option-desc",
-        text: "The catalogue is the premium, DTH and operator providers themselves — pick the ones you subscribe to and Live TV draws their lineup and their guide. Streams are never shipped: a premium stream belongs to a subscriber's box, so export your own playlist (or log in to your Xtream panel) and it meets the catalogue on the channel's `tvg-id`. The playlist URL and the password stay on the server, never in the page.",
+        text: "Your own channels, one of two ways: an M3U URL or a file, or an Xtream panel's host and login. The URL and the password stay on the server, never in the page.",
       }),
       el("div", { class: "options" },
-        ...[["dth", "Premium & DTH catalogue", "Sky, DIRECTV, Tata Play, Airtel, DStv, Astro, Foxtel and the rest — the operator's own lineup and guide, per country."],
-          ["m3u", "My M3U playlist", "An M3U/M3U8 URL (or a path on the server) with your own channels, exported from your box."],
-          ["xtream", "Xtream Codes login", "Host, username and password — the live streams and their categories are read from the panel."]].map(([mode, title, desc]) =>
+        ...[["m3u", "M3U URL & file import", "An M3U/M3U8 URL, or a file on the server, with your own channels."],
+          ["xtream", "Xtream code", "Host, username and password — the live streams and their categories are read from the panel."]].map(([mode, title, desc]) =>
           radioRow(live.mode === mode, "live-mode", title, desc, () => save({ mode })),
         ),
       ),
-      live.mode === "dth" ? providerPicker(pickedProviders, save) : null,
       live.mode === "m3u"
         ? el("div", { class: "source-form" }, field("live-m3u", "m3u", live.m3u, "https://…/playlist.m3u"))
         : null,
@@ -10589,10 +10643,6 @@ function paneLiveSource() {
       el("div", { class: "source-form" },
         el("button", { class: "btn primary focusable", type: "button", text: "Reload channels", onclick: () => loadLive({ force: true }) }),
       ),
-    ),
-    el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Metadata" }),
-      el("p", { class: "option-desc", text: "Each channel keeps the logo, its categories and its country from the playlist, and its stream URL is kept server-side. Reload re-reads all of it — on the refresh clock below, and whenever you press Refresh now." }),
     ),
   ];
 }
@@ -11442,18 +11492,21 @@ async function openPlayer(url, title, opts = {}) {
     // **The children are filtered.** `replaceChildren` stringifies anything that is not
     // a node, so the `null`s this used to pass for "no add-on lines" came out as the
     // word "null" printed under the heading — `el()` drops them, this did not.
+    // **Only the add-ons that answered with something.** A line reading "no streams"
+    // sat at the top of the drawer above the streams that did arrive, so the list opened
+    // on the failures. A line with nothing behind it is dropped; a row that found nothing
+    // on the sites you added is dropped with it (see `searchOnPlay`).
+    const usefulLines = addonLines.filter((s) => s.ok && !/\bno streams\b|nothing found|no matching|no playable|\b0 streams\b|held no playable/i.test(String(s.message || "")));
     const parts = [
       el("h3", { class: "row-head", text: "Sources" }),
-      customSummary,
-      customNote,
       blocked.length
         ? el("div", { class: "source-form" },
             el("span", { class: "option-desc", text: `${blocked[0].domain} wants manual verification.` }),
             el("button", { class: "btn subtle focusable", type: "button", text: "Open a window", onclick: () => offerVerification(blocked[0].domain) }),
           )
         : null,
-      addonLines.length
-        ? el("div", { class: "drawer-addons" }, ...addonLines.map((s) =>
+      usefulLines.length
+        ? el("div", { class: "drawer-addons" }, ...usefulLines.map((s) =>
             el("p", {
               class: `drawer-addon${s.ok ? "" : " drawer-addon-failed"}`,
               text: `${s.name}: ${s.ok ? s.message : `failed — ${s.message}`}`,
@@ -11468,11 +11521,10 @@ async function openPlayer(url, title, opts = {}) {
   };
   // The rows already extracted for this title are re-seated: they survive closing the
   // player, and are gone on a restart, which is the lifetime a stream URL deserves.
-  drawSources([...shown.filter((r) => !r.custom), ...(customBox().streams || [])], currentSource);
-  drawCustomSummary();
-  // **Search-on-play.** The sites are asked once, in the background, so the picture is
-  // playing while the drawer fills in.
-  Promise.resolve().then(runSearchOnPlay);
+  // **The custom-site scraping is gone from the player.** The drawer opened on a wall of
+  // "0 streams" lines from sites that had not answered, sat above the streams that had.
+  // What plays comes from the add-ons; the drawer lists those and the streams themselves.
+  drawSources([...shown.filter((r) => !r.custom)], currentSource);
   // **More sources, on the way.** A channel starts playing on the lineup's own URL and
   // the add-ons are asked after that, so a tap is instant and the drawer fills in when
   // they answer — the alternative was holding the whole channel behind a scraping
@@ -11639,6 +11691,7 @@ async function openPlayer(url, title, opts = {}) {
   // why this panel looked permanently empty: an hls.js stream keeps its tracks on the
   // Hls instance, not on the `<video>` element at all.
   const gearPanel = el("aside", { class: "player-settings-menu", hidden: true });
+
   const trackLabel = (t, i) => `${t.name || t.label || t.lang || t.language || `Track ${i + 1}`}${t.forced ? " (forced)" : ""}`;
 
   /**
@@ -11936,6 +11989,8 @@ async function openPlayer(url, title, opts = {}) {
     // **The children are filtered.** `replaceChildren` prints anything that is not a
     // node, so a `null` section would come out as the word "null" in the panel.
     gearPanel.replaceChildren(...[
+      // The panel's own name — the gear is labelled **Options**.
+      el("p", { class: "player-options-head", text: "Options" }),
       mergeable.length
         ? el("h3", { class: "row-head", text: "Providers" })
         : null,
@@ -12008,7 +12063,7 @@ async function openPlayer(url, title, opts = {}) {
           // on the thing you are watching, and the drawer of other streams sits next
           // to them.
           el("button", {
-            class: "player-icon focusable", type: "button", id: "player-settings", title: "Providers, quality, audio & subtitles",
+            class: "player-icon focusable", type: "button", id: "player-settings", title: "Options — providers, quality, audio & subtitles",
             onclick: () => {
               const opening = gearPanel.hidden;
               drawTracks();

@@ -172,17 +172,29 @@ function readStreams(label, raw) {
     .map((s) => {
       const direct = String(s.url || "").trim();
       const external = String(s.externalUrl || "").trim();
-      const magnet = direct ? "" : magnetOf(s, s?.behaviorHints?.filename || s?.title || s?.name || "");
+      // **A magnet handed to us as a `url` is still a magnet.** Some add-ons put the
+      // magnet URI in `url` (with the trackers on it) and nothing in `infoHash`; read as
+      // a direct link it went to a `<video>` element, and read as a torrent with no hash
+      // the server answered "no info hash in this stream". Both are the same stream the
+      // server can play — so a `magnet:` url is taken as the magnet it is.
+      const magnetUrl = /^magnet:/i.test(direct) ? direct : "";
+      const magnet = magnetUrl || (direct ? "" : magnetOf(s, s?.behaviorHints?.filename || s?.title || s?.name || ""));
+      const infoHash = String(s.infoHash || "") || (magnetUrl ? String(magnetUrl.match(/xt=urn:btih:([a-z0-9]+)/i)?.[1] || "") : "");
       return {
-        url: direct || external,
+        url: magnetUrl ? "" : direct || external,
         external: !direct && !magnet && Boolean(external),
         // A torrent: the player plays the magnet with its own engine, and this is
         // what makes it one. The `url` above may still be set (some add-ons hand a
         // torrent out with a proxy link as well), and a direct link always wins.
         torrent: Boolean(magnet),
         magnet,
-        infoHash: String(s.infoHash || ""),
-        fileIdx: Number.isFinite(s.fileIdx) ? Number(s.fileIdx) : null,
+        infoHash,
+        fileIdx: Number.isFinite(s.fileIdx)
+          ? Number(s.fileIdx)
+          : (() => {
+              const m = magnetUrl.match(/[&?]index=(\d+)/i);
+              return m ? Number(m[1]) : null;
+            })(),
         seeders: Number.isFinite(s.seeders) ? Number(s.seeders) : null,
         size: s.behaviorHints?.videoSize || s.size || null,
         // `name` is the quality/group line and `title` the detail line in the

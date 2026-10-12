@@ -552,8 +552,11 @@ function providerRowRegion(providerId, entryRegion, type) {
   const own = String(entryRegion || "").toUpperCase();
   if (own) return own;
   const here = String(activeRegion() || "").toUpperCase() || GLOBAL_OTT_REGION;
+  // Read in your region only when the region is *known* to carry the service; a region
+  // whose provider list has not been read yet is not a "no", so it falls back rather
+  // than answering empty on the first request after a restart.
   const set = regionProviders.get(`${type}:${here}`)?.ids;
-  if (!set || set.has(String(providerId))) return here;
+  if (set && set.has(String(providerId))) return here;
   return GLOBAL_OTT_REGION;
 }
 

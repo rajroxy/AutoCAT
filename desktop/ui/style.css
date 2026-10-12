@@ -4212,17 +4212,21 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    ============================================================================ */
 .trailer-frame > .trailer-mask { position: absolute; left: 0; right: 0; width: 100%; z-index: 2; pointer-events: none; }
 .trailer-frame > .trailer-mask[hidden] { display: none; }
+/* **A vignette, not a shelf.** The bands only need to be opaque where YouTube actually
+   paints its furniture — the title card's first lines and the watermark's corner — so they
+   fade out well before the picture. The top is a short strip and the bottom is soft, and
+   both let the clip show through almost all of their height. */
 .trailer-frame > .trailer-mask-top {
   top: 0;
   bottom: auto;
-  height: 15%;
-  background: linear-gradient(180deg, #000 0 56%, rgba(0, 0, 0, 0) 100%);
+  height: 11%;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.92) 0 34%, rgba(0, 0, 0, 0) 100%);
 }
 .trailer-frame > .trailer-mask-bottom {
   top: auto;
   bottom: 0;
-  height: 22%;
-  background: linear-gradient(0deg, #000 0 58%, rgba(0, 0, 0, 0) 100%);
+  height: 15%;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0 30%, rgba(0, 0, 0, 0) 100%);
 }
 
 /* **The profile editor's card blocks hold two lists.** One for the card's films and one
@@ -4238,3 +4242,77 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   text-transform: uppercase;
   color: var(--faint);
 }
+
+/* ============================================================================
+   **This round's surfaces.**
+   ============================================================================ */
+
+/* The two ratings services, on one line, half the pane each. */
+.rating-choice-row { display: flex; align-items: stretch; gap: 10px; }
+.rating-choice-row > * { flex: 1 1 0; min-width: 0; }
+
+/* The profile tool while it is the Save: the tick wears the accent. */
+.profile-tool.save { color: var(--accent); }
+.profile-tool.save:hover, .profile-tool.save:focus-visible { background: rgba(var(--accent-rgb), 0.22); color: var(--accent); }
+
+/* **No square highlight on the search bar.** The field sits inside a rounded bar, and a
+   ring around the field drew a sharp-cornered rectangle inside the bar's curve. */
+.search-bar:has(.search-input:focus-visible),
+.search-bar:has(.search-input:focus),
+.search-bar:focus-within { box-shadow: none !important; }
+.search-bar .search-input:focus,
+.search-bar .search-input:focus-visible { outline: none !important; box-shadow: none !important; }
+
+/* The title page's row of four sits a little lower, clear of the overview above it. */
+.title-hero .title-actions { margin: 34px 0 24px; }
+
+/* **The player's Options panel.** The gear opens a panel called Options. */
+.player-options-head {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* **The player's seek bar is a bar, not a lozenge.** A flat track, a round accent
+   thumb, and the elapsed fill drawn in the accent — the same reading as the trailer's. */
+.player-seek {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+}
+.player-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  margin-top: -4.5px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.player-seek::-moz-range-thumb { width: 15px; height: 15px; border: 0; border-radius: 999px; background: var(--accent); }
+
+/* A calendar tile's release tag, drawn over the poster's top-left corner. */
+.cal-item { position: relative; }
+.cal-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.66);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+/* The live hero's picture is the way into the channel — a hand, like the VOD banner's. */
+.live-hero-art { cursor: pointer; }
