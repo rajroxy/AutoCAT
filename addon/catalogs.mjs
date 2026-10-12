@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries, COUNTRIES } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -60,6 +60,44 @@ const dateField = (media) => (media === "movie" ? "primary_release_date" : "firs
 const q = (path, params, take) => ({ path, params, take });
 
 /**
+ * **The whole world, in four queries.**
+ *
+ * The banner's rows — Now Playing, Airing Today, On the Air — are what is out *now*,
+ * and TMDB's own endpoints for those answer with the American market: `/movie/now_playing`
+ * is a US chart, and the TV pair take no country at all. So "what just came out" meant
+ * Hollywood, and what opened in Tokyo, Seoul, Mumbai or Lagos this month was nowhere on
+ * the banner.
+ *
+ * The countries are the same set the **Countries card** publishes — the ones that clear
+ * the content floor — and TMDB takes them pipe-separated, so the whole list fits in four
+ * discover queries rather than one per country. `CHUNKS` is fixed at import so the same
+ * rows are asked for on every request, and a chunk that fails is simply one query short.
+ */
+const NOW_PLAYING_CHUNKS = (() => {
+  const codes = COUNTRIES
+    .filter(([name]) => countryHasContent(name, "movie") || countryHasContent(name, "tv"))
+    .map(([, code]) => code);
+  const size = Math.ceil(codes.length / 4);
+  const out = [];
+  for (let i = 0; i < codes.length; i += size) out.push(codes.slice(i, i + size));
+  return out;
+})();
+
+/** "Out now, anywhere" — one discover query per chunk of countries, newest first. */
+function worldRecent(media, take, days) {
+  const t = tmdbPath(media);
+  const since = iso(new Date(Date.now() - days * 864e5));
+  return NOW_PLAYING_CHUNKS.map((codes) =>
+    q(`/discover/${t}`, {
+      with_origin_country: codes.join("|"),
+      [`${dateField(media)}.gte`]: since,
+      sort_by: "popularity.desc",
+      "vote_count.gte": 1,
+    }, take),
+  );
+}
+
+/**
  * The five orders an OTT row can be drawn in — the card's own dropdown.
  *
  * They are five different **questions** about the same service, not five labels for one
@@ -98,9 +136,12 @@ function presetSpecs(value, media, take, adult = false) {
     case "top_rated": return [q(`/${t}/top_rated`, {}, take)];
     // The /now_playing, /airing_today and /on_the_air endpoints take no
     // include_adult parameter, so the SFW/NSFW switch cannot apply to them.
-    case "now_playing": return [q("/movie/now_playing", {}, take)];
-    case "airing_today": return [q("/tv/airing_today", {}, take)];
-    case "on_the_air": return [tr("/tv/on_the_air", {}, take)];
+    // **Out now, everywhere.** The endpoint's own list first (it is the market the
+    // endpoint is written for), then the same question asked of every country the
+    // Countries card covers.
+    case "now_playing": return [q("/movie/now_playing", {}, take), ...worldRecent("movie", take, 45)];
+    case "airing_today": return [q("/tv/airing_today", {}, take), ...worldRecent("tv", take, 21)];
+    case "on_the_air": return [tr("/tv/on_the_air", {}, take), ...worldRecent("tv", take, 30)];
     // **What is on its way.** Films come from TMDB's own upcoming list; shows have
     // no such endpoint, so the row is the first-air-date order from today on — **the
     // nearest first**, which is what "upcoming" means, and the opposite of the

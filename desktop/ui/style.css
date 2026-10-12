@@ -1,3 +1,34 @@
+/* **The app carries its own typefaces.** Settings → Font offers four, and every one
+   of them is a file in `./fonts` rather than a name that happens to be installed — a
+   "font setting" that silently falls back to the same face on a machine without it is
+   a switch that does nothing. Inter is the default and the voice the app is written in;
+   the other three are the same kind of neutral sans a media app is set in, so every
+   choice is legible at a row's size. All four are Open Font License. */
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/Inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter Tight";
+  src: url("./fonts/InterTight.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roboto";
+  src: url("./fonts/Roboto.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("./fonts/Manrope.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   /* A near-neutral black rather than a blue-black: the surfaces are one flat
@@ -72,7 +103,7 @@ body {
   /* **The typeface is a setting.** `--font` is set on :root by Settings →
      Appearance; the stack above it is the default, so nothing changes for anyone who
      never opens the pane. */
-  font-family: var(--font, Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  font-family: var(--font, Inter, "Inter Tight", Roboto, system-ui, sans-serif);
   overflow-x: hidden;
 }
 
@@ -1012,40 +1043,43 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    whose names lived in a tooltip; each is a full-width box now, the same shape every other
    choice in Settings has — a dot of the colour and the name written beside it — stacked up
    and down the column. */
-.accent-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 4px 0 4px; }
+.accent-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 4px; }
 .accent-box {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
   width: 100%;
-  padding: 12px 14px;
+  padding: 12px 13px;
   font: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   text-align: left;
   color: var(--text);
-  background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  /* **Each box wears its own colour's greyness** — `--swatch-rgb` is the colour, so the
+     grid reads as the palette it is rather than fifteen identical grey plates. */
+  background: rgba(var(--swatch-rgb), 0.13);
+  border: 1px solid rgba(var(--swatch-rgb), 0.42);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.accent-box:hover { background: var(--panel-2); transform: translateY(-2px); }
+.accent-box:hover { background: rgba(var(--swatch-rgb), 0.22); border-color: rgba(var(--swatch-rgb), 0.7); }
 .accent-box.active {
-  border-color: rgba(var(--accent-rgb), 0.65);
-  background: rgba(var(--accent-rgb), 0.14);
+  background: rgba(var(--swatch-rgb), 0.3);
+  border-color: var(--swatch);
+  box-shadow: inset 0 0 0 1px var(--swatch);
   color: #fff;
 }
 .accent-dot {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   flex: none;
   border-radius: 8px;
   background: var(--swatch);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
 }
-.accent-box.active .accent-dot { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85); }
-.accent-name { min-width: 0; }
+.accent-box.active .accent-dot { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9); }
+.accent-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ explore */
 
@@ -2097,7 +2131,7 @@ body { background: var(--ink); }
   border: 0;
 }
 
-/* A top-bar button answers the cursor with a fill, since it has no outline left. */
+/* A top-bar button answers the cursor with a fill as well as its border. */
 .icon-btn:hover, .icon-btn:focus-visible { background: rgba(255, 255, 255, 0.1); }
 
 /* Inputs are filled fields, not outlined boxes. */
@@ -2186,10 +2220,9 @@ body { background: var(--ink); }
    **fill or a ring** instead of a hairline, so the app keeps one voice: the accent
    is spent on what you act on. */
 
-/* The tag arrows keep their accent plate on purpose — a stroked chevron on a flat
-   tinted plate is what makes them read as something to press. **No outline**: the
-   plate itself is the affordance. */
-.chip-arrow { border: 0; }
+/* The tag arrows keep their accent plate on purpose — a stroked chevron on a tinted
+   plate is what makes them read as something to press. */
+.chip-arrow { border: 1px solid rgba(var(--accent-rgb), 0.5); }
 
 /* The guide's header needs its rule: every row under it keeps one, and without it
    the time ruler floats away from the grid it labels. */
@@ -3563,3 +3596,99 @@ echo "done"
 /* **The condensed cut** (Settings → Font): the narrow stack is asked for in `--font`,
    and this squeezes whatever face actually loaded where the engine can. */
 .font-condensed body { font-stretch: 87.5%; }
+
+
+/* ============================================================================
+   **The selection border — one line, one meaning.**
+   ----------------------------------------------------------------------------
+   The outline pass took the hairline off nearly every surface and left the app
+   saying "this one" with fills alone: a tile, a button, a chip, a card and a menu
+   all answered the cursor the same way, and the item you had *chosen* was
+   indistinguishable from the one you were merely over. Every one of those surfaces
+   carries a 1px border again, and it turns **accent** on hover, on keyboard focus
+   and on the chosen state. It is written at the end of the sheet on purpose: the
+   outline pass and the filled-field rules above set `border: 0` on the same
+   selectors, and this has to be the last word on it.
+   ============================================================================ */
+.icon-btn,
+.profile-tile,
+.current-profile,
+.icon-box,
+.poster,
+.section-art,
+.btn,
+.search-bar,
+.search-filter-btn,
+.search-suggest,
+.search-filters,
+.search-input,
+.chip-more,
+.chip,
+.filter-chip,
+.result,
+.model-chip,
+.vis-card,
+.vis-option,
+.source,
+.provider,
+.source-providers,
+.ai-ask,
+.option,
+.modal-card,
+.modal-close,
+.cat-menu,
+.row-switch,
+.channel-card,
+.channel-art,
+.alpha-rail,
+.graph,
+.guide,
+.site-row,
+.dropdown-btn,
+.dropdown-menu,
+select,
+select.text-input,
+.text-input {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* Pointing at it, tabbing to it, or having chosen it: the border is the accent. */
+.icon-btn:hover, .icon-btn:focus-visible,
+.btn:hover, .btn:focus-visible,
+.profile-tile:hover, .profile-tile:focus-visible,
+.icon-box:hover, .icon-box:focus-visible,
+.poster:hover, .poster:focus-visible,
+.result:hover, .result:focus-visible,
+.option:hover,
+.option:has(input:checked),
+.vis-option:hover,
+.vis-option:has(input:checked),
+.provider:hover,
+.source:hover,
+.vis-card:hover,
+.chip:hover, .chip:focus-visible,
+.chip-more:hover,
+.filter-chip:hover, .filter-chip:focus-visible,
+.model-chip:hover,
+.channel-card:hover, .channel-card:focus-visible,
+.dropdown-btn:hover, .dropdown-btn:focus-visible,
+.dropdown:focus-within .dropdown-btn,
+.search-filter-btn:hover, .search-filter-btn:focus-visible,
+.site-row:hover {
+  border-color: rgba(var(--accent-rgb), 0.8);
+}
+
+/* A chosen chip — a card's own tag, a filter that is on — is accent all the way. */
+.chip.active, .filter-chip.active, .model-chip.suggested, .dropdown-btn[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.2);
+  color: #fff;
+}
+
+/* A field you are typing in reads as chosen, too. */
+.text-input:focus, select.text-input:focus, select:focus { border-color: rgba(var(--accent-rgb), 0.85); outline: none; }
+
+/* A menu is a menu: its own line, and the row under the cursor is accent. */
+.dropdown-menu { border-radius: 12px; }
+.dropdown-item { border: 0; border-radius: 8px; }
+.dropdown-item:hover, .dropdown-item:focus-visible { background: rgba(var(--accent-rgb), 0.18); }

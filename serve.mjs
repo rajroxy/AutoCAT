@@ -33,6 +33,14 @@ const TYPES = {
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
   ".ico": "image/x-icon",
+  // **The app's own typefaces** (Settings → Font). A `.woff2` served as
+  // `application/octet-stream` is refused by the font loader — the file arrives, and
+  // the face is still reported as failed, which is a font setting that looks broken
+  // rather than one that is missing.
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
 };
 
 /** Join a URL path onto a root, staying inside it; returns an existing file or null. */

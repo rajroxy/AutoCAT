@@ -206,7 +206,7 @@ const accentOf = (id) => ACCENTS.find(([key]) => key === id) || ACCENTS[0];
  * in the page, so this is local families and the system UI face. Settings used to offer six
  * of these; it offers none now, so this is the only place the face is named.
  */
-const FONT_STACK = 'Inter Tight, Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const FONT_STACK = 'Inter, "Inter Tight", Roboto, system-ui, sans-serif';
 
 /**
  * The two faces the app can be set in.
@@ -216,21 +216,20 @@ const FONT_STACK = 'Inter Tight, Inter, system-ui, -apple-system, "Segoe UI", Ro
  * what a long title on a row wants when it would otherwise be clipped.
  */
 const FONTS = [
-  ["inter", "Inter", "The default face — the stack the app has always worn."],
-  ["grotesk", "Grotesk", "A tighter, more geometric stack for titles and rows — Helvetica and its neighbours where they exist."],
-  ["system", "System UI", "Whatever face this machine's own interface is set in."],
-  ["serif", "Serif", "Georgia and its neighbours — a reading-first look for titles and summaries."],
-  ["mono", "Monospace", "Fixed-width type, so ratings, years and timecodes line up."],
+  ["inter", "Inter", "The default face — the voice the app is written in."],
+  ["tight", "Inter Tight", "Inter, narrowed: the same voice in less width, so a long title fits its row."],
+  ["roboto", "Roboto", "The Android and Google TV face — plain, compact, built for small sizes."],
+  ["manrope", "Manrope", "A rounder, slightly geometric sans, for a softer reading of the same layout."],
 ];
-// **Every stack is local.** Nothing is downloaded, so the app reads the same offline, and
-// each one goes through real families a machine is likely to have rather than a single
-// name that silently falls back to the default.
+// **Every face is shipped with the app** — a file in `./fonts`, declared in style.css —
+// rather than a name that has to be installed. A "font setting" that silently falls back
+// to the same face on a machine without it is a switch that does nothing, which is exactly
+// what the last one was.
 const FONT_STACKS = {
-  inter: FONT_STACK,
-  grotesk: 'Helvetica Neue, Helvetica, Inter Tight, Inter, Arial, system-ui, sans-serif',
-  system: 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif',
-  serif: 'Georgia, "Iowan Old Style", Cambria, "Times New Roman", serif',
-  mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+  inter: 'Inter, "Inter Tight", Roboto, system-ui, sans-serif',
+  tight: '"Inter Tight", Inter, Roboto, system-ui, sans-serif',
+  roboto: 'Roboto, Inter, system-ui, sans-serif',
+  manrope: 'Manrope, Inter, system-ui, sans-serif',
 };
 
 /**
@@ -5125,8 +5124,15 @@ function playClick() {
   osc.stop(at + 0.12);
 }
 
-/** The music's own ceiling: the volume setting is a percentage of a quiet pad. */
-const musicGain = () => (Math.max(0, Math.min(100, Number(state.sound?.musicVolume ?? 35))) / 100) * 0.055;
+/**
+ * The music's own ceiling: the volume setting is a percentage of the pad's own level.
+ *
+ * **It was inaudible.** At `0.055` a 35% setting put the whole mix at 0.019 before the
+ * chord voices' own gains, which came out under the fan of a laptop — the switch was on
+ * and nothing could be heard over it. `0.22` puts the same setting at a level you notice
+ * in a quiet room and can still talk over.
+ */
+const musicGain = () => (Math.max(0, Math.min(100, Number(state.sound?.musicVolume ?? 35))) / 100) * 0.22;
 
 /**
  * **The browsing loop is lofi.** A slow four-chord figure on a soft electric-piano
@@ -5252,7 +5258,18 @@ function setupSound() {
   // **A press is what turns the audio on.** Browsers keep an AudioContext suspended
   // until a gesture, so the first press is also the first tick, and the music — if it
   // was left on — comes up with it.
-  document.addEventListener("pointerdown", () => syncSound(), { once: true });
+  //
+  // **Not `once`.** A browser may refuse the resume on the first gesture (a key press is
+  // not always counted, a context created at boot can come back suspended), and with a
+  // one-shot listener the app never asked again: the switch was on, the pad existed, and
+  // nothing was ever heard. Every press asks now, and the answer is thrown away.
+  const wake = () => {
+    const ctx = audio();
+    if (ctx && ctx.state === "suspended") ctx.resume().catch(() => { /* answered again on the next press */ });
+    syncSound();
+  };
+  document.addEventListener("pointerdown", wake);
+  document.addEventListener("keydown", wake);
   // A press anywhere that is a control ticks. A scroll, a hover and the player's own
   // controls are not presses of the app's furniture.
   document.addEventListener("click", (e) => {
@@ -7296,10 +7313,9 @@ function panePosters() {
     toggleRow(stored.enabled === true, "Upgrade posters everywhere", "Replace the artwork with the poster service's version for every title; titles it cannot cover keep theirs.", (e) => savePosters({ enabled: e.target.checked })),
     // **One box per service, the same shape Content uses.** These were stacked rows
     // inside one "Poster service" panel, which read as a list inside a list; as boxes
-    // they sit in the pane's own board, two to a row, and the chosen one wears the
-    // accent like every other choice in Settings.
-    el("p", { class: "option-title", text: "Poster service" }),
-    el("p", { class: "option-desc", text: "Which service supplies the artwork. Its pattern is filled in below; edit the pattern to use anything else — {imdb_id}, {tmdb_id}, {type} and {rpdb_key} are filled in per title." }),
+    // they sit in the pane's own board and the chosen one wears the accent like every
+    // other choice in Settings. **No heading above them** — the tile you are on says
+    // Posters, and each box carries its own name.
     ...POSTER_SERVICES.map(([id, label, url, desc]) =>
       radioRow(current === id, "posterservice", label, desc, () => savePosters({ source: id, pattern: url, enabled: id !== "none" })),
     ),
@@ -7733,20 +7749,18 @@ function applyTheme() {
 /** Settings → Appearance: the accent colour, and how much the app moves. */
 function paneAppearance() {
   return [
-    el("span", { class: "option-title", text: "Accent colour" }),
-    el("p", { class: "option-desc", text: "The colour the app is painted in — buttons, chips, highlights, borders. Gold is the default; pick another and the whole app follows." }),
     // **One colour, one box.** The swatches were a row of bare circles with their names
     // only in a tooltip; each is a box of its own now, the same shape every other choice
     // in Settings has, with its name written on it.
     el("div", { class: "accent-grid" },
-      ...ACCENTS.map(([id, label, , base]) =>
+      ...ACCENTS.map(([id, label, rgb, base]) =>
         el("button", {
           class: `accent-box focusable${state.accent === id ? " active" : ""}`,
           type: "button",
           id: `accent-${id}`,
           "aria-label": label,
           "aria-pressed": String(state.accent === id),
-          style: `--swatch: ${base}`,
+          style: `--swatch: ${base}; --swatch-rgb: ${rgb}`,
           onclick: () => {
             state.accent = id;
             localStorage.setItem(KEY.accent, id);
