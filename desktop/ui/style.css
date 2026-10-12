@@ -51,8 +51,11 @@
   /* The accent is one colour with three parts: the flat colour, the RGB triple
      every translucent tint is built from, and the deeper shade the gradients fall
      to. Settings → Appearance rewrites all three, so the whole app re-tints. */
-  --accent: #c8a96a;
-  --accent-rgb: 200, 169, 106;
+  /* The app's own accent: **copper**, the first colour on Settings → Accent's board.
+     The boot script in index.html overwrites all three before the first paint, so this
+     is only what a page with no stored accent wears. */
+  --accent: #cc825c;
+  --accent-rgb: 204, 130, 92;
   --accent-deep: var(--accent-deep);
   --poster-w: 172px;
   --radius: 14px;

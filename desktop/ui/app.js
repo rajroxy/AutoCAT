@@ -248,7 +248,10 @@ const LAYOUTS = [
  * own colour — but it is no longer the only one.
  */
 const ACCENTS = [
-  ["gold", "Gold", "200, 169, 106", "#c8a96a", "#a3873f"],
+  // **Copper is the app's own colour.** It is the first entry, so it is what a fresh
+  // install wears and what an accent that is no longer on the board falls back to
+  // (see `accentOf`) — a warm metal that reads the same on a bright and a dim screen.
+  ["copper", "Copper", "204, 130, 92", "#cc825c", "#a35f3c"],
   ["amber", "Amber", "224, 160, 84", "#e0a054", "#b3762c"],
   ["violet", "Violet", "157, 137, 232", "#9d89e8", "#6f5bbf"],
   ["blue", "Blue", "112, 166, 232", "#70a6e8", "#3f74bd"],
@@ -260,15 +263,13 @@ const ACCENTS = [
   // something for a screen that is too dim or too bright for the first eight.
   ["crimson", "Crimson", "224, 92, 92", "#e05c5c", "#a83a3a"],
   ["coral", "Coral", "240, 138, 108", "#f08a6c", "#bd5a3d"],
-  // **Where magenta was.** A light sky: the cool side of the board had a medium blue
-  // and an ice, and this is the pale end of the same idea — and a pink that reads as a
-  // warning on a dark screen is not a colour to hand someone by default. An install that
-  // had picked magenta falls back to the app’s gold (see `accentOf`).
-  ["sky", "Sky", "150, 206, 240", "#96cef0", "#5f9ec9"],
+  // **Where magenta was.** A quiet sand: the warm end of the neutral range, for a screen
+  // that wants the accent to be a texture rather than a colour.
+  ["sand", "Sand", "214, 190, 156", "#d6be9c", "#a88f6d"],
   ["indigo", "Indigo", "122, 130, 236", "#7a82ec", "#4c53bd"],
   ["lime", "Lime", "166, 214, 90", "#a6d65a", "#769f2f"],
   ["ice", "Ice", "126, 208, 226", "#7ed0e2", "#4b9cb1"],
-  // **Two more ends.** A plum that sits between the violet and the sky without being
+  // **Two more ends.** A plum that sits between the violet and the copper without being
   // either, and a mint between the teal and the green — so the board has a colour for a
   // screen the first fourteen do not.
   ["plum", "Plum", "186, 130, 220", "#ba82dc", "#8a52b0"],
@@ -9957,8 +9958,11 @@ const liveProfile = () => state.profile === LIVE_PROFILE;
  * and each one is switched by its own key exactly as a Movies card is.
  */
 const LIVE_CARDS = [
-  ["live-guide", "Guide"],
-  ["live-channels", "Channels"],
+  // **One card, two views.** Settings → Source → Guide and Categories picks which: the
+  // list draws the Guide card, the grid draws the channel wall — and that wall is named
+  // Guide too, because it is the same card. There is no separate Channels card.
+  ["live-guide", "Guide (list or grid)"],
+  ["live-recordings", "Recordings / Highlights"],
   ["live-upcoming", "Upcoming"],
 ];
 const liveCardOn = (key) => !picking() || visFor().cards[key] !== false;
@@ -10524,15 +10528,16 @@ function guideCard() {
 }
 
 /**
- * The Channels card — the profile's second card.
+ * The channel wall — **the Guide card's grid view.**
  *
- * It was a **Categories** card that listed category names and nothing else, which
- * is a table of contents for a list you have not seen. This one is the channels
- * themselves: the first few in the lineup, and the count, with the frame opening the
- * full list. No category rows sit under it either — the wall of one row per category
- * is gone, so the profile is the switch, two cards, and the screens they open.
+ * It was a **Categories** card that listed category names and nothing else, which is a
+ * table of contents for a list you have not seen; it is the channels themselves now, one
+ * mark each, with the count. Settings → Source → Guide and Categories decides which view
+ * the live home's first card wears: the list draws the Guide card, the grid draws this
+ * wall — under the same name, `Guide`, because it is the same card. There is no separate
+ * Channels card beside it any more.
  */
-function channelsCard() {
+function channelsCard({ title = "", action = null } = {}) {
   const channels = liveChannelsShown();
   const rows = channels.slice(0, 4).map((channel) =>
     el(
@@ -10551,7 +10556,10 @@ function channelsCard() {
   }
   return liveCard({
     id: "open-channels",
-    title: liveRowKey() === "sports" ? "Sports channels" : "Channels",
+    // **The same card, whichever view is on.** With the grid chosen this wall *is* the
+    // live home's Guide card — one mark per channel — so it carries that name and opens
+    // the guide, rather than being a second card called Channels beside it.
+    title: title || (liveRowKey() === "sports" ? "Sports channels" : "Channels"),
     sub: channels.length
       ? `${channels.length} channels${state.live.groups.length ? ` · ${state.live.groups.length} groups` : ""}`
       : "Reading the channel list…",
@@ -10716,8 +10724,12 @@ function renderLiveHome() {
       "div",
       { class: "icons grid live-cards" },
       ...[
-        liveCardOn("live-guide") ? guideCard() : null,
-        liveCardOn("live-channels") ? channelsCard() : null,
+        liveCardOn("live-guide")
+          ? (liveView().guide === "list"
+              ? guideCard()
+              : channelsCard({ title: "Guide", action: () => go("#/guide") }))
+          : null,
+        liveCardOn("live-recordings") ? recordingsCard() : null,
         liveCardOn("live-upcoming") ? liveUpcomingCard() : null,
       ].filter(Boolean),
     ),

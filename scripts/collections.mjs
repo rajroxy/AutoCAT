@@ -424,31 +424,25 @@ export const REGIONAL_SERVICES = (type) => {
  */
 const POPULAR_REGIONAL = new Set([
   // —— the Pacific
-  "9Now", "7plus", "ABC iview", "SBS On Demand", "Stan", "BINGE", "TVNZ+", "ThreeNow",
+  "9Now", "Stan", "BINGE", "SBS On Demand", "TVNZ+", "ThreeNow",
   // —— Britain and Ireland
-  "BBC iPlayer", "ITVX", "Channel 4", "STV Player", "BritBox", "RTE Player", "TG4",
+  "BBC iPlayer", "ITVX", "Channel 4",
   // —— South Asia
-  "JioHotstar", "Zee5", "MX Player", "Sun Nxt", "aha", "Hoichoi", "ManoramaMax",
-  // —— Korea
-  "TVING", "wavve", "Watcha", "Coupang Play", "Kocowa",
-  // —— Japan
-  "U-NEXT", "Hulu",
+  "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt",
+  // —— Korea and Japan
+  "TVING", "wavve", "Coupang Play", "U-NEXT", "Hulu",
   // —— Greater China and South-East Asia
-  "iQIYI", "WeTV", "Viu", "Vidio", "iflix", "Catchplay", "Mewatch", "iWant", "LINE TV",
-  // —— Europe
-  "ZDF", "ARD Mediathek", "RTL+", "Joyn", "ServusTV On", "ORF ON", "Arte", "M6+",
-  "Molotov TV", "Canal+", "CANAL+", "rtve", "Movistar Plus+", "Filmin", "Mediaset Infinity",
-  "Timvision", "Sky", "Now TV", "SkyShowtime", "Viaplay", "TV4 Play", "TV 2 Play", "TV 2",
-  "NRK TV", "SVT", "Yle Areena", "Ruutu", "Videoland", "NPO Start", "NLZIET", "VRT MAX",
-  "RTBF Auvio", "Play Suisse", "TVP", "Player", "Polsat Box Go", "Voyo", "WOW", "Go3",
-  "Telia Play", "blue TV",
-  // —— Turkey and Russia
-  "Exxen", "puhutv", "Kinopoisk", "Okko", "Premier",
+  "iQIYI", "WeTV", "Viu", "Vidio", "Catchplay", "Mewatch",
+  // —— continental Europe
+  "ZDF", "ARD Mediathek", "RTL+", "Joyn", "ORF ON", "Sky", "Canal+", "M6+",
+  "Movistar Plus+", "rtve", "Mediaset Infinity", "Videoland", "NPO Start", "Viaplay",
+  "TV4 Play", "NRK TV", "TV 2 Play", "TVP", "Voyo",
+  // —— Türkiye and Russia
+  "Exxen", "Kinopoisk", "Okko",
   // —— the Middle East
-  "Shahid VIP", "STARZPLAY", "OSN+", "TOD", "TOD TV",
+  "Shahid VIP", "OSN+", "STARZPLAY",
   // —— the Americas
-  "Globoplay", "VIX", "Claro video", "Peacock Premium", "Pluto TV", "Tubi TV", "Starz",
-  "AMC+", "MGM Plus", "Paramount Plus", "Crave", "CBC Gem", "MUBI",
+  "Globoplay", "VIX", "Paramount Plus", "Crave", "CBC Gem",
 ]);
 
 /** Is this a service the Regional OTT card publishes? */

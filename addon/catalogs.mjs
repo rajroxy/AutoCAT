@@ -269,7 +269,19 @@ async function specsFor(entry, media, opts = {}) {
     case "recommend": {
       // A **For You** row carries the title it was built for: the row is that one
       // title's own recommendations.
-      if (entry.seed) return [q(`/${t}/${entry.seed.id}/recommendations`, {}, entry.take)];
+      // **A seed that cannot fill its row still fills its row.** TMDB answers a title's
+      // recommendations with its own neighbours, and a title TMDB marks *adult* has
+      // neighbours the SFW filter drops one by one — so a For You row built on that seed
+      // resolved to nothing at all, and the card drew blank frames where its posters go.
+      // The row now carries a second list behind the seed's own: the seed's neighbours
+      // first, then this week's trending titles, so the row a person opens has titles in
+      // it whatever their list holds. See `stripAdult` in index.mjs.
+      if (entry.seed) {
+        return [
+          q(`/${t}/${entry.seed.id}/recommendations`, {}, entry.take),
+          q(`/trending/${t}/week`, {}, entry.take),
+        ];
+      }
       if (Number.isFinite(entry.fallback)) {
         // **What the card holds while the watchlist is empty.** One trending row and
         // seven genre rows, so the card is eight rows of *different* titles rather
@@ -758,7 +770,11 @@ export function catalogDefs(code = activeCountry()) {
 export const findCatalog = (id, type) => {
   const found = catalogDefs().find((d) => d.id === id && d.type === type);
   if (found) return found;
-  const m = /^nuvio-(.+?)--(movie|series)--(?:f(\d+)|(\d+))$/.exec(String(id || ""));
+  // **Both prefixes.** The id was `nuvio-…` until the app was renamed, and this regex
+  // was the one place the old name was left behind — so every id a re-roll had dropped
+  // from the current set fell through to "not found" and the row it named opened with
+  // nothing in it: the blank frames the For You card drew. It reads either prefix now.
+  const m = /^(?:nuvio|autocat)-(.+?)--(movie|series)--(?:f(\d+)|(\d+))$/.exec(String(id || ""));
   if (!m || m[2] !== type) return null;
   return m[3]
     ? { id, type, key: m[1], entry: { kind: "recommend", fallback: Number(m[3]) }, name: "For You" }
