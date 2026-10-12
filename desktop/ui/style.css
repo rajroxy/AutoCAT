@@ -1790,7 +1790,7 @@ button:focus-visible,
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .chip-arrow:hover:not(:disabled) { background: rgba(var(--accent-rgb), 0.26); color: #fff; transform: translateY(-1px); }
-.chip-arrow:focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.6); outline-offset: 2px; }
+.chip-arrow:focus-visible { outline: none; box-shadow: var(--hl); }
 /* An arrow at its own end of the list has nowhere to go, and says so. */
 .chip-arrow.at-end, .chip-arrow:disabled { opacity: 0.32; cursor: default; }
 .chip-arrow .glyph svg { width: 15px; height: 15px; }
@@ -2234,7 +2234,11 @@ body { background: var(--ink); }
 
 /* The tag arrows keep their accent plate on purpose — a stroked chevron on a tinted
    plate is what makes them read as something to press. */
-.chip-arrow { border: 1px solid rgba(var(--accent-rgb), 0.5); }
+/* **The tag arrows keep no outline.** They had an accent hairline drawn round them —
+   on the countries card and on the search filters' tag row it read as a box around the
+   arrow rather than a button. The shortcut is its fill under the cursor, like every
+   other chip. */
+.chip-arrow { border: 0; }
 
 /* The guide's header needs its rule: every row under it keeps one, and without it
    the time ruler floats away from the grid it labels. */
@@ -3497,7 +3501,10 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
 .strip-clickable { cursor: pointer; }
 /* The cue is the same accent ring everything else uses — it was a grey 1px **outline**,
    which is the box-around-things this app does not draw. */
-.strip-clickable:hover { outline: none; box-shadow: var(--hl); border-radius: 12px; }
+/* **A row of posters is not a box.** This drew the highlight ring around the whole
+   strip, which on a title page put a rectangle around the Collection row. The posters
+   are their own targets; the strip is only the region they sit in, so it draws nothing. */
+.strip-clickable:hover { outline: none; box-shadow: none; }
 
 /* ---------------------------------------------- the add-on / plugin dropdowns */
 /* The source form's type field and the model picker are drawn by the same rule

@@ -2336,7 +2336,7 @@ export async function handleAddon(req, res, pathname, origin) {
         ? await askAI(String(body.prompt || ""))
         : pathname === "/ai/models"
           ? await aiModels(provider || aiProviderName())
-          : await verifyAI(provider, body.key ? String(body.key) : undefined);
+          : await verifyAI(provider, body.key ? String(body.key) : undefined, body.model ? String(body.model) : "");
       json(res, 200, result);
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });

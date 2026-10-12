@@ -19,7 +19,7 @@
  * whether one is set. `hasAiKey()`/`aiReady()` are the server-side truth, so the
  * Ask box degrades to plain search instead of failing when no key is set.
  */
-import { getSettings } from "./settings.mjs";
+import { getSettings, updateSettings } from "./settings.mjs";
 
 export const AI_PROVIDERS = {
   groq: {
@@ -37,7 +37,10 @@ export const AI_PROVIDERS = {
   google: {
     label: "Google AI Studio",
     free: true,
-    model: "gemini-2.0-flash",
+    // **A `-latest` alias, not a version.** Google retires version numbers for new keys
+    // ("This model models/gemini-2.5-flash is no longer available to new users") while it
+    // still lists them — so the default is the alias, which always resolves.
+    model: "gemini-flash-latest",
     shape: "gemini",
     base: "https://generativelanguage.googleapis.com/v1beta",
     signup: "https://aistudio.google.com/app/apikey",
@@ -88,8 +91,17 @@ export function aiKey(name = aiProviderName()) {
 
 export const hasAiKey = (name = aiProviderName()) => Boolean(aiKey(name));
 
-/** An optional model override — providers rename models faster than this ships. */
-export const aiModel = (name = aiProviderName()) => getSettings().ai?.model || AI_PROVIDERS[name]?.model || "";
+/**
+ * **The model you picked — or `""`, which is Auto.**
+ *
+ * Auto means "whichever of this provider's models should answer the question", so it must
+ * not quietly fall back to the name written in this file: that would be a fixed model
+ * wearing the word Auto, and the fixed one (`gemini-flash-latest`, `gemini-2.5-flash`
+ * before it, Groq's `llama-3.1-8b-instant` before that) is exactly the one a provider
+ * retires or lets go slow. Auto is decided from the provider's own list instead, and
+ * `candidateOrder` keeps the built-in name as the last resort.
+ */
+export const aiModel = (_name = aiProviderName()) => getSettings().ai?.model || "";
 
 /** Everything the UI needs to describe the AI configuration (never a key). */
 export function aiState() {
@@ -126,21 +138,82 @@ const REASONING = /gpt-oss|\bo[1-4](-|$)|deepseek-r1|reasoning|qwq/i;
 const ANSWER_TOKENS = 512;
 const REASONING_TOKENS = 4096;
 
+/**
+ * **A refused name is remembered.** A provider that answers 404 for a model has retired it
+ * for this key — Google says so in as many words ("no longer available to new users") — and
+ * nothing is gained by asking it again on the next question. The name goes into `REFUSED`,
+ * and `rankModels` stops offering it.
+ */
+function refusedBy(status, model) {
+  if (status === 404 && model) {
+    REFUSED.add(model);
+    forgetRetired(model);
+  }
+  return new Error(status === 404 ? `${model} is not served to this key (404) — pick another model` : `HTTP ${status}`);
+}
+
+/**
+ * **A name the provider has retired does not stay in Settings.**
+ *
+ * The model box remembers what you picked. When the provider answers 404 for that name it
+ * is gone for this key — Google says so in as many words — and leaving it there means the
+ * next question starts by asking for a model that is not served, and the pane keeps
+ * advertising a name that cannot answer. It is cleared, so the box says **Auto** again and
+ * the next question goes straight to a model that answers.
+ */
+function forgetRetired(id) {
+  try {
+    if (getSettings().ai?.model !== id) return;
+    updateSettings({ ai: { model: "" } });
+  } catch {
+    /* read-only settings — the in-memory REFUSED set still keeps it out of the way */
+  }
+}
+
+/**
+ * **Thinking off, where the model takes the switch.**
+ *
+ * A Gemini flagship spends its output budget on reasoning before it writes a word: asked
+ * for one word with a 16-token budget it answers with *nothing* (`finishReason:
+ * MAX_TOKENS`, no text), and asked for a search query it can take eleven to fifteen
+ * seconds to return six words. `thinkingBudget: 0` turns that off — the same one-word
+ * answer came back in 2.6s instead of 11.4s, measured. A model that does not take the
+ * switch (`gemini-flash-lite` answers 400 for it) is remembered in `NO_THINKING` and asked
+ * again without it.
+ */
+const THINKING_OFF = { thinkingConfig: { thinkingBudget: 0 } };
+const NO_THINKING = new Set();
+
 /** One chat completion, in whichever shape the provider speaks. */
-async function complete(cfg, key, model, prompt, { maxTokens, system } = {}) {
+async function complete(cfg, key, model, prompt, { maxTokens, system, bare, timeoutMs } = {}) {
   const thinking = REASONING.test(model);
   const budget = maxTokens || (thinking ? REASONING_TOKENS : ANSWER_TOKENS);
+  // **The system prompt, unless the caller asked for none.** A connection test wants the
+  // smallest possible call — no persona in front of it — so `bare` leaves it out entirely.
+  const sys = bare ? "" : system || SYSTEM;
+  // **A ceiling per attempt.** A provider can simply not answer; without this the whole
+  // question waited on it, which is what "the AI is not answering" looked like.
+  const ceiling = timeoutMs || 15000;
   if (cfg.shape === "gemini") {
     const url = `${cfg.base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-    const res = await fetch(url, {
+    const call = (withThinking) => fetch(url, {
       method: "POST",
+      signal: AbortSignal.timeout(ceiling),
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system || SYSTEM }] },
+        ...(sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}),
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: budget },
+        generationConfig: { temperature: 0, maxOutputTokens: budget, ...(withThinking ? THINKING_OFF : {}) },
       }),
     });
+    let res = await call(!NO_THINKING.has(model));
+    // **The switch, refused.** Lite models reject `thinkingBudget` with a 400; that is a
+    // fact about the model, not a failure of the question, so it goes on the list and the
+    // same model is asked once more without it.
+    if (res.status === 400 && !NO_THINKING.has(model)) {
+      NO_THINKING.add(model);
+      res = await call(false);
+    }
     if (!res.ok) {
       // **Say what the code means.** "HTTP 401" is the provider's answer, not an
       // explanation: 401 is the key itself (wrong console, truncated, or revoked), 403 is
@@ -151,7 +224,7 @@ async function complete(cfg, key, model, prompt, { maxTokens, system } = {}) {
           ? `the key is not allowed to list models (403)`
           : res.status === 429
             ? `the free tier's rate limit was hit (429) — try again shortly`
-            : `HTTP ${res.status}`;
+            : refusedBy(res.status, model).message;
       throw new Error(why);
     }
     const data = await res.json();
@@ -160,11 +233,12 @@ async function complete(cfg, key, model, prompt, { maxTokens, system } = {}) {
 
   const res = await fetch(cfg.chat, {
     method: "POST",
+    signal: AbortSignal.timeout(ceiling),
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: system || SYSTEM },
+        ...(sys ? [{ role: "system", content: sys }] : []),
         { role: "user", content: prompt },
       ],
       temperature: 0,
@@ -172,7 +246,7 @@ async function complete(cfg, key, model, prompt, { maxTokens, system } = {}) {
       ...(thinking ? { reasoning_effort: "low" } : {}),
     }),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw refusedBy(res.status, model);
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || "";
 }
@@ -210,7 +284,9 @@ async function listModels(cfg, key) {
     const ids = cfg.shape === "gemini"
       ? (data.models || []).map((m) => String(m.name || "").replace(/^models\//, ""))
       : (data.data || []).map((m) => m.id);
-    return ids.filter(Boolean);
+    // **One entry per name.** Google's list carries the same model twice (an alias and
+    // its target), which made "50 models · 58 for chat" — more chat models than models.
+    return [...new Set(ids.filter(Boolean))];
   } catch {
     return [];
   }
@@ -219,6 +295,97 @@ async function listModels(cfg, key) {
 // Of the models a provider offers, the small fast ones are the right shape for
 // "one sentence in, six words out".
 const SMALL_AND_FAST = /instant|8b|mini|small|flash|oss-|20b|lite|qwen|gemini-\d/i;
+
+/**
+ * **Names the provider has refused, this run.**
+ *
+ * A provider lists models it will no longer serve to a new key — Google answers
+ * `gemini-2.5-flash` with *"no longer available to new users, please use gemini-3.8-flash"*
+ * — so the list cannot be trusted on its own. Every refusal is remembered here for the
+ * life of the process, and nothing tries that name again, which is what keeps a question
+ * from walking through half a dozen dead models before it is answered.
+ */
+const REFUSED = new Set();
+
+/** A `-latest` alias is the one name a provider keeps pointing at the current model. */
+const STABLE_ALIAS = /-latest$/i;
+
+/**
+ * **The genuinely small ones.** A "flash" flagship is fast to a person and slow to a
+ * question that must be answered before a screen can be drawn: the lite/mini cuts answer in
+ * a second or two. These go first, ahead of the bigger models that are merely quick.
+ */
+const TINY = /(^|[-_/])(lite|mini|nano|small|instant|qwen|8b|20b)([-_/]|$)/i;
+
+/**
+ * **The size of the model, as a number** — the tie-break inside `rankModels`.
+ *
+ * Two live aliases of the same family tie on everything else, and the alphabetical order
+ * then put the **flagship** first: `gemini-flash-latest` sorts before
+ * `gemini-flash-lite-latest`, and the flagship is the one that took eleven to twenty-nine
+ * seconds to return one word (measured) and sometimes answered with nothing. The little
+ * one answers in half a second. So the size is scored, and the smallest cut of the fastest
+ * family goes first — which is what Auto wants.
+ */
+const SIZE = [
+  [/(^|[-_/])(lite|mini|nano|small|instant|tiny|8b|20b|3b|7b)([-_/]|$)/i, 0],
+  [/flash|turbo|haiku|speed|fast/i, 1],
+  [/pro|max|ultra|opus|405b|70b|large/i, 2],
+];
+const sizeOf = (id) => SIZE.find(([re]) => re.test(id))?.[1] ?? 1;
+
+/**
+ * The order to try models in.
+ *
+ * **Aliases first**, then the small fast ones, then everything else — so a question is
+ * answered by the model the provider is actually serving today rather than by whatever
+ * name its list happens to put first.
+ */
+function rankModels(ids) {
+  const live = [...new Set(ids.filter((id) => id && !REFUSED.has(id)))];
+  // One score per name, so no name can appear twice and the order is total:
+  // a stable alias beats a version number, a tiny cut beats a big one, and a chat-shaped
+  // model beats everything else on the list.
+  const score = (id) =>
+    (STABLE_ALIAS.test(id) ? 0 : 4) + (TINY.test(id) ? 0 : 2) + (SMALL_AND_FAST.test(id) ? 0 : 1) + sizeOf(id) / 10;
+  return live
+    .map((id) => [score(id), id])
+    .sort((a, b) => a[0] - b[0] || a[1].localeCompare(b[1]))
+    .map(([, id]) => id);
+}
+
+
+/**
+ * **The model that answered last time, per provider.** A question is asked in a second or
+ * two once one model has answered, instead of re-walking a list every time — and the first
+ * attempt after a restart is the only one that pays for finding a live name.
+ */
+const WORKING = new Map();
+
+/**
+ * The order to try models in: **the one you picked, then the one that last answered, then
+ * the provider's own list** (aliases first). Names the provider has already refused this
+ * run are left out entirely.
+ */
+async function candidateOrder(cfg, key, picked) {
+  const seen = new Set();
+  const out = [];
+  const push = (id) => {
+    if (id && !seen.has(id) && !REFUSED.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  };
+  push(picked);
+  push(WORKING.get(cfg.label));
+  for (const id of await chooseModels(cfg, key)) push(id);
+  // **What this file calls the provider's default goes last, not first.** It is a name
+  // written here, and a name written here is the first one a provider retires — `gemini-2.5`
+  // and Groq's `llama-3.1-8b-instant` are both on that list. It stays as the final safety
+  // net for a provider whose list came back empty.
+  push(cfg.model);
+  return out;
+}
 // …and these are not general chat models at all: guards, transcribers, voices.
 // Groq currently lists several of them, so picking "the first small model" lands
 // on a safety classifier that rejects a chat completion.
@@ -227,7 +394,7 @@ const NOT_CHAT = /guard|safeguard|whisper|tts|orpheus|embed|rerank|moderation|sp
 /** Models worth trying, best first — small and fast, then the rest. */
 async function chooseModels(cfg, key) {
   const ids = (await listModels(cfg, key)).filter((id) => !NOT_CHAT.test(id));
-  return [...ids.filter((id) => SMALL_AND_FAST.test(id)), ...ids];
+  return rankModels(ids);
 }
 
 const isModelRejected = (err) => /HTTP (400|404)/.test(String(err?.message || ""));
@@ -291,22 +458,20 @@ export async function askAI(prompt, opts = {}) {
     return { ok: true, provider, model: candidate, query, text: `“${query}” · ${cfg.label}` };
   };
 
-  const model = opts.model || aiModel(provider);
-  const first = await attempt(model);
-  if (first?.ok) return first;
-
   // Two things go wrong in practice: the model name was retired (Groq dropped
-  // `llama-3.1-8b-instant` while its key still verified), or the model answers
-  // with an empty `content` — which a reasoning model does when its token budget
-  // runs out before it writes anything. Both are worth a second opinion, so the
-  // provider is asked what it serves now and the best few are tried.
-  if (!first || isModelRejected(first)) {
-    for (const candidate of await chooseModels(cfg, key)) {
-      if (candidate === model) continue;
-      const next = await attempt(candidate);
-      if (next?.ok) return next;
-      if (lastError.includes("→ HTTP 400")) break; // a request problem, not the model
+  // `llama-3.1-8b-instant` while its key still verified; Google retires numbers for new
+  // keys), or the model answers with an empty `content` — which a reasoning model does
+  // when its token budget runs out before it writes anything. So the names are tried in
+  // order — the one you picked, the one that last answered, then what the provider serves
+  // today — and each refusal is remembered so no name is tried twice.
+  const order = await candidateOrder(cfg, key, opts.model || aiModel(provider));
+  for (const candidate of order) {
+    const next = await attempt(candidate);
+    if (next?.ok) {
+      WORKING.set(cfg.label, candidate);
+      return next;
     }
+    if (lastError.includes("→ HTTP 400")) break; // a request problem, not the model
   }
   return { ok: false, text: `${cfg.label} — ${lastError}` };
 }
@@ -351,13 +516,12 @@ export async function askAbout(question, context = {}, opts = {}) {
   };
 
   let lastError = "no model answered";
-  const first = await speak(model);
-  if (first?.ok) return first;
-  if (first instanceof Error) lastError = `${model} → ${first.message}`;
-  for (const candidate of await chooseModels(cfg, key)) {
-    if (candidate === model) continue;
+  for (const candidate of await candidateOrder(cfg, key, model)) {
     const next = await speak(candidate);
-    if (next?.ok) return next;
+    if (next?.ok) {
+      WORKING.set(cfg.label, candidate);
+      return next;
+    }
     if (next instanceof Error) lastError = `${candidate} → ${next.message}`;
   }
   return { ok: false, text: `${cfg.label} — ${lastError}` };
@@ -377,7 +541,7 @@ export async function aiModels(name) {
   if (!key) return { ok: false, text: `no ${cfg.label} key saved — paste one first`, models: [] };
   const ids = await listModels(cfg, key);
   if (!ids.length) return { ok: false, text: `${cfg.label} — no models listed (check the key)`, models: [] };
-  const chat = ids.filter((id) => !NOT_CHAT.test(id));
+  const chat = rankModels(ids.filter((id) => !NOT_CHAT.test(id)));
   return {
     ok: true,
     models: ids,
@@ -389,7 +553,15 @@ export async function aiModels(name) {
 }
 
 /** Verify a key by actually calling the provider with it. */
-export async function verifyAI(name, key) {
+/**
+ * @param {string} [model]  The model to test. **A key and a model are two different
+ *   questions**: a key can be perfectly valid while the model name saved beside it was
+ *   retired by the provider months ago, which is exactly the case that reported
+ *   "connected" and then never answered a question. Given a model, this **calls it** —
+ *   one tiny prompt — and reports what it said. Given none (the Auto choice), it lists
+ *   what the key serves and names the model Auto would use.
+ */
+export async function verifyAI(name, key, model = "") {
   const cfg = AI_PROVIDERS[name];
   if (!cfg) return { ok: false, text: "unknown AI provider" };
   // **A key is trimmed before it is used.** A paste from a browser or a password
@@ -397,6 +569,36 @@ export async function verifyAI(name, key) {
   // 401 for it — which reads as "my key does not work" when the key is fine.
   const useKey = String(key || aiKey(name) || "").trim();
   if (!useKey) return { ok: false, text: "no key saved" };
+  // **A model was named: ask it something.** "Reply with the single word ready" is the
+  // smallest call that proves the name is one the provider still serves.
+  const wanted = String(model || "").trim();
+  if (wanted) {
+    try {
+      // **The smallest call that proves the name.** No system prompt, one word back, a
+      // short ceiling: this answers "does this key serve this model", not "is it clever".
+      // It used to ask with the full system prompt and a 16-token budget — which a thinking
+      // model spends entirely on reasoning and answers with nothing at all, so a perfectly
+      // good model read as a failure after a fifteen-second wait.
+      const said = await complete(cfg, useKey, wanted, "Reply with the single word: ready", { bare: true, maxTokens: 128, timeoutMs: 12000 });
+      const answered = String(said || "").replace(/\s+/g, " ").trim();
+      if (!answered) {
+        return { ok: false, model: wanted, text: `${cfg.label} · ${wanted} answered with nothing — pick another model, or Auto` };
+      }
+      return {
+        ok: true,
+        model: wanted,
+        models: [],
+        chat: [],
+        text: `${cfg.label} · ${wanted} answered — “${answered.slice(0, 40)}”`,
+      };
+    } catch (err) {
+      // **A timeout is not the key's fault and should not read like it.** A flagship model
+      // on a free tier can simply be busy; saying so is the difference between "the model
+      // is overloaded" and "my key is broken".
+      const why = err?.name === "TimeoutError" ? "did not answer within 12s — it may be a busy model; try another, or Auto" : err.message;
+      return { ok: false, model: wanted, text: `${cfg.label} · ${wanted} — ${why}` };
+    }
+  }
   try {
     const url = cfg.shape === "gemini"
       ? `${cfg.base}/models?key=${encodeURIComponent(useKey)}`
@@ -406,11 +608,13 @@ export async function verifyAI(name, key) {
     // Report what it serves too: a key that works but only lists guard models is
     // the case that used to look "connected" and then answer nothing.
     const listed = await listModels(cfg, useKey);
-    const chat = listed.filter((id) => !NOT_CHAT.test(id));
+    const chat = rankModels(listed.filter((id) => !NOT_CHAT.test(id)));
     return {
       ok: true,
       models: listed,
       chat,
+      // What Auto would pick for a question, so the pane can say it out loud.
+      recommended: chat.filter((id) => SMALL_AND_FAST.test(id))[0] || chat[0] || "",
       text: `connected · ${cfg.label}${chat.length ? ` · ${chat.length} chat models` : " · no chat models listed"}`,
     };
   } catch (err) {

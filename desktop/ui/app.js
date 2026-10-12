@@ -5818,7 +5818,11 @@ async function openAssistant(meta) {
           overview: meta.description || "",
         },
       });
-      if (res?.ok) { answer.textContent = res.text; stateLine.textContent = ""; }
+      // **The model that answered is named**, under the answer box: with Auto there is no
+      // fixed model to look up, and an answer you cannot attribute is an answer you cannot
+      // trust or reproduce.
+      const who = res?.model ? `${res.model}${res.provider ? ` · ${state.ai?.providers?.[res.provider]?.label || res.provider}` : ""}` : "";
+      if (res?.ok) { answer.textContent = res.text; stateLine.textContent = who ? `Answered by ${who}` : ""; }
       else stateLine.textContent = res?.text || "No answer came back.";
     } catch (err) {
       stateLine.textContent = `Could not read the answer — ${err.message}`;
@@ -6907,7 +6911,13 @@ async function aiIntent(text, picked) {
   if (ready) {
     try {
       const res = await post("/ai/ask", { prompt: q });
-      if (res?.ok && res.query) return to(res.query);
+      if (res?.ok && res.query) {
+        // **Named, not anonymous.** The box says which model turned the sentence into the
+        // search, so "Auto answered" is something you can see rather than assume.
+        const label = state.ai?.providers?.[res.provider]?.label || res.provider || "";
+        notify("Ask AI", `${res.model || "auto"}${label ? ` · ${label}` : ""}`);
+        return to(res.query);
+      }
     } catch {
       /* fall through to the literal text */
     }
@@ -7427,30 +7437,37 @@ function aiProviderRow(slug, label, signup, note) {
   // The models the provider reported, filled in by Test connection / Load models.
   const modelList = el("div", { class: "model-list", id: `ai-${slug}-models` });
   /**
-   * Show the models as pickable chips.
-   *
-   * Clicking one sets it as the model in use — the model box below stops being a
-   * name you have to know and becomes a name you picked from what the provider
-   * actually serves today.
+   * **The model picker.** What the provider serves today, as a list to choose from, with
+   * **Auto** first: Auto means "whichever model of the one you picked should answer", so
+   * the app asks the provider for its list and lets the right one reply — and it names
+   * the model it used wherever an answer is shown.
    */
   const drawModels = (models, recommended = "") => {
+    const known = [...new Set(models.filter(Boolean))];
+    const options = [["", "Auto — the provider picks"], ...known.map((id) => [id, id])];
+    // **The model in use is kept even if the list did not include it.** It is the name you
+    // typed, and a picker that silently dropped it would look like the app forgot it.
+    if (state.ai.model && !known.includes(state.ai.model)) options.push([state.ai.model, state.ai.model]);
+    const pick = dropdown(options, state.ai.model || "", async (v) => {
+      state.ai.model = v;
+      writeJSON(KEY.ai, state.ai);
+      status.className = `source-status ${v ? "ok" : ""}`;
+      status.textContent = v ? `Model: ${v}` : "Model: Auto — the provider picks for the question";
+      await pushSettings({ ai: { model: v } });
+      render();
+    }, "Model");
+    // **Only real nodes.** `replaceChildren(..., null)` writes the *word* "null" into the
+    // pane — which is exactly what it did, under every provider's picker, whenever the
+    // provider had not named a recommended model yet. `filter(Boolean)` keeps it out.
     modelList.replaceChildren(
-      ...models.map((id) =>
-        el("button", {
-          class: `model-chip focusable${id === state.ai.model || id === recommended ? " suggested" : ""}`,
-          type: "button",
-          text: id,
-          title: `Use ${id}`,
-          onclick: async () => {
-            state.ai.model = id;
-            writeJSON(KEY.ai, state.ai);
-            await pushSettings({ ai: { model: id } });
-            render();
-          },
-        }),
-      ),
+      ...[
+        pick.node,
+        recommended ? el("span", { class: "source-status", text: `Auto would use ${recommended}` }) : null,
+      ].filter(Boolean),
     );
   };
+  // Seeded before anything is loaded, so the choice is on screen from the first frame.
+  drawModels(state.ai.model ? [state.ai.model] : []);
   const input = el("input", {
     class: "text-input focusable",
     type: "password",
@@ -7545,10 +7562,24 @@ function aiProviderRow(slug, label, signup, note) {
           status.textContent = "Testing…";
           modelList.replaceChildren();
           try {
-            const res = await post("/ai/verify", { provider: slug });
+            // **The model in use is what gets tested.** A key can be accepted while the
+            // model saved beside it was retired months ago; testing the key alone is how a
+            // provider read "connected" and then never answered a question.
+            const tested = state.ai.model || "";
+            const res = await post("/ai/verify", { provider: slug, model: tested });
             status.className = `source-status ${res?.ok ? "ok" : "bad"}`;
             status.textContent = res?.text || (res?.ok ? "connected" : "not connected");
-            drawModels(res?.chat || []);
+            if (res?.chat?.length) drawModels(res.chat, res.recommended);
+            // **A name the provider no longer serves leaves the picker.** The server drops it
+            // from Settings the moment it answers 404; the page holds its own copy, so it goes
+            // back to Auto here too — otherwise the pane keeps showing a model that cannot
+            // answer, which is the state that looked like "the AI is not answering".
+            if (!res?.ok && tested && /not served|404/i.test(String(res.text || ""))) {
+              state.ai.model = "";
+              writeJSON(KEY.ai, state.ai);
+              await pushSettings({ ai: { model: "" } });
+              render();
+            }
           } catch (err) {
             status.className = "source-status bad";
             status.textContent = `could not check — ${err.message}`;
@@ -7597,7 +7628,7 @@ function paneAi() {
       ...AI_PROVIDERS.map(([slug, label, signup, note]) => aiProviderRow(slug, label, signup, note)),
       el("div", { class: "provider" },
         el("span", { class: "option-title", text: "Model" }),
-        el("p", { class: "option-desc", text: "Optional. Providers rename models faster than this ships — leave it empty to use the provider's default." }),
+        el("p", { class: "option-desc", text: "Auto, or a name the provider serves. This box is for a model that is not in the picker above — a brand-new name, or one from your own account." }),
         el("div", { class: "source-form" },
           el("input", {
             class: "text-input focusable",
