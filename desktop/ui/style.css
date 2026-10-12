@@ -249,7 +249,10 @@ body {
 .profile-name-field {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  /* **No box round it.** The rename field wore a hairline that turned the accent on
+     focus, which put a box around the one line of text you are editing. It is a filled
+     field like every other field in the app: a fill, no border. */
+  border: 0;
   border-radius: 10px;
   background: var(--panel-2);
   color: var(--text);
@@ -259,7 +262,7 @@ body {
   text-align: center;
   outline: none;
 }
-.profile-name-field:focus { border-color: rgba(var(--accent-rgb), 0.8); }
+.profile-name-field:focus { background: rgba(255, 255, 255, 0.13); }
 .profile-rename-actions { display: flex; gap: 8px; }
 
 /* **The slot that is not a profile yet.** Dashed and quiet, so it reads as a place to
@@ -1403,7 +1406,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .trailer-shell {
   display: flex;
   flex-direction: column;
-  width: min(1120px, 94vw);
+  width: min(860px, 82vw);
   padding: 12px;
   border-radius: 20px;
   background: var(--panel);
@@ -3940,3 +3943,36 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 }
 .trailer-seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 999px; background: var(--accent); }
 .trailer-clock { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ============================================================================
+   **The highlight, on absolutely everything.** The ring came from a list of
+   rules, one per kind of surface, and each pass at it left something off the
+   end of that list: a tag, a plain button, the banner's own chip, an Upcoming
+   tile. This is the one rule that ends the argument — if it can be focused or
+   pointed at, it lights up — and the line below it takes the ring back off the
+   artwork *inside* a surface that already rings as a whole, so nothing wears two.
+   ============================================================================ */
+.focusable:hover, .focusable:focus-visible { outline: none; box-shadow: var(--hl); }
+.icon-box .icon-art, .icon-box .poster, .icon-box .content-strip,
+.cat-tile .icon-art, .cat-tile .poster, .company-card .icon-art,
+.season-card .icon-art, .channel-card .icon-art, .trailer-card .poster,
+.poster .poster { box-shadow: none !important; }
+
+/* **Pop on hover.** Settings → Motion. Off, everything is flat and only the ring moves;
+   on, a card, a tile, a button or a row head lifts a little under the cursor. It is one
+   transform on one class, and the settings column is deliberately not in the list. */
+.pop-on .icon-box:hover, .pop-on .icon-art:hover, .pop-on .poster:hover,
+.pop-on .btn:hover, .pop-on .chip:hover, .pop-on .row-head-link:hover,
+.pop-on .cat-tile:hover, .pop-on .icon-btn:hover, .pop-on .accent-card:hover,
+.pop-on .trailer-card:hover, .pop-on .result:hover, .pop-on .company-card:hover {
+  transform: translateY(-3px) scale(1.012);
+}
+.pop-on .icon-box { transition: transform var(--quick) var(--ease), box-shadow var(--quick) var(--ease); }
+
+/* **Add to Library.** The label and the picker sit together in the title page's row of
+   four; the picker opens the library's rows underneath it. */
+.library-add { display: inline-flex; align-items: center; gap: 8px; }
+.library-add-label { font-size: 14px; font-weight: 700; color: var(--muted); }
+.library-add .dropdown { position: relative; }
+.pop-on .library-add .dropdown-btn:hover { transform: translateY(-3px) scale(1.012); }
+.pop-on .library-add .dropdown-btn { transition: transform var(--quick) var(--ease), box-shadow var(--quick) var(--ease); }

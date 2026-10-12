@@ -49,6 +49,8 @@ const KEY = {
   enrich: "nuvio.enrich",
   section: "nuvio.settingsSection",
   glow: "nuvio.glow",
+  pop: "nuvio.pop",
+  speed: "nuvio.speed",
   accent: "nuvio.accent",
   motion: "nuvio.motion",
   font: "nuvio.font",
@@ -276,6 +278,13 @@ const FONT_STACKS = {
  * "off" never does. It is one switch, and it covers every transition the app has
  * (view changes, hover lifts, row flashes) so the setting is not a half-truth.
  */
+const SPEEDS = [
+  ["instant", "Instant", "1 ms", "1ms"],
+  ["fast", "Fast", "100 ms", "100ms"],
+  ["smooth", "Smooth", "180 ms", "180ms"],
+  ["cinematic", "Cinematic", "300 ms", "300ms"],
+];
+
 const MOTIONS = [
   ["auto", "Follow system", "Animate, unless this device asks for reduced motion."],
   ["full", "Always animate", "Smooth view transitions and hover motion, whatever the system prefers."],
@@ -459,7 +468,7 @@ const SETTINGS_GROUPS = [
       ["posters", "Posters"],
       ["ratings", "Ratings"],
       ["appearance", "Accent"],
-      ["animation", "Animation"],
+      ["animation", "Motion"],
       ["layout", "Layout"],
       ["sound", "Sound"],
       ["font", "Font"],
@@ -510,7 +519,7 @@ const LIVE_SETTINGS_GROUPS = [
       ["dns", "Network"],
       ["appearance", "Accent"],
       ["layout", "Layout"],
-      ["animation", "Animation"],
+      ["animation", "Motion"],
       ["sound", "Sound"],
       ["notifications", "Notifications"],
       ["profile", "Profile"],
@@ -651,6 +660,11 @@ const state = {
   // **A glow around the highlight** (Settings → Accent). The ring itself is always
   // drawn; the halo is a matter of taste, so it is a switch and it starts off.
   glow: false,
+  // **Pop on hover** (Settings → Motion): a card, a tile, a button or a row head lifts
+  // under the cursor. On by default — it is the app's own feel — and one switch to stop it.
+  pop: localStorage.getItem(KEY.pop) !== "0",
+  // How long a fill, a ring or a lift takes. One variable drives every transition.
+  speed: localStorage.getItem(KEY.speed) || "smooth",
   // Blur the page behind a popup (the assistant, a dialog). On unless turned off.
   blur: localStorage.getItem(KEY.blur) !== "0",
   // **Sound and notifications.** Each is a small map of switches rather than
@@ -2049,17 +2063,30 @@ function signInCard() {
         text: "Sign in with GitHub",
         title: "Sign in with your GitHub account",
         onclick: () => {
-          if (github.configured) {
-            // **A plain navigation, not a fetch.** The provider's page is a different
-            // origin, so the handshake has to happen in the address bar.
-            location.href = `/auth/github/start?next=${encodeURIComponent("/app/#/settings")}`;
+          const start = `/auth/github/start?next=${encodeURIComponent("/app/#/settings")}`;
+          if (!github.configured) {
+            const note = document.getElementById("github-note");
+            if (note) note.hidden = false;
             return;
           }
-          const note = document.getElementById("github-note");
-          if (note) {
-            note.hidden = false;
-            note.textContent = "GitHub sign-in needs its app keys: paste the GitHub app ID and app secret below, and this button starts the handshake.";
-          }
+          // **A panel over the app, not a trip out of it.** GitHub's own page is a
+          // different origin, so the handshake happens in a window — a small one, over
+          // the app — and this page watches for the session it comes back with. If a
+          // popup is blocked it falls back to the plain navigation that always works.
+          const popup = window.open(start, "nuvio-github-signin", "width=560,height=760,menubar=no,toolbar=no");
+          if (!popup) { location.href = start; return; }
+          const watch = setInterval(async () => {
+            try {
+              const me = await (await fetch(`${API}/auth/me`)).json();
+              if (me?.user) {
+                clearInterval(watch);
+                try { popup.close(); } catch { /* already gone */ }
+                location.reload();
+                return;
+              }
+            } catch { /* not ready yet — the next beat tries again */ }
+            if (popup.closed) clearInterval(watch);
+          }, 1200);
         },
       }),
     ),
@@ -5472,9 +5499,12 @@ async function renderTitle(type, id) {
               meta.description ? el("p", { class: "title-overview", text: meta.description }) : null,
             )
           : null,
+        // **One row of four.** Play and Ask Assistant used to sit on a line above a
+        // separate row of pins, so the four things you do with a title were split across
+        // two lines. They are one row now, in the order you reach for them.
         el(
           "div",
-          { class: "title-actions" },
+          { class: "title-actions", id: "title-pins" },
           el("button", {
             class: "btn primary play-btn focusable",
             type: "button",
@@ -5493,9 +5523,6 @@ async function renderTitle(type, id) {
               openSources(meta);
             },
           }),
-          // **The Assistant sits with Play, not in Settings.** The one question a title
-          // page cannot answer from its own metadata is "should I watch this?", so the
-          // button that asks it belongs beside the button that plays it.
           el("button", {
             class: "btn focusable",
             type: "button",
@@ -5504,8 +5531,7 @@ async function renderTitle(type, id) {
             title: "Ask about this title",
             onclick: () => openAssistant({ ...meta, description: meta.description || (data.tagline || "") }),
           }),
-          // The pin buttons live on the page now, not in a modal.
-          el("div", { class: "title-pins", id: "title-pins" }, ...pinButtons(meta)),
+          ...pinButtons(meta),
         ),
       ),
       // **The wide shot, in the banner's own frame.** A title with no backdrop keeps
@@ -5738,6 +5764,10 @@ async function renderList(kind, id, type, extra = "") {
   // the other.
   const each = Object.fromEntries(kinds.map((k) => [k, { page: 1, hasMore: true, busy: false }]));
   const noun = (k, n) => `${n} ${k === "movie" ? "film" : "show"}${n === 1 ? "" : "s"}`;
+  // **Both numbers, whichever row you are looking at.** The head counts films *and*
+  // shows on these screens, so "43 films · 19 shows" is on the page whichever tab is
+  // selected — that was the ask. The grid still shows one row at a time, behind the same
+  // Movies / Shows switch it always had.
   const tally = () => {
     if (!BOTH) return noun(media, seen.size);
     const per = kinds.map((k) => [...seen].filter((key) => key.startsWith(`${k}:`)).length);
@@ -5758,7 +5788,8 @@ async function renderList(kind, id, type, extra = "") {
         const key = `${t}:${m.id}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        grid.append(posterCard({ ...m, type: t }, { caption: false }));
+        // The row you are not looking at still counts, it is just not drawn.
+        if (t === media) grid.append(posterCard({ ...m, type: t }, { caption: false }));
       }
       count.textContent = tally();
       foot.hidden = !kinds.some((x) => each[x].hasMore);
@@ -5790,20 +5821,16 @@ async function renderList(kind, id, type, extra = "") {
         el("p", { class: "hero-kicker", text: heading }),
         count,
       ),
-      // **No toggle where the answer is both.** A person's credits, a studio's films and a
-      // network's shows are one list on these screens, so there is no type to switch.
-      BOTH
-        ? null
-        : el("div", { class: "row-switch" },
-            ...[['movie', 'Movies'], ['series', 'Shows']].map(([value, label]) =>
-              el("button", {
-                class: `row-btn focusable${media === value ? " active" : ""}`,
-                type: "button",
-                text: label,
-                onclick: () => go(`#/l/${kind}/${encodeURIComponent(id)}?type=${value}`),
-              })
-            ),
-          ),
+      el("div", { class: "row-switch" },
+        ...[['movie', 'Movies'], ['series', 'Shows']].map(([value, label]) =>
+          el("button", {
+            class: `row-btn focusable${media === value ? " active" : ""}`,
+            type: "button",
+            text: label,
+            onclick: () => go(`#/l/${kind}/${encodeURIComponent(id)}?type=${value}`),
+          })
+        ),
+      ),
     ),
     grid,
     foot,
@@ -5857,7 +5884,9 @@ async function openAssistant(meta) {
       // **Two questions worth pressing**, so the panel is not an empty box on the first
       // open: the two things a title page cannot tell you from its own metadata.
       el("div", { class: "assistant-suggestions" },
-        ...["What is it about?", "Will I like it?"].map((q) =>
+        // **Questions worth pressing.** "What is it about?" and "Will I like it?" were the
+        // two the page could answer from its own metadata; these are the ones it cannot.
+        ...["What is it about?", "Is it worth my time?", "What should I watch after this?", "Who is this for?", "Anything I should know before starting?"].map((q) =>
           el("button", { class: "chip focusable", type: "button", text: q, onclick: () => { question.value = q; ask(); } }),
         ),
       ),
@@ -5905,33 +5934,31 @@ async function openAssistant(meta) {
 /** The pin buttons for a title — the same ones the quick-look modal draws. */
 function pinButtons(item) {
   const current = state.watchlist[watchKey(item)] || "";
-  // **One button per custom row.** The card can hold several rows now, so a title can go
-  // into any of them — a single "Add to Custom" could only ever reach the first. Each
-  // button toggles its own row, and the ones the title is already in say so.
+  const [planId, planLabel] = PIN_STATES[0] || ["planned", "Plan to Watch"];
+  // **Plan to Watch, then Add to Library.** Two controls, not a button per library row:
+  // the plan is one press, and the library is a *pick* — the list opens under the button,
+  // you scroll it and choose the row it goes into. The library can hold several rows now,
+  // and a wall of "Add to <row>" buttons beside Play was the same control repeated.
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
+  const on = rows.filter((row) => inCustomRow(item, row.id));
+  const pick = dropdown(
+    rows.map((row) => [row.id, inCustomRow(item, row.id) ? `Remove from ${row.name}` : `Add to ${row.name}`]),
+    rows[0]?.id || "",
+    (id) => toggleCustomRow(item, id),
+  );
   return [
-    ...rows.map((row) => {
-      const on = inCustomRow(item, row.id);
-      return el("button", {
-        class: `btn pin focusable${on ? " active" : ""}`,
-        type: "button",
-        id: `pin-custom-${row.id}`,
-        title: on ? `In ${row.name} — click to remove` : `Add to ${row.name}`,
-        "aria-pressed": String(on),
-        text: on ? `${row.name} · added` : `Add to ${row.name}`,
-        onclick: () => toggleCustomRow(item, row.id),
-      });
+    el("button", {
+      class: `btn pin focusable${current === planId ? " active" : ""}`,
+      type: "button",
+      id: `pin-${planId}`,
+      title: current === planId ? `Pinned as ${planLabel} — click to unpin` : `Pin as ${planLabel}`,
+      "aria-pressed": String(current === planId),
+      text: current === planId ? `${planLabel} · pinned` : planLabel,
+      onclick: () => setWatchState(item, current === planId ? null : planId),
     }),
-    ...PIN_STATES.map(([sid, label]) =>
-      el("button", {
-        class: `btn pin focusable${current === sid ? " active" : ""}`,
-        type: "button",
-        id: `pin-${sid}`,
-        title: current === sid ? `Pinned as ${label} — click to unpin` : `Pin as ${label}`,
-        "aria-pressed": String(current === sid),
-        text: current === sid ? `${label} · pinned` : label,
-        onclick: () => setWatchState(item, current === sid ? null : sid),
-      }),
+    el("div", { class: "library-add" },
+      el("span", { class: "library-add-label", text: on.length ? `${customLabel()} · added` : "Add to Library" }),
+      pick.node,
     ),
   ];
 }
@@ -7215,34 +7242,8 @@ function paneProfile() {
       class: "option-desc",
       text: editing
         ? "Switch off anything this profile should not show, then press Done. Off by default: with the editor closed, everything shows and nothing is hidden."
-        : "This is the profile the app is using. Open the profile icon in the top bar to switch; press Edit to choose which rows, cards and catalogs this profile shows.",
+        : "This is the profile the app is using. Names are changed on the profile screen at boot; press Edit to choose which rows, cards and catalogs this profile shows.",
     }),
-    // **Only the name.** A profile's mark, its modes and adding or removing profiles were
-    // asked for in this pane and then taken back out of it: the name is the one thing that
-    // belongs to the profile you are looking at, and the rest is on the profile screen at
-    // boot, where it was already good.
-    (() => {
-      const me = currentPerson();
-      const nameField = el("input", {
-        class: "text-input focusable",
-        type: "text",
-        id: "profile-name",
-        maxlength: "24",
-        value: me.name,
-        placeholder: "Profile name",
-        "aria-label": "Profile name",
-      });
-      const commit = () => renamePerson(me.id, nameField.value);
-      nameField.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); commit(); }
-      });
-      return el("div", { class: "provider" },
-        el("span", { class: "option-title", text: "Profile name" }),
-        el("div", { class: "source-form" }, nameField,
-          el("button", { class: "btn primary focusable", type: "button", text: "Rename", onclick: commit }),
-        ),
-      );
-    })(),
     editing ? el("div", { class: "vis-editor" },
       el("section", { class: "vis-section" },
         el("div", { class: "group-head" },
@@ -7783,6 +7784,8 @@ function applyTheme() {
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
   root.classList.toggle("motion-off", state.motion === "off");
+  root.classList.toggle("pop-on", state.pop !== false);
+  root.style.setProperty("--quick", (SPEEDS.find(([id]) => id === state.speed) || SPEEDS[2])[3]);
   root.classList.toggle("motion-full", state.motion === "full");
   // Written out for the boot script in `index.html`, which applies them **before
   // the first paint**. Without it the app painted its default gold and then
@@ -7905,6 +7908,23 @@ function paneLayout() {
 function paneAnimation() {
   return [
     el("p", { class: "option-desc", text: "How the app moves: screen changes, hover lifts, the row highlight." }),
+    // **How fast.** One duration behind every transition in the app, so "the app feels
+    // slow" is a setting rather than a rewrite.
+    ...SPEEDS.map(([value, title, desc]) =>
+      radioRow(state.speed === value, "speed", title, desc, () => {
+        state.speed = value;
+        localStorage.setItem(KEY.speed, value);
+        applyTheme();
+        render();
+      }),
+    ),
+    // **Pop on hover.** The lift under a card, a tile, a button or a row head.
+    toggleRow(state.pop !== false, "Pop on hover", "A card, a tile, a button or a row head lifts a little under the cursor.", (e) => {
+      state.pop = e.target.checked;
+      localStorage.setItem(KEY.pop, state.pop ? "1" : "0");
+      applyTheme();
+      render();
+    }),
     ...MOTIONS.map(([value, title, desc]) =>
       radioRow(state.motion === value, "motion", title, desc, () => {
         state.motion = value;

@@ -651,11 +651,11 @@ const discoverPlusRow = (take) => [
  * same **Latest · Newest · Trending** set the Discover card carries, capped at
  * ten, and the service rows follow it.
  */
-const top10Periods = (suffix = " | Top 10") => [
-  discover(`Latest${suffix}`, "latest", TOP10),
-  discover(`Newest${suffix}`, "new", TOP10),
-  preset(`Trending${suffix}`, "trending", TOP10),
-];
+// **The period rows are off the Top 10 cards.** `Latest | Top 10`, `Newest | Top 10`
+// and `Trending | Top 10` sat in front of every service row on the Global and Regional
+// Top 10 cards, so "what is on Netflix" came after three rows that were not about
+// Netflix. Both cards open on their own service rows.
+const top10Periods = (_suffix = " | Top 10") => [];
 
 /**
  * The order Home shows the cards in — explicit, and the single source of truth.
