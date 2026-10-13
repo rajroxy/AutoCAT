@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "app.nuvio.collections"
+    namespace "app.autocat.collections"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "app.nuvio.collections"
+        applicationId "app.autocat.collections"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

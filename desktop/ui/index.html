@@ -10,7 +10,9 @@
      the app's own copper before your own accent arrives. -->
 <script>
   try {
-    var theme = JSON.parse(localStorage.getItem("nuvio.theme") || "null");
+    // AutoCAT — and `nuvio.theme` beside it: a store written before the rename still
+    // holds the app it was, and this script runs before the one that moves it across.
+    var theme = JSON.parse(localStorage.getItem("autocat.theme") || localStorage.getItem("nuvio.theme") || "null");
     if (theme) {
       var root = document.documentElement;
       if (theme.base) root.style.setProperty("--accent", theme.base);

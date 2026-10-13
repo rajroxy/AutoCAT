@@ -29,7 +29,7 @@ import { describeStream } from "./meta.js";
 const MEDIA_EXT_RE = /\.(mp4|m4v|webm|mkv|mov|m3u8|mpd)(?=[?#]|$)/i;
 
 const log = (...args) => {
-  if (process.env.NUVIO_SCRAPER_QUIET !== "1") console.log("[scraper]", ...args);
+  if (process.env.AUTOCAT_SCRAPER_QUIET !== "1") console.log("[scraper]", ...args);
 };
 
 /**

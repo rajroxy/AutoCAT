@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { scopedFile } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_FILE = process.env.NUVIO_DNS_FILE || path.join(__dirname, "dns-config.json");
+const BASE_FILE = process.env.AUTOCAT_DNS_FILE || path.join(__dirname, "dns-config.json");
 
 /* The resolver is chosen per profile like every other setting, so one profile turning
    on AdGuard does not silently change where the other one's requests resolve. */

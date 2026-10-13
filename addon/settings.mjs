@@ -15,7 +15,7 @@ import { currentMode, currentScope, scopedFile, scopedFileMode, setFallbackScope
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Overridable so tests never touch the real settings file.
-const BASE_FILE = process.env.NUVIO_SETTINGS_FILE || path.join(__dirname, "settings.json");
+const BASE_FILE = process.env.AUTOCAT_SETTINGS_FILE || path.join(__dirname, "settings.json");
 
 /* ============================================================================
    **One settings file per profile.**
@@ -153,11 +153,11 @@ const DEFAULTS = {
   // The language every row is served in (TMDB's `language`), and the primary
   // subtitle language the app and a player should prefer — one setting, because
   // you want your subtitles in the language you browse in.
-  language: process.env.NUVIO_LANGUAGE || "en-US",
+  language: process.env.AUTOCAT_LANGUAGE || "en-US",
   // Where you are. This is the region the OTT rows are scoped to: the three
   // regional cards show *your* country's services, and the global platform rows
   // report availability for it.
-  country: (process.env.NUVIO_REGION || "US").toUpperCase(),
+  country: (process.env.AUTOCAT_REGION || "US").toUpperCase(),
   // How often catalogs and metadata are re-read from TMDB. `minutes` is the
   // refresh interval; 0 means "only when you ask". The addon's own response
   // cache follows it and the app re-reads the screen on the same clock, so one
@@ -254,7 +254,7 @@ const DEFAULTS = {
   // secret only as a boolean). They live in Settings rather than only in the environment
   // because a machine that runs this app from a folder has nowhere else to put them, and
   // a provider with no keys is a button that cannot finish a sign-in. `signinKeys` reads
-  // this first and the environment second, so `NUVIO_GOOGLE_CLIENT_ID` and friends work
+  // this first and the environment second, so `AUTOCAT_GOOGLE_CLIENT_ID` and friends work
   // exactly as they did. `enabled` is the switch every other provider row has: off, the
   // provider is not offered even with keys set.
   signin: {
@@ -398,7 +398,7 @@ export function publicSettings() {
       Object.keys(DEFAULTS.signin).map((k) => {
         // The pair **as it is in effect** — Settings first, the environment second — so
         // the page shows the id a sign-in would actually use, whether it was pasted here
-        // or set as `NUVIO_GOOGLE_CLIENT_ID` on the machine.
+        // or set as `AUTOCAT_GOOGLE_CLIENT_ID` on the machine.
         const { id, secret, enabled } = signinKeys(k);
         return [k, { enabled, clientId: id.slice(0, 200), hasSecret: Boolean(secret) }];
       }),
@@ -467,7 +467,7 @@ export function publicSettings() {
 const DEFAULT_POSTER_PATTERN = "https://api.ratingposterdb.com/{rpdb_key}/imdb/poster-default/{imdb_id}.jpg";
 
 /** The content language every row is served in. */
-export const activeLanguage = () => load().language || process.env.NUVIO_LANGUAGE || "en-US";
+export const activeLanguage = () => load().language || process.env.AUTOCAT_LANGUAGE || "en-US";
 
 /**
  * How often catalogs and metadata are allowed to come back new, in minutes.
@@ -483,7 +483,7 @@ export const activeRefreshMinutes = () => {
 };
 
 /** The country whose services the OTT rows show. */
-export const activeCountry = () => String(load().country || process.env.NUVIO_REGION || "US").toUpperCase();
+export const activeCountry = () => String(load().country || process.env.AUTOCAT_REGION || "US").toUpperCase();
 
 /** The provider asked to supply catalog content ("tmdb" unless TVDB is chosen). */
 export const activeContentSource = () => (load().content?.source === "tvdb" ? "tvdb" : "tmdb");
@@ -497,7 +497,7 @@ export const activeContentSource = () => (load().content?.source === "tvdb" ? "t
  * switch: with it off, a pair that is set is not offered as a way in.
  */
 const SIGNIN_ENV = {
-  google: ["NUVIO_GOOGLE_CLIENT_ID", "NUVIO_GOOGLE_CLIENT_SECRET"],
+  google: ["AUTOCAT_GOOGLE_CLIENT_ID", "AUTOCAT_GOOGLE_CLIENT_SECRET"],
 };
 
 export function signinKeys(provider) {

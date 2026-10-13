@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Overridable so checks never touch the real store.
-const FILE = process.env.NUVIO_SESSIONS_FILE || path.join(__dirname, "sessions.json");
+const FILE = process.env.AUTOCAT_SESSIONS_FILE || path.join(__dirname, "sessions.json");
 
 /** domain -> { cookies: [...], updated } */
 let store = null;

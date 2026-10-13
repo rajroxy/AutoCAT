@@ -893,11 +893,11 @@ export function catalogDefs(code = activeCountry()) {
 export const findCatalog = (id, type) => {
   const found = catalogDefs().find((d) => d.id === id && d.type === type);
   if (found) return found;
-  // **Both prefixes.** The id was `nuvio-…` until the app was renamed, and this regex
+  // **Both prefixes.** The id was `autocat-…` until the app was renamed, and this regex
   // was the one place the old name was left behind — so every id a re-roll had dropped
   // from the current set fell through to "not found" and the row it named opened with
   // nothing in it: the blank frames the For You card drew. It reads either prefix now.
-  const m = /^(?:nuvio|autocat)-(.+?)--(movie|series)--(?:f(\d+)|(\d+))$/.exec(String(id || ""));
+  const m = /^(?:autocat|autocat)-(.+?)--(movie|series)--(?:f(\d+)|(\d+))$/.exec(String(id || ""));
   if (!m || m[2] !== type) return null;
   return m[3]
     ? { id, type, key: m[1], entry: { kind: "recommend", fallback: Number(m[3]) }, name: "For You" }

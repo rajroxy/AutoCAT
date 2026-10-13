@@ -48,9 +48,9 @@
 import zlib from "node:zlib";
 import { subtitleServices, subtitleService, subtitleLanguage } from "./settings.mjs";
 
-const UA = process.env.NUVIO_OPENSUBTITLES_UA || "AutoCAT v1.0";
-const TIMEOUT_MS = Number(process.env.NUVIO_SUBTITLES_TIMEOUT_MS) || 20000;
-const SEARCH_TTL_MS = Number(process.env.NUVIO_SUBTITLES_TTL_MS) || 10 * 60 * 1000;
+const UA = process.env.AUTOCAT_OPENSUBTITLES_UA || "AutoCAT v1.0";
+const TIMEOUT_MS = Number(process.env.AUTOCAT_SUBTITLES_TIMEOUT_MS) || 20000;
+const SEARCH_TTL_MS = Number(process.env.AUTOCAT_SUBTITLES_TTL_MS) || 10 * 60 * 1000;
 
 /**
  * The languages Settings offers, as `[code, label]`.
@@ -248,7 +248,7 @@ async function fetchVtt(url, { headers = {}, name = "" } = {}) {
 
 /* ------------------------------------------------------------------ OpenSubtitles */
 
-const OS_BASE = process.env.NUVIO_OPENSUBTITLES_BASE || "https://api.opensubtitles.com/api/v1";
+const OS_BASE = process.env.AUTOCAT_OPENSUBTITLES_BASE || "https://api.opensubtitles.com/api/v1";
 /** The consumer key, as OpenSubtitles spells the header. */
 const osKeyHeader = (key) => ({ "api-key": key });
 let osToken = { value: "", for: "" };
@@ -390,8 +390,8 @@ const opensubtitles = {
 
 /* -------------------------------------------------------------------------- SubDL */
 
-const SUBDL_BASE = process.env.NUVIO_SUBDL_BASE || "https://api.subdl.com";
-const SUBDL_DL = process.env.NUVIO_SUBDL_DL_BASE || "https://dl.subdl.com";
+const SUBDL_BASE = process.env.AUTOCAT_SUBDL_BASE || "https://api.subdl.com";
+const SUBDL_DL = process.env.AUTOCAT_SUBDL_DL_BASE || "https://dl.subdl.com";
 /** SubDL's download host, joined without a doubled slash. */
 const dlJoin = (url) => `${SUBDL_DL}${String(url).startsWith("/") ? "" : "/"}${url}`;
 
@@ -464,7 +464,7 @@ const subdl = {
 
 /* --------------------------------------------------------------------- SubSource */
 
-const SS_BASE = process.env.NUVIO_SUBSOURCE_BASE || "https://api.subsource.net/api/v1";
+const SS_BASE = process.env.AUTOCAT_SUBSOURCE_BASE || "https://api.subsource.net/api/v1";
 /** SubSource keys its catalogue by language *name*; the app speaks two-letter codes. */
 const SS_LANG = Object.fromEntries(SUBTITLE_LANGUAGES.map(([code, label]) => [code, label.toLowerCase()]));
 const ssLang = (code) => SS_LANG[code] || code;
@@ -539,7 +539,7 @@ const subsource = {
 
 /* ------------------------------------------------------------------------- Wyzie */
 
-const WYZIE_BASE = process.env.NUVIO_WYZIE_BASE || "https://sub.wyzie.io";
+const WYZIE_BASE = process.env.AUTOCAT_WYZIE_BASE || "https://sub.wyzie.io";
 
 const wyzie = {
   name: "wyzie",

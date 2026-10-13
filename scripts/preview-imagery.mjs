@@ -82,7 +82,7 @@ function titleSize(lines, maxW) {
 
 /* --------------------------------------------------------------- auto fetch */
 
-const UA = "NuvioCoverPreview/1.0 (cover art generator)";
+const UA = "AutoCATCoverPreview/1.0 (cover art generator)";
 
 // Openverse: keyless, aggregated, and relevance-ranked — so the fetched image
 // is genuinely about the collection rather than the first full-text hit.
@@ -361,7 +361,7 @@ function gallery() {
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nuvio — imagery sources</title>
+<title>AutoCAT — imagery sources</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root { color-scheme: dark; } * { box-sizing: border-box; }

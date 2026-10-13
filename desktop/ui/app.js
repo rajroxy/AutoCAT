@@ -23,64 +23,64 @@ const API = new URLSearchParams(location.search).get("api") || window.AUTOCAT_AP
 const TABS = [["home", "Home"]];
 
 const SETTING_KEYS = {
-  tab: "nuvio.tab",
-  row: "nuvio.row",
-  layout: "nuvio.layout",
-  safe: "nuvio.safe",
-  refresh: "nuvio.refresh",
-  sources: "nuvio.sources",
-  profile: "nuvio.profile",
-  providers: "nuvio.providers",
+  tab: "autocat.tab",
+  row: "autocat.row",
+  layout: "autocat.layout",
+  safe: "autocat.safe",
+  refresh: "autocat.refresh",
+  sources: "autocat.sources",
+  profile: "autocat.profile",
+  providers: "autocat.providers",
   // The sign-in pair per provider. The keys themselves live on the server; this is only
   // what the pane draws before the first answer arrives (see `paneSignin`).
-  signin: "nuvio.signin",
-  debrid: "nuvio.debrid",
-  subtitles: "nuvio.subtitles",
-  dns: "nuvio.dns",
-  customSites: "nuvio.customSites",
-  prefs: "nuvio.prefs",
-  tracking: "nuvio.tracking",
-  posters: "nuvio.posters",
-  ratings: "nuvio.ratings",
-  ai: "nuvio.ai",
+  signin: "autocat.signin",
+  debrid: "autocat.debrid",
+  subtitles: "autocat.subtitles",
+  dns: "autocat.dns",
+  customSites: "autocat.customSites",
+  prefs: "autocat.prefs",
+  tracking: "autocat.tracking",
+  posters: "autocat.posters",
+  ratings: "autocat.ratings",
+  ai: "autocat.ai",
   // Voice input, one flag per place it listens (see `paneAi`).
-  speak: "nuvio.speak",
-  language: "nuvio.language",
-  country: "nuvio.country",
-  contentSource: "nuvio.contentSource",
-  enrich: "nuvio.enrich",
-  section: "nuvio.settingsSection",
-  glow: "nuvio.glow",
-  pop: "nuvio.pop",
-  speed: "nuvio.speed",
-  accent: "nuvio.accent",
+  speak: "autocat.speak",
+  language: "autocat.language",
+  country: "autocat.country",
+  contentSource: "autocat.contentSource",
+  enrich: "autocat.enrich",
+  section: "autocat.settingsSection",
+  glow: "autocat.glow",
+  pop: "autocat.pop",
+  speed: "autocat.speed",
+  accent: "autocat.accent",
   // **Ring or fill** for the selection colour (Settings → Interaction): the same colour,
   // drawn as a ring around the chosen row or as the fill of it.
-  selStyle: "nuvio.selStyle",
+  selStyle: "autocat.selStyle",
   // The colour a *selection* wears — the chosen row, the checked box — on top of the
   // highlight colour the app is tinted with (see `applyTheme`).
-  select: "nuvio.select",
-  motion: "nuvio.motion",
-  font: "nuvio.font",
-  blur: "nuvio.blur",
+  select: "autocat.select",
+  motion: "autocat.motion",
+  font: "autocat.font",
+  blur: "autocat.blur",
   // The resolved accent colours, written for the boot script in `index.html`.
-  theme: "nuvio.theme",
-  pickCards: "nuvio.pickCards",
-  visibility: "nuvio.visibility",
+  theme: "autocat.theme",
+  pickCards: "autocat.pickCards",
+  visibility: "autocat.visibility",
   // The three the user asked for by name: what the app sounds like, what it leans on to
   // tell you something.
-  sound: "nuvio.sound",
-  notifications: "nuvio.notifications",
-  liveRow: "nuvio.liveRow",
+  sound: "autocat.sound",
+  notifications: "autocat.notifications",
+  liveRow: "autocat.liveRow",
   // How a season's episodes are drawn: one row each, or a grid of cards.
-  epView: "nuvio.epView",
+  epView: "autocat.epView",
   // **The playback engine** — which player the stream is handed to on a TV box, and how
   // it decodes it (see `playbackEngine`).
-  engine: "nuvio.engine",
-  liveSource: "nuvio.liveSource",
+  engine: "autocat.engine",
+  liveSource: "autocat.liveSource",
   // How the live side draws its Guide and its Categories: a table/tiles, or a list.
-  liveView: "nuvio.liveView",
-  ottSort: "nuvio.ottSort",
+  liveView: "autocat.liveView",
+  ottSort: "autocat.ottSort",
 };
 
 /* ============================================================================
@@ -88,7 +88,7 @@ const SETTING_KEYS = {
    ----------------------------------------------------------------------------
    There was one bucket of settings for the whole machine: switch to Profile 2 and
    you were on Profile 1's rows, Profile 1's regions, Profile 1's playlists and
-   Profile 1's preferences, because the app read `nuvio.*` and `nuvio.*` did not
+   Profile 1's preferences, because the app read `autocat.*` and `autocat.*` did not
    know who was watching. A profile is a person, and a person's app is theirs.
 
    The rule is a suffix: a setting that is **about watching** is filed under
@@ -106,9 +106,9 @@ const SETTING_KEYS = {
    first boot after it hands them to the profile that is on (`migrateScope` below)
    and clears the old copies, so nobody loses the app they had.
    ============================================================================ */
-const WHO_STORE = "nuvio.who";
-/** Which local account is in use, per profile: `nuvio.as@<profile>` → account id. */
-const AS_STORE = "nuvio.as";
+const WHO_STORE = "autocat.who";
+/** Which local account is in use, per profile: `autocat.as@<profile>` → account id. */
+const AS_STORE = "autocat.as";
 /** The id of the profile every install starts with — see `DEFAULT_PEOPLE`. */
 const HOME_PROFILE = "you";
 /** How the app *looks* is the machine's; everything else is the profile's. */
@@ -149,9 +149,9 @@ const setActiveAccount = (id) => {
   }
 };
 /** The store key the mode lives under — unscoped, for the reason above. */
-const MODE_STORE = "nuvio.profile";
+const MODE_STORE = "autocat.profile";
 /** Whether VOD and IPTV share one set of settings instead of keeping their own. */
-const UNIFIED_STORE = "nuvio.unified";
+const UNIFIED_STORE = "autocat.unified";
 const settingsUnified = () => {
   try { return localStorage.getItem(UNIFIED_STORE) === "1"; } catch { return false; }
 };
@@ -198,7 +198,7 @@ function seedLocalScope(target, source = activeScope()) {
   if (!target || target === source) return 0;
   // **Once per store.** A store that has been seeded is not topped up again — a setting you
   // deliberately cleared in one mode is not refilled from the other on the next start.
-  const flag = `nuvio.seeded@${target}`;
+  const flag = `autocat.seeded@${target}`;
   try {
     if (localStorage.getItem(flag) !== null) return 0;
   } catch {
@@ -292,7 +292,7 @@ function splitInheritedLocal() {
   // first profile, and an account inside that profile is not a different install.
   const who = activeProfile();
   if (!who || who === HOME_PROFILE) return 0;
-  const flag = `nuvio.split@${who}`;
+  const flag = `autocat.split@${who}`;
   try {
     if (localStorage.getItem(flag) !== null) return 0;
     const identity = (value) => {
@@ -316,6 +316,32 @@ function splitInheritedLocal() {
     return 0;
   }
 }
+/**
+ * **The name the app files under.** Every setting was stored as `nuvio.*`; the app is
+ * AutoCAT now and files under `autocat.*`. One pass, once: anything still under the old
+ * prefix is copied across (and the old key dropped) before a single setting is read, so the
+ * rename costs nobody their accent, their sources or their profile.
+ */
+function migrateBrand() {
+  try {
+    const legacy = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("nuvio.")) legacy.push(k);
+    }
+    for (const k of legacy) {
+      const value = localStorage.getItem(k);
+      const next = `autocat.${k.slice("nuvio.".length)}`;
+      if (value !== null && localStorage.getItem(next) === null) localStorage.setItem(next, value);
+      localStorage.removeItem(k);
+    }
+    return legacy.length;
+  } catch {
+    /* nothing stored, nothing to move */
+    return 0;
+  }
+}
+migrateBrand();
 migrateScope();
 splitInheritedLocal();
 // **The mode's own store opens as the one you had.** An install that has been using one set
@@ -379,7 +405,7 @@ const PIN_STATES = WATCH_STATES.filter(([id]) => id === "planned");
  * nothing about it leaves this machine — it is a label for the session, and it is kept
  * in this browser alone.
  */
-const PEOPLE_KEY = "nuvio.people";
+const PEOPLE_KEY = "autocat.people";
 const WHO_KEY = WHO_STORE;
 /**
  * The two profiles every install has: **a male and a female.**
@@ -695,12 +721,12 @@ const AI_PROVIDERS = [
 ];
 
 // Only two kinds of source: a Stremio add-on (one URL, manifests everything) and
-// a Nuvio plugin (a repository of scrapers). The Nuvio add-on and CloudStream repo
+// a AutoCAT plugin (a repository of scrapers). The AutoCAT add-on and CloudStream repo
 // entries are gone.
 const ADDON_TYPES = [
   ["stremio", "Addons", "A Stremio add-on URL — its manifest is read for you, so its catalogs, metadata, streams and subtitles all appear as providers."],
 ];
-// **Nuvio plugins are gone.** A plugin is Javascript the Nuvio app runs itself; the
+// **AutoCAT plugins are gone.** A plugin is Javascript the AutoCAT app runs itself; the
 // settings pane, the source type and the server-side runner for it have all been
 // removed. The one kind of source left is a Stremio add-on.
 const PLUGIN_TYPES = [];
@@ -849,7 +875,7 @@ const state = {
   epView: localStorage.getItem(KEY.epView) === "grid" ? "grid" : "list",
   liveSource: readJSON(KEY.liveSource, { mode: "m3u", m3u: "", host: "", username: "", password: "", epg: "", providers: [], refreshMinutes: 0 }),
   live: { loading: false, loaded: false, all: [], total: 0, groups: [], rows: [], updated: 0, error: "", guide: null, guideLoading: false, guideError: "", guideCountry: "", guideCategory: "", guideSportsOnly: false },
-  recordings: readJSON("nuvio.recordings", []),
+  recordings: readJSON("autocat.recordings", []),
   providers: readJSON(KEY.providers, { tmdb: { enabled: true }, tvdb: { enabled: false }, mdblist: { enabled: false } }),
   // Debrid: which service turns a torrent into a direct link. Only `enabled` and
   // `hasKey` are ever stored here — the key itself lives on the server and is
@@ -1002,16 +1028,16 @@ const pinOf = (m) => ({
 /**
  * Sources are **carried over**, not dropped.
  *
- * This build lists two kinds — a Stremio add-on and a Nuvio plugin — and an entry
+ * This build lists two kinds — a Stremio add-on and a AutoCAT plugin — and an entry
  * saved under an older kind is translated into the one it really was rather than
  * thrown away: dropping them is what made a stored add-on and its providers vanish
- * from Settings without a word. "nuvio" was a manifest add-on, so it becomes a
- * Stremio add-on; the old CloudStream "repo" becomes a Nuvio plugin.
+ * from Settings without a word. "autocat" was a manifest add-on, so it becomes a
+ * Stremio add-on; the old CloudStream "repo" becomes a AutoCAT plugin.
  */
 function migrateSources(list) {
   return (Array.isArray(list) ? list : [])
     .map((s) => {
-      const type = s?.type === "nuvio" ? "stremio" : s?.type === "repo" ? "nuvio-plugin" : s?.type;
+      const type = s?.type === "autocat" ? "stremio" : s?.type === "repo" ? "autocat-plugin" : s?.type;
       return s && s.url && SOURCE_TYPES.some(([t]) => t === type) ? { ...s, type } : null;
     })
     .filter(Boolean);
@@ -1086,7 +1112,7 @@ const titleOf = (c, row = rowKey()) => c?.[row]?.title || c?.title || "";
  * "the app opens on a blank page instead of anything". Answering in `ms` turns that into
  * a message the screen already knows how to show.
  */
-const GET_TIMEOUT_MS = Number(globalThis.NUVIO_GET_TIMEOUT_MS) || 25000;
+const GET_TIMEOUT_MS = Number(globalThis.AUTOCAT_GET_TIMEOUT_MS) || 25000;
 /**
  * **Every request says which profile it is for.**
  *
@@ -2446,7 +2472,7 @@ function signInCard() {
  * **The first account of a profile keeps the app that was already there.**
  *
  * Everything this browser stores is filed under the pair of profile and account
- * (`nuvio.tab@you-local-a1b2`). Accounts are new, so an account scope starts empty — which
+ * (`autocat.tab@you-local-a1b2`). Accounts are new, so an account scope starts empty — which
  * would look like the app had thrown away the rows, the region, the language and the rest.
  * The **first** account of a profile is the one the app was being used as (it is the one
  * carried over from before accounts existed), so its scope is given a copy of the profile's
@@ -2457,20 +2483,20 @@ function adoptScopeFor(accountId) {
   const scope = `${profile}-${accountId}`;
   const accounts = localAccounts();
   try {
-    if (!accountId || localStorage.getItem(`nuvio.adopted@${scope}`) !== null) return;
+    if (!accountId || localStorage.getItem(`autocat.adopted@${scope}`) !== null) return;
     if (!accounts.length || accounts[0].id !== accountId) return;
     const suffix = `@${profile}`;
     const pairs = [];
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i);
       if (!key || !key.endsWith(suffix)) continue;
-      // `nuvio.as@<profile>` is *which account is on*, not part of the app: copying it into
+      // `autocat.as@<profile>` is *which account is on*, not part of the app: copying it into
       // the account's own namespace would be nonsense.
       if (key.startsWith(`${AS_STORE}@`)) continue;
       pairs.push([key, localStorage.getItem(key)]);
     }
     for (const [key, value] of pairs) localStorage.setItem(`${key.slice(0, -suffix.length)}@${scope}`, value);
-    localStorage.setItem(`nuvio.adopted@${scope}`, "1");
+    localStorage.setItem(`autocat.adopted@${scope}`, "1");
   } catch {
     /* a browser that will not store it: the account starts empty */
   }
@@ -3009,7 +3035,7 @@ function forgetCardArt(card) {
  * The OTT cards' order switch — the dropdown at the top right of those cards.
  *
  * It draws the app's own `dropdown`, so it opens, closes, hovers and dims its end the
- * way every other picker does, and the choice is remembered (`nuvio.ottSort`). Picking
+ * way every other picker does, and the choice is remembered (`autocat.ottSort`). Picking
  * one redraws the screen, which asks each row for that order: the server scopes the
  * row's pool by it, so the list is really re-read instead of re-sorted in the page.
  */
@@ -5299,7 +5325,7 @@ function liveCalRow(channel, programme) {
 
 /** Recording helpers for IPTV/DVR */
 // Recordings are yours, not the machine's — the same per-profile suffix `KEY` uses.
-const REC_KEY = `nuvio.recordings@${activeScope()}`;
+const REC_KEY = `autocat.recordings@${activeScope()}`;
 
 function recordingsGet() {
   try {
@@ -5556,7 +5582,7 @@ function sourceGroups(source) {
  * One source's providers, laid out by what they are.
  *
  * A **Stremio add-on** declares resources (`catalog`, `meta`, `stream`,
- * `subtitles`) and names its catalogs — both are shown. A **Nuvio plugin**
+ * `subtitles`) and names its catalogs — both are shown. A **AutoCAT plugin**
  * publishes scrapers, which are the providers; a repo has no catalogs to list.
  */
 function sourceBody(source) {
@@ -5568,7 +5594,7 @@ function sourceBody(source) {
           el("div", { class: "chips" }, ...items.map((p) => el("span", { class: "chip", text: p }))),
         )
       : null;
-  // A **Nuvio plugin** answers with *streams*, not catalogs: its scrapers are the
+  // A **AutoCAT plugin** answers with *streams*, not catalogs: its scrapers are the
   // sources a title can be played from. A **Stremio add-on** declares everything it
   // serves — catalog, metadata, streams, subtitles — and names its catalogs, so both
   // are listed.
@@ -5727,7 +5753,7 @@ function renderSources(id, name) {
     ),
   ];
 
-  // **Add-ons only.** Nuvio plugins were removed (their runner, their source type and
+  // **Add-ons only.** AutoCAT plugins were removed (their runner, their source type and
   // their settings pane), so there is nothing else a source can be.
   const ordered = state.sources.filter((s) => ADDON_TYPES.some(([t]) => t === s.type));
 
@@ -5747,7 +5773,7 @@ function renderSources(id, name) {
   state.sources = saved;
 
   // **One group, because there is one kind of source.** The "Plugins & repositories"
-  // half went with Nuvio plugins; it read `plugins`, which no longer exists.
+  // half went with AutoCAT plugins; it read `plugins`, which no longer exists.
   for (const [title, list] of [["Add-ons", ordered]]) {
     if (!list.length) continue;
     nodes.push(el("h3", { class: "result-head", text: title }));
@@ -6248,7 +6274,7 @@ async function renderTitle(type, id) {
       creditRow([["Crew", [...(data.creators || []), ...(data.directors || []), ...(data.writers || [])]]]),
       peopleRow("Cast", data.cast),
 
-      // Production and networks, drawn as the rectangular cards Nuvio uses.
+      // Production and networks, drawn as the rectangular cards AutoCAT uses.
       companyCards("Production", data.companies, "company"),
       companyCards("Networks", data.networks, "network"),
 
@@ -6853,7 +6879,7 @@ function creditRow(groups) {
 }
 
 /**
- * Studios and networks as **rectangular cards**, the way Nuvio draws them: the logo
+ * Studios and networks as **rectangular cards**, the way AutoCAT draws them: the logo
  * on a landscape plate with the name under it, each one opening its own catalog.
  */
 function companyCards(label, list, kind) {
@@ -8067,7 +8093,7 @@ async function aiIntent(text, picked) {
  * One switch in the profile editor: a media row, a card, or a catalog inside a card.
  *
  * `level` decides where the pick is stored, so one drawing serves all three and a
- * pick is remembered per profile (`nuvio.visibility`).
+ * pick is remembered per profile (`autocat.visibility`).
  */
 function visRow(checked, level, id, title, desc, depth = 0) {
   const input = el("input", {
@@ -8811,7 +8837,10 @@ function applyTheme() {
   root.style.setProperty("--font", FONT_STACKS[state.font] || FONT_STACK);
   root.classList.toggle("blur-off", state.blur === false);
   // The selection colour is painted as a ring on the chosen row instead of a fill of it.
+  // The two classes are a pair: **Ring** rings what you are on, **Fill** fills it and
+  // draws no ring anywhere (see the block at the end of the stylesheet).
   root.classList.toggle("select-ring", state.selStyle === "ring");
+  root.classList.toggle("select-fill", state.selStyle !== "ring");
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
@@ -9372,7 +9401,7 @@ function sourceSection(title, hint, types, list) {
  *
  * They have to live server-side because **reading a stream happens there** (a
  * browser cannot call another host's `/stream/…`), and because the addon publishes
- * what it can play to Nuvio itself. The page keeps its own copy so Settings draws
+ * what it can play to AutoCAT itself. The page keeps its own copy so Settings draws
  * instantly and works offline.
  */
 function saveSources() {
@@ -9585,8 +9614,8 @@ function sourceRow(source, index, order = [], pos = 0) {
  */
 function paneAddonsPlugins() {
   const addons = state.sources.filter((s) => ADDON_TYPES.some(([t]) => t === s.type));
-  // **Add-ons only.** The Nuvio plugin half of this pane is gone: a plugin is code
-  // the Nuvio app runs itself, and the server-side runner for it was removed with it.
+  // **Add-ons only.** The AutoCAT plugin half of this pane is gone: a plugin is code
+  // the AutoCAT app runs itself, and the server-side runner for it was removed with it.
   return [
     groupHead("Installed sources"),
     ...sourceSection("Stremio add-ons", "A Stremio add-on URL is read on the server (manifest.json), so it works even when the host sends no CORS headers — its catalogs, metadata, streams and subtitles are listed as providers. A stream the add-on publishes as a torrent is played through your debrid account when one is set up in Settings → Debrid — a browser cannot join a public swarm on its own, so that account is what makes those streams play.", ADDON_TYPES, addons),
@@ -12745,7 +12774,7 @@ async function openPlayer(url, title, opts = {}) {
 
   const togglePlay = () => (video.paused ? video.play().catch(() => {}) : video.pause());
   // **A streaming player, not a browser control strip**: a big centre target while
-  // the picture is paused (Nuvio's), and one floating rounded bar at the foot of the
+  // the picture is paused (AutoCAT's), and one floating rounded bar at the foot of the
   // screen (Stremio's), grouped left and right with the accent on what you touch.
   const centre = el(
     "button",
@@ -13764,7 +13793,7 @@ function watchRender(seq) {
     );
     // **Sooner is better than never.** A screen that cannot draw itself must say so
     // while the person is still looking at it, not twelve seconds later.
-  }, Number(globalThis.NUVIO_RENDER_WATCHDOG_MS) || 5000);
+  }, Number(globalThis.AUTOCAT_RENDER_WATCHDOG_MS) || 5000);
 }
 
 /**

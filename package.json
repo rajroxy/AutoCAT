@@ -1,6 +1,6 @@
 {
-  "name": "nuvio-collection-covers",
-  "description": "Landscape (16:9) cover art for every Nuvio collection \u2014 animated SVG masters and 1920x1080 PNG exports.",
+  "name": "autocat-collection-covers",
+  "description": "Landscape (16:9) cover art for every AutoCAT collection \u2014 animated SVG masters and 1920x1080 PNG exports.",
   "private": true,
   "scripts": {
     "start": "node scripts/start-desktop.mjs",

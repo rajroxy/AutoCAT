@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Nuvio collection cover generator.
+ * AutoCAT collection cover generator.
  *
  * Produces landscape (16:9) collection covers as:
  *   - animated SVG  (vector master, crisp at any size)
@@ -574,7 +574,7 @@ const TITLE_SIZE = (() => {
 })();
 
 // The subtitle is the catalog's own name (the addon row name) — never an
-// editorial descriptor. Small, wide-tracked, muted ivory; "Now on Nuvio" is
+// editorial descriptor. Small, wide-tracked, muted ivory; "Now on AutoCAT" is
 // one card with no label.
 const CENTER_Y = H / 2 + 26;
 const SUB_WEIGHT = 600;
@@ -807,7 +807,7 @@ ${cards}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nuvio — collection covers</title>
+<title>AutoCAT — collection covers</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -836,7 +836,7 @@ ${cards}
 </head>
 <body>
 <div class="head">
-  <h1>Nuvio — collection covers</h1>
+  <h1>AutoCAT — collection covers</h1>
   <p>${manifest.length} landscape covers · ${COLLECTIONS.length} collections × movies &amp; shows · procedural vector scenes with 1920×1080 PNG exports.</p>
 </div>
 <main>

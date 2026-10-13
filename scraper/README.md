@@ -52,4 +52,4 @@ documented as unfit for untrusted code. Paste plugins you trust, from people you
 
 `scraper/sessions.json` and `scraper/plugins.json` are runtime state, not source, and are
 git-ignored like `addon/settings.json`. Both paths can be overridden for tests with
-`NUVIO_SESSIONS_FILE` and `NUVIO_PLUGINS_FILE`.
+`AUTOCAT_SESSIONS_FILE` and `AUTOCAT_PLUGINS_FILE`.

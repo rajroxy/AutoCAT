@@ -6,7 +6,7 @@
  * browser cannot make it unless that host sends permissive CORS headers, which most
  * do not. Fetching here has no such restriction, and it is also the only place the
  * add-on list is actually available — the sources live in the server's settings, so
- * they exist for the addon, the desktop app and Nuvio itself.
+ * they exist for the addon, the desktop app and AutoCAT itself.
  *
  * Stremio keys a stream request by **IMDb id** (`tt0137523`), which a TMDB title
  * does not carry, so one is resolved from TMDB's `external_ids` first.
@@ -62,13 +62,13 @@ const TIMEOUT_MS = 60000;
 export const listSources = () => (Array.isArray(getSettings().sources) ? getSettings().sources : []);
 
 /**
- * Why a Nuvio plugin did not answer **over HTTP**: it is not that it is broken.
+ * Why a AutoCAT plugin did not answer **over HTTP**: it is not that it is broken.
  *
- * A Nuvio plugin declares **scrapers** — Javascript the app runs itself — and has no
+ * A AutoCAT plugin declares **scrapers** — Javascript the app runs itself — and has no
  * `/stream/…` endpoint to call, so a 404 is the expected answer for that URL and
  * saying "HTTP 404" makes a working plugin look broken. Its scrapers are run here
  * instead, so this is only the note left behind when a source was added as an add-on
- * but is really a plugin. (Running those scrapers was removed along with Nuvio plugins
+ * but is really a plugin. (Running those scrapers was removed along with AutoCAT plugins
  * as a whole.)
  */
 function pluginNote(source, status) {
@@ -120,7 +120,7 @@ const streamSources = (type) =>
     })
     .slice(0, MAX_SOURCES);
 
-// **Nuvio plugins are gone.** Their scrapers used to be run on the server by a
+// **AutoCAT plugins are gone.** Their scrapers used to be run on the server by a
 // dedicated runner; the source type, the settings pane and that runner were all
 // removed, so the only way a title plays here is a Stremio add-on.
 

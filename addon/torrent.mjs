@@ -26,11 +26,11 @@
  */
 
 /** How long a swarm is kept after the last request for it. */
-const IDLE_MS = Number(process.env.NUVIO_TORRENT_IDLE_MS) || 15 * 60 * 1000;
+const IDLE_MS = Number(process.env.AUTOCAT_TORRENT_IDLE_MS) || 15 * 60 * 1000;
 /** How many swarms may be alive at once; the oldest idle one is dropped. */
-const MAX_TORRENTS = Number(process.env.NUVIO_TORRENT_MAX) || 3;
+const MAX_TORRENTS = Number(process.env.AUTOCAT_TORRENT_MAX) || 3;
 /** How long to wait for the metadata before giving up on a magnet. */
-const METADATA_MS = Number(process.env.NUVIO_TORRENT_METADATA_MS) || 45 * 1000;
+const METADATA_MS = Number(process.env.AUTOCAT_TORRENT_METADATA_MS) || 45 * 1000;
 
 const VIDEO_RE = /\.(mp4|m4v|webm|mkv|mov|ogv|avi|ts|m2ts)$/i;
 

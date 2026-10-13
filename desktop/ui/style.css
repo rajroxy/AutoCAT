@@ -3508,7 +3508,7 @@ select.text-input option { background: #14161c; color: var(--text); }
 /* --------------------------------------------- a card's label, over its picture */
 
 /* The name and the year are drawn **on** the artwork, at its bottom edge, the way
-   Nuvio draws them — so there is no separate dark strip under every card to read as
+   AutoCAT draws them — so there is no separate dark strip under every card to read as
    a black band, and the picture is the whole card. The scrim that used to sit behind
    them is gone too: the text carries its own shadow, so no band darkens the artwork.
    A card with no picture to show keeps its label underneath its initials instead. */
@@ -4841,3 +4841,31 @@ html.select-ring :is(.icon-box, .poster, .result, .cat-tile, .channel-card, .sea
   transform: none !important;
   animation: none !important;
 }
+
+/* ============================================================================
+   **Fill means filled — and never a ring.**
+   ----------------------------------------------------------------------------
+   Settings → Effects → Chosen answers one question: is what you are on *filled* with the
+   selection colour, or *ringed* by it? `--hl` is the ring the whole app answers the cursor
+   and the keyboard with, so with **Fill** chosen it is switched off at the root and every
+   one of those rules draws nothing; what you are on is **filled** instead, at the strength
+   the chosen settings tile already wears. The content surfaces above are filled outright —
+   a card is a thing, not a control — and these are the controls: the buttons, chips, tiles,
+   menu rows, the settings board and the calendar's cells.
+
+   With **Ring** chosen nothing here applies: `--hl` is the ring it always was, which is the
+   app everyone already knows. Only these two classes decide; the highlight colour is
+   untouched either way — it is still the Home tab, the Play button and the app's furniture.
+   ============================================================================ */
+html.select-fill { --hl: none; }
+html.select-fill :is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .row-btn, .tab,
+  .icon-btn, .btn, .alpha, .person, .avatar-pick, .vis-fold, .accent-card, .cal-cell, .site-row):hover,
+html.select-fill :is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .row-btn, .tab,
+  .icon-btn, .btn, .alpha, .person, .avatar-pick, .vis-fold, .accent-card, .cal-cell, .site-row):focus-visible {
+  /* `background-color`, not `background`: a plate that is a gradient (the Home tab, the
+     Play button, the chosen Movies/Shows pill) keeps its gradient and takes this under it. */
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.22);
+}
+/* The settings tile you are on is a **chosen** thing, like a ticked row beside it — so it
+   wears the selection colour too, instead of the highlight the hovered tile no longer uses. */
+.settings-tab.active { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.22); }

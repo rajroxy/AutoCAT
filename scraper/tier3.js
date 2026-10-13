@@ -25,7 +25,7 @@ import { BROWSER_UA } from "./tier1.js";
 import { playwrightCookies } from "./sessions.js";
 import { activeDnsServers, resolveHost } from "../addon/dns.mjs";
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.NUVIO_SCRAPER_BROWSER_TIMEOUT_MS) || 30000;
+const DEFAULT_TIMEOUT_MS = Number(process.env.AUTOCAT_SCRAPER_BROWSER_TIMEOUT_MS) || 30000;
 const IDLE_SHUTDOWN_MS = 60000;
 /** How many times a bot-check page is given a moment to hand over the real one. */
 const CHALLENGE_RETRIES = 6;
@@ -312,8 +312,8 @@ export async function browserSearch(url, options = {}) {
   return out;
 }
 
-/** Set `NUVIO_SCRAPER_TRACE=1` to see what this tier did with each page, on stderr. */
-const browserTrace = Boolean(process.env.NUVIO_SCRAPER_TRACE);
+/** Set `AUTOCAT_SCRAPER_TRACE=1` to see what this tier did with each page, on stderr. */
+const browserTrace = Boolean(process.env.AUTOCAT_SCRAPER_TRACE);
 
 /** Let go of the shared browser: the next caller launches a fresh one. */
 async function dropBrowser() {
@@ -461,7 +461,7 @@ async function browserSearchOnce(url, options = {}) {
       // that hijack scrolling, so the position measured a moment ago is not where the card
       // is by the time a mouse arrives. `click` scrolls it in, waits for it to hold still,
       // and then presses — and falls back to the element's own event when that is refused.
-      const card = page.locator(`[data-nuvio-card="${best.index}"]`).first();
+      const card = page.locator(`[data-autocat-card="${best.index}"]`).first();
       // **`force: true`, because a cover is not a reason to refuse the click.** Playwright's
       // own click first waits for the element to be visible, still and *receiving* events —
       // and these posters almost always have something over them: a hover row, a rating, a
@@ -471,14 +471,14 @@ async function browserSearchOnce(url, options = {}) {
       // stand in when even that lands on the wrong thing.
       await card.click({ timeout: 8000, force: true }).catch(async () => {
         const box = await page.evaluate((index) => {
-          const el = document.querySelector(`[data-nuvio-card="${index}"]`);
+          const el = document.querySelector(`[data-autocat-card="${index}"]`);
           if (!el) return null;
           el.scrollIntoView({ block: "center" });
           const r = el.getBoundingClientRect();
           return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
         }, best.index).catch(() => null);
         if (box) await page.mouse.click(box.x, box.y).catch(() => {});
-        else await page.evaluate((index) => document.querySelector(`[data-nuvio-card="${index}"]`)?.click(), best.index).catch(() => {});
+        else await page.evaluate((index) => document.querySelector(`[data-autocat-card="${index}"]`)?.click(), best.index).catch(() => {});
       });
       try {
         // A **dialog** counts as arriving: several of these sites open the title as a
@@ -585,7 +585,7 @@ function collectSearchCards() {
     const key = `${clean(text).slice(0, 60)}|${href || ""}|${clean(alt)}`;
     if (seen.has(key)) return;
     seen.add(key);
-    el.setAttribute("data-nuvio-card", String(out.length));
+    el.setAttribute("data-autocat-card", String(out.length));
     out.push({ index: out.length, text: clean(text).slice(0, 160), href: href || "", alt: clean(alt).slice(0, 120) });
   };
 

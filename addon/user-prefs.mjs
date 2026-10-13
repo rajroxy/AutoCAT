@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { scopedFile } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_FILE = process.env.NUVIO_PREFS_FILE || path.join(__dirname, "user-preferences.json");
+const BASE_FILE = process.env.AUTOCAT_PREFS_FILE || path.join(__dirname, "user-preferences.json");
 
 /* A preference belongs to the person watching — see `scope.mjs`. */
 const file = () => scopedFile(BASE_FILE, "user-preferences");

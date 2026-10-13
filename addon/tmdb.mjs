@@ -1,5 +1,5 @@
 /**
- * Minimal TMDB client for the Nuvio catalog addon.
+ * Minimal TMDB client for the AutoCAT catalog addon.
  *
  * - Reads the key from TMDB_API_KEY (v3 key or v4 read token — both accepted).
  * - Caches every response in memory so a home screen full of catalog rows only
@@ -13,7 +13,7 @@ import { activeLanguage, activeRefreshMinutes } from "./settings.mjs";
 /**
  * Where TMDB lives.
  *
- * `TMDB_BASE_URL` overrides it, the same way `NUVIO_GOOGLE_AUTHORIZE_URL` overrides the
+ * `TMDB_BASE_URL` overrides it, the same way `AUTOCAT_GOOGLE_AUTHORIZE_URL` overrides the
  * provider endpoint in `addon/auth.mjs` — it is how the test suite points the whole client
  * at a stand-in and checks what a row really asks for, instead of taking a description of
  * it on trust. Read once, at import: the app itself never sets it.
@@ -166,7 +166,7 @@ export async function resolveKeyword(name) {
   }
 }
 
-/** TMDB list item → Stremio/Nuvio meta. */
+/** TMDB list item → Stremio/AutoCAT meta. */
 export function toMeta(item, type) {
   if (!item || !item.id) return null;
   const isMovie = type === "movie";
@@ -183,7 +183,7 @@ export function toMeta(item, type) {
   if (typeof item.vote_average === "number" && item.vote_average > 0) {
     meta.imdbRating = item.vote_average.toFixed(1);
   }
-  const embed = process.env.NUVIO_STREAM_SOURCE;
+  const embed = process.env.AUTOCAT_STREAM_SOURCE;
   if (embed) meta.behaviorHints = { defaultVideoId: `tmdb:${item.id}` };
   if (item.overview) meta.description = item.overview;
   // The flag travels with the meta so any list can be filtered against the SFW

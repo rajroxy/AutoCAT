@@ -3,7 +3,7 @@
 //   /                       → covers/index.html (the gallery)
 //   /covers/...             → cover assets (also served at /)
 //   /collections.json       → every card + its catalogs (used by the desktop app)
-//   /manifest.json          → Stremio/Nuvio addon manifest
+//   /manifest.json          → Stremio/AutoCAT addon manifest
 //   /catalog/{type}/{id}.json → live catalog rows (TMDB)
 //   /addon-status.json      → addon diagnostics
 //
@@ -81,7 +81,7 @@ function originOf(req) {
   const isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/.test(host);
   // Behind the managed proxy TLS terminates upstream, so the forwarded proto can
   // read "http" even for a public https request. Android blocks cleartext HTTP,
-  // so anything non-local must be advertised as https or Nuvio cannot load it.
+  // so anything non-local must be advertised as https or AutoCAT cannot load it.
   const proto = req.headers["x-forwarded-proto"] === "https" ? "https" : isLocal ? "http" : "https";
   return `${proto}://${host}`;
 }

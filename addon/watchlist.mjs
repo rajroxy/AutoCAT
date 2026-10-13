@@ -1,11 +1,11 @@
 /**
  * The watchlist — pinned titles, and how far you are with them.
  *
- * Nuvio's watchlist is not a TMDB catalog: it is the set of titles *you* pinned.
+ * AutoCAT's watchlist is not a TMDB catalog: it is the set of titles *you* pinned.
  * So it is stored here, on the server, and served back through the ordinary
  * catalog route. That is what makes it behave like every other row — the app
  * renders it with the same strip, it pages the same way, and the addon publishes
- * it in its manifest for Nuvio to show too.
+ * it in its manifest for AutoCAT to show too.
  *
  * A pinned title moves through three states:
  *
@@ -14,7 +14,7 @@
  *   watched   → Watched         (finished)
  *
  * The store is `addon/watchlist.json` (git-ignored, created at runtime; the path
- * can be overridden with NUVIO_WATCHLIST_FILE so tests never touch the real one).
+ * can be overridden with AUTOCAT_WATCHLIST_FILE so tests never touch the real one).
  *
  * A title is keyed by `type + id`: TMDB numbers movies and shows in the same id
  * space, so `tmdb:550` is both a film and a series and they must not collide.
@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { scopedFile, setFallbackScope } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_FILE = process.env.NUVIO_WATCHLIST_FILE || path.join(__dirname, "watchlist.json");
+const BASE_FILE = process.env.AUTOCAT_WATCHLIST_FILE || path.join(__dirname, "watchlist.json");
 
 /* ============================================================================
    **One watchlist per profile.**
@@ -37,7 +37,7 @@ const BASE_FILE = process.env.NUVIO_WATCHLIST_FILE || path.join(__dirname, "watc
 
    The file is chosen by the **scope** the caller asks with (`?who=<id>`, sent by
    the app for the profile that is on): `watchlist.<who>.json`. No `who` — a
-   Stremio/Nuvio client reading the addon, a script, a test — is the plain
+   Stremio/AutoCAT client reading the addon, a script, a test — is the plain
    `watchlist.json` it always was, so nothing outside the app changes.
 
    The first scoped caller **inherits the file that was there**: an install from

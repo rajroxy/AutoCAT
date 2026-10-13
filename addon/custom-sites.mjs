@@ -30,8 +30,8 @@ import { extractStreams } from "../scraper/index.js";
 import { cookieHeader } from "../scraper/sessions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_FILE = process.env.NUVIO_CUSTOM_SITES_FILE || path.join(__dirname, "custom-sites.json");
-const BASE_REPO_FILE = process.env.NUVIO_REPOSITORIES_FILE || path.join(__dirname, "repositories.json");
+const BASE_FILE = process.env.AUTOCAT_CUSTOM_SITES_FILE || path.join(__dirname, "custom-sites.json");
+const BASE_REPO_FILE = process.env.AUTOCAT_REPOSITORIES_FILE || path.join(__dirname, "repositories.json");
 
 /* **The sites a profile saved are that profile's.** They were one file for the machine, so
    a site added while one profile was on was in every profile's pane and every profile's

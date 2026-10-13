@@ -52,8 +52,8 @@ const LABELS = {
 export const DEBRID_SERVICES = Object.keys(DEBRID_ENV).map((name) => ({ name, label: LABELS[name] }));
 
 /** Torrents that are already cached answer in seconds; a cold one can take minutes. */
-const POLL_TIMEOUT_MS = Number(process.env.NUVIO_DEBRID_TIMEOUT_MS) || 45000;
-const POLL_INTERVAL_MS = Number(process.env.NUVIO_DEBRID_POLL_MS) || 2500;
+const POLL_TIMEOUT_MS = Number(process.env.AUTOCAT_DEBRID_TIMEOUT_MS) || 45000;
+const POLL_INTERVAL_MS = Number(process.env.AUTOCAT_DEBRID_POLL_MS) || 2500;
 const SEEN_TTL_MS = 6 * 60 * 60 * 1000;
 
 /** service+infoHash -> { id, files, at } — the added torrent, not the link. */

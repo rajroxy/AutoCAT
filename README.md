@@ -1,10 +1,10 @@
-# Nuvio — collection covers & catalog addon
+# AutoCAT — collection covers & catalog addon
 
 Two things that ship together:
 
-1. **Cover art** — landscape (16:9) covers for every Nuvio collection, in both the
+1. **Cover art** — landscape (16:9) covers for every AutoCAT collection, in both the
    **movies** and **shows** rows, as animated SVG masters and 1920×1080 PNG exports.
-2. **A catalog addon** — a Stremio/Nuvio addon that turns each cover into a live
+2. **A catalog addon** — a Stremio/AutoCAT addon that turns each cover into a live
    home-screen row, backed by TMDB.
 
 ```
@@ -100,7 +100,7 @@ their ids keep resolving — they are simply not in the grid.
   → Latest · Newest · Trending · Popular · Top Rated; On the Board → Now Playing for movies,
   Airing Today · Airing This Week · On the Air for shows). Names wrap and shrink to fit. Never an
   editorial descriptor. A card with no catalogs is title-only.
-- **Colour** — a single near-black field (`#08090C`, matching the Nuvio home background) with a
+- **Colour** — a single near-black field (`#08090C`, matching the AutoCAT home background) with a
   panel of hairline ivory strokes and a soft champagne glow. One accent colour (`#C8A96A`) used
   sparingly; **no hue shifting anywhere**.
 - **Rows** — the **shows** scene is mirrored horizontally so the two rows stay related but
@@ -121,14 +121,14 @@ their ids keep resolving — they are simply not in the grid.
 | `/app/...` | the app UI assets |
 | `/gallery` | the cover gallery (every cover, with PNG/SVG downloads) |
 | `/manifest.json` | addon manifest — one row per catalog (**1 824** catalogs for the configured country, every (type, id) unique) |
-| `/catalog/{type}/{id}.json` | one live row of titles, e.g. `/catalog/movie/nuvio-discover--trending.json` |
+| `/catalog/{type}/{id}.json` | one live row of titles, e.g. `/catalog/movie/autocat-discover--trending.json` |
 | `/catalog/{type}/{id}/skip=100.json` | the same row, paged |
 | `/catalog/{type}/{id}/shuffle=12.json` | a random sample of that row |
 | `/collections.json` | every card + the catalogs it owns (used by the desktop app) |
 | `/settings` | GET/POST the app's settings (profile, providers, tracking, AI, **content source**, **language**, **country**, and the **live** source: mode, playlist, Xtream login, EPG, refresh), plus the language and country lists the Content pane is built from. Keys, the playlist URL and the password are never returned — only whether they are set |
 | `/watchlist.json` | GET the pinned titles + per-state counts |
 | `/watchlist` | POST `{item, state}` to pin/move, or `{item, remove:true}` to unpin |
-| `/catalog/{type}/nuvio-watchlist--*.json` | your pins — requested with a cache-buster and answered `cache-control: no-store` |
+| `/catalog/{type}/autocat-watchlist--*.json` | your pins — requested with a cache-buster and answered `cache-control: no-store` |
 | `/ai.json` | which free AI providers exist, which is chosen, whether a key is set |
 | `/ai/ask` | POST `{prompt}` — turns a sentence into a search query via that provider |
 | `/ai/verify` | POST `{provider}` — checks that provider's stored key live |
@@ -235,7 +235,7 @@ row scoped to one of them, so the card has no empty duplicates, and the last two
 are Crunchyroll and Viki — the Asian-catalogue services, which are not regional data,
 so `activeRegion()` scopes them per request. The cards are title-only on the cover
 because they are the same everywhere, and each row id carries its own region
-(`nuvio-regional-ott--jiohotstar-in`), so two regions can never collide on one
+(`autocat-regional-ott--jiohotstar-in`), so two regions can never collide on one
 catalog id.
 
 **The country setting no longer decides what is in the Regional OTT cards** — they
@@ -303,7 +303,7 @@ larger than the same caption elsewhere, and the card's title and the tag chips u
 **Watchlist** is a real card with a real row. A shared addon cannot know your
 account, so the rows are served from the pins stored in `addon/watchlist.json`
 (runtime state, git-ignored) rather than from TMDB — pin a title in the app and it
-appears in `Plan to Watch`, `Watching` or `Watched`, and it appears in Nuvio too,
+appears in `Plan to Watch`, `Watching` or `Watched`, and it appears in AutoCAT too,
 because the addon publishes those three catalogs like any other.
 
 **Genre from ◆ Decades** used to publish the movie genres only, which left the
@@ -449,7 +449,7 @@ hour, set it to *Only when you ask* and nothing changes behind your back until y
 press **Refresh now**. `TMDB_CACHE_TTL_MS` still overrides both — that is what the
 probes and tests use.
 
-**Install it in Nuvio:** add `https://<your-host>/manifest.json` as an addon. Each catalog's
+**Install it in AutoCAT:** add `https://<your-host>/manifest.json` as an addon. Each catalog's
 `name` is the same string drawn as the cover subtitle, so you can pair each row with its art.
 
 ### Configuration
@@ -457,8 +457,8 @@ probes and tests use.
 | Env var | Default | Purpose |
 |---|---|---|
 | `TMDB_API_KEY` | — | **Required.** TMDB v3 key or v4 read token. Catalogs stay empty without it. |
-| `NUVIO_REGION` | `US` | Default for the **country** setting: the region used to scope rows that carry no region of their own, and the per-country counts `/settings` reports. The Regional OTT rows each carry their own region, so the setting does not move them. |
-| `NUVIO_LANGUAGE` | `en-US` | Default for the **language** setting: the language every row is served in, and the primary subtitle language. |
+| `AUTOCAT_REGION` | `US` | Default for the **country** setting: the region used to scope rows that carry no region of their own, and the per-country counts `/settings` reports. The Regional OTT rows each carry their own region, so the setting does not move them. |
+| `AUTOCAT_LANGUAGE` | `en-US` | Default for the **language** setting: the language every row is served in, and the primary subtitle language. |
 | `TMDB_CACHE_TTL_MS` | `1800000` | Catalog cache window. |
 
 ### Watchlist
@@ -540,7 +540,7 @@ machine's own name follows** under a rule, where it reads as the fallback it is.
 
 **This machine's own account is the one that needs nothing set up.** A name and an
 optional address, kept in
-`addon/account.json` (runtime state, git-ignored; `NUVIO_ACCOUNT_FILE` moves it, which
+`addon/account.json` (runtime state, git-ignored; `AUTOCAT_ACCOUNT_FILE` moves it, which
 is how the tests stay out of the real one). No password, nothing verified, nothing
 sent anywhere — and it is the way in that works with nothing configured. The session
 it hands out is the same cookie a provider's sign-in sets and the same `/auth/me`, so
@@ -564,13 +564,13 @@ is read first, the environment second, so a folder install with a form and a ser
 with env vars both do the same thing:
 
 ```sh
-NUVIO_GOOGLE_CLIENT_ID=…  NUVIO_GOOGLE_CLIENT_SECRET=…
-NUVIO_GITHUB_CLIENT_ID=…  NUVIO_GITHUB_CLIENT_SECRET=…
-NUVIO_PUBLIC_URL=https://tv.example.com      # the preview origin works too
+AUTOCAT_GOOGLE_CLIENT_ID=…  AUTOCAT_GOOGLE_CLIENT_SECRET=…
+AUTOCAT_GITHUB_CLIENT_ID=…  AUTOCAT_GITHUB_CLIENT_SECRET=…
+AUTOCAT_PUBLIC_URL=https://tv.example.com      # the preview origin works too
 ```
 
-The callback to register with the provider is `<NUVIO_PUBLIC_URL>/auth/<provider>/callback`
-(without `NUVIO_PUBLIC_URL`, the origin the request arrived on is used — built from the
+The callback to register with the provider is `<AUTOCAT_PUBLIC_URL>/auth/<provider>/callback`
+(without `AUTOCAT_PUBLIC_URL`, the origin the request arrived on is used — built from the
 request, never from a query parameter, which would be an open redirect). Working keys
 add **Continue with Google** / **Continue with GitHub** to the card at the top of
 Settings → Profile; without them the card is the name field it always is, and says
@@ -579,7 +579,7 @@ where to put them rather than pretending.
 **The desktop app pins its port, because a callback has to be registered in
 advance.** The embedded server used to start on port **0** — an OS-picked free port,
 a new one every launch — which is fine for the app's own pages and impossible for
-OAuth. It is **4173** now (`NUVIO_DESKTOP_PORT` moves it), `NUVIO_PUBLIC_URL` is set
+OAuth. It is **4173** now (`AUTOCAT_DESKTOP_PORT` moves it), `AUTOCAT_PUBLIC_URL` is set
 to that origin, and the callback is therefore the same string on every launch:
 `http://127.0.0.1:4173/auth/google/callback`. If the port is taken the app still
 opens on an OS-picked one, and Settings → Sign in shows the callback actually in use.
@@ -704,7 +704,7 @@ TMDB is the only provider that can *generate* a row at all — its discover endp
 is what answers "90s action on Netflix", and TVDB has no equivalent filter engine.
 TVDB does have authoritative per-title content (name, translations, year,
 artwork), keyed by the IMDb id every row already resolves for its poster. So with
-the content source on **TVDB**, every catalog in the app and in Nuvio shows TVDB's
+the content source on **TVDB**, every catalog in the app and in AutoCAT shows TVDB's
 titles in the language set in Settings; the rows themselves — which titles are in
 them — stay TMDB's.
 
@@ -889,7 +889,7 @@ wrapper are all in place.
 **2b — or let GitHub build it for you.** `.github/workflows/android-apk.yml` runs
 the same three steps on a runner that *has* a JDK and the Android SDK, and uploads
 the debug APK as a downloadable artifact. From **Actions → Android TV APK → Run
-workflow**, then open the run and download `nuvio-collections-debug-apk`. Set the
+workflow**, then open the run and download `autocat-collections-debug-apk`. Set the
 repository variable `AUTOCAT_HOST` (Settings → Secrets and variables → Actions →
 Variables) to the deployed host and it is baked into the APK; with the variable
 unset the app still builds and starts, and reports that it cannot reach the
@@ -906,7 +906,7 @@ or copy the APK to a USB stick and install it with a file manager on the device.
 It then appears in the Android TV **Apps** row (leanback launcher), and the D-pad
 (arrows, Enter, Back/Escape) drives the whole UI.
 
-The UI is Nuvio-shaped:
+The UI is AutoCAT-shaped:
 
 - **Start-up is two questions, in order: who, then how.** The app opens on the
   **profile screen** (`#/profiles`) — *who is watching* — and the **mode screen**
@@ -1032,7 +1032,7 @@ gone**: the profile used to fetch the lineup and then a second request per categ
   its modal (open any title and pick a state; picking the current state unpins it)
   and it lands in the matching row, tagged with its state. The three rows scan
   *everything* in that state; a *calendar* plan is not a watch state, so it never
-  appears here. Same rows the addon publishes, so Nuvio sees them too.
+  appears here. Same rows the addon publishes, so AutoCAT sees them too.
 - **Collection** — its cover, then its catalogs as rows. Each row names its catalog
   and carries an **Explore** button *on the label line* — there is no shuffle icon
   there, because reordering a card's catalogs is not what "shuffle" means.
@@ -1133,7 +1133,7 @@ belong to.
   (MyAnimeList, AniList) and **Asian drama** (MyDramaList) behind a divider; below
   them the **providers** — TMDB / TVDB / MDBList keys *and* which of them supplies
   the row content), **Add-ons & plugins** (a Stremio add-on read through
-  `manifest.json`, and a Nuvio plugin's scrapers — one tab, two forms);
+  `manifest.json`, and a AutoCAT plugin's scrapers — one tab, two forms);
   **Assistant** — **AI** (the free providers — Groq Cloud, Google AI Studio,
   OpenRouter, Cerebras Cloud — each with its key box, a *Test connection* and a
   *Load models* that turns the models the provider really serves into pickable
@@ -1183,7 +1183,7 @@ cards and catalogs for this profile*:
   *Cards* block where each card is its own panel holding that card's catalog
   rows, each box headed by its own switch and how many of its rows are on (`npm run
   test:ui` pins the structure).
-- Picks are per profile and live in `localStorage` (`nuvio.visibility`). The same
+- Picks are per profile and live in `localStorage` (`autocat.visibility`). The same
   master switch is drawn in **Settings → AI** as *Pick the cards for you*, because
   that is where it used to live.
 
@@ -1197,19 +1197,19 @@ cards and catalogs for this profile*:
   *Always animate*, or *No animation*. It covers the screen-to-screen transition,
   hover lifts and the row highlight in one switch.
 
-Both persist in `localStorage` (`nuvio.accent`, `nuvio.motion`) and are applied as
+Both persist in `localStorage` (`autocat.accent`, `autocat.motion`) and are applied as
 CSS custom properties on the document root.
 
 Country, content source, the safety switch and the server-side language persist
 through `POST /settings` (they are read by the addon, not just the page), and
 mirror into `localStorage` for instant feedback.
 
-**Add-ons** and **Plugins & repositories** are two separate sections. Stremio/Nuvio
+**Add-ons** and **Plugins & repositories** are two separate sections. Stremio/AutoCAT
 add-ons (which this project is) are checked live — the app fetches `manifest.json`
-and reports the add-on name and its providers. Nuvio plugins and CloudStream
+and reports the add-on name and its providers. AutoCAT plugins and CloudStream
 repositories are stored and listed but not fetched (that is what used to show a
-false "not reachable — HTTP 404"): CloudStream plugins are Android APKs and Nuvio
-plugins run inside Nuvio, so only a native build can run them.
+false "not reachable — HTTP 404"): CloudStream plugins are Android APKs and AutoCAT
+plugins run inside AutoCAT, so only a native build can run them.
 
 Provider and tracking keys are written to `addon/settings.json` (git-ignored) so
 the server can use them; the public response never returns a key, only whether one

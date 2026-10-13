@@ -35,7 +35,7 @@ npm start
 version of the same UI is a different command:
 
 ```sh
-npm run start:web  # prints "Nuvio gallery + catalog addon → http://0.0.0.0:4173"
+npm run start:web  # prints "AutoCAT gallery + catalog addon → http://0.0.0.0:4173"
 ```
 
 Use `start:web` (or `npm run preview`, which is the same thing) when you want the
@@ -63,7 +63,7 @@ skips Electron's ~100MB binary.
 
 ## Screens
 
-Routing mirrors Nuvio:
+Routing mirrors AutoCAT:
 
 | Screen | Route | Shows |
 |---|---|---|
@@ -138,7 +138,7 @@ section that drifts from them.
 **Profile** also holds **what this profile shows**: *pick the rows, cards and
 catalogs for this profile*, off by default. On, it gives one switch for Movies and
 Shows, one per card, and one per catalog row inside each card (indented under it),
-remembered per profile in `localStorage` (`nuvio.visibility`). The editor is split
+remembered per profile in `localStorage` (`autocat.visibility`). The editor is split
 into a **Media rows** section and a **Cards** section, and inside *Cards* each card
 is its own panel with its catalog rows in it — so "which rows belong to
 this card?" is answered by the box they sit in, and the block's own switch reports
@@ -373,7 +373,7 @@ watchlist* row is gone from the card, from the title modal and from the addon, s
 no *add cards* catalog is published at all. Open any title and pick a state in its
 modal to pin it there (picking the state it is already in unpins it), and the card
 updates. The pins live on the server (`/watchlist` → `addon/watchlist.json`) so
-Nuvio sees the same rows. Those rows are requested with a cache-busting `_=<n>` and
+AutoCAT sees the same rows. Those rows are requested with a cache-busting `_=<n>` and
 answered `cache-control: no-store`, so a removed title is gone the moment you come
 back — an ordinary catalog row keeps its `max-age` and is not re-fetched pointlessly.
 
@@ -543,8 +543,8 @@ their manifest (name + catalogs); a CloudStream repo is read via `repo.json` →
 `plugins.json` and every plugin is listed as a provider.
 
 **Home layout**, profile, providers, tracking and the AI options persist in
-`localStorage` (`nuvio.layout`, `nuvio.profile`, `nuvio.providers`,
-`nuvio.tracking`, `nuvio.ai`). Keys — including the AI ones — are mirrored to the
+`localStorage` (`autocat.layout`, `autocat.profile`, `autocat.providers`,
+`autocat.tracking`, `autocat.ai`). Keys — including the AI ones — are mirrored to the
 server so the addon can use them; the watchlist is server-side state, not stored in
 the page.
 
@@ -595,7 +595,7 @@ npm run android:open      # opens the project in Android Studio
 
 **Or let CI build it**: `.github/workflows/android-apk.yml` builds the debug APK on
 a runner with a JDK and the Android SDK and uploads it as the
-`nuvio-collections-debug-apk` artifact (Actions → Android TV APK → Run workflow).
+`autocat-collections-debug-apk` artifact (Actions → Android TV APK → Run workflow).
 Set the repository variable `AUTOCAT_HOST` to bake the server host in.
 
 **This build cannot be compiled on the Freebuff sandbox**: there is no `java`,

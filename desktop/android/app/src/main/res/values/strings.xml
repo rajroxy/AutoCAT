@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">AutoCAT</string>
     <string name="title_activity_main">AutoCAT</string>
-    <string name="package_name">app.nuvio.collections</string>
-    <string name="custom_url_scheme">app.nuvio.collections</string>
+    <string name="package_name">app.autocat.collections</string>
+    <string name="custom_url_scheme">app.autocat.collections</string>
 </resources>

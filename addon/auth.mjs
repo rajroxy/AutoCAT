@@ -13,19 +13,19 @@
  *
  *   Settings → Sign in → Google / GitHub    (client id + client secret; the id is shown
  *                                            back, the secret is only ever reported as set)
- *   NUVIO_GOOGLE_CLIENT_ID / NUVIO_GOOGLE_CLIENT_SECRET
- *   NUVIO_GITHUB_CLIENT_ID / NUVIO_GITHUB_CLIENT_SECRET
- *   NUVIO_PUBLIC_URL            (e.g. https://tv.example.com — the preview origin works too)
+ *   AUTOCAT_GOOGLE_CLIENT_ID / AUTOCAT_GOOGLE_CLIENT_SECRET
+ *   AUTOCAT_GITHUB_CLIENT_ID / AUTOCAT_GITHUB_CLIENT_SECRET
+ *   AUTOCAT_PUBLIC_URL            (e.g. https://tv.example.com — the preview origin works too)
  *
  * Settings comes first and the environment second (`signinKeys` in `addon/settings.mjs`
  * settles that), so both a folder install with a form and a server with env vars work.
  *
- * The callback to register with each provider is `<NUVIO_PUBLIC_URL>/auth/<provider>/callback`,
+ * The callback to register with each provider is `<AUTOCAT_PUBLIC_URL>/auth/<provider>/callback`,
  * and `redirectUri` below is the one function that says so — **the same string is shown in
  * Settings**, because a callback that is registered with a different host, port or trailing
  * slash is the failure this handshake cannot recover from. Without keys, signing in is *off*
  * and the profile pane says so — it never pretends to have a login it cannot finish. The
- * endpoint URLs themselves can be overridden (`NUVIO_GOOGLE_AUTHORIZE_URL`, … `_TOKEN_URL`,
+ * endpoint URLs themselves can be overridden (`AUTOCAT_GOOGLE_AUTHORIZE_URL`, … `_TOKEN_URL`,
  * `_USERINFO_URL`) which is also how the test suite points them at a local stand-in for the
  * provider.
  *
@@ -60,9 +60,9 @@ const PROVIDERS = {
     id: () => signinKeys("google").id,
     secret: () => signinKeys("google").secret,
     enabled: () => signinKeys("google").enabled,
-    authorize: () => env("NUVIO_GOOGLE_AUTHORIZE_URL", "https://accounts.google.com/o/oauth2/v2/auth"),
-    token: () => env("NUVIO_GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token"),
-    userinfo: () => env("NUVIO_GOOGLE_USERINFO_URL", "https://openidconnect.googleapis.com/v1/userinfo"),
+    authorize: () => env("AUTOCAT_GOOGLE_AUTHORIZE_URL", "https://accounts.google.com/o/oauth2/v2/auth"),
+    token: () => env("AUTOCAT_GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token"),
+    userinfo: () => env("AUTOCAT_GOOGLE_USERINFO_URL", "https://openidconnect.googleapis.com/v1/userinfo"),
     scope: "openid email profile",
     // The OpenID userinfo answer is already the shape we want.
     read: (info) => ({ id: String(info.sub || ""), name: info.name || info.email || "", email: info.email || "", picture: info.picture || "" }),
@@ -102,7 +102,7 @@ const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
  *
  * Google is the way in *when it is set up*, and a client id and secret are exactly what a
  * fresh install does not have. So the app keeps accounts of its own: a name and an optional
- * address, in `addon/account.json` (runtime state, git-ignored; `NUVIO_ACCOUNT_FILE` moves
+ * address, in `addon/account.json` (runtime state, git-ignored; `AUTOCAT_ACCOUNT_FILE` moves
  * it, which is how the tests stay out of the real one). It is not a second account system
  * beside the providers — it is the same session, the same cookie and the same `/auth/me`.
  *
@@ -121,7 +121,7 @@ const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
  * `profile` is the profile it was made under, `sessionId` is what makes the cookie survive
  * a restart, and nothing here is a password because there is nothing to verify against.
  */
-const ACCOUNT_FILE = process.env.NUVIO_ACCOUNT_FILE || path.join(__dirname, "account.json");
+const ACCOUNT_FILE = process.env.AUTOCAT_ACCOUNT_FILE || path.join(__dirname, "account.json");
 
 /** How many local accounts one profile can hold. */
 export const MAX_LOCAL_ACCOUNTS = 5;
@@ -196,7 +196,7 @@ const clean = () => {
 };
 
 /** The cookie the browser carries. HttpOnly, SameSite=Lax (the callback is a top-level GET). */
-export const SESSION_COOKIE = "nuvio_session";
+export const SESSION_COOKIE = "autocat_session";
 
 const cookieId = (req) => {
   const raw = String(req.headers.cookie || "");
@@ -310,14 +310,14 @@ export const signOut = (req) => {
 
 /**
  * **The callback to register with the provider — one function, so the string cannot
- * drift.** `origin` is where the request came in; `NUVIO_PUBLIC_URL` wins when it is set,
+ * drift.** `origin` is where the request came in; `AUTOCAT_PUBLIC_URL` wins when it is set,
  * which is what a server behind a proxy wants. The desktop app pins its port and sets
- * `NUVIO_PUBLIC_URL` to match (see `desktop/main.js`), because a callback registered
+ * `AUTOCAT_PUBLIC_URL` to match (see `desktop/main.js`), because a callback registered
  * against a port the app picks at random each launch is a callback that stops working on
  * the next launch.
  */
 export const redirectUri = (providerKey, origin) =>
-  `${trimSlash(env("NUVIO_PUBLIC_URL") || origin)}/auth/${providerKey}/callback`;
+  `${trimSlash(env("AUTOCAT_PUBLIC_URL") || origin)}/auth/${providerKey}/callback`;
 
 /** Whether a provider can finish a sign-in right now (the same test the UI is given). */
 const usable = (p) => Boolean(p && p.enabled?.() !== false && p.id() && p.secret());
@@ -326,7 +326,7 @@ const usable = (p) => Boolean(p && p.enabled?.() !== false && p.id() && p.secret
  * Where to send the browser to sign in.
  *
  * `origin` is where this request came in — the preview origin, a LAN address, the desktop
- * app's own localhost. It is only used when `NUVIO_PUBLIC_URL` is not set, and it is
+ * app's own localhost. It is only used when `AUTOCAT_PUBLIC_URL` is not set, and it is
  * **built from the request**, never from a query parameter: a redirect target a stranger
  * can choose is an open redirect.
  */

@@ -1,8 +1,8 @@
 {
-  "name": "nuvio-collection-covers-tooling",
+  "name": "autocat-collection-covers-tooling",
   "private": true,
   "type": "module",
-  "description": "Generates the Nuvio collection landscape covers (animated SVG + PNG).",
+  "description": "Generates the AutoCAT collection landscape covers (animated SVG + PNG).",
   "scripts": {
     "generate": "node generate-covers.mjs"
   },

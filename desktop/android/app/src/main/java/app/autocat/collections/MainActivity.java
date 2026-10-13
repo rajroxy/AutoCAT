@@ -1,4 +1,4 @@
-package app.nuvio.collections;
+package app.autocat.collections;
 
 import android.os.Bundle;
 

@@ -5,10 +5,10 @@
 # Capacitor CLI that copies `desktop/ui` into the APK.
 #
 # Run it from Actions → "Android TV APK" → Run workflow, then download
-# `nuvio-collections-debug-apk` from the run's Artifacts section.
+# `autocat-collections-debug-apk` from the run's Artifacts section.
 #
 # The APK is a thin client: it renders the UI and talks to the catalog server
-# over https. Set the repository variable `NUVIO_HOST` (Settings → Secrets and
+# over https. Set the repository variable `AUTOCAT_HOST` (Settings → Secrets and
 # variables → Actions → Variables) to the deployed addon host, e.g.
 # `https://your-addon-host.example.com`, and it is baked into the build. With the
 # variable unset the app still builds and starts, and says it cannot reach the
@@ -46,20 +46,20 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
       - name: Point the packaged app at the catalog server
-        if: vars.NUVIO_HOST != ''
+        if: vars.AUTOCAT_HOST != ''
         working-directory: desktop
         run: |
           node -e '
             const fs = require("node:fs");
-            const host = process.env.NUVIO_HOST;
+            const host = process.env.AUTOCAT_HOST;
             const file = "ui/config.js";
             const before = fs.readFileSync(file, "utf8");
-            const after = before.replace(/window\.NUVIO_HOST = "";/, `window.NUVIO_HOST = "${host}";`);
+            const after = before.replace(/window\.AUTOCAT_HOST = "";/, `window.AUTOCAT_HOST = "${host}";`);
             fs.writeFileSync(file, after);
-            console.log(after.includes(host) ? `NUVIO_HOST set to ${host}` : "NUVIO_HOST was not applied");
+            console.log(after.includes(host) ? `AUTOCAT_HOST set to ${host}` : "AUTOCAT_HOST was not applied");
           '
         env:
-          NUVIO_HOST: ${{ vars.NUVIO_HOST }}
+          AUTOCAT_HOST: ${{ vars.AUTOCAT_HOST }}
 
       - name: Copy the UI into the Android project
         working-directory: desktop
@@ -72,6 +72,6 @@ jobs:
       - name: Upload the APK
         uses: actions/upload-artifact@v4
         with:
-          name: nuvio-collections-debug-apk
+          name: autocat-collections-debug-apk
           path: desktop/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

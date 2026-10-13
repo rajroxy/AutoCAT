@@ -9,10 +9,10 @@
  * to get to without calling them "Plan to Watch".
  *
  * Like the watchlist it lives on the server (`addon/customrows.json` — git
- * ignored, created at runtime, overridable with `NUVIO_CUSTOM_FILE` so tests
+ * ignored, created at runtime, overridable with `AUTOCAT_CUSTOM_FILE` so tests
  * never touch the real file) and is served through the ordinary catalog route,
  * so it pages, scrolls and publishes in the manifest exactly like every other
- * row, and Nuvio shows it too.
+ * row, and AutoCAT shows it too.
  *
  * A stored title is keyed by `type + id`, the same key the watchlist uses: TMDB
  * numbers films and shows in one id space, so the type has to be part of it.
@@ -24,7 +24,7 @@ import { scopedFile, setFallbackScope } from "./scope.mjs";
 import { cleanItem } from "./watchlist.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_FILE = process.env.NUVIO_CUSTOM_FILE || path.join(__dirname, "customrows.json");
+const BASE_FILE = process.env.AUTOCAT_CUSTOM_FILE || path.join(__dirname, "customrows.json");
 
 /* **One Library per profile.** The rows you built and what you put in them belong to the
    person watching, not to the machine — see the same note in `watchlist.mjs`, which this
@@ -57,7 +57,7 @@ export const DEFAULT_ROW = "add-cards";
  * and each request names the ones that exist, in the user's order. A fixed ceiling is
  * what keeps a row's *id* stable while its *name* changes: a catalog id in this app is
  * built from the entry's row, so renaming a row never breaks the row that is already
- * being read (or published to Nuvio).
+ * being read (or published to AutoCAT).
  */
 export const MAX_ROWS = 6;
 export const rowIdFor = (index) => (index === 0 ? DEFAULT_ROW : `${DEFAULT_ROW}-${index + 1}`);

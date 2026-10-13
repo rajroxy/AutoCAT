@@ -45,7 +45,7 @@ import { findStreamsInHTML } from "./finder.js";
 import { hostOf, domainOf } from "./sessions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FILE = process.env.NUVIO_PLUGINS_FILE || path.join(__dirname, "plugins.json");
+const FILE = process.env.AUTOCAT_PLUGINS_FILE || path.join(__dirname, "plugins.json");
 const DOWNLOAD_TIMEOUT_MS = 15000;
 const MAX_SOURCE_BYTES = 512 * 1024;
 

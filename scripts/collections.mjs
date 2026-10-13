@@ -1,9 +1,9 @@
 /**
- * The Nuvio collection set — single source of truth.
+ * The AutoCAT collection set — single source of truth.
  *
  * Shared by the cover generator (`scripts/generate-covers.mjs`) and the catalog
  * addon (`addon/catalogs.mjs`), so the cover art and the catalog rows can never
- * drift apart. Order matters: it is the row order in the Nuvio home screen.
+ * drift apart. Order matters: it is the row order in the AutoCAT home screen.
  *
  *   key       stable id — also the cover filename and the catalog id suffix
  *   lines     the title, split across lines for the cover
@@ -449,7 +449,7 @@ const POPULAR_REGIONAL = new Set([
 export const isPopularRegional = (name) => POPULAR_REGIONAL.has(String(name || "").trim());
 
 /** The country the collection set is built for unless Settings picks another. */
-export const DEFAULT_COUNTRY = (process.env.NUVIO_REGION || "US").toUpperCase();
+export const DEFAULT_COUNTRY = (process.env.AUTOCAT_REGION || "US").toUpperCase();
 
 /** Verified keyword ids, by card. */
 const KW = VERIFIED.keywords;
@@ -718,7 +718,7 @@ const top10Periods = (_suffix = " | Top 10") => [];
  * The array below is grouped the way the cards were written (all the OTT cards
  * together, all the keyword cards together); this list is what you actually see.
  * The app never reorders or subsets the cards, so the order is the same on every
- * device, in both the Movies and the Shows row, and in Nuvio itself.
+ * device, in both the Movies and the Shows row, and in AutoCAT itself.
  *
  * `based-on-the` sits directly after `runtimes`: the card order is the owner's
  * list, so "Based on the" belongs with the other shape-of-the-title cards (how

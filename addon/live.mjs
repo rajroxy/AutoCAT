@@ -36,7 +36,7 @@ import { getSettings, activeRefreshMinutes } from "./settings.mjs";
 import { DTH_PROVIDERS, countryTable, firstProviderEpg, orderCountries, pickedProviders, countryEpg, countryEpgs, countryName, everyCountry, premiumChannelsFor } from "./dth.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CACHE = process.env.NUVIO_LIVE_FILE || path.join(__dirname, "live-cache.json");
+const CACHE = process.env.AUTOCAT_LIVE_FILE || path.join(__dirname, "live-cache.json");
 
 /**
  * Codes the catalogue and the country table spell differently.

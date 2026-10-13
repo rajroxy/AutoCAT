@@ -32,13 +32,13 @@ let retried = false;
  * every launch. That is exactly right for the app's own pages and impossible for OAuth:
  * Google and GitHub want one exact redirect URI, and a URI whose port changes on the next
  * launch can never be registered. So the port is pinned (4173, the same default `npm run
- * preview` uses, and `NUVIO_DESKTOP_PORT` moves it), and `NUVIO_PUBLIC_URL` is set to that
+ * preview` uses, and `AUTOCAT_DESKTOP_PORT` moves it), and `AUTOCAT_PUBLIC_URL` is set to that
  * origin so the callback this server sends is the same string Settings shows.
  *
  * If something else already holds the port the app still opens — on an OS-picked one — and
  * Settings → Sign in shows the callback in use, so it stays registerable for that session.
  */
-const DESKTOP_PORT = Number(process.env.NUVIO_DESKTOP_PORT) || 4173;
+const DESKTOP_PORT = Number(process.env.AUTOCAT_DESKTOP_PORT) || 4173;
 
 async function createWindow() {
   // A second window reuses the first server rather than leaving an orphan process behind.
@@ -57,7 +57,7 @@ async function createWindow() {
   // **The origin a provider is told to come back to.** Set here rather than left to the
   // request, so the callback is this app's own origin even if the page was reached some
   // other way — see `redirectUri` in `addon/auth.mjs`.
-  process.env.NUVIO_PUBLIC_URL = origin;
+  process.env.AUTOCAT_PUBLIC_URL = origin;
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -108,7 +108,7 @@ async function createWindow() {
     /* did-fail-load has already reported it */
   }
 
-  if (process.env.NUVIO_DEVTOOLS === "1") mainWindow.webContents.openDevTools({ mode: "detach" });
+  if (process.env.AUTOCAT_DEVTOOLS === "1") mainWindow.webContents.openDevTools({ mode: "detach" });
 
   // Any external link opens in the system browser, never inside the app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

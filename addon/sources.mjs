@@ -101,12 +101,12 @@ async function cloudStreamRepo(url) {
  * Read a `manifest.json` and report what it offers.
  *
  * Two different things publish a `manifest.json`, and until this read them apart a
- * Nuvio plugin came back as an add-on with **0 catalogs**:
+ * AutoCAT plugin came back as an add-on with **0 catalogs**:
  *
  *   Stremio add-on  `{ name, resources: ["catalog", "stream", …], catalogs: [ … ] }`
- *   Nuvio plugin    `{ name, scrapers: [ { name, filename, formats, … } ] }`
+ *   AutoCAT plugin    `{ name, scrapers: [ { name, filename, formats, … } ] }`
  *
- * A Nuvio plugin manifest has **no** `catalogs` and **no** `resources` at all — its
+ * A AutoCAT plugin manifest has **no** `catalogs` and **no** `resources` at all — its
  * providers are the entries in `scrapers`, which is why every plugin read as empty.
  * Both shapes are returned here and the caller decides which one it is.
  */
@@ -143,7 +143,7 @@ async function addonManifest(url) {
       // `{ id, type }` only, and reading `name` alone left those add-ons looking
       // like they had no providers at all.
       const catalogs = uniq((manifest.catalogs || []).map((c) => c.name || c.id || c.type));
-      // A Nuvio plugin's providers. `name` is the label Nuvio shows; `id` is the
+      // A AutoCAT plugin's providers. `name` is the label AutoCAT shows; `id` is the
       // fallback for a scraper that did not name itself.
       const scrapers = uniq((manifest.scrapers || []).map((s) => s?.name || s?.id));
       return {
@@ -168,7 +168,7 @@ async function addonManifest(url) {
   throw new Error(lastErr ? `${lastErr.message} (${candidates[candidates.length - 1]})` : "not reachable");
 }
 
-const ADDON_KINDS = new Set(["stremio", "nuvio"]);
+const ADDON_KINDS = new Set(["stremio", "autocat"]);
 
 /**
  * Inspect any source. Never throws — a failure is returned as `ok: false` with a
@@ -195,10 +195,10 @@ export async function inspectSource(type, url) {
       const message = `${providers.length} catalog${providers.length === 1 ? "" : "s"}${supports.length ? ` · ${supports.join(", ")}` : ""}`;
       return { ok: true, kind: "addon", name, providers, resources, supports, message };
     }
-    // A Nuvio plugin publishes `scrapers` in its own `manifest.json`. That is the
+    // A AutoCAT plugin publishes `scrapers` in its own `manifest.json`. That is the
     // modern layout and it is tried first; the older CloudStream-style `repo.json`
     // is kept as the fallback, so both kinds of URL the app has ever offered work.
-    if (type === "nuvio-plugin") {
+    if (type === "autocat-plugin") {
       try {
         const { name, providers, resources, scrapers } = await addonManifest(url);
         if (scrapers.length) {

@@ -1,7 +1,7 @@
 /**
- * Nuvio Collections — a Stremio/Nuvio catalog addon.
+ * AutoCAT Collections — a Stremio/AutoCAT catalog addon.
  *
- * Publishes one catalog row per catalog that lives inside each Nuvio card: a
+ * Publishes one catalog row per catalog that lives inside each AutoCAT card: a
  * card that names its catalogs (Discover → Latest, Newest, Trending,
  * Popular, Top Rated) yields one row per name; a card without names yet yields
  * a single collection-level row. Every row is backed live by TMDB, and only the

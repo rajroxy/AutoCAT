@@ -65,7 +65,7 @@ const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, 
 
 /* ----------------------------------------------------------------- design */
 
-const INK = "#08090C"; // light-black, matches the Nuvio home field
+const INK = "#08090C"; // light-black, matches the AutoCAT home field
 const KICK_COL = "rgba(255,255,255,0.55)";
 const ACCENT = "#C8A96A"; // a single restrained champagne accent, used sparingly
 
@@ -255,7 +255,7 @@ ${cards}
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nuvio — imagery options 1 &amp; 3</title>
+<title>AutoCAT — imagery options 1 &amp; 3</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root { color-scheme: dark; } * { box-sizing: border-box; }
