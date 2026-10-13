@@ -505,7 +505,11 @@ const LAYOUTS = [
 /* **The system colour, first.** The app's own neutral — the grey the boot screen's plate is
    built on — so the whole app can be set to "no colour of its own" with one press, and the
    board under it is the same sixteen the highlight has. */
-const SYSTEM_ACCENT = ["system", "System", "150, 156, 166", "#969ca6", "#6d7480"];
+/* **System is the colour the app opens in** — not a neutral of its own invention: it is the
+   boot screen's own accent, the lavender the cat's ear and the tail of the wordmark are cut
+   from (`#c8bdee`, see `.boot-name` in `style.css`). Choosing it is how a screen goes back
+   to the look it started in. */
+const SYSTEM_ACCENT = ["system", "System", "200, 189, 238", "#c8bdee", "#9b8cc9"];
 const ACCENTS = [
   SYSTEM_ACCENT,
   // **Copper is the app's own colour.** It is the first entry, so it is what a fresh
@@ -555,7 +559,7 @@ const ACCENTS = [
    colour of its own" is the app's own look rather than one of sixteen. The **selection**
    board keeps the sixteen colours only: the ring around a choice is a colour you chose to
    notice, and a grey ring says nothing. */
-const SELECT_ACCENTS = ACCENTS.filter(([id]) => id !== "system");
+const SELECT_ACCENTS = ACCENTS;
 
 /**
  * **A colour this build still has.**
@@ -2596,10 +2600,14 @@ function signInCard() {
   return [
     groupHead("Sign in"),
     said ? el("p", { class: "signin-said", text: said }) : null,
-    el("div", { class: "account-new", id: "account-new" }, accountForm()),
+    // **One box per plate, and the name outside it.** The pane is two plates; inside
+    // each one the *fields* sit in a box of their own, so `Sign in` names the plate while
+    // the form is the thing in it. Plain fields floating on the plate read as part of the
+    // accounts list beside them.
+    el("div", { class: "account-new account-box", id: "account-new" }, accountForm()),
     el("div", { class: "h-divider", "aria-hidden": "true" }),
     groupHead("Accounts"),
-    rows.length ? el("div", { class: "account-list" }, ...rows) : null,
+    rows.length ? el("div", { class: "account-list account-box" }, ...rows) : null,
     current
       ? el("button", {
           class: "btn subtle focusable",
@@ -6915,17 +6923,24 @@ function pinButtons(item) {
 /**
  * **Add to Library — the button, and your rows underneath it.**
  *
- * The button says one thing and never changes its words: *Add to Library* while the
- * title is in none of your rows, *In your Library* while it is in one. Rest the cursor
- * on it (or press it) and **your rows** open underneath as a list you scroll — the
- * Library's own row names, exactly as the Library card labels them — and the row you
- * pick is the row the title goes into. Picking a row it is already in takes it out.
+ * At rest the button says where the title is — *Add to Library* while it is in none of your
+ * rows, *In <row>* while it is in one. Press it (a click, or OK on a remote) and **the
+ * button itself becomes the walk**: its label turns into your Library's row names one at a
+ * time, moved with the wheel, the arrows, or a remote's left/right, and a second press puts
+ * the title in the row it is showing. Picking the row it is already in takes it out, and
+ * applying closes the walk so the button says where the title is again.
  *
- * This is what the old two-step picker got wrong twice over: the words in the *button*
- * changed under the cursor (the reported "the label changes in the button"), and the row
- * list was one long line rather than a list you could walk. The button holds still now
- * and the list under it is the thing that moves.
+ * No menu unfolds under it and nothing floats: there is no second surface to position and
+ * nothing to dismiss. The walk is the same one the rating plate uses, which is why both
+ * controls read the same way under the cursor.
  */
+/* **The row the walk is on outlives the button.** A redraw while the wheel is turning (a
+   refresh landing, a pin changing) rebuilt the button and put the label back to *Add to
+   Library* mid-scroll — the reported "the Add to Library option remains when you scroll to a
+   row". The picked row is remembered per title and per row list, so a redraw shows the row
+   you were on instead of erasing the walk. */
+let libraryWalk = { key: "", armed: -1 };
+
 function libraryButton(item) {
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
   const anyInside = rows.some((row) => inCustomRow(item, row.id));
@@ -6935,7 +6950,9 @@ function libraryButton(item) {
   // remote's OK then left/right) walks the Library's row labels inside the button itself;
   // press again to put the title in the row it is showing. Same walk as the rating box.
   const currentRow = rows.find((row) => inCustomRow(item, row.id));
-  let armed = -1;
+  const walkKey = `${watchKey(item)}::${rows.map((row) => row.id).join("|")}`;
+  let armed = libraryWalk.key === walkKey ? libraryWalk.armed : -1;
+  const setArmed = (value) => { libraryWalk = { key: walkKey, armed: value }; armed = value; };
   const label = el("span", { class: "library-label", text: anyInside ? `In ${currentRow?.name || customLabel()}` : "Add to Library" });
   const btn = el("button", {
     class: `btn focusable${anyInside ? " active" : ""}`,
@@ -6959,24 +6976,34 @@ function libraryButton(item) {
   };
   const step = (by) => {
     // Wrapping around, so a long list of rows is never a dead end in either direction.
-    if (by > 0) armed = armed < 0 ? 0 : (armed + 1) % rows.length;
-    else armed = armed < 0 ? rows.length - 1 : (armed - 1 + rows.length) % rows.length;
+    if (by > 0) setArmed(armed < 0 ? 0 : (armed + 1) % rows.length);
+    else setArmed(armed < 0 ? rows.length - 1 : (armed - 1 + rows.length) % rows.length);
     paint();
   };
-  const start = () => { armed = Math.max(0, rows.findIndex((row) => inCustomRow(item, row.id))); paint(); };
+  const start = () => {
+    setArmed(Math.max(0, rows.findIndex((row) => inCustomRow(item, row.id))));
+    paint();
+  };
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
     // The first press picks the button up at the row the title is already in (or the
     // first row); the second one adds it there and redraws, which puts the label back.
     if (armed < 0) start();
-    else toggleCustomRow(item, rows[armed].id);
+    else {
+      // Applying closes the walk, so the button says where the title is again.
+      toggleCustomRow(item, rows[armed].id);
+      setArmed(-1);
+    }
   });
   btn.addEventListener("keydown", (event) => {
     if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); step(1); }
     else if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); step(-1); }
   });
   btn.addEventListener("wheel", (event) => {
+    // **The wheel belongs to the button while it is under the cursor** — the walk moves the
+    // row, the page does not scroll (and no page-level wheel handler sees it).
     event.preventDefault();
+    event.stopPropagation();
     step(event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
   paint();
@@ -7404,43 +7431,43 @@ function ratingsRow(ratings, note, meta) {
   // take the one thing on the page *you* put a number into with it.
   return el("section", { class: "title-row" },
     el("h3", { class: "row-head", text: "Ratings" }),
-    el("div", { class: "ratings-row" },
-      list.length
-        ? el("div", { class: "ratings" }, ...list.map((r) =>
-            el("div", { class: "rating" },
-              el("span", { class: "rating-value", text: String(r.value) }),
-              el("span", { class: "rating-source", text: r.label || r.source }),
-            )
-          ))
-        : el("p", { class: "title-source-note", text: "No service answered — see Settings → Ratings." }),
+    // **One grid, one plate per score.** Your own plate is a `ratings` plate like the
+    // services' — same box, same figure over its source — so the row reads as four ratings
+    // rather than three ratings and a control. It used to sit apart on a row of its own,
+    // wearing a different shape, which is what "it is not like the other rating grid" was.
+    el("div", { class: "ratings" },
+      ...list.map((r) =>
+        el("div", { class: "rating" },
+          el("span", { class: "rating-value", text: String(r.value) }),
+          el("span", { class: "rating-source", text: r.label || r.source }),
+        )
+      ),
       meta ? myRatingGrid(meta) : null,
     ),
+    !list.length ? el("p", { class: "title-source-note", text: "No service answered — see Settings → Ratings." }) : null,
     note ? el("p", { class: "title-source-note", text: note }) : null,
   );
 }
 
 /**
- * **Rate it yourself, beside the ratings.** A grid of ten, to the right of the services'
- * plates — the score you put on a title, kept with the title and (once a tracker is
- * connected in Settings → Tracking) sent out with everything else you watch. The one you
- * picked is the plate you are on, so the grid reads as an answer rather than as a keyboard.
+ * **Rate it yourself, in the services' own grid.** The fourth plate of the `Ratings` row —
+ * the same box as TMDB's and IMDb's, wearing the score you put on the title over the words
+ * `Your rating` — kept with the title and (once a tracker is connected in Settings →
+ * Tracking) sent out with everything else you watch. It is a plate, not a separate control
+ * on a row of its own, because it answers the same question the others do.
  */
 function myRatingGrid(meta) {
   const key = watchKey(meta);
   const mine = Number((state.ratings?.mine || {})[key]) || 0;
-  // **The grid is one control, not ten.** Ten focus stops made the D-pad walk through
-  // every score on the way to the next thing on the page, and each number had to be landed
-  // on exactly. It is one stop now: press it — a click, or OK on a remote — and the arrows
-  // (or the wheel, or a middle-button scroll) move the score, then a press writes it. A
-  // mouse still lands on a number directly, because a number is what a mouse clicks.
-  let armed = mine;
-  // **One box, not ten.** Ten number plates was a keypad on a page whose every other
-  // control is one press: the score lives in a single plate you press, the wheel (or the
-  // arrows, or a remote's left/right) moves it, and a press again writes it. The number
-  // is drawn as you move it — that *is* the rating, waiting to be saved.
-  const value = el("span", { class: "my-rating-value", text: mine ? String(mine) : "\u2013" });
+  // **One plate, walked, not ten numbers in a grid.** Ten plates was a keypad on a page
+  // whose every other control is one press, and ten focus stops made the D-pad cross every
+  // score on the way past. The plate is one stop: press it — a click, or OK on a remote —
+  // and the wheel (or left/right, or a remote's own arrows) moves the score inside the same
+  // box; press again to save it. The score is drawn as you move it — that *is* the rating,
+  // waiting to be written.
+  const value = el("span", { class: "rating-value", text: mine ? `${mine}/10` : "\u2013" });
   const box = el("button", {
-    class: `my-rating-box focusable${mine ? " on" : ""}`,
+    class: `rating my-rating focusable${mine ? " on" : ""}`,
     type: "button",
     id: "my-rating",
     "aria-label": "Your rating",
@@ -7452,11 +7479,11 @@ function myRatingGrid(meta) {
       setMyRating(meta, armed);
     },
   },
-    el("span", { class: "my-rating-label", text: "Your rating" }),
     value,
+    el("span", { class: "rating-source", text: "Your rating" }),
   );
   const paint = () => {
-    value.textContent = armed ? String(armed) : "\u2013";
+    value.textContent = armed ? `${armed}/10` : "\u2013";
     box.classList.toggle("on", Boolean(armed));
     box.classList.toggle("armed", armed !== mine);
   };
@@ -7478,7 +7505,7 @@ function myRatingGrid(meta) {
     step(event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
   paint();
-  return el("div", { class: "my-rating", id: "my-rating" }, box);
+  return box;
 }
 
 /** Keep a rating, and hand it to the trackers (see `/tracking/rate`). */

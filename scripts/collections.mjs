@@ -440,12 +440,14 @@ const POPULAR_REGIONAL = new Set([
   "TV4 Play", "NRK TV", "TV 2 Play", "TVP", "Voyo",
   // —— Türkiye and Russia
   "Exxen", "Kinopoisk", "Okko",
-  // —— the Middle East. The list is the region's own platforms **and** the two worldwide
-  // services whose Middle East catalogue is their own (`Netflix` and `Prime Video` are read
-  // from the region's own data, not invented): the Gulf's broadcasters' services, the two
-  // Saudi-backed platforms, and the Israeli and Turkish ones a viewer there would name.
-  "Shahid VIP", "OSN+", "STARZPLAY", "Netflix", "Prime Video", "MBC+", "TOD", "Zee5",
-  "yes+", "Partner", "Cellcom tv", "Hot", "HBO Max", "Apple TV+",
+  // —— the Middle East. **The region's own platforms, and only those.** The worldwide
+  // services (Netflix, Prime Video, HBO Max, Apple TV+) were on this list once and did not
+  // belong on it: they have their own card (see `GLOBAL_OTT`), and a Regional OTT row for
+  // one of them says the region has a service of its own that it does not. What is left is
+  // the region's own: the Gulf's broadcasters' services, the Saudi-backed platforms, and
+  // the Israeli and Turkish ones a viewer there would name.
+  "Shahid VIP", "OSN+", "STARZPLAY", "MBC+", "TOD",
+  "yes+", "Partner", "Cellcom tv", "Hot",
   // —— the Americas
   "Globoplay", "VIX", "Paramount Plus", "Crave", "CBC Gem",
 ]);
@@ -477,7 +479,7 @@ const CONTINENTAL_OTT_LIMIT = 6;
  * service twice under two names). The two worldwide Asian-catalogue services are left out
  * for the same reason: they are already on every region's Regional OTT card.
  */
-function regionalOttByContinent() {
+function regionalOttByContinent(kind = "all") {
   const build = (type) => {
     const rows = [];
     // A service is published once, in the continent its first verified country sits in.
@@ -494,7 +496,18 @@ function regionalOttByContinent() {
           if (!isPopularRegional(svc.name) || seen.has(svc.id) || used.has(svc.id)) continue;
           seen.add(svc.id);
           used.add(svc.id);
-          rows.push(provider(`${name} · ${svc.name}`, svc.id, String(svc.region || code).toUpperCase()));
+          // **`wider: true` is the row's passport past the region filter.** The live
+          // catalog build replaces every `regional-ott` row with the *region's* own
+          // services (see `withRegionalServices`); a continent row is not one of those and
+          // is kept by its flag rather than being swept away with the static list.
+          rows.push({
+            name: kind === "top10" ? `${name} · ${svc.name} | Top 10` : `${name} · ${svc.name}`,
+            kind: "provider",
+            providerId: svc.id,
+            region: String(svc.region || code).toUpperCase(),
+            wider: true,
+            ...(kind === "top10" ? { take: TOP10 } : {}),
+          });
           taken += 1;
         }
       }
@@ -1017,10 +1030,17 @@ const buildCollections = (code = "") => {
     lines: ["Regional", "| Top 10"],
     scene: "regional-ott-top-10",
     titleOnly: true,
-    catalogs: {
-      movie: [...top10Periods(), ...regionalOtt("top10").movie],
-      show: [...top10Periods(), ...regionalOtt("top10").show],
-    },
+    // **The region's Top 10s, and the continents' beside them.** Both Regional cards carry
+    // the continent rows (`regionalOttByContinent`) — they are the same fact read wider, and
+    // a card that is "the regional services" is where a reader looks for them.
+    catalogs: (() => {
+      const here = regionalOtt("top10");
+      const wider = regionalOttByContinent("top10");
+      return {
+        movie: [...top10Periods(), ...here.movie, ...wider.movie],
+        show: [...top10Periods(), ...here.show, ...wider.show],
+      };
+    })(),
   },
   {
     key: "regional-ott",
@@ -1034,7 +1054,7 @@ const buildCollections = (code = "") => {
     // these rows is the one they are a regional OTT in.
     catalogs: (() => {
       const here = regionalOtt("all");
-      const wider = regionalOttByContinent();
+      const wider = regionalOttByContinent("all");
       return {
         movie: [...here.movie, ...wider.movie],
         show: [...here.show, ...wider.show],

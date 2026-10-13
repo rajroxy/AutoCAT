@@ -761,7 +761,12 @@ function withRegionalServices(defs, code) {
   const movie = regionalServicesFor(code, "movie");
   const series = regionalServicesFor(code, "series");
   if (!movie && !series) return defs;
-  const kept = defs.filter((d) => !String(d.key || "").startsWith("regional-ott"));
+  // **The region's own rows are replaced; the continents' are kept.** This used to drop
+  // *every* `regional-ott` def, so the continent rows the card publishes wider
+  // (`regionalOttByContinent`, flagged `wider`) vanished the moment TMDB's list for the
+  // region arrived — the card looked like the rows had never been added at all. A wider row
+  // is not this region's service, so it is not what this list is replacing.
+  const kept = defs.filter((d) => !String(d.key || "").startsWith("regional-ott") || d.entry?.wider);
   // Both regional cards are the same list read twice: the plain one, and the Top 10 the
   // service publishes for itself.
   for (const [cardKey, rowName, take] of [

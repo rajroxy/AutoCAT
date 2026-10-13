@@ -475,7 +475,10 @@ body {
 /* **A 16:9 frame holds 16:9 artwork.** The tile is landscape, so the wide shot fills it
    at its own shape — nothing is cropped into the other orientation. */
 .spotlight-tile-art { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
-.spotlight-tile-art.blank { background: linear-gradient(160deg, var(--panel-2), var(--panel)); }
+/* **A frame with nothing in it is the app's own plate, not a box.** The blank tile wore a
+   160° gradient, which on a dark card drew a lighter edge down one side — the "outline" on
+   the Upcoming card's poster. It is the same flat plate every empty slot in the app is. */
+.spotlight-tile-art.blank { background: var(--panel-2); }
 /* The tag and the name are **drawn on the frame**, the way the tagged artwork draws
    them: a pill across the top, the title under it at the bottom. */
 .spotlight-frame {
@@ -4550,7 +4553,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 /* **The title page's row of four sits lower**, well clear of the overview above it. It
    was 20px, then 34px, and it still read as the last line of the paragraph — it is a row
    of its own now. */
-.title-hero .title-actions { margin: 52px 0 26px; }
+
 
 /* **The player's Options panel.** The gear opens a panel called Options. */
 .player-options-head {
@@ -5016,9 +5019,6 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    of ten sits to the right of them, on the same line. */
 /* **Your rating sits beside the service plates**, on the same line and close to them, so
    the row reads as "what the world says, and what you say" rather than two separate rows. */
-.ratings-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.my-rating { display: flex; flex-direction: column; gap: 8px; }
-.my-rating-label { font-size: 12px; font-weight: 700; color: var(--muted); }
 .my-rating-grid { display: grid; grid-template-columns: repeat(10, 30px); gap: 4px; }
 .my-rating-btn {
   width: 30px;
@@ -5063,7 +5063,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 
 /* **The line under the title's buttons gets its room.** The row read as part of the
    overview above it; it starts further down the column now, at the banner's own rhythm. */
-.title-hero .title-actions { margin: 96px 0 26px; }
+
 
 /* ============================================================================
    **The episode row: the ring on the cover, the fill on the play.**
@@ -5217,11 +5217,15 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .live-hero .hero-art { background: var(--panel-2); }
 .live-hero-arts {
   display: grid;
-  grid-template-columns: minmax(120px, 0.72fr) minmax(200px, 1.28fr);
+  /* **Two posters, each half the banner.** The frame was a narrow plate beside a wide one,
+     which read as a logo and a picture rather than the VOD banner's pair. The two halves are
+     the same size now, and tall enough to be posters rather than strips. */
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
   align-self: stretch;
-  min-height: 220px;
+  min-height: 300px;
 }
+.live-hero-frame { min-height: 300px; }
 .live-hero-frame {
   position: relative;
   display: grid;
@@ -5231,7 +5235,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   border-radius: 12px;
   background: var(--panel-2);
 }
-.live-hero-frame.live-hero-empty { background: linear-gradient(160deg, var(--panel-2), var(--panel)); }
+.live-hero-frame.live-hero-empty { background: var(--panel-2); }
 .live-hero-still { display: block; width: 100%; height: 100%; object-fit: cover; }
 .live-hero-still-empty {
   padding: 12px;
@@ -5242,5 +5246,41 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 }
 .live-hero .hero-body { align-self: center; }
 
-/* **A title page's own actions sit lower still.** */
-.title-hero .title-actions { margin: 118px 0 26px; }
+/* ============================================================================
+   **The row sits on the banner's floor, and the banner does not grow.**
+   ============================================================================
+   Play and the pins were pushed down with a margin — 52px, then 96, then 118 — and a margin
+   inside the column makes the *banner* taller: the artwork stretches to it, which is what
+   "you are stretching the detail banner instead of moving the row" was. The banner has a
+   height of its own now, and the row is held at the bottom of the column with
+   `margin-top: auto`, so it reads lower without the frame moving. */
+.title-hero { min-height: 380px; }
+.title-hero .hero-body { display: flex; flex-direction: column; }
+.title-hero .title-actions { margin-top: auto; margin-bottom: 10px; }
+
+/* **The plate you rate from is a ratings plate.** `Your rating` is drawn as the fourth
+   `Ratings` plate — the same box, the same figure over its source — so it belongs in that
+   row rather than beside it. A `<button>` arrives with the browser's own font, background
+   and border, so the plate's rules are restated over that reset here. */
+button.rating.my-rating {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border: 0;
+  /* The four plates are one row, so the plate's own gap is the ratings row's. */
+  gap: 4px;
+}
+.my-rating:not(.on) .rating-value { color: var(--faint); }
+/* The walk is live: the plate wears the selection, so it is clear the wheel is on it. */
+.my-rating.armed { box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent)); }
+
+/* **A box per plate, under the plate's name.** `Sign in` and `Accounts` are two plates; the
+   fields and the account rows sit in a box inside each one, so the name labels the plate and
+   the box holds the thing rather than both reading as one flat list. */
+.account-box {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+.account-box:empty { display: none; }
+
