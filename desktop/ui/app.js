@@ -502,16 +502,11 @@ const LAYOUTS = [
  * changing one pick re-tints buttons, chips, borders and highlights together instead of
  * leaving half the UI in the old colour.
  */
-/* **The system colour, first.** The app's own neutral — the grey the boot screen's plate is
-   built on — so the whole app can be set to "no colour of its own" with one press, and the
-   board under it is the same sixteen the highlight has. */
-/* **System is the colour the app opens in** — not a neutral of its own invention: it is the
-   boot screen's own accent, the lavender the cat's ear and the tail of the wordmark are cut
-   from (`#c8bdee`, see `.boot-name` in `style.css`). Choosing it is how a screen goes back
-   to the look it started in. */
-const SYSTEM_ACCENT = ["system", "System", "200, 189, 238", "#c8bdee", "#9b8cc9"];
+/* **Sixteen colours, and the app's own is one of them.** `System` was on this board for a
+   while — the lavender the boot screen is cut from — and it is gone: it was a fifth kind of
+   neutral beside Sand and Slate, and the boot screen takes the accent you pick, so there was
+   nothing left for it to be the colour *of*. An install that had chosen it lands on Copper. */
 const ACCENTS = [
-  SYSTEM_ACCENT,
   // **Copper is the app's own colour.** It is the first entry, so it is what a fresh
   // install wears and what an accent that is no longer on the board falls back to
   // (see `accentOf`) — a warm metal that reads the same on a bright and a dim screen.
@@ -575,8 +570,11 @@ const storedAccent = (key) => {
   return LEGACY_ACCENTS[id] || "";
 };
 
-/** The colours a store written by an older board may still hold, mapped onto the ones left. */
+/** The colours a store written by an older board may still hold, mapped onto the ones left.
+ *  `system` was on the board for a while — the boot screen's lavender — and an install that
+ *  chose it lands on the app's own copper rather than on nothing. */
 const LEGACY_ACCENTS = {
+  system: "copper",
   bronze: "copper", coral: "copper", crimson: "ruby", mint: "green", jade: "green",
   emerald: "green", amethyst: "plum", topaz: "amber", teal: "turquoise", violet: "plum",
   indigo: "sapphire",
@@ -1057,7 +1055,7 @@ const state = {
   settingsSection: localStorage.getItem(KEY.section) || "profile",
   // The Library row currently being renamed, if any — see `paneCustomRows`.
   customRowEdit: "",
-  accent: storedAccent(KEY.accent) || "system",
+  accent: storedAccent(KEY.accent) || "copper",
   // **The selection colour follows the highlight until it is set.** Empty means "same as the
   // accent", so nothing changes for anyone who never opens this setting.
   // **The selection colour is a choice of its own.** It used to fall back to the highlight
@@ -11410,9 +11408,11 @@ function guideCard(mode = "livetv") {
     grid: el("div", { class: "guide-wrap" },
       cardCats,
       cardPreview,
-      el("div", { class: "guide-table" },
-        liveView().guide === "list" ? guideListBlock(channels, { compact: true }) : guideGrid(channels, { hours: 3 }),
-      ),
+      // **The card is always the table.** It followed the Guide-and-Categories setting and
+      // drew the channel wall in the grid mode, so a viewer who wanted a guide got a wall of
+      // logos with counts — the one thing a guide is not. The table is what the card is for;
+      // the list view of the Guide *screen* is still there for anyone who prefers it.
+      el("div", { class: "guide-table" }, guideGrid(channels, { hours: 3 })),
     ),
     action: () => go("#/guide"),
   });
@@ -11510,6 +11510,31 @@ function liveUpcomingCard(mode = "livetv") {
     grid: el("div", { class: "content-strip spotlight-strip" },
       el("div", { class: "spotlight-track" }, ...tiles)),
     action: () => go("#/calendar"),
+  });
+}
+
+/**
+ * **The Watchlist, on the IPTV home too.** A live profile is still a place you keep titles to
+ * watch — pinning one from a title page files it here whichever half of the app you are in —
+ * so the card that holds them is on this home as well. Its frame is the posters themselves,
+ * the way the Movies home's Watchlist is: a wall of what you pinned, six at a time.
+ */
+function liveWatchlistCard() {
+  const items = (state.watchItems || []).filter((i) => i && i.poster);
+  const posters = items.slice(0, 6);
+  const wall = posters.length
+    ? el("div", { class: "poster-wall" }, ...posters.map((i) =>
+        el("img", { class: "poster-wall-art", src: i.poster, alt: "", loading: "lazy" }),
+      ))
+    : el("div", { class: "poster-wall" },
+        el("span", { class: "poster-wall-empty", text: "Nothing pinned yet" }),
+      );
+  return liveCard({
+    id: "open-watchlist",
+    title: "Watchlist",
+    sub: posters.length ? `${items.length} pinned · press to open` : "Pin a title from any title page",
+    grid: wall,
+    action: () => go("#/x/watchlist"),
   });
 }
 
@@ -11616,27 +11641,19 @@ function renderLiveHome() {
   if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
   const nodes = [
     liveHeroBlock(),
-    // **Six cards, two rows: the live row, then the sports row.** Guide, Recordings and
-    // Upcoming first — the live half exactly as it was — and under them the same three for
-    // sports: the sports guide, the highlights kept from it, and what is on next on those
-    // channels. The switch that used to choose between the two is gone, so both are here.
+    // **Guide, Recordings, Highlights, Watchlist — then the two Upcoming cards.** The live
+    // guide leads, what was kept follows it, the sports half's Highlights sits beside the
+    // Watchlist (which is the same list of things to watch under either half), and the two
+    // Upcoming cards close the page: what is next on Live TV, then what is next on Sports.
     el(
       "div",
       { class: "icons grid live-cards" },
       ...[
-        liveCardOn("live-guide")
-          ? (liveView().guide === "list"
-              ? guideCard("livetv")
-              : channelsCard({ title: "Guide", action: () => go("#/guide"), mode: "livetv" }))
-          : null,
+        liveCardOn("live-guide") ? guideCard("livetv") : null,
         liveCardOn("live-recordings") ? recordingsCard("livetv") : null,
-        liveCardOn("live-upcoming") ? liveUpcomingCard("livetv") : null,
-        liveCardOn("live-guide")
-          ? (liveView().guide === "list"
-              ? guideCard("sports")
-              : channelsCard({ title: "Sports", action: () => go("#/guide"), mode: "sports" }))
-          : null,
         liveCardOn("live-recordings") ? recordingsCard("sports") : null,
+        liveWatchlistCard(),
+        liveCardOn("live-upcoming") ? liveUpcomingCard("livetv") : null,
         liveCardOn("live-upcoming") ? liveUpcomingCard("sports") : null,
       ].filter(Boolean),
     ),
@@ -11674,7 +11691,10 @@ function renderLiveCategories() {
           el("button", {
             class: "guide-list-row focusable",
             type: "button",
-            onclick: () => go("#/categories/" + encodeURIComponent(group.name)),
+            // **A category is a door into the guide, not into a wall of logos.** An IPTV player answers
+          // "show me Sports" with that category in the schedule, filtered; the tiles screen sent you
+          // to a grid of channel marks with counts, which is a directory, not a guide.
+          onclick: () => { state.live.guideCategory = group.name; go("#/guide"); },
           },
             el("span", { class: "guide-list-name", text: group.name }),
             el("span", { class: "guide-list-at", text: group.count + " channel" + (group.count === 1 ? "" : "s") }),
