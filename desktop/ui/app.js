@@ -9708,12 +9708,13 @@ function renderRecordings() {
  *   group's own box now does by itself.
  * - **A `.group-head` opens a group.** The label goes inside that group's box, first, and the
  *   boxes under it sit inside with it.
- * - **A provider that leads with its own title is a group of its own** ("Speed", "Sign in",
- *   "Browsing music", "Resolution"): it is not a row inside somebody else's group, so it
- *   closes the one in hand and stands as its own card — its name at the top, its own controls
- *   under it. A provider whose name sits in a `provider-head` ("Real-Debrid", "TMDB", an AI
- *   provider) is a **row**: it stays inside the group it was handed, a shade lighter than the
- *   plate holding it.
+ * - **A provider that leads with its own title opens a plate too** ("Speed", "Resolution",
+ *   "Browsing music"): the name is lifted out to the plate's first line and the card's own box
+ *   becomes the box inside it — the Account shape. A provider whose name sits in a
+ *   `provider-head` ("TMDB", "Real-Debrid", an AI provider) is a **row**: it stays inside the
+ *   plate it was handed, a shade lighter than the plate holding it.
+ * - **A run nobody named still gets its plate.** The metadata keys, the "Ask AI" switch and the
+ *   pickers sat on the page with no outer box at all; the box is the same one, with no label.
  */
 function optionGroups(items) {
   const flat = [];
@@ -9736,10 +9737,9 @@ function optionGroups(items) {
       if (label) out.push(label);
       return;
     }
-    if (!label) {
-      for (const node of nodes) out.push(node);
-      return;
-    }
+    // **Every group is a plate, even one nobody named.** A run with no `.group-head` over it
+    // (the metadata keys, the "Ask AI" switch, the pickers) still gets the outer box the
+    // named groups have, so no row is left sitting on the page on its own.
     out.push(el("div", { class: "option-group" }, label, ...nodes));
   };
 
@@ -9750,7 +9750,16 @@ function optionGroups(items) {
     if (cls.contains("group-head")) { close(); run = { label: node, nodes: [] }; continue; }
     // Its *own* title: a direct child, not the one inside a `provider-head`.
     const own = cls.contains("provider") ? [...node.children].find((c) => c.classList.contains("option-title")) : null;
-    if (own) { close(); out.push(node); continue; }
+    if (own) {
+      // **A card that names itself gets the same outer box.** "Speed", "Resolution", "Sign in"
+      // and "Browsing music" carried their name at the top of the box they filled, so there was
+      // no plate around the label and the control it owns. The name moves out to the plate's
+      // first line and the card itself becomes the box inside it — the Account shape.
+      close();
+      own.remove();
+      out.push(el("div", { class: "option-group" }, groupHead(own.textContent), node));
+      continue;
+    }
     if (!run) run = { label: null, nodes: [] };
     run.nodes.push(node);
   }
