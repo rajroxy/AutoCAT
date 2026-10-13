@@ -251,7 +251,7 @@ body {
   gap: 9px;
   flex: none;
   padding: 9px 18px;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 14px;
   font-weight: 700;
   background: linear-gradient(160deg, var(--accent), var(--accent-deep));
@@ -4538,37 +4538,25 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .settings-pane .group-head:first-child { margin-top: 0; }
 .settings-pane .group-head .option-title { font-size: 15px; font-weight: 700; }
 
-/* **Every group of options is its own grey panel.** A pane hands back a flat list — the
-   controls, and a `.group-head` wherever a new group starts — and `optionGroups()` wraps
-   each run, head first, in one of these. The label sits at the top of the panel and the
-   boxes it owns sit behind it, inside it. */
-.settings-pane .option-group {
-  padding: 14px 16px 16px;
-  border-radius: var(--radius);
-  background: var(--panel);
-}
-.settings-pane .option-group > * + * { margin-top: 10px; }
-.settings-pane .option-group > .group-head { margin: 0 0 10px; }
-.settings-pane .option-group + .option-group { margin-top: 4px; }
-/* The boxes inside a group are a shade lighter than the panel that holds them. */
-.settings-pane .option-group .option { background: var(--panel-2); }
-
+/* **The label sits on the page, above the boxes — never inside one.** A group is named by
+   its own line (`.group-head`), the box or boxes it owns sit under it, and each of those
+   carries its own grey. There is no panel around a group: a box inside a box inside a box
+   was three edges for one thing, and the outlines that came with it. */
 /* **One box per option, in every pane, in both modes.** The Content pane's rows are one box
    each; the panes that gathered theirs inside a `.provider` panel read as one clump of
    controls squeezed into a single card — the "very compact" board. The panel's own chrome is
    what goes: what is left is the rows, each its own box, spaced the way Content's are. The
    markup is shared by VOD and by the IPTV profile, so one rule does both. */
-/* **A row inside a group is a box, the way an add-on row is.** The provider, tracker,
-   subtitle, Debrid and AI rows (and the DNS switch) had their panel chrome stripped so the
-   board did not read as "a list inside a list" — but with each group now a panel of its own,
-   what that leaves is bare text inside a grey box. They are boxes again: the same fill and
-   hairline an add-on row wears. */
+/* **A row is a box, and the box is the grey — with no outline around it.** The provider,
+   tracker, subtitle, Debrid and AI rows (the account card, the DNS switch, the Speed picker)
+   are the grey plate they always were: `--panel`, its own padding, the app's radius, and no
+   hairline. The hairline was what read as a box drawn around the box. */
 .settings-pane .provider {
-  padding: 12px 14px;
+  padding: 14px 16px;
   margin-bottom: 0;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 0;
   border-radius: var(--radius);
-  background: var(--panel-2);
+  background: var(--panel);
 }
 .settings-pane .provider > * + * { margin-top: 10px; }
 .settings-pane .option { background: var(--panel); }

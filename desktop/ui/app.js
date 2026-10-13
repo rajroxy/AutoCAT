@@ -9699,15 +9699,23 @@ function renderRecordings() {
 }
 
 /**
- * **Every group of options becomes one panel.**
+ * **A group of options is a label, and the boxes under it.**
  *
- * A pane hands back a flat list — its controls, with a `.group-head` wherever a new group
- * begins, and `.provider` boxes that either name a group themselves (a `span.option-title`
- * as their own first child: "Sign in", "Browsing music", "Speed") or belong inside one (a
- * key row, whose name sits in a `provider-head`). This walks that list and wraps each group
- * in its own grey panel, so a group is one object on the board: the label, and the boxes it
- * owns behind it. The `.option-desc` captions are dropped — the panel hides them anyway, and
- * a heading that arrives before its group belongs to the group that follows it.
+ * A pane hands back a flat list: its controls, with a `.group-head` wherever a new group
+ * begins, and `.provider` boxes that either carry their own name — as their *own* first
+ * child, the way "Sign in" and "Browsing music" do — or are rows inside a group, named in a
+ * `provider-head` ("Real-Debrid", "TMDB", an AI provider).
+ *
+ * This walks that list once, and does three things with it:
+ *
+ * - **The caption is dropped.** Every `.option-desc` is hidden in this panel anyway.
+ * - **A rule is dropped too.** `.h-divider` was the way one group was separated from the
+ *   next; the group's own label is what separates them now.
+ * - **A main label comes out of its box.** A provider that names itself and whose group has
+ *   no label of its own is the group's *name*, not a row inside it: the name is lifted out to
+ *   sit above the box, the way "Card view" and "Services" already do. A provider that names
+ *   itself *inside* a group that is already named keeps it — "Real-Debrid", "TMDB", an AI
+ *   provider and the account card are the row's own name on the row's own box.
  */
 function optionGroups(items) {
   const flat = [];
@@ -9719,27 +9727,23 @@ function optionGroups(items) {
   };
   walk(items);
 
-  const groups = [];
-  let panel = null;
-  let label = null;
-  /** A box that leads with its own title is a group of its own. */
-  const names = (node) => Boolean(node?.classList?.contains("provider")) && [...node.children].some((c) => c.classList?.contains("option-title"));
-  const open = () => {
-    panel = el("div", { class: "option-group" });
-    groups.push(panel);
-    if (label) { panel.append(label); label = null; }
-  };
-
+  const out = [];
+  let labelled = false;
   for (const node of flat) {
     const cls = node.classList || {};
     if (cls.contains("option-desc")) continue;
-    if (cls.contains("h-divider")) { panel = null; continue; }   // the panel edge is the rule now
-    if (cls.contains("group-head")) { label = node; panel = null; continue; }
-    if (!panel || names(node)) open();
-    panel.append(node);
+    if (cls.contains("h-divider")) { labelled = false; continue; }
+    if (cls.contains("group-head")) { labelled = true; out.push(node); continue; }
+    // The provider's *own* title: a direct child, not the one inside a `provider-head`.
+    const own = cls.contains("provider") ? [...node.children].find((c) => c.classList.contains("option-title")) : null;
+    if (own && !labelled) {
+      own.remove();
+      out.push(el("div", { class: "group-head" }, el("span", { class: "option-title", text: own.textContent })));
+      labelled = true;
+    }
+    out.push(node);
   }
-  if (label) open();
-  return groups;
+  return out;
 }
 
 function renderSettings() {
