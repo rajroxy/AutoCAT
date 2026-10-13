@@ -7406,9 +7406,10 @@ function paneDebrid() {
   return [
     el("p", { class: "option-desc", text: "A torrent stream has no web address of its own — the add-on publishes an info hash, and the file lives in a swarm. A browser can only reach swarm peers that speak WebRTC, which is why a torrent without a debrid account usually never starts. A debrid service fetches the torrent on its own servers and hands back a direct link, so it plays like any other stream." }),
     el("div", { class: "group-head" },
-      // **Not "Services", not "Torrent services", and not the pane's own word either.** What
-      // is in these boxes is a membership you paste a key from.
-      el("span", { class: "option-title", text: "Memberships" }),
+      // **The accounts, said plainly.** "Services" was generic, "Torrent services" named the
+      // stream instead of the thing you sign in to, and "Memberships" was a word nobody uses
+      // for Real-Debrid. These are debrid accounts.
+      el("span", { class: "option-title", text: "Debrid accounts" }),
       el("span", { class: "option-desc", text: active ? `Enabled services are tried in order; the first one that answers serves the stream. Right now: ${active[1]}.` : "Enable one and it takes over the torrent streams automatically. Paste a key, then press Check connection." }),
     ),
     ...DEBRID_SERVICES.map(([name, label, desc]) => keyRow("debrid", name, label, desc, state.debrid, KEY.debrid, "/debrid/verify")),
@@ -8512,8 +8513,9 @@ function paneRatings() {
     // inside one "Ratings service" panel, which read as a list inside a list; as boxes
     // they sit in the pane's own board, and the chosen one wears the accent like every
     // other choice in Settings.
-    // **Not "Rating source"** — the tile above already says Ratings, and the label repeated it.
-    groupHead("Source"),
+    // **Not "Rating source" (the tile repeats it), and not "Source" either** — the Add-ons pane
+    // already has a plate with that word in it. This is the scores those sites hand back.
+    groupHead("Scores"),
     ...RATING_SERVICES.filter(([id]) => id === "none").map(pick),
     // **One box per service, stacked full width — MDBList first.** They were drawn two to
     // a line, half the pane each, which cut both labels short and made the two services

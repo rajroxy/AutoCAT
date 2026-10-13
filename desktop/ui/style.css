@@ -4580,6 +4580,48 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    are the grey plate they always were: `--panel`, its own padding, the app's radius, and no
    hairline. The hairline was what read as a box drawn around the box. */
 .settings-pane .site-row { padding: 14px 16px; border-radius: 12px; }
+
+/* **The mark is drawn here, not by the platform.** A native checkbox and radio arrive with the
+   browser's own hairline outline — a light circle and a light square drawn on top of the app's
+   flat plates, which is the one outline the board never dropped. They are appearance:none now:
+   a flat fill at rest, and the selection colour with a tick or a dot when they are on. */
+.settings-pane .option input[type="checkbox"],
+.settings-pane .option input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.09);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--quick, 0.18s) ease;
+}
+.settings-pane .option input[type="radio"] { border-radius: 50%; }
+.settings-pane .option input:checked { background: var(--select, var(--accent)); }
+.settings-pane .option input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #14110a;
+}
+.settings-pane .option input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid #14110a;
+  border-bottom: 2px solid #14110a;
+  transform: rotate(40deg);
+}
+.settings-pane .option input:disabled { opacity: 0.45; }
+.settings-pane .option.off input { cursor: default; }
 .settings-pane .provider {
   padding: 14px 16px;
   margin-bottom: 0;
