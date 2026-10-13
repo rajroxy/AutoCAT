@@ -241,7 +241,7 @@ body {
    two buttons on one line, off by four pixels. The row carries that spacing now and the
    switch inside it has none, so the two sit level. */
 .home-switch-row .row-switch { margin: 0; }
-/* **The Movies / Shows plate itself.** No disc and no flat plate of its own: A flat accent fill in its own 12px corners read as a
+/* **The plate, in the app's own corners.** No disc, and no flat fill of its own: A flat accent fill in its own 12px corners read as a
    different kind of object from the switch button beside it, which is a gradient pill — so
    the voice control is now that same button: the same gradient, the same pill, the same
    padding and the same 14px label, with the microphone where the switch has its word. */
@@ -250,8 +250,8 @@ body {
   align-items: center;
   gap: 9px;
   flex: none;
-  padding: 9px 22px;
-  border-radius: 999px;
+  padding: 9px 18px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
   background: linear-gradient(160deg, var(--accent), var(--accent-deep));
@@ -1072,7 +1072,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   padding-bottom: 4px;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
-.vis-card-rows .vis-option:first-child { border-top: 0; }
+.vis-card-rows .vis-leaf:first-child .vis-option { border-top: 0; }
 .vis-option.vis-sub .option-title { font-weight: 600; font-size: 14px; }
 .vis-option.vis-sub .option-desc { display: none; }
 /* **What is chosen is visible at a glance** (Settings → Profile): a card, a catalog row
@@ -4072,8 +4072,15 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 /* The two modes, in Settings → Profile: the boot screen's tiles, laid out as a pair. */
 .mode-grid { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
 
-/* **The card editor folds.** A card's head is the row you read; the rows it owns sit
-   under it, behind a chevron, so a board of twenty cards is scrolled a card at a time. */
+/* **The editor is a tree, and it starts folded.** A tab (Movies, Shows), the cards it
+   holds, and — once a card is opened — that card's own catalog rows. The button in a head
+   is the same small square everywhere: a chevron to fold, or an arrow to move the entry one
+   place in its list. */
+.vis-card.vis-tab { padding: 6px 12px 12px; }
+.vis-btn { font-size: 10px; }
+.vis-btn.dead { opacity: 0.3; cursor: default; pointer-events: none; }
+.vis-leaf { display: flex; align-items: center; gap: 8px; }
+.vis-leaf .vis-option { flex: 1; min-width: 0; }
 .vis-card-head { display: flex; align-items: center; gap: 8px; }
 .vis-card-head .vis-option { flex: 1; min-width: 0; }
 .vis-fold {
@@ -4530,6 +4537,21 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .settings-pane .group-head { margin: 26px 0 12px; }
 .settings-pane .group-head:first-child { margin-top: 0; }
 .settings-pane .group-head .option-title { font-size: 15px; font-weight: 700; }
+
+/* **Every group of options is its own grey panel.** A pane hands back a flat list — the
+   controls, and a `.group-head` wherever a new group starts — and `optionGroups()` wraps
+   each run, head first, in one of these. The label sits at the top of the panel and the
+   boxes it owns sit behind it, inside it. */
+.settings-pane .option-group {
+  padding: 14px 16px 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.settings-pane .option-group > * + * { margin-top: 10px; }
+.settings-pane .option-group > .group-head { margin: 0 0 10px; }
+.settings-pane .option-group + .option-group { margin-top: 4px; }
+/* The boxes inside a group are a shade lighter than the panel that holds them. */
+.settings-pane .option-group .option { background: var(--panel-2); }
 
 /* **One box per option, in every pane, in both modes.** The Content pane's rows are one box
    each; the panes that gathered theirs inside a `.provider` panel read as one clump of

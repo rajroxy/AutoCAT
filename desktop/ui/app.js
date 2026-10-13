@@ -2069,6 +2069,11 @@ function visFor() {
   v.rows = v.rows || { movie: true, series: true };
   v.cards = v.cards || {};
   v.catalogs = v.catalogs || {};
+  // **The order you put the lists in**, saved beside the picks: per tab for the cards, per
+  // card for its catalog rows. Absent means "the order the addon published".
+  v.order = v.order || {};
+  v.order.cards = v.order.cards || {};
+  v.order.catalogs = v.order.catalogs || {};
   return v;
 }
 
@@ -2080,8 +2085,67 @@ const rowEnabled = (row) => !picking() || visFor().rows[row] !== false;
 const cardVisible = (card) => !picking() || visFor().cards[card.key] !== false;
 const catalogVisible = (cat) => !picking() || visFor().catalogs[cat.id] !== false;
 
+/**
+ * **The order a list is drawn in.** A list the user has never moved is handed back exactly
+ * as it came — the order the addon publishes. Once a move is remembered, the entries that
+ * order names come first and anything new is appended, so a card or a row added later still
+ * turns up.
+ */
+function orderedBy(list, order, idOf) {
+  if (!Array.isArray(order) || !order.length) return list;
+  const byId = new Map(list.map((x) => [idOf(x), x]));
+  const out = order.map((id) => byId.get(id)).filter(Boolean);
+  for (const x of list) if (!order.includes(idOf(x))) out.push(x);
+  return out;
+}
+
+/** One step up or down in a stored order — `null` at either end of the list. */
+function movedOrder(list, order, idOf, id, delta) {
+  const ids = orderedBy(list, order, idOf).map(idOf);
+  const from = ids.indexOf(id);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= ids.length) return null;
+  [ids[from], ids[to]] = [ids[to], ids[from]];
+  return ids;
+}
+
+/** The cards a tab holds: those that publish rows for it, in the order they were put in. */
+const cardsForRow = (row) =>
+  orderedBy(
+    state.collections.filter((c) => !c.hidden && (c[row]?.catalogs || []).length),
+    visFor().order?.cards?.[row],
+    (c) => c.key,
+  );
+
+/** A card's catalog rows on one tab, in the order they were put in. */
+const catsForCard = (card, row) =>
+  orderedBy(card[row]?.catalogs || [], visFor().order?.catalogs?.[card.key]?.[row], (c) => c.id);
+
+/** Move a card one place inside its tab. */
+function moveVisCard(row, key, delta) {
+  const v = visFor();
+  const next = movedOrder(cardsForRow(row), v.order.cards[row], (c) => c.key, key, delta);
+  if (!next) return;
+  v.order.cards[row] = next;
+  saveVisibility();
+  render();
+}
+
+/** Move a catalog row one place inside its card. */
+function moveVisCatalog(row, card, id, delta) {
+  const v = visFor();
+  const perCard = (v.order.catalogs[card.key] = v.order.catalogs[card.key] || {});
+  const next = movedOrder(card[row]?.catalogs || [], perCard[row], (c) => c.id, id, delta);
+  if (!next) return;
+  perCard[row] = next;
+  saveVisibility();
+  render();
+}
+
 function orderedCatalogs(card) {
   const catalogs = rowOf(card).catalogs;
+  const saved = visFor().order?.catalogs?.[card.key]?.[rowKey()];
+  if (saved?.length) return orderedBy(catalogs, saved, (c) => c.id);
   const order = state.order[card.key];
   if (order) {
     const byId = new Map(catalogs.map((c) => [c.id, c]));
@@ -3697,16 +3761,19 @@ function iconBox(c, row) {
  * their order was not the one the covers were designed around. The order is now
  * fixed in `scripts/collections.mjs` and Home shows all of it, always.
  */
-function collectionList() {
+function collectionList(row = state.row) {
   // A **hidden** card (the banner's own source, On the Board) is not a tile on
   // Home: its rows are already on the left of the banner.
-  return state.collections.filter((c) => !c.hidden && cardVisible(c));
+  // **The order is the one you put the cards in** (Settings → Profile → Edit), so a card
+  // moved up in the editor is higher on Home too.
+  const order = visFor().order?.cards?.[row];
+  return orderedBy(state.collections.filter((c) => !c.hidden && cardVisible(c)), order, (c) => c.key);
 }
 
 /** The collection grid, with the vertical divider before the marked card. */
 function collectionGrid(row) {
   const container = el("div", { class: state.layout === "rows" ? "icons rows" : "icons grid" });
-  for (const c of collectionList()) {
+  for (const c of collectionList(row)) {
     if (c.divider) container.append(el("div", { class: "v-divider", "aria-hidden": "true" }));
     container.append(iconBox(c, row));
   }
@@ -7425,6 +7492,7 @@ function paneDns() {
       class: "option-desc",
       text: "Which resolver every request in this app asks. It changes how a domain turns into an address — nothing else. It is not a VPN and it does not hide anything.",
     }),
+    groupHead("System DNS"),
     el("div", { class: "provider" },
       el("div", { class: "provider-head" },
         el("div", {},
@@ -7989,116 +8057,117 @@ function paneProfile() {
         ? "Switch off anything this profile should not show, then press Done. Off by default: with the editor closed, everything shows and nothing is hidden."
         : "This is the profile the app is using. Names are changed on the profile screen at boot; press Edit to choose which rows, cards and catalogs this profile shows.",
     }),
-    editing && liveProfile()
-      ? liveVisEditor(v)
-      : editing
-        ? el("div", { class: "vis-editor" },
-            el("section", { class: "vis-section" },
-              el("div", { class: "group-head" },
-                el("span", { class: "option-title", text: "Media rows" }),
-                el("span", { class: "option-desc", text: "The Movies and Shows rows under the hero banner." }),
-              ),
-              visRow(v.rows.movie !== false, "row", "movie", "Movies", "The Movies row and its cards."),
-              visRow(v.rows.series !== false, "row", "series", "Shows", "The Shows row and its cards."),
-            ),
-
-            el("section", { class: "vis-section" },
-              el("div", { class: "group-head" },
-                el("span", { class: "option-title", text: "Cards" }),
-                el("span", { class: "option-desc", text: `${state.collections.filter(cardVisible).length} of ${state.collections.length} cards show on Home, in the published order. Each card's catalog rows are listed inside it.` }),
-              ),
-              ...state.collections.map((card) => visCard(card, v)),
-            ),
-          )
-        : null,
+    editing
+      ? (liveProfile() ? liveVisEditor(v) : vodVisEditor(v))
+      : null,
   ].filter(Boolean);
+}
+
+/**
+ * **The editor is a tree, and it starts folded.**
+ *
+ * A tab — **Movies**, **Shows** — holds the cards that publish rows for it; a card holds its
+ * own catalog rows. Every level is shut until it is opened, so the board opens as two lines
+ * instead of a hundred, and each head carries the same small square buttons: the chevron to
+ * fold it, and an arrow to move it one place up or down in its list.
+ */
+const visOpen = (bag, key) => (state[bag] || {})[key] === true;
+const setVisOpen = (bag, key, on) => { state[bag] = { ...(state[bag] || {}), [key]: on }; };
+
+/** One small square button: the fold chevron, or a move arrow. `dead` at either end. */
+const visBtn = (label, text, onClick, dead = false) =>
+  el("button", {
+    class: `vis-fold vis-btn focusable${dead ? " dead" : ""}`,
+    type: "button",
+    title: label,
+    "aria-label": label,
+    text,
+    disabled: dead || null,
+    onclick: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onClick();
+    },
+  });
+
+/** The fold button, wherever a level of the tree can open. */
+const visFold = (label, open, onFold) =>
+  visBtn(open ? `Fold ${label}` : `Show ${label}`, open ? "▾" : "▸", onFold);
+
+/** A card inside a tab: its switch, its fold, and the two move buttons. */
+function visCardBlock(v, row, card, index, total) {
+  const cats = card[row]?.catalogs || [];
+  const list = catsForCard(card, row);
+  const on = v.cards[card.key] !== false;
+  // A card that is off has no rows to pick: its catalog rows are not drawn at all, because
+  // a hundred rows still on screen under a card switched off is the editor arguing with itself.
+  const open = on && visOpen("openCards", `${row}:${card.key}`);
+  return el("div", { class: `vis-card${on ? "" : " off"}${open ? " open" : ""}` },
+    el("div", { class: "vis-card-head" },
+      visRow(on, "card", card.key, titleOf(card, row), `${cats.length} catalog rows`),
+      cats.length ? visFold(titleOf(card, row), open, () => { setVisOpen("openCards", `${row}:${card.key}`, !open); render(); }) : null,
+      visBtn("Move up", "▲", () => moveVisCard(row, card.key, -1), index === 0),
+      visBtn("Move down", "▼", () => moveVisCard(row, card.key, 1), index === total - 1),
+    ),
+    open
+      ? el("div", { class: "vis-card-rows" },
+          ...list.map((cat, i) => el("div", { class: "vis-leaf" },
+            visRow(v.catalogs[cat.id] !== false, "catalog", cat.id, cat.name, "", 1),
+            visBtn("Move up", "▲", () => moveVisCatalog(row, card, cat.id, -1), i === 0),
+            visBtn("Move down", "▼", () => moveVisCatalog(row, card, cat.id, 1), i === list.length - 1),
+          )),
+        )
+      : null,
+  );
+}
+
+/** A tab — Movies or Shows — and, once it is opened, the cards it holds. */
+function visTabBlock(v, row, label, cards, cardNode) {
+  const open = visOpen("openRows", row);
+  return el("div", { class: `vis-card vis-tab${open ? " open" : ""}` },
+    el("div", { class: "vis-card-head" },
+      visRow(v.rows[row] !== false, "row", row, label, `${cards.length} ${cards.length === 1 ? "card" : "cards"}`),
+      visFold(label, open, () => { setVisOpen("openRows", row, !open); render(); }),
+    ),
+    open ? el("div", { class: "vis-card-rows" }, ...cards.map((card, i) => cardNode(card, i, cards.length))) : null,
+  );
+}
+
+/** The VOD editor: the two tabs, folded. */
+function vodVisEditor(v) {
+  return el("div", { class: "vis-editor" },
+    ...[["movie", "Movies"], ["series", "Shows"]].map(([row, label]) => {
+      const cards = cardsForRow(row);
+      return visTabBlock(v, row, label, cards, (card, i, total) => visCardBlock(v, row, card, i, total));
+    }),
+  );
 }
 
 /**
  * **The editor, on the live profile — the live profile's own cards.**
  *
- * The same three things the Movies editor offers (which rows, which cards), drawn from
- * what a live playlist actually publishes: the **Live TV / Sports** rows and the four
- * cards on its home. There are no catalog rows to list here — a live row is a lineup,
- * not a set of catalogs — so each card is one switch and its own description.
+ * The same two tabs the VOD editor offers — **Live TV** and **Sports** — drawn from what a
+ * live playlist actually publishes. There are no catalog rows to list here: a live row is a
+ * lineup, not a set of catalogs, so a card under a tab is one switch on one line.
  */
 function liveVisEditor(v) {
   return el("div", { class: "vis-editor" },
-    el("section", { class: "vis-section" },
-      el("div", { class: "group-head" },
-        el("span", { class: "option-title", text: "Media rows" }),
-        el("span", { class: "option-desc", text: "The Live TV and Sports rows under the banner." }),
-      ),
-      visRow(!picking() || v.rows.livetv !== false, "row", "livetv", "Live TV", "The Live TV row and its cards."),
-      visRow(!picking() || v.rows.sports !== false, "row", "sports", "Sports", "The Sports row and its cards."),
-    ),
-    el("section", { class: "vis-section" },
-      el("div", { class: "group-head" },
-        el("span", { class: "option-title", text: "Cards" }),
-        el("span", { class: "option-desc", text: `The ${LIVE_CARDS.length} cards on the live home, in published order.` }),
-      ),
-      ...LIVE_CARDS.map(([key, name]) =>
-        visRow(liveCardOn(key), "card", key, name, `The ${name} card on the live home.`),
-      ),
-    ),
-  );
-}
-
-/**
- * One card in the visibility editor: the card's own switch, then its catalog rows.
- *
- * Cards are separate blocks rather than one long list, so "which rows belong to
- * this card?" is answered by the box they sit in — and the card's header reports
- * how many of its rows are on, which is the number you actually want while picking.
- */
-function visCard(card, v) {
-  // **Both rows, kept apart.** The editor listed one card per block and drew whatever row
-  // the app happened to be on, so a Shows catalog was never on screen to switch off, and
-  // switching the Shows row off changed nothing you could see. A card block now holds its
-  // own **Movies** list and its own **Shows** list, and a row switched off in "Media rows"
-  // above takes its whole list out of every card with it.
-  const shownRows =
-    (card.movie?.catalogs || []).filter((cat) => v.catalogs[cat.id] !== false).length +
-    (card.series?.catalogs || []).filter((cat) => v.catalogs[cat.id] !== false).length;
-  const totalRows = (card.movie?.catalogs || []).length + (card.series?.catalogs || []).length;
-  // The same row visibility `rowOf` reads, so the editor and the app cannot disagree.
-  const rowsFor = (row) => (v.rows[row] !== false ? card[row]?.catalogs || [] : []);
-  const shown = v.cards[card.key] !== false;
-  // **A card that is off has no rows to pick.** Its catalog rows are not drawn at all —
-  // switching Movies off and still being shown a hundred movie rows to switch off one by
-  // one is the editor arguing with itself. And every card folds: the rows sit behind its
-  // own head, so a board of twenty cards can be read a card at a time.
-  const open = shown && (state.openCards || {})[card.key] !== false;
-  return el("div", { class: `vis-card${shown ? "" : " off"}${open ? " open" : ""}` },
-    el("div", { class: "vis-card-head" },
-      visRow(shown, "card", card.key, titleOf(card), totalRows ? `${shownRows} of ${totalRows} catalog rows on` : "No catalog rows yet"),
-      totalRows
-        ? el("button", {
-            class: "vis-fold focusable",
-            type: "button",
-            "aria-expanded": String(open),
-            "aria-label": `${open ? "Fold" : "Show"} the catalog rows of ${titleOf(card)}`,
-            title: open ? "Fold its catalog rows away" : "Show its catalog rows",
-            text: open ? "▾" : "▸",
-            onclick: (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              state.openCards = { ...(state.openCards || {}), [card.key]: !open };
-              render();
-            },
-          })
-        : null,
-    ),
-    open
-      ? el("div", { class: "vis-card-rows" },
-          ...[["movie", "Movies"], ["series", "Shows"]]
-            .filter(([row]) => v.rows[row] !== false)
-            .map(([row, label]) => el("div", { class: "vis-row-group" },
-              el("p", { class: "vis-row-group-head", text: `${label} — ${rowsFor(row).length} rows` }),
-              ...rowsFor(row).map((cat) => visRow(v.catalogs[cat.id] !== false, "catalog", cat.id, cat.name, "", 1)),
-            )),
-        )
-      : null,
+    ...LIVE_ROWS.map(([row, label]) => {
+      const open = visOpen("openRows", row);
+      return el("div", { class: `vis-card vis-tab${open ? " open" : ""}` },
+        el("div", { class: "vis-card-head" },
+          visRow(!picking() || v.rows[row] !== false, "row", row, label, ""),
+          visFold(label, open, () => { setVisOpen("openRows", row, !open); render(); }),
+        ),
+        open
+          ? el("div", { class: "vis-card-rows" },
+              ...LIVE_CARDS.map(([key, name]) => el("div", { class: "vis-leaf" },
+                visRow(liveCardOn(key), "card", key, name, ""),
+              )),
+            )
+          : null,
+      );
+    }),
   );
 }
 
@@ -8156,12 +8225,14 @@ function panePosters() {
   };
 
   return [
+    groupHead("Upgrade"),
     toggleRow(stored.enabled === true, "Upgrade posters everywhere", "Replace the artwork with the poster service's version for every title; titles it cannot cover keep theirs.", (e) => savePosters({ enabled: e.target.checked })),
     // **One box per service, the same shape Content uses.** These were stacked rows
     // inside a panel, which read as a list inside a list; as boxes they sit in the
     // pane's own board and the chosen one wears the accent. **No heading above them** —
     // the tile you are on says which pane this is — and the line that explains what the
     // choice does sits above them instead.
+    groupHead("Poster service"),
     ...POSTER_SERVICES.map(([id, label, url, desc]) =>
       radioRow(current === id, "posterservice", label, desc, () => savePosters({ source: id, pattern: url, enabled: id !== "none" })),
     ),
@@ -8284,6 +8355,7 @@ function paneRatings() {
     // inside one "Ratings service" panel, which read as a list inside a list; as boxes
     // they sit in the pane's own board, and the chosen one wears the accent like every
     // other choice in Settings.
+    groupHead("Rating source"),
     ...RATING_SERVICES.filter(([id]) => id === "none").map(pick),
     // **One box per service, stacked full width — MDBList first.** They were drawn two to
     // a line, half the pane each, which cut both labels short and made the two services
@@ -8642,6 +8714,7 @@ function paneAppearance() {
   // with the colour's name under it. The chosen one wears the accent ring the rest of the
   // app uses; a row of bare circles could only tell you the colour of the dot.
   return [
+    groupHead("Accent colour"),
     el("div", { class: "provider" },
       el("div", { class: "accent-grid" },
         ...ACCENTS.map(([id, label, , base, deep]) =>
@@ -8678,6 +8751,7 @@ function paneAppearance() {
 /** Settings → Font: the face the app is set in. */
 function paneFont() {
   return [
+    groupHead("Typeface"),
     ...FONTS.map(([value, title, desc]) =>
       radioRow(state.font === value, "font", title, desc, () => {
         state.font = value;
@@ -8818,13 +8892,16 @@ function panePlayback() {
 }
 
 function paneLayout() {
-  return LAYOUTS.map(([value, title, desc]) =>
+  return [
+    groupHead("Layout"),
+    ...LAYOUTS.map(([value, title, desc]) =>
     radioRow(state.layout === value, "layout", title, desc, () => {
       state.layout = value;
       localStorage.setItem(KEY.layout, value);
       render();
     }),
-  );
+    ),
+  ];
 }
 
 /**
@@ -9288,6 +9365,7 @@ function paneAddonsPlugins() {
   // **Add-ons only.** The Nuvio plugin half of this pane is gone: a plugin is code
   // the Nuvio app runs itself, and the server-side runner for it was removed with it.
   return [
+    groupHead("Stremio add-ons"),
     ...sourceSection("Stremio add-ons", "A Stremio add-on URL is read on the server (manifest.json), so it works even when the host sends no CORS headers — its catalogs, metadata, streams and subtitles are listed as providers. A stream the add-on publishes as a torrent is played through your debrid account when one is set up in Settings → Debrid — a browser cannot join a public swarm on its own, so that account is what makes those streams play.", ADDON_TYPES, addons),
   ];
 }
@@ -9482,6 +9560,50 @@ function renderRecordings() {
   ];
 }
 
+/**
+ * **Every group of options becomes one panel.**
+ *
+ * A pane hands back a flat list — its controls, with a `.group-head` wherever a new group
+ * begins, and `.provider` boxes that either name a group themselves (a `span.option-title`
+ * as their own first child: "Sign in", "Browsing music", "Speed") or belong inside one (a
+ * key row, whose name sits in a `provider-head`). This walks that list and wraps each group
+ * in its own grey panel, so a group is one object on the board: the label, and the boxes it
+ * owns behind it. The `.option-desc` captions are dropped — the panel hides them anyway, and
+ * a heading that arrives before its group belongs to the group that follows it.
+ */
+function optionGroups(items) {
+  const flat = [];
+  const walk = (list) => {
+    for (const item of list || []) {
+      if (Array.isArray(item)) walk(item);
+      else if (item) flat.push(item);
+    }
+  };
+  walk(items);
+
+  const groups = [];
+  let panel = null;
+  let label = null;
+  /** A box that leads with its own title is a group of its own. */
+  const names = (node) => Boolean(node?.classList?.contains("provider")) && [...node.children].some((c) => c.classList?.contains("option-title"));
+  const open = () => {
+    panel = el("div", { class: "option-group" });
+    groups.push(panel);
+    if (label) { panel.append(label); label = null; }
+  };
+
+  for (const node of flat) {
+    const cls = node.classList || {};
+    if (cls.contains("option-desc")) continue;
+    if (cls.contains("h-divider")) { panel = null; continue; }   // the panel edge is the rule now
+    if (cls.contains("group-head")) { label = node; panel = null; continue; }
+    if (!panel || names(node)) open();
+    panel.append(node);
+  }
+  if (label) open();
+  return groups;
+}
+
 function renderSettings() {
   const section = state.settingsSection;
 
@@ -9563,7 +9685,7 @@ function renderSettings() {
   // **No heading repeating the tile.** The tile you pressed already names this pane, so
   // the name is not printed a second time over the options.
   const body = el("section", { class: "setting" },
-    el("div", { class: "setting-grid" }, ...(panes[active[0]] || paneProfile)()),
+    el("div", { class: "setting-grid" }, ...optionGroups((panes[active[0]] || paneProfile)())),
   );
 
   // Put the column back where it was, once the new one is in the document.
