@@ -4552,7 +4552,7 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 }
 .settings-pane .option-group > * + * { margin-top: 10px; }
 .settings-pane .option-group > .group-head { margin: 0 0 12px; }
-.settings-pane .option-group .option { background: var(--panel-2); }
+.settings-pane .option-group .option { background: var(--panel-2); margin-bottom: 0; }
 .settings-pane .option-group .provider { background: var(--panel-2); }
 /* **One box per option, in every pane, in both modes.** The Content pane's rows are one box
    each; the panes that gathered theirs inside a `.provider` panel read as one clump of

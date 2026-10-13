@@ -9757,6 +9757,14 @@ function optionGroups(items) {
       // first line and the card itself becomes the box inside it — the Account shape.
       close();
       own.remove();
+      // **A card that holds nothing but a row is the plate's own row.** "Next episode" carried
+      // one switch inside a card inside the plate — three paddings around one line. The row
+      // moves up into the plate, the way the Engine and Decoder rows already sit in theirs.
+      const body = [...node.children].filter((c) => !c.classList.contains("option-desc") && !c.classList.contains("h-divider"));
+      if (body.length && body.every((c) => c.classList.contains("option"))) {
+        run = { label: groupHead(own.textContent), nodes: body.map((c) => { c.remove(); return c; }) };
+        continue;
+      }
       out.push(el("div", { class: "option-group" }, groupHead(own.textContent), node));
       continue;
     }
