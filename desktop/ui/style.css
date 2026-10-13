@@ -4748,3 +4748,96 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .profile-grid .profile-tile.active:focus-visible {
   box-shadow: none;
 }
+
+/* ============================================================================
+   **What you are on is a selection — and a selection wears the selection colour.**
+   ----------------------------------------------------------------------------
+   The ring that answered the cursor and the keyboard was the *highlight* colour, and the
+   highlight colour is the app's furniture: the Home tab, the Play button, a chip. A
+   **card or a catalog title** is not furniture, it is content, and the thing you are on is
+   what you *selected*. So it wears the colour chosen under Settings → Accent → Selection
+   colour, in the shape Settings → Effects → Chosen asks for:
+
+   - **Fill** (the default): the selection colour becomes the fill of the card, the way the
+     Home tab and the Play button are filled, and the words on it turn to the ink the app
+     already writes on the accent. A poster covers most of a card, so the fill is seen
+     *through* it: the picture is drawn over the colour at half strength, which is what
+     makes a filled card read as filled rather than as a card with a coloured hem.
+   - **Ring**: the card keeps the plate it always had, and the colour is its outline.
+
+   One list of the eight surfaces, written once and used by every state: the card, the
+   catalog title, the search result, the category tile, the channel card, the season, the
+   company and the trailer card. `.sel-on` is the fourth state — the class the blur behind
+   a selection puts on the card it stands in for, so the sharp copy and the card underneath
+   agree about what is being shown.
+   ============================================================================ */
+:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card) {
+  --on-fg: var(--text);
+  --on-dim: var(--muted);
+}
+.icon-name, .poster-name, .result-name { color: var(--on-fg, inherit); }
+.icon-sub, .poster-sub, .result-sub { color: var(--on-dim, var(--muted)); }
+
+:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) {
+  background: var(--select, var(--accent));
+  box-shadow: none;
+  color: var(--on-fg);
+  --on-fg: #14110a;
+  --on-dim: rgba(20, 17, 10, 0.68);
+}
+:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) img {
+  opacity: 0.5;
+}
+/* **Ring.** The plate stays and the colour is drawn around the card: a chosen card that
+   reads as chosen without turning into a flat plate of accent. */
+html.select-ring :is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) {
+  background: var(--panel);
+  box-shadow: 0 0 0 3px var(--select, var(--accent));
+  color: var(--text);
+  --on-fg: var(--text);
+  --on-dim: var(--muted);
+}
+html.select-ring :is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) img {
+  opacity: 1;
+}
+
+/* **A card being stood in for holds still.** The sharp copy is a picture of the card,
+   taken where the card sits — so the card may not lift under the copy, and it may not
+   drift into the lift either: the transform and the transition to it are both off while
+   it is selected. */
+.sel-on { transform: none !important; transition-property: none !important; }
+
+/* ============================================================================
+   **The blur behind a selection** (Settings → Effects → Popups).
+   ----------------------------------------------------------------------------
+   The switch blurs the page behind a dialog. It answers for the app's own content the
+   same way: the card you are on stays sharp and everything *around* it is put out of
+   focus — one card legible, the rest of the page behind it.
+
+   One fixed scrim does the blurring, and the selected thing is kept sharp by drawing a
+   copy of it over that scrim, exactly where it sits. The copy is a picture — no clicks,
+   no keyboard (`aria-hidden`, `pointer-events: none`) — and the real card is still the
+   thing the cursor and the keyboard are on, so a press lands where it should.
+   ============================================================================ */
+.sel-blur {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  background: rgba(4, 5, 8, 0.42);
+  backdrop-filter: blur(13px) saturate(1.12);
+  -webkit-backdrop-filter: blur(13px) saturate(1.12);
+  animation: sel-blur-in 0.18s ease both;
+}
+@keyframes sel-blur-in { from { opacity: 0; } to { opacity: 1; } }
+/* Off with the switch — the same one that turns the blur off behind a popup. With it
+   off there is no scrim at all: a dim with nothing blurred would just be a curtain. */
+.blur-off .sel-blur { display: none !important; }
+.sel-sharp {
+  position: fixed !important;
+  z-index: 1;
+  margin: 0 !important;
+  pointer-events: none !important;
+  transform: none !important;
+  animation: none !important;
+}

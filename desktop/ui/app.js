@@ -10206,6 +10206,8 @@ async function render() {
   const main = document.getElementById("main");
   // An empty answer is a failure too, so it gets the same panel rather than a blank page.
   main.replaceChildren(...(Array.isArray(nodes) && nodes.length ? nodes : [screenError(null, view)]));
+  // A new screen has no card left to stand in for.
+  dropSpotlight();
   // Now that the frames are in the document, lay the cards' own pictures into
   // them — in place of the generated vector scene.
   hydrateContent();
@@ -10316,6 +10318,112 @@ function horizontalWheel() {
   );
 }
 
+/* ------------------------------------------------- the blur around a selection */
+
+/**
+ * **Everything around the thing you are on is put out of focus.**
+ *
+ * Settings → Effects → Popups blurs the page behind a dialog. The same switch answers
+ * for the app's own content: a card on Home, a catalog title, a search result. The card
+ * you are on is kept sharp and **everything around it blurs**, so the one thing you are
+ * looking at is the only legible thing on the screen.
+ *
+ * One fixed scrim does the blurring, and the card is kept sharp by drawing a **copy of
+ * it** over that scrim, exactly where it sits. The copy is a picture of the card — no
+ * clicks, no keyboard (`aria-hidden`, `pointer-events: none`) — and the real card is
+ * still underneath, still the thing the cursor and the keyboard are on, so a press lands
+ * where it should and the copy may be thrown away at any moment.
+ *
+ * It follows the pointer (with a beat on the way out, so crossing the gap between two
+ * cards is not "leaving") and it follows the keyboard. It is off with the switch, it does
+ * not run over a dialog that has its own scrim, and it drops the moment its card is gone.
+ */
+const SPOT_CONTENT =
+  ".icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card";
+/** True while a dialog with its own scrim is up — it is already the whole screen. */
+const spotBlocked = () =>
+  Boolean(document.querySelector(".assistant-overlay:not([hidden]), .trailer-overlay:not([hidden])"));
+let spotNow = null;
+let spotExit = 0;
+
+/** Take the scrim and the copy down, and give the card its own look back. */
+function dropSpotlight() {
+  clearTimeout(spotExit);
+  if (!spotNow) return;
+  spotNow.node.classList.remove("sel-on");
+  document.getElementById("sel-blur")?.remove();
+  window.removeEventListener("scroll", spotFollow, true);
+  window.removeEventListener("resize", spotFollow);
+  spotNow = null;
+}
+
+/** Keep the copy level with the card it stands for, and let go if that card is gone. */
+function spotFollow() {
+  if (!spotNow) return;
+  const { node, box } = spotNow;
+  const r = node.getBoundingClientRect();
+  if (!node.isConnected || !r.width || !r.height || r.bottom < 0 || r.top > innerHeight) return dropSpotlight();
+  box.style.left = `${r.left}px`;
+  box.style.top = `${r.top}px`;
+  box.style.width = `${r.width}px`;
+  box.style.height = `${r.height}px`;
+}
+
+/** Put the page out of focus around `node`, or move the sharp copy to it. */
+function spotlight(node) {
+  if (!node?.isConnected || !node.matches?.(SPOT_CONTENT)) return dropSpotlight();
+  if (state.blur === false || spotBlocked()) return dropSpotlight();
+  if (spotNow?.node === node) return spotFollow();
+  dropSpotlight();
+  const r = node.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  node.classList.add("sel-on");
+  const view = el("div", { class: "sel-blur", id: "sel-blur", "aria-hidden": "true" });
+  const box = node.cloneNode(true);
+  box.removeAttribute("id");
+  for (const n of box.querySelectorAll("[id]")) n.removeAttribute("id");
+  box.classList.add("sel-sharp");
+  box.setAttribute("aria-hidden", "true");
+  box.setAttribute("tabindex", "-1");
+  box.style.width = `${r.width}px`;
+  box.style.height = `${r.height}px`;
+  view.append(box);
+  document.body.append(view);
+  spotNow = { node, view, box };
+  spotFollow();
+  window.addEventListener("scroll", spotFollow, true);
+  window.addEventListener("resize", spotFollow);
+}
+
+/** The pointer and the keyboard both "select"; this is what watches them. */
+function setupSpotlight() {
+  document.addEventListener("pointerover", (e) => {
+    const node = e.target?.closest?.(SPOT_CONTENT);
+    if (!node) return;
+    clearTimeout(spotExit);
+    spotlight(node);
+  });
+  document.addEventListener("pointerout", (e) => {
+    const node = e.target?.closest?.(SPOT_CONTENT);
+    if (!node || node !== spotNow?.node || node.contains(e.relatedTarget)) return;
+    // A beat on the way out: the gap between two cards is not leaving the cards.
+    clearTimeout(spotExit);
+    spotExit = setTimeout(() => {
+      if (!spotNow?.node?.matches(":focus-visible")) dropSpotlight();
+    }, 240);
+  });
+  document.addEventListener("focusin", (e) => {
+    const node = e.target?.closest?.(SPOT_CONTENT);
+    if (!node) return;
+    clearTimeout(spotExit);
+    spotlight(node);
+  });
+  document.addEventListener("focusout", (e) => {
+    const node = e.target?.closest?.(SPOT_CONTENT);
+    if (node && node === spotNow?.node && !node.matches(":hover")) dropSpotlight();
+  });
+}
+
 function setupInput() {
   // **Back goes back**, the way a browser's Back does — to the screen you were on,
   // not to Home. It used to jump straight to `#/` from anywhere, which is why
@@ -10348,6 +10456,8 @@ function setupInput() {
   for (const node of document.querySelectorAll("[data-close]")) node.addEventListener("click", () => modal.close());
   window.addEventListener("hashchange", render);
   horizontalWheel();
+  // The blur around whatever you are on — the same switch as the popup blur.
+  setupSpotlight();
 
   document.addEventListener("keydown", (e) => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? "");
