@@ -965,8 +965,11 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   transition: background 0.15s ease, color 0.15s ease;
 }
 .filter-chip:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
-.filter-chip.active { background: var(--select, var(--accent)); color: #0b0c10; }
-.filter-chip.active:hover { background: var(--select, var(--accent)); color: #0b0c10; }
+/* **A chosen chip is ringed, not repainted.** The filter's chips answer with the selection
+   colour drawn *around* the pill the chip already is — the same answer the calendar's day
+   gives — so the tint stays the pill's own and nothing is a solid block of colour. */
+.filter-chip.active { background: rgba(255, 255, 255, 0.07); color: #fff; box-shadow: 0 0 0 2px var(--select, var(--accent)); }
+.filter-chip.active:hover { background: rgba(255, 255, 255, 0.12); color: #fff; box-shadow: 0 0 0 2px var(--select, var(--accent)); }
 .result-head { margin: 22px 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 /* Search results are two lists — Movies, then Shows — so they need a gap. */
 .search-group + .search-group { margin-top: 10px; }
@@ -1255,8 +1258,8 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   transition: background 0.15s ease, color 0.15s ease;
 }
 .tag:hover { background: rgba(255, 255, 255, 0.13); color: var(--text); }
-.tag.on { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.9); color: #10110f; }
-.tag.on:hover { background: var(--select, var(--accent)); }
+.tag.on { background: rgba(255, 255, 255, 0.07); color: #fff; box-shadow: 0 0 0 2px var(--select, var(--accent)); }
+.tag.on:hover { background: rgba(255, 255, 255, 0.12); box-shadow: 0 0 0 2px var(--select, var(--accent)); }
 
 /* No scrollbar is drawn on a row: the row scrolls with the wheel (see
    `horizontalWheel` in app.js) and with the D-pad, and a chunky bar under every
@@ -1781,7 +1784,7 @@ textarea:focus-visible {
 /* **The day you opened is a selection, not the highlight.** Today is where the app is (the
    accent); the day you clicked is a thing you *chose*, which is what the selection colour
    is for. */
-.cal-cell.selected { background: var(--select, var(--accent)); color: #0b0b0b; border-color: transparent; }
+.cal-cell.selected { background: var(--panel-2); color: var(--text); border-color: transparent; box-shadow: inset 0 0 0 2px var(--select, var(--accent)); }
 .cal-day { font-size: 14px; font-weight: 800; }
 .cal-count { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
 .cal-count.empty { color: transparent; }
@@ -2371,7 +2374,7 @@ body { background: var(--ink); }
   font-weight: 600;
 }
 .chip:hover, .model-chip:hover { background: rgba(255, 255, 255, 0.17); }
-.chip.active, .filter-chip.active { background: var(--select, var(--accent)); color: #0b0b0b; }
+.chip.active { background: var(--select, var(--accent)); color: #0b0b0b; box-shadow: none; }
 
 /* **One voice for every label.** Captions were small-caps with letter-spacing in
    nineteen places — the search result heads, the filter labels, the card
@@ -2463,7 +2466,12 @@ body { background: var(--ink); }
 /* **Today is filled, like Home and Play.** A 2px ring drawn *inside* the cell read as a box
    around a number rather than as the day the app is on; the chosen day and today wear the
    highlight at full strength, with ink on it. */
-.cal-cell.today, .cal-cell.selected { background: var(--accent); color: #0b0b0b; box-shadow: none; }
+/* **Today is filled; the day you opened wears the ring.** Today is where the app is, so it
+   keeps the highlight as a *fill*; the day you clicked is a choice, so it is covered by a
+   ring in the selection colour — on top of today's fill when they are the same cell, which
+   is the one cell that shows both answers at once. */
+.cal-cell.today { background: var(--accent); color: #0b0b0b; box-shadow: none; }
+.cal-cell.selected { box-shadow: inset 0 0 0 2px var(--select, var(--accent)); }
 
 /* An empty state is a panel, not a dotted box. */
 .empty-panel { border: 0; background: var(--panel); }
@@ -4084,8 +4092,9 @@ select option:hover {
 .search-filter-btn:hover, .search-filter-btn:focus-visible {
   background: var(--accent);
   color: #0b0c10;
-  /* The plate stays the plate; the ring it answers with is the selection colour. */
-  box-shadow: 0 0 0 3px var(--select, var(--accent));
+  /* **The plate, with nothing drawn around it.** It briefly wore a selection ring; on a
+     button that is already a solid plate the ring read as a second control around it. */
+  box-shadow: none;
 }
 /* **A chip answers in the selection colour, not the highlight.** These are the pills you
    *choose* between — a genre, a catalog tag, a filter — and they were being tinted from the
@@ -4964,13 +4973,21 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .cal-cell.selected,
 .cal-cell.selected:hover,
 .cal-cell.selected:focus-visible {
-  background-color: var(--select, var(--accent));
   background-image: none;
-  color: #0b0b0b;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 2px var(--select, var(--accent));
 }
-.cal-cell.today .cal-day, .cal-cell.selected .cal-day { color: #0b0b0b; }
-.cal-cell.today .cal-count, .cal-cell.selected .cal-count { color: rgba(11, 11, 11, 0.72); }
+/* The one cell that is both: today's fill, the selection's ring. */
+.cal-cell.selected.today,
+.cal-cell.selected.today:hover,
+.cal-cell.selected.today:focus-visible {
+  background-color: var(--accent);
+  color: #0b0b0b;
+  box-shadow: inset 0 0 0 2px var(--select, var(--accent));
+}
+.cal-cell.selected.today .cal-day { color: #0b0b0b; }
+.cal-cell.selected.today .cal-count { color: rgba(11, 11, 11, 0.72); }
+.cal-cell.today .cal-day { color: #0b0b0b; }
+.cal-cell.today .cal-count { color: rgba(11, 11, 11, 0.72); }
 
 /* **Ask Assistant is a button, not a plate.** It was drawn as a solid accent plate on hover
    like Play and Speak — three solid buttons in one row, in the row where only one of them
@@ -5111,9 +5128,12 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 /* **No up/down arrow anywhere wears the highlight.** The strip arrows and the editor's move
    arrows answer in the selection colour or in grey, in every state, so the two colours in
    the app keep their two meanings. */
+/* **The arrows wear the back arrow's plate.** They were bare glyphs on the page — the one
+   pair of controls in the app with nothing under them, while the arrow at the top of the
+   same screen has a grey plate of its own (`--panel`). Same plate, same resting look. */
 .chip-arrow,
 .vis-btn {
-  background-color: transparent;
+  background-color: var(--panel);
   color: var(--muted);
   box-shadow: none;
 }
@@ -5128,3 +5148,63 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   outline: none;
 }
 .chip-arrow:disabled, .chip-arrow.at-end { background-color: transparent; }
+
+/* ============================================================================
+   **The last of it: one rating box, one Library picker, no outlines on a still.**
+   ============================================================================ */
+
+/* **The rating is one plate.** The number lives inside the control you press — it is drawn
+   as the wheel moves it, so the plate shows the score you are about to save. Armed (moved
+   off what is stored) it takes the selection tint, which is the same answer a chosen row
+   gives. */
+.my-rating-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.my-rating-value { min-width: 30px; text-align: right; font-size: 17px; font-weight: 800; color: var(--muted); }
+.my-rating-box.on .my-rating-value { color: var(--text); }
+.my-rating-box.armed,
+.my-rating-box.armed:hover,
+.my-rating-box.armed:focus-visible {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  box-shadow: none;
+}
+
+/* **Add to Library is one control too.** The button walks the row labels inside itself —
+   press, scroll or left/right, press again — so the row of four never becomes a list. */
+.library-pop { display: inline-flex; }
+.library-add-hint, .library-hint { flex: none; color: var(--muted); font-size: 12px; }
+.library-pop .btn.armed,
+.library-pop .btn.armed:hover,
+.library-pop .btn.armed:focus-visible {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  box-shadow: none;
+}
+.library-pop .btn { display: inline-flex; align-items: center; gap: 8px; }
+
+/* **A live banner with no playlist is still a banner.** The frame holds the mode's initial
+   on the app's own plate, and the line under the name says where channels come from. */
+.live-hero-empty { cursor: default; }
+.live-hero-empty .live-hero-initials { opacity: 0.5; }
+
+/* **The Upcoming card's stills are pictures, not boxes.** They kept a 1px hairline from the
+   live card's own rules — the last outline left in the app, on the one card that is a row
+   of stills. */
+.spotlight-tile,
+.spotlight-tile-art,
+.card-spotlight .spotlight-tile,
+.icon-box.card-spotlight,
+.icon-box.card-spotlight .icon-wrap,
+.upcoming-card,
+.upcoming-card .poster {
+  border: 0;
+  outline: none;
+}

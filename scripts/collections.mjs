@@ -458,13 +458,13 @@ export const isPopularRegional = (name) => POPULAR_REGIONAL.has(String(name || "
 const CONTINENTAL_OTT_LIMIT = 6;
 
 /**
- * **Popular Regional OTT, taken from the Continental card's own continents.**
+ * **Popular Regional OTT, continent by continent.**
  *
- * The Regional OTT card is scoped to the region in Settings — one country's services. This
- * is the same fact read wider: for each continent the Continental card publishes, the
- * household names of **that continent's own countries**, in the order those countries come
- * in (`continentsWithContent`, the one list the card, the Country filter and the search
- * chips all read, so the three can never disagree).
+ * The Regional OTT card's own rows are the region in Settings — one country's services. This
+ * is the same fact read wider, on the same card: for each continent the Continental card
+ * publishes, the household names of **that continent's own countries**, in the order those
+ * countries come in (`continentsWithContent`, the one list the card, the Country filter and
+ * the search chips all read, so the three can never disagree).
  *
  * A service belongs to the **first continent it is verified in** — a pan-regional platform
  * listed for a country in two continents is one row, not two, and never a duplicate of the
@@ -472,7 +472,7 @@ const CONTINENTAL_OTT_LIMIT = 6;
  * service twice under two names). The two worldwide Asian-catalogue services are left out
  * for the same reason: they are already on every region's Regional OTT card.
  */
-function continentalOtt() {
+function regionalOttByContinent() {
   const build = (type) => {
     const rows = [];
     // A service is published once, in the continent its first verified country sits in.
@@ -1022,7 +1022,19 @@ const buildCollections = (code = "") => {
     lines: ["Regional"],
     scene: "regional-ott",
     titleOnly: true,
-    catalogs: regionalOtt("all"),
+    // **The region's services, and then the continents'.** The card is the one place the
+    // regional services live, so the wider answer belongs here too: the household names of
+    // each continent, named `Asia · TVING` (see `regionalOttByContinent`). It was briefly on
+    // the Continental card, which is about *where titles come from* — the right card for
+    // these rows is the one they are a regional OTT in.
+    catalogs: (() => {
+      const here = regionalOtt("all");
+      const wider = regionalOttByContinent();
+      return {
+        movie: [...here.movie, ...wider.movie],
+        show: [...here.show, ...wider.show],
+      };
+    })(),
   },
 
   {
@@ -1032,19 +1044,7 @@ const buildCollections = (code = "") => {
     // **Every continent, with its thin countries dropped.** The continent is the row, and
     // a continent is a large enough query that no country list is needed to hold it up —
     // so the rows stay six and it is the codes inside each one that narrow.
-    // **And the card carries the regional OTT rows too.** The services people in each
-    // continent actually subscribe to were only on the Regional OTT card, which is scoped
-    // to the one region in Settings — so "what does Europe stream" was a card you could
-    // not open without changing country. Each continent's household services follow its
-    // own row, named `Europe · ZDF`, in the order the continent's countries come.
-    catalogs: (() => {
-      const ott = continentalOtt();
-      const continents = continentsWithContent().map(([name, codes]) => continent(name, codes));
-      return {
-        movie: [...continents, ...ott.movie],
-        show: [...continents.map((e) => ({ ...e })), ...ott.show],
-      };
-    })(),
+    catalogs: both(continentsWithContent().map(([name, codes]) => continent(name, codes))),
   },
   {
     key: "countries",

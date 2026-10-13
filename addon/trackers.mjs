@@ -99,3 +99,73 @@ export async function pushRating(item, rating) {
   }
   return { ok: true, pushed };
 }
+
+/* ------------------------------------------------------------ a watch, going out ---- */
+
+/**
+ * **Started and finished are the same kind of write as a rating.** The Library is the app's
+ * own record of what you are watching; a tracker is a copy of it, so the two marks the app
+ * makes by itself — *started* at 5% of a title and *finished* at the end — are handed to the
+ * same connected services. Nothing is read back: a service can never move a row here.
+ */
+async function watchTrakt(entry, item, watched) {
+  const id = tmdbOf(item);
+  if (!id) return { name: "trakt", ok: false, text: "this title has no TMDB id" };
+  const token = String(entry.token || "").trim();
+  const clientId = String(entry.clientId || entry.key || "").trim();
+  if (!token) return { name: "trakt", ok: false, text: "no access token — connect Trakt in Settings → Tracking" };
+  const kind = kindOf(item) === "movie" ? "movies" : "shows";
+  const res = await fetch(`${TRAKT}/sync/history`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      "trakt-api-version": "2",
+      ...(clientId ? { "trakt-api-key": clientId } : {}),
+    },
+    // **Only a finish is history.** "Started" is what Trakt calls a *playback* — a scrobble
+    // in progress — and a history entry for it would say you have seen a title you are ten
+    // minutes into. A finished title is history; a started one is left alone.
+    body: JSON.stringify(watched ? { [kind]: [{ ids: { tmdb: Number(id) } }] } : { [kind]: [] }),
+  });
+  if (!res.ok) return { name: "trakt", ok: false, text: `Trakt said ${res.status}` };
+  return { name: "trakt", ok: true, text: watched ? "marked watched" : "started" };
+}
+
+async function watchSimkl(entry, item, watched) {
+  const id = tmdbOf(item);
+  if (!id) return { name: "simkl", ok: false, text: "this title has no TMDB id" };
+  const token = String(entry.token || "").trim();
+  const clientId = String(entry.clientId || entry.key || "").trim();
+  if (!token) return { name: "simkl", ok: false, text: "no access token — connect SIMKL in Settings → Tracking" };
+  const key = kindOf(item) === "movie" ? "movies" : "shows";
+  const res = await fetch(`${SIMKL}/sync/history`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      ...(clientId ? { "simkl-api-key": clientId } : {}),
+    },
+    body: JSON.stringify(watched ? { [key]: [{ ids: { tmdb: id } }] } : {}),
+  });
+  if (!res.ok) return { name: "simkl", ok: false, text: `SIMKL said ${res.status}` };
+  return { name: "simkl", ok: true, text: watched ? "marked watched" : "started" };
+}
+
+const WATCH_WRITERS = { trakt: watchTrakt, simkl: watchSimkl };
+
+/** Hand a *started* / *finished* mark to every connected tracker. */
+export async function pushWatch(item, watched) {
+  const tracking = getSettings()?.tracking || {};
+  const pushed = [];
+  for (const [name, write] of Object.entries(WATCH_WRITERS)) {
+    const entry = { ...(tracking[name] || {}) };
+    if (!entry.enabled && !entry.token) continue;
+    try {
+      pushed.push(await write(entry, item || {}, Boolean(watched)));
+    } catch (err) {
+      pushed.push({ name, ok: false, text: String(err?.message || err) });
+    }
+  }
+  return { ok: true, pushed };
+}

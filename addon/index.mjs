@@ -64,7 +64,7 @@ import {
 import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, isOttSort } from "./catalogs.mjs";
 import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
-import { pushRating } from "./trackers.mjs";
+import { pushRating, pushWatch } from "./trackers.mjs";
 import { applyPosters, postersEnabled, checkPosterService, imdbId } from "./posters.mjs";
 import { applyContentSource, contentSourceActive, contentSourceStats } from "./tvdb.mjs";
 import { inspectSource } from "./sources.mjs";
@@ -1777,6 +1777,28 @@ async function serveAddon(req, res, pathname, origin) {
     try {
       const { item, rating } = await readBody(req);
       json(res, 200, await pushRating(item, Number(rating) || 0));
+    } catch (err) {
+      json(res, 400, { ok: false, text: String(err?.message || err) });
+    }
+    return true;
+  }
+
+  // **What you are watching, going out.** The player marks a title Watching at the start and
+  // Watched at the end; those two marks are handed to the connected trackers here (see
+  // `addon/trackers.mjs`). A service with no token answers with that and nothing else.
+  if (pathname === "/tracking/watch") {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "POST, OPTIONS",
+        "access-control-allow-headers": "content-type",
+      });
+      res.end();
+      return true;
+    }
+    try {
+      const { item, watched } = await readBody(req);
+      json(res, 200, await pushWatch(item, watched));
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });
     }

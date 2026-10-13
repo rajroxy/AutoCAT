@@ -1427,6 +1427,10 @@ async function setWatchState(item, next) {
   } catch {
     /* offline — the list simply does not change */
   }
+  // **And it goes out.** A state the app just recorded is handed to the connected trackers
+  // — one way, always: a tracker is told what you watched and is never asked what it thinks
+  // (see `addon/trackers.mjs`). Nothing waits on the answer.
+  if (next) post("/tracking/watch", { item: pinOf(item), watched: next === "watched" }).catch(() => { /* not connected */ });
   // The watchlist card *is* its contents, so a pin or an unpin redraws it now —
   // unlike every other card, which holds its artwork until the next launch.
   forgetCardArt(watchlistCard());
@@ -2496,34 +2500,33 @@ function signInCard() {
   // stood *outside* the plate as a group head, and the form sat in the same plate as the
   // accounts, so "Add account" read as one more row of the list above it. The word `Sign in`
   // names the whole card; the accounts are one box; making an account is another.
+  // **Two plates, each named, with nothing inside a second box.** `Sign in` holds the way
+  // in; `Accounts` holds the accounts this machine keeps. The `.account-box` wrappers that
+  // used to sit inside each one were a box inside a box inside a box — the pane had four
+  // borders around two lines of content, which is what "this much boxes" was. The divider
+  // is what makes them two plates: `optionGroups` drops it, and dropping a rule is what
+  // closes a group.
   return [
-    el(
-      "div",
-      { class: "provider", id: "account" },
-      groupHead("Sign in"),
-      said ? el("p", { class: "signin-said", text: said }) : null,
-      el("div", { class: "account-new", id: "account-new" }, accountForm()),
-    ),
-    el(
-      "div",
-      { class: "provider", id: "account-list-box" },
-      groupHead("Accounts"),
-      rows.length ? el("div", { class: "account-list" }, ...rows) : null,
-      current
-        ? el("button", {
-            class: "btn subtle focusable",
-            type: "button",
-            id: "sign-out",
-            text: "Sign out",
-            title: `Leave ${current} on this machine — its data stays with it`,
-            onclick: signOutAccount,
-          })
-        : null,
-      el("p", {
-        class: "option-desc",
-        text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
-      }),
-    ),
+    groupHead("Sign in"),
+    said ? el("p", { class: "signin-said", text: said }) : null,
+    el("div", { class: "account-new", id: "account-new" }, accountForm()),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    groupHead("Accounts"),
+    rows.length ? el("div", { class: "account-list" }, ...rows) : null,
+    current
+      ? el("button", {
+          class: "btn subtle focusable",
+          type: "button",
+          id: "sign-out",
+          text: "Sign out",
+          title: `Leave ${current} on this machine — its data stays with it`,
+          onclick: signOutAccount,
+        })
+      : null,
+    el("p", {
+      class: "option-desc",
+      text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
+    }),
   ];
 }
 
@@ -6839,60 +6842,58 @@ function pinButtons(item) {
 function libraryButton(item) {
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
   const anyInside = rows.some((row) => inCustomRow(item, row.id));
-  // **The rows, in the page, as the app's own chips.** This was a fixed-position dropdown
-  // menu that opened on *hover* — so resting on the button opened a menu you had not asked
-  // for, and on a remote there was no way to walk it and come back. The row labels are a
-  // line of chips under the button now: press the button to show them, move with the
-  // arrows (or the wheel), press again on a row to put the title in it. There is nothing
-  // floating over the page and nothing to dismiss.
-  const picker = el("div", { class: "library-picker", hidden: true });
-  for (const row of rows) {
-    const inside = inCustomRow(item, row.id);
-    picker.append(
-      el("button", {
-        class: `chip focusable${inside ? " active" : ""}`,
-        type: "button",
-        text: inside ? `${row.name} \u2713` : row.name,
-        title: inside ? `Take it out of ${row.name}` : `Put this in ${row.name}`,
-        onclick: (event) => { event.stopPropagation(); toggleCustomRow(item, row.id); },
-      }),
-    );
-  }
+  // **The rows are walked, not listed.** Pressing Add to Library used to unfold every row
+  // label at once — a second line of chips under the row of buttons, for a choice that is
+  // one value. The button *is* the picker: press it, and the wheel (or left/right, or a
+  // remote's OK then left/right) walks the Library's row labels inside the button itself;
+  // press again to put the title in the row it is showing. Same walk as the rating box.
+  const currentRow = rows.find((row) => inCustomRow(item, row.id));
+  let armed = -1;
+  const label = el("span", { class: "library-label", text: anyInside ? `In ${currentRow?.name || customLabel()}` : "Add to Library" });
   const btn = el("button", {
     class: `btn focusable${anyInside ? " active" : ""}`,
     type: "button",
     id: "library-add",
-    "aria-haspopup": "menu",
     "aria-expanded": "false",
-    title: anyInside ? "In your Library — pick a row to move it, or the row it is in to take it out" : "Add this to one of your Library rows",
-    text: anyInside ? "In your Library" : "Add to Library",
-  });
-  const root = el("div", { class: "library-pop" }, btn, picker);
-  const open = () => {
-    if (!picker.hidden) return;
-    picker.hidden = false;
-    btn.setAttribute("aria-expanded", "true");
-    root.classList.add("open");
-    // **The first row is where the cursor goes.** Pressing the button is asking to pick a
-    // row, so the picker's own first chip takes the focus and the arrows are already on it.
-    picker.querySelector("button")?.focus();
+    title: anyInside
+      ? "In your Library — press, then scroll or use left/right to walk the rows, and press to move it"
+      : "Press, then scroll or use left/right to walk your Library rows, and press to add it",
+  }, label, el("span", { class: "library-hint", "aria-hidden": "true", text: "\u2195" }));
+  const paint = () => {
+    const row = rows[armed];
+    if (row) {
+      const inside = inCustomRow(item, row.id);
+      label.textContent = inside ? `${row.name} \u2713` : row.name;
+    } else {
+      label.textContent = anyInside ? `In ${currentRow?.name || customLabel()}` : "Add to Library";
+    }
+    btn.classList.toggle("armed", armed >= 0);
+    btn.setAttribute("aria-expanded", armed >= 0 ? "true" : "false");
   };
-  const close = () => {
-    if (picker.hidden) return;
-    picker.hidden = true;
-    btn.setAttribute("aria-expanded", "false");
-    root.classList.remove("open");
-    btn.focus();
+  const step = (by) => {
+    // Wrapping around, so a long list of rows is never a dead end in either direction.
+    if (by > 0) armed = armed < 0 ? 0 : (armed + 1) % rows.length;
+    else armed = armed < 0 ? rows.length - 1 : (armed - 1 + rows.length) % rows.length;
+    paint();
   };
+  const start = () => { armed = Math.max(0, rows.findIndex((row) => inCustomRow(item, row.id))); paint(); };
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    if (picker.hidden) open();
-    else close();
+    // The first press picks the button up at the row the title is already in (or the
+    // first row); the second one adds it there and redraws, which puts the label back.
+    if (armed < 0) start();
+    else toggleCustomRow(item, rows[armed].id);
   });
-  // Escape backs out to the button; a press anywhere else closes the line.
-  root.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } });
-  document.addEventListener("pointerdown", (event) => { if (!root.contains(event.target)) { picker.hidden = true; btn.setAttribute("aria-expanded", "false"); root.classList.remove("open"); } }, true);
-  return root;
+  btn.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); step(1); }
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); step(-1); }
+  });
+  btn.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    step(event.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  paint();
+  return el("div", { class: "library-pop" }, btn);
 }
 
 /** One person's card — a face, a name and what they did. Opens their credits. */
@@ -7345,56 +7346,52 @@ function myRatingGrid(meta) {
   // on exactly. It is one stop now: press it — a click, or OK on a remote — and the arrows
   // (or the wheel, or a middle-button scroll) move the score, then a press writes it. A
   // mouse still lands on a number directly, because a number is what a mouse clicks.
-  let armed = mine || 0;
-  const label = el("span", { class: "my-rating-label", text: "" });
-  const grid = el("div", {
-    class: "my-rating-grid",
-    role: "slider",
-    tabindex: "0",
+  let armed = mine;
+  // **One box, not ten.** Ten number plates was a keypad on a page whose every other
+  // control is one press: the score lives in a single plate you press, the wheel (or the
+  // arrows, or a remote's left/right) moves it, and a press again writes it. The number
+  // is drawn as you move it — that *is* the rating, waiting to be saved.
+  const value = el("span", { class: "my-rating-value", text: mine ? String(mine) : "\u2013" });
+  const box = el("button", {
+    class: `my-rating-box focusable${mine ? " on" : ""}`,
+    type: "button",
+    id: "my-rating",
     "aria-label": "Your rating",
-    "aria-valuemin": "1",
-    "aria-valuemax": "10",
-  });
-  const buttons = Array.from({ length: 10 }, (_, i) => {
-    const value = i + 1;
-    return el("button", {
-      class: "my-rating-btn",
-      type: "button",
-      tabindex: "-1",
-      text: String(value),
-      title: `Rate this ${value}/10`,
-      onclick: (event) => { event.stopPropagation(); setMyRating(meta, value); },
-    });
-  });
-  grid.append(...buttons);
+    title: mine ? `Your rating is ${mine}/10 — press to change it, scroll or use left/right, press to save` : "Press to rate this, scroll or use left/right, press to save",
+    onclick: (event) => {
+      event.stopPropagation();
+      // The first press picks the box up; the second one saves what the wheel left.
+      if (armed === mine) { armed = mine || 5; paint(); return; }
+      setMyRating(meta, armed);
+    },
+  },
+    el("span", { class: "my-rating-label", text: "Your rating" }),
+    value,
+  );
   const paint = () => {
-    label.textContent = armed ? `Your rating · ${armed}/10` : "Your rating";
-    grid.setAttribute("aria-valuenow", String(armed || 0));
-    buttons.forEach((b, i) => b.classList.toggle("on", i + 1 === armed));
+    value.textContent = armed ? String(armed) : "\u2013";
+    box.classList.toggle("on", Boolean(armed));
+    box.classList.toggle("armed", armed !== mine);
   };
   const step = (by) => {
     armed = Math.min(10, Math.max(1, (armed || (by > 0 ? 0 : 11)) + by));
     paint();
   };
-  grid.addEventListener("keydown", (event) => {
+  box.addEventListener("keydown", (event) => {
     if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); step(1); return; }
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); step(-1); return; }
-    // **A second press is the answer.** OK / Enter / space writes the score the arrows
-    // landed on; pressing it again on the same number takes the rating back, which is the
-    // only way to unrate a title without walking to a "clear" control.
     if (event.key === "Enter" || event.key === " " || event.key === "Select") {
       event.preventDefault();
-      if (armed) setMyRating(meta, armed);
+      if (armed && armed !== mine) setMyRating(meta, armed);
+      else if (armed) setMyRating(meta, armed);
     }
   });
-  grid.addEventListener("wheel", (event) => {
+  box.addEventListener("wheel", (event) => {
     event.preventDefault();
     step(event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
-  // The first press arms the grid and nothing else — the score is the second press.
-  grid.addEventListener("click", () => { if (!armed) { armed = mine || 5; paint(); } });
   paint();
-  return el("div", { class: "my-rating", id: "my-rating" }, label, grid);
+  return el("div", { class: "my-rating", id: "my-rating" }, box);
 }
 
 /** Keep a rating, and hand it to the trackers (see `/tracking/rate`). */
@@ -8363,6 +8360,16 @@ function paneProfile() {
     radioRow(!settingsUnified(), "modes", "Separate", "Each mode keeps its own: keys, add-ons, Debrid, playlists, playback and layout. Switching carries the settings you are looking at across, once.", () => {
       if (settingsUnified()) setUnified(false);
     }),
+    // **Which store you are editing, said out loud.** Two modes with two sets of settings
+    // look exactly like one set of settings until something says which one the pane is
+    // writing to — and "why don't they have separate settings" is a fair question to ask of
+    // a screen that never tells you.
+    el("p", {
+      class: "option-desc",
+      text: settingsUnified()
+        ? "Right now VOD and IPTV share one set of settings."
+        : `Right now ${state.profile} keeps its own settings — every pane on this screen writes to ${state.profile}'s copy, and the other mode keeps its own.`,
+    }),
     // **The lists are a group of their own.** The editor stood under the Modes head, so the two
     // switches that decide whether the modes share their settings sat in the same plate as the
     // Movies and Shows rows they have nothing to do with.
@@ -8732,7 +8739,7 @@ function paneTracking() {
     // field that looks broken and one that is waiting for the right thing.
     el("p", {
       class: "option-desc",
-      text: "The box under a service takes that client id — the app you register on the service's own site. The token an authorisation hands back is stored beside it, and nothing is ever read from the service.",
+      text: "The box under a service takes your own access token — the one the service gives you when you authorise this app on your account. Paste it there and everything the Library records goes out to that service: started, finished, and every rating you set. Nothing is ever read back.",
     }),
     ...TRACKER_GROUPS.flatMap((group) => [
       // The divider belongs *before* the group it separates, the way the rule on a
@@ -11374,11 +11381,34 @@ function recordingsCard() {
  */
 function liveHeroBlock() {
   const channels = liveChannelsShown().filter((c) => c.name);
-  if (!channels.length) return null;
-  const channel = channels[LAUNCH_SEED % channels.length];
-  const { now } = nowNext(channel, state.live.guide);
   const sports = liveRowKey() === "sports";
-  const groups = channel.groups || [];
+  // **The banner is the screen's, not the playlist's.** It was drawn only when a playlist
+  // had answered, so a fresh install — or one whose M3U has not been pasted yet — opened
+  // Live TV & Sports on three cards and an empty top, which reads as a screen that failed to
+  // load rather than one waiting for a source. The banner is always there: with a channel it
+  // is that channel, without one it is the screen saying where channels come from.
+  const channel = channels.length ? channels[LAUNCH_SEED % channels.length] : null;
+  const { now } = channel ? nowNext(channel, state.live.guide) : { now: null };
+  const groups = channel?.groups || [];
+  const art = channel
+    ? el(
+        "button",
+        {
+          class: "hero-art focusable live-hero-art",
+          type: "button",
+          title: `Open ${channel.name}`,
+          "aria-label": `Open ${channel.name}`,
+          onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
+        },
+        channel.logo
+          ? el("img", { class: "live-hero-logo", src: channel.logo, alt: "", loading: "lazy" })
+          : el("span", { class: "live-hero-initials", text: initialsOf(channel.name) }),
+      )
+    : el(
+        "div",
+        { class: "hero-art live-hero-art live-hero-empty", "aria-hidden": "true" },
+        el("span", { class: "live-hero-initials", text: sports ? "S" : "L" }),
+      );
   return el(
     "section",
     { class: "hero live-hero" },
@@ -11386,12 +11416,14 @@ function liveHeroBlock() {
       "div",
       { class: "hero-body" },
       el("p", { class: "hero-kicker", text: sports ? "Sports" : "Live TV" }),
-      el("h2", { class: "hero-title", text: channel.name }),
+      el("h2", { class: "hero-title", text: channel ? channel.name : sports ? "Sports" : "Live TV" }),
       el("p", {
         class: "hero-line",
-        text: now
-          ? `Now playing · ${now.title}`
-          : [groups[0], channel.country].filter(Boolean).join(" · ") || "Live channel",
+        text: channel
+          ? now
+            ? `Now playing · ${now.title}`
+            : [groups[0], channel.country].filter(Boolean).join(" · ") || "Live channel"
+          : "No playlist yet — add an M3U URL, a file or an Xtream login under Settings → Source and this fills with your channels.",
       }),
       chipLine(
         groups.map((group) =>
@@ -11405,19 +11437,7 @@ function liveHeroBlock() {
         { className: "hero-cats" },
       ),
     ),
-    el(
-      "button",
-      {
-        class: "hero-art focusable live-hero-art",
-        type: "button",
-        title: `Open ${channel.name}`,
-        "aria-label": `Open ${channel.name}`,
-        onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
-      },
-      channel.logo
-        ? el("img", { class: "live-hero-logo", src: channel.logo, alt: "", loading: "lazy" })
-        : el("span", { class: "live-hero-initials", text: initialsOf(channel.name) }),
-    ),
+    art,
   );
 }
 
