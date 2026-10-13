@@ -5219,23 +5219,21 @@ function renderVodCalendar() {
     });
 
   return [
+    // **The arrows and the switch, on one line — the arrows where the switch was, the switch
+    // where the arrows were.** They are the two controls the grid answers to: the month it
+    // shows, and which row it reads. Each keeps its old side, swapped. The hint that used to
+    // share this line has its own line under it now.
     el(
       "header",
       { class: "cal-head" },
-      el("div", { class: "cal-title" },
-        // The bar names this screen; no second heading — see the note on Search.
-
-        el("p", { class: "view-hint", text: `${calRow === "series" ? "Series" : "Films"} releasing this month${state.language ? ` · ${state.language}` : ""}` }),
-      ),
       el("div", { class: "cal-nav" },
         el("button", { class: "icon-btn focusable", type: "button", text: "‹", "aria-label": "Previous month", onclick: () => { state.calendar = { month: shiftMonth(month, -1), day: null }; render(); } }),
         el("span", { class: "cal-month", text: `${MONTH_NAMES[mon - 1]} ${year}` }),
         el("button", { class: "icon-btn focusable", type: "button", text: "›", "aria-label": "Next month", onclick: () => { state.calendar = { month: shiftMonth(month, 1), day: null }; render(); } }),
       ),
+      rowSwitch(),
     ),
-    // **Movies / Shows, on the calendar too.** The grid follows the row (see `calRow`),
-    // so the switch that picks the row has to be here to pick it.
-    rowSwitch(),
+    el("p", { class: "view-hint", text: `${calRow === "series" ? "Series" : "Films"} releasing this month${state.language ? ` · ${state.language}` : ""}` }),
     grid,
     detail,
     plans,
@@ -9699,23 +9697,23 @@ function renderRecordings() {
 }
 
 /**
- * **A group of options is a label, and the boxes under it.**
+ * **A group is one box holding the label and everything it owns** — the way the Account pane
+ * has always read: "Sign in" at the top of a plate, the account row and the fields inside it.
+ * Every group in the board is now that shape.
  *
- * A pane hands back a flat list: its controls, with a `.group-head` wherever a new group
- * begins, and `.provider` boxes that either carry their own name — as their *own* first
- * child, the way "Sign in" and "Browsing music" do — or are rows inside a group, named in a
- * `provider-head` ("Real-Debrid", "TMDB", an AI provider).
+ * A pane hands back a flat list, and this walks it once into those groups:
  *
- * This walks that list once, and does three things with it:
- *
- * - **The caption is dropped.** Every `.option-desc` is hidden in this panel anyway.
- * - **A rule is dropped too.** `.h-divider` was the way one group was separated from the
- *   next; the group's own label is what separates them now.
- * - **A main label comes out of its box.** A provider that names itself and whose group has
- *   no label of its own is the group's *name*, not a row inside it: the name is lifted out to
- *   sit above the box, the way "Card view" and "Services" already do. A provider that names
- *   itself *inside* a group that is already named keeps it — "Real-Debrid", "TMDB", an AI
- *   provider and the account card are the row's own name on the row's own box.
+ * - **The caption is dropped** (`.option-desc` is hidden in this panel anyway), and **a rule
+ *   is dropped too** — `.h-divider` used to separate one group from the next, which the
+ *   group's own box now does by itself.
+ * - **A `.group-head` opens a group.** The label goes inside that group's box, first, and the
+ *   boxes under it sit inside with it.
+ * - **A provider that leads with its own title is a group of its own** ("Speed", "Sign in",
+ *   "Browsing music", "Resolution"): it is not a row inside somebody else's group, so it
+ *   closes the one in hand and stands as its own card — its name at the top, its own controls
+ *   under it. A provider whose name sits in a `provider-head` ("Real-Debrid", "TMDB", an AI
+ *   provider) is a **row**: it stays inside the group it was handed, a shade lighter than the
+ *   plate holding it.
  */
 function optionGroups(items) {
   const flat = [];
@@ -9728,21 +9726,35 @@ function optionGroups(items) {
   walk(items);
 
   const out = [];
-  let labelled = false;
+  let run = null;
+  const close = () => {
+    if (!run) return;
+    const { label, nodes } = run;
+    run = null;
+    // A label with nothing under it is a name for nothing: it goes out on its own.
+    if (!nodes.length) {
+      if (label) out.push(label);
+      return;
+    }
+    if (!label) {
+      for (const node of nodes) out.push(node);
+      return;
+    }
+    out.push(el("div", { class: "option-group" }, label, ...nodes));
+  };
+
   for (const node of flat) {
     const cls = node.classList || {};
     if (cls.contains("option-desc")) continue;
-    if (cls.contains("h-divider")) { labelled = false; continue; }
-    if (cls.contains("group-head")) { labelled = true; out.push(node); continue; }
-    // The provider's *own* title: a direct child, not the one inside a `provider-head`.
+    if (cls.contains("h-divider")) { close(); continue; }
+    if (cls.contains("group-head")) { close(); run = { label: node, nodes: [] }; continue; }
+    // Its *own* title: a direct child, not the one inside a `provider-head`.
     const own = cls.contains("provider") ? [...node.children].find((c) => c.classList.contains("option-title")) : null;
-    if (own && !labelled) {
-      own.remove();
-      out.push(el("div", { class: "group-head" }, el("span", { class: "option-title", text: own.textContent })));
-      labelled = true;
-    }
-    out.push(node);
+    if (own) { close(); out.push(node); continue; }
+    if (!run) run = { label: null, nodes: [] };
+    run.nodes.push(node);
   }
+  close();
   return out;
 }
 

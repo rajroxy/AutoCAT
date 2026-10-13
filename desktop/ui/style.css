@@ -261,6 +261,9 @@ body {
 .voice-pad svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 /* **The calendar's plans line, with the switch on it.** */
 .plans-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+/* The switch on the calendar's own header line: its margins are asymmetric, which rides it
+   off the centre of a centred flex line — the row supplies the spacing instead. */
+.cal-head .row-switch { margin: 0; }
 .plans-head .section-title { margin: 0; }
 .plans-head .row-switch { margin: 0; }
 
@@ -4538,10 +4541,19 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .settings-pane .group-head:first-child { margin-top: 0; }
 .settings-pane .group-head .option-title { font-size: 15px; font-weight: 700; }
 
-/* **The label sits on the page, above the boxes — never inside one.** A group is named by
-   its own line (`.group-head`), the box or boxes it owns sit under it, and each of those
-   carries its own grey. There is no panel around a group: a box inside a box inside a box
-   was three edges for one thing, and the outlines that came with it. */
+/* **A group is one box: the label on top, its boxes inside it.** The shape the Account pane
+   always had — "Sign in" at the top of a plate with the account row and the fields inside —
+   is the shape of every group now. The label is the panel's first line, and the rows it owns
+   are a shade lighter than the plate holding them. */
+.settings-pane .option-group {
+  padding: 14px 16px 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.settings-pane .option-group > * + * { margin-top: 10px; }
+.settings-pane .option-group > .group-head { margin: 0 0 12px; }
+.settings-pane .option-group .option { background: var(--panel-2); }
+.settings-pane .option-group .provider { background: var(--panel-2); }
 /* **One box per option, in every pane, in both modes.** The Content pane's rows are one box
    each; the panes that gathered theirs inside a `.provider` panel read as one clump of
    controls squeezed into a single card — the "very compact" board. The panel's own chrome is
