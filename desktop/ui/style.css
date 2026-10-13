@@ -1083,7 +1083,6 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    boxes sit inside a bordered block, so the tint has to be set here rather than left to
    the generic `.option:has(input:checked)` rule. */
 .vis-option:has(input:checked) {
-  border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.6);
   background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14);
 }
 .vis-option:has(input:checked) .option-title { color: #fff; }
@@ -1145,6 +1144,12 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 /* ------------------------------------------------------------------- sources */
 
 .source-form { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 16px; }
+/* **A row you added is one line.** The editor's own form keeps the room the pane's forms want
+   between them; inside a row that room was empty space, and the row grew to twice the height
+   of the switch rows it sits between. A row is a name, two arrows and two buttons — the same
+   height as `Play the next episode automatically`. */
+.custom-row .source-form { margin: 0; }
+.custom-row { padding: 8px 12px; }
 
 .text-input {
   font: inherit;
@@ -1369,10 +1374,13 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    machine). The one in use is filled with the accent and wears the word instead of a
    button, because that one is not a choice you can make again. */
 .account-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 4px; }
+/* **The account row is a box.** It was painted in `--panel-2`, which is the same value the
+   card behind it uses — so the name and its two buttons sat on the card with no edge, and
+   "which of these is a row?" had no answer. It takes the app's own raised plate. */
 .account-list .account-row {
   padding: 10px 12px;
   border-radius: 12px;
-  background: var(--panel-2);
+  background: rgba(255, 255, 255, 0.07);
 }
 .account-list .account-row.on { background: rgba(var(--accent-rgb), 0.14); }
 /* The sign-in card stretches every `.btn` to its own width; the rows are not that shape —
@@ -1415,7 +1423,10 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   cursor: pointer;
 }
 
-.option:has(input:checked) { border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.6); background: rgba(var(--select-rgb, var(--accent-rgb)), 0.06); }
+/* **A chosen row is a tint, not a box.** The selection colour used to be drawn as a 1px
+   border *and* a fill on every ticked row, which is the app ringing a control — the one shape
+   Settings → Effects says controls never wear. The fill says it on its own. */
+.option:has(input:checked) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.06); }
 /* **The selection as a ring** (Settings → Interaction → Chosen). The same colour the checked
    rows wear as a fill, drawn around them instead — the row keeps the plate's grey and the
    colour is its outline. */
@@ -2040,14 +2051,28 @@ textarea:focus-visible {
 .boot-brand { display: flex; align-items: center; gap: 4px; }
 /* The name and the progress line, stacked: the line is exactly as wide as the word. */
 .boot-name-col { display: flex; flex-direction: column; align-items: stretch; gap: 9px; }
+/* **One wordmark, cut in two weights.** `Auto` is the word; the cat is the C; `AT` finishes
+   `CAT`. Set all three at 900 they were three blocks of the same colour and the animal had
+   nothing to be the middle of — so `Auto` is the light half and the initials are the heavy
+   one, which is what makes it read as a mark rather than as a sentence. Both halves share one
+   gradient (cream down into the lavender of the cat's own ear) so the type and the animal are
+   cut from the same material. */
+.boot-name,
+.boot-letters,
+.boot-letter {
+  background-image: linear-gradient(180deg, #fffdf7 0%, #f4efff 56%, #c8bdee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 .boot-name {
   margin: 0;
-  font-size: 42px;
-  font-weight: 900;
+  font-size: 46px;
+  font-weight: 500;
   line-height: 1;
-  letter-spacing: -0.01em;
-  color: #f8f3e8;
-  text-shadow: 0 3px 22px rgba(var(--accent-rgb), 0.3);
+  /* Caps need the opposite of the tight tracking lower case wants. */
+  letter-spacing: -0.005em;
+  filter: drop-shadow(0 3px 20px rgba(var(--accent-rgb), 0.3));
 }
 /* **The mark is one drawing of the animal: the cat curled into the C.** The opening used
    to swap a *second* drawing into this box — the cat sat up, tipped over and became this
@@ -2129,14 +2154,19 @@ textarea:focus-visible {
    the A slides in from the left first, the T following it, so the name completes left to
    right, the way it is read, rather than arriving as one block. */
 .boot-letters {
-  margin: 0 0 0 -16px;
-  font-size: 42px;
-  font-weight: 900;
+  /* The cat's own box is 76px wide with the curl drawn into it, so the letters close the gap
+     the drawing leaves instead of carrying the box's own margin. The bottom margin lifts the
+     pair onto the baseline of `Auto`, which sits one line *higher* because its column also
+     holds the progress line. */
+  margin: 0 0 13px -12px;
+  font-size: 46px;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.01em;
-  color: #f8f3e8;
-  text-shadow: 0 3px 22px rgba(var(--accent-rgb), 0.3);
+  letter-spacing: 0.01em;
+  filter: drop-shadow(0 3px 20px rgba(var(--accent-rgb), 0.3));
 }
+/* Each initial carries the gradient on its own: a clipped background lives on the element
+   that draws the glyph, and these two move independently as they arrive. */
 .boot-letter { display: inline-block; }
 .boot-letter:first-child { animation: boot-letter-a 0.5s cubic-bezier(0.2, 0.85, 0.2, 1) 2.25s both; }
 .boot-letter:last-child { animation: boot-letter-t 0.45s cubic-bezier(0.2, 0.85, 0.2, 1) 2.6s both; }
@@ -3893,11 +3923,8 @@ select option:hover {
    press are inside them. Ringing the box as well as the control under the cursor is the
    double highlight, all over again: pointing at one colour card lit the whole accent
    pane. */
-.vis-card:hover,
-.option:hover, .option:focus-visible, .vis-option:hover, .vis-option:focus-visible,
 .cal-cell:hover, .cal-cell:focus-visible,
 .profile-tile:hover, .profile-tile:focus-visible,
-.ep-row:hover, .site-row:hover,
 .icon-btn:hover, .icon-btn:focus-visible,
 .btn:hover, .btn:focus-visible,
 .accent-card:hover, .accent-card:focus-visible,
@@ -4090,7 +4117,7 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    is the same small square everywhere: a chevron to fold, or an arrow to move the entry one
    place in its list. */
 .vis-card.vis-tab { padding: 6px 12px 12px; }
-.vis-btn { font-size: 10px; }
+.vis-btn { font-size: 13px; }
 .vis-btn.dead { opacity: 0.3; cursor: default; pointer-events: none; }
 .vis-leaf { display: flex; align-items: center; gap: 8px; }
 .vis-leaf .vis-option { flex: 1; min-width: 0; }
@@ -4742,13 +4769,16 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    around a word, and a fill behind a poster is a colour nobody can see.
 
    Both are one setting (Settings → Effects → Fills & rings): `mark` switches the whole
-   treatment off, and `markLevel` decides how loud it is — `--mark-fill` for the fill's alpha,
-   `--mark-ring` for the ring's width (see `applyTheme`).
+   treatment off, and the app's own strength is the only one — `--mark-fill` for the fill's
+   alpha, `--mark-ring` for the ring's width (see `applyTheme`).
    ============================================================================ */
 /* --------------------------------------------------------------- a control */
+/* **The cursor and the keyboard get the same answer.** This was hover-only, so the keyboard
+   fell back to the generic 3px accent ring — a box drawn around whatever the D-pad was on,
+   which in Settings meant a ring around every option. A control is *filled* for both. */
 :is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .row-btn, .tab, .icon-btn,
   .btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
-  .menu-item, .dropdown-item, .dropdown-btn):hover {
+  .menu-item, .dropdown-item, .dropdown-btn):is(:hover, :focus-visible, :has(:focus-visible)) {
   /* `background-color`, not `background`: a plate that is a gradient (the Home tab, the Play
      button, the chosen Movies / Shows pill) keeps its gradient and takes this under it. */
   background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
@@ -4764,7 +4794,7 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
 }
 /* ------------------------------------------------------------------- a thing */
-:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) {
+:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :focus-visible, :has(:focus-visible), .sel-on) {
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
 }
 /* A face rings its picture, not its card — the card is a button with a name on it. */
@@ -4805,10 +4835,16 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   background: rgba(4, 5, 8, 0.28);
   backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.08);
   -webkit-backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.08);
-  transition: opacity 160ms ease;
+  /* **It arrives, it moves and it leaves.** The scrim is drawn at nothing and takes 200ms to
+     reach its depth — the same beat `--quick` gives every other change — so the page goes soft
+     rather than switching. Walking a row keeps the scrim and only swaps the sharp picture
+     (see `spotlight`), which is the movement: no blink between one card and the next. */
+  opacity: 0;
+  transition: opacity 200ms var(--ease, ease);
 }
+.sel-blur.on { opacity: 1; }
 .sel-blur.out { opacity: 0; }
-.blur-off .sel-blur, .no-card-blur .sel-blur { display: none !important; }
+.blur-off .sel-blur { display: none !important; }
 /* **The sharp copy carries its own light.** Drawn flat on the scrim its edge was a hard cut
    against the blur; a soft shadow under it reads as the card standing in front of the page. */
 .sel-sharp {
@@ -4820,18 +4856,17 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   animation: none !important;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
 }
+/* The picture that has just been put down fades up from nothing, so the card you arrived on
+   arrives instead of cutting in. */
+.sel-sharp.sel-in { opacity: 0; }
 /* **A card being stood in for holds still** — the copy is a picture of it, taken where it sits. */
 .sel-on { transform: none !important; transition-property: none !important; }
 
 /* **One depth behind everything the switch covers.** The assistant and a dialog blurred by
    22px, the trailer by 26, the blur around your card by 13 — the same setting looked like a
-   different setting depending on what was open. They take `--blur-amount` together, and
-   `no-popup-blur` takes the dialogs out of it when the blur is set to cards only. */
+   different setting depending on what was open. They take `--blur-amount` together. */
 :is(.assistant-overlay, .modal-backdrop, .trailer-overlay, .overlay-backdrop) {
   backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.15);
   -webkit-backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.15);
 }
-.no-popup-blur :is(.assistant-overlay, .modal-backdrop, .trailer-overlay, .overlay-backdrop) {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
+

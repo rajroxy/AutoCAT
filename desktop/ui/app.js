@@ -54,13 +54,9 @@ const SETTING_KEYS = {
   pop: "autocat.pop",
   speed: "autocat.speed",
   accent: "autocat.accent",
-  // **How far a card lifts** under the cursor (Settings → Effects → Popup), and how the
-  // app marks what you are on (Fills & rings) and how far it blurs (Blur).
-  popLift: "autocat.popLift",
+  // **The three things Effects switches.** No dials: each is telling the app where you are,
+  // and the app already knows how loudly to say it.
   mark: "autocat.mark",
-  markLevel: "autocat.markLevel",
-  blurWhere: "autocat.blurWhere",
-  blurLevel: "autocat.blurLevel",
   // The colour a *selection* wears — the chosen row, the checked box — on top of the
   // highlight colour the app is tinted with (see `applyTheme`).
   select: "autocat.select",
@@ -120,7 +116,7 @@ const HOME_PROFILE = "you";
    — and since the mode is part of the settings scope below, the mode itself cannot be
    stored inside a scope. It is the machine's, like how the app looks. */
 const MACHINE_KEYS = new Set(["theme", "accent", "select", "motion", "font", "blur", "pop", "speed", "glow", "profile",
-  "popLift", "mark", "markLevel", "blurWhere", "blurLevel"]);
+  "mark"]);
 /**
  * **A profile, and the local account in use inside it.**
  *
@@ -469,10 +465,9 @@ const LAYOUTS = [
 /**
  * The accent the whole app is painted in.
  *
- * `rgb` is what every translucent gold tint is built from (`rgba(var(--accent-rgb), …)`),
- * so changing one pick re-tints buttons, chips, borders and highlights together
- * instead of leaving half the UI gold. Gold stays the default — it is the app's
- * own colour — but it is no longer the only one.
+ * `rgb` is what every translucent tint is built from (`rgba(var(--accent-rgb), …)`), so
+ * changing one pick re-tints buttons, chips, borders and highlights together instead of
+ * leaving half the UI in the old colour.
  */
 const ACCENTS = [
   // **Copper is the app's own colour.** It is the first entry, so it is what a fresh
@@ -480,57 +475,70 @@ const ACCENTS = [
   // (see `accentOf`) — a warm metal that reads the same on a bright and a dim screen.
   ["copper", "Copper", "204, 130, 92", "#cc825c", "#a35f3c"],
   ["amber", "Amber", "224, 160, 84", "#e0a054", "#b3762c"],
-  ["violet", "Violet", "157, 137, 232", "#9d89e8", "#6f5bbf"],
-  ["blue", "Blue", "112, 166, 232", "#70a6e8", "#3f74bd"],
-  ["teal", "Teal", "90, 200, 186", "#5ac8ba", "#2f978a"],
-  ["green", "Green", "123, 200, 132", "#7bc884", "#4e9a58"],
-  ["rose", "Rose", "228, 120, 152", "#e47898", "#b04d6b"],
-  ["slate", "Slate", "160, 172, 190", "#a0acbe", "#6f7c8e"],
-  // The second row of choices: **warmer and cooler ends** of the same idea, so there is
-  // something for a screen that is too dim or too bright for the first eight.
-  ["crimson", "Crimson", "224, 92, 92", "#e05c5c", "#a83a3a"],
-  ["coral", "Coral", "240, 138, 108", "#f08a6c", "#bd5a3d"],
-  // **Where magenta was.** A quiet sand: the warm end of the neutral range, for a screen
-  // that wants the accent to be a texture rather than a colour.
-  ["sand", "Sand", "214, 190, 156", "#d6be9c", "#a88f6d"],
-  ["indigo", "Indigo", "122, 130, 236", "#7a82ec", "#4c53bd"],
-  ["ice", "Ice", "126, 208, 226", "#7ed0e2", "#4b9cb1"],
-  // **Two more ends.** A plum that sits between the violet and the copper without being
-  // either, and a mint between the teal and the green — so the board has a colour for a
-  // screen the first fourteen do not.
-  ["plum", "Plum", "186, 130, 220", "#ba82dc", "#8a52b0"],
-  ["mint", "Mint", "84, 214, 160", "#54d6a0", "#2f9d73"],
-  // **Three more ends of the range.** The hues nothing else on the board reaches: a true
-  // yellow, the pink-magenta between the rose and the plum, and the green between the green
-  // and the mint.
   ["lemon", "Lemon", "232, 208, 96", "#e8d060", "#b3a02e"],
-  ["bronze", "Bronze", "184, 130, 80", "#b88250", "#8a5c33"],
-  ["ocean", "Ocean", "72, 168, 208", "#48a8d0", "#2f7ba0"],
+  // The reds, from the deepest to the palest: a jewel, a rose, a blush. Three different
+  // reds, not three names for one — a board where two entries look the same is a board
+  // that only pretends to offer a choice.
+  ["ruby", "Ruby", "216, 66, 96", "#d84260", "#a82946"],
+  ["rose", "Rose", "228, 120, 152", "#e47898", "#b04d6b"],
   ["blush", "Blush", "240, 170, 180", "#f0aab4", "#bd7c86"],
-  ["jade", "Jade", "96, 200, 150", "#60c896", "#3a9a6d"],
+  // The violets: a pink-purple and a blue-purple, far enough apart to be two colours.
+  ["plum", "Plum", "186, 130, 220", "#ba82dc", "#8a52b0"],
+  ["grape", "Grape", "150, 90, 200", "#965ac8", "#6f3a99"],
+  // The blues, from the deep end to the cyan one: a jewel, a sky, an ice and an ocean.
+  ["sapphire", "Sapphire", "58, 110, 224", "#3a6ee0", "#2a4ea8"],
+  ["blue", "Blue", "112, 166, 232", "#70a6e8", "#3f74bd"],
+  ["ice", "Ice", "126, 208, 226", "#7ed0e2", "#4b9cb1"],
+  ["ocean", "Ocean", "72, 168, 208", "#48a8d0", "#2f7ba0"],
+  // The greens: one true green, then the sea-green beside it.
+  ["turquoise", "Turquoise", "46, 200, 190", "#2ec8be", "#1f9a92"],
+  ["green", "Green", "123, 200, 132", "#7bc884", "#4e9a58"],
+  // The two neutrals, for a screen that wants the accent to be a texture rather than a
+  // colour: a warm sand and a cool slate.
+  ["sand", "Sand", "214, 190, 156", "#d6be9c", "#a88f6d"],
+  ["slate", "Slate", "160, 172, 190", "#a0acbe", "#6f7c8e"],
 ];
 
 /**
- * **Four the selection colour has to itself.**
+ * **Sixteen, and every one of them its own colour.**
  *
- * The selection colour paints what you *picked* — a checked row, a card you are on — so it
- * carries the deeper, more saturated end of the range the app has no use for as a tint: the
- * jewel tones. They are on the Selection colour board only (see `paneAppearance`); the
- * highlight colour is what the app is dressed in, and a jewel there is a different question.
+ * The board used to be longer and *closer*: three greens — mint, jade, emerald — that were
+ * the same green at three brightnesses, amethyst beside plum beside violet beside grape, and
+ * indigo beside violet. Sixteen entries where two of them look the same is not a choice, it
+ * is a list that has to be read twice.
+ *
+ * What is left is the set with the largest perceptual distance between any two entries, so
+ * **the nearest pair on the board is further apart than the pairs that were removed were
+ * from each other**. Nothing is dropped by name for its own sake: the entries that went are
+ * the ones whose nearest neighbour was another entry.
  */
-const SELECT_EXTRA = [
-  ["ruby", "Ruby", "216, 66, 96", "#d84260", "#a82946"],
-  ["sapphire", "Sapphire", "58, 110, 224", "#3a6ee0", "#2a4ea8"],
-  ["emerald", "Emerald", "52, 190, 130", "#34be82", "#1f8f5e"],
-  ["amethyst", "Amethyst", "168, 106, 226", "#a86ae2", "#7d45b0"],
-  ["topaz", "Topaz", "230, 170, 60", "#e6aa3c", "#b37f1f"],
-  ["turquoise", "Turquoise", "46, 200, 190", "#2ec8be", "#1f9a92"],
-  ["grape", "Grape", "150, 90, 200", "#965ac8", "#6f3a99"],
-];
-/** Every colour the app can paint a selection with, in board order. */
-const SELECT_ACCENTS = [...ACCENTS, ...SELECT_EXTRA];
+const SELECT_ACCENTS = ACCENTS;
 
-const accentOf = (id) => [...ACCENTS, ...SELECT_EXTRA].find(([key]) => key === id) || ACCENTS[0];
+/**
+ * **A colour this build still has.**
+ *
+ * A store written before the board was trimmed can name a colour that is no longer on it —
+ * mint, teal, indigo, amethyst. Reading it back through the map means the app opens in the
+ * colour that took that one's place instead of quietly falling to the app's own copper.
+ */
+const storedAccent = (key) => {
+  const id = localStorage.getItem(key);
+  if (!id) return "";
+  if (ACCENTS.some(([name]) => name === id)) return id;
+  return LEGACY_ACCENTS[id] || "";
+};
+
+/** The colours a store written by an older board may still hold, mapped onto the ones left. */
+const LEGACY_ACCENTS = {
+  bronze: "copper", coral: "copper", crimson: "ruby", mint: "green", jade: "green",
+  emerald: "green", amethyst: "plum", topaz: "amber", teal: "turquoise", violet: "plum",
+  indigo: "sapphire",
+};
+
+const accentOf = (id) => {
+  const found = ACCENTS.find(([key]) => key === id) || ACCENTS.find(([key]) => key === LEGACY_ACCENTS[id]);
+  return found || ACCENTS[0];
+};
 
 /**
  * **The marks a profile can wear.**
@@ -992,13 +1000,13 @@ const state = {
   settingsSection: localStorage.getItem(KEY.section) || "profile",
   // The Library row currently being renamed, if any — see `paneCustomRows`.
   customRowEdit: "",
-  accent: localStorage.getItem(KEY.accent) || "gold",
+  accent: storedAccent(KEY.accent),
   // **The selection colour follows the highlight until it is set.** Empty means "same as the
   // accent", so nothing changes for anyone who never opens this setting.
   // **The selection colour is a choice of its own.** It used to fall back to the highlight
   // through a "Match highlight" card on the board; that card is gone, so an install that has
   // never picked one takes the highlight it is already wearing — the same colour, made explicit.
-  select: localStorage.getItem(KEY.select) || localStorage.getItem(KEY.accent) || "copper",
+  select: storedAccent(KEY.select) || storedAccent(KEY.accent),
   // The selection colour as a ring around the choice, or as the fill of it.
   selStyle: localStorage.getItem(KEY.selStyle) === "ring" ? "ring" : "fill",
   // **Two choices, not three.** "Follow system" was the third and it is gone from the
@@ -1013,14 +1021,9 @@ const state = {
   // **Pop on hover** (Settings → Motion): a card, a tile, a button or a row head lifts
   // under the cursor. On by default — it is the app's own feel — and one switch to stop it.
   pop: localStorage.getItem(KEY.pop) !== "0",
-  // How far the lift goes, and how the app marks what you are on. `mark` is on by default:
-  // with it off nothing is filled and nothing is ringed, and the app is flat.
-  popLift: localStorage.getItem(KEY.popLift) || "normal",
+  // **Whether the app marks what you are on at all.** On by default; with it off nothing is
+  // filled and nothing ringed, and the app is flat. `pop` is the same switch for the lift.
   mark: localStorage.getItem(KEY.mark) !== "0",
-  markLevel: localStorage.getItem(KEY.markLevel) || "normal",
-  // What the blur covers, and how far. "both" is the default: popups *and* the card you are on.
-  blurWhere: localStorage.getItem(KEY.blurWhere) || "both",
-  blurLevel: localStorage.getItem(KEY.blurLevel) || "normal",
   // How long a fill, a ring or a lift takes. One variable drives every transition.
   speed: localStorage.getItem(KEY.speed) || "smooth",
   // Blur the page behind a popup (the assistant, a dialog). On unless turned off.
@@ -1439,15 +1442,27 @@ async function setWatchState(item, next) {
  * `timeupdate`.
  */
 const WATCH_AT = 0.05;
-let watchedMarked = "";
+/** Where a title is finished. **Finish it and it leaves Watching for Watched.** */
+const WATCHED_AT = 0.92;
+/** One write per state per playback: a two-hour film calls this on every `timeupdate`. */
+const watchedMarked = new Set();
 async function watchedPast(meta, ratio) {
   const item = meta || {};
-  if (!item.id || ratio < WATCH_AT) return;
+  if (!item.id) return;
   const key = watchKey(item);
-  if (watchedMarked === key) return;
-  watchedMarked = key;
-  if (state.watchlist[key]) return;
-  await setWatchState(item, "watching");
+  // Back at the start — a replay, or somebody who scrubbed home — so the title may be moved
+  // again. Nothing else walks this backwards.
+  if (ratio < WATCH_AT) return watchedMarked.delete(key);
+  const next = ratio >= WATCHED_AT ? "watched" : "watching";
+  if (watchedMarked.has(`${key}:${next}`)) return;
+  watchedMarked.add(`${key}:${next}`);
+  // **A state that was chosen is never overwritten by a state that happened.** Something marked
+  // Plan to Watch or Watched on purpose stays where it was put; a title with nothing to say
+  // about itself is moved, and one already in Watching is allowed to finish into Watched — the
+  // same rule at both ends, so nothing sits in Watching after you have seen it.
+  const held = state.watchlist[key];
+  if (held && !(next === "watched" && held === "watching")) return;
+  await setWatchState(item, next);
 }
 
 /**
@@ -2467,13 +2482,11 @@ function signInCard() {
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
   const { rows, current, room } = accountList();
 
-  // **`Sign in` is a group like every other one.** It names the card under it the way the
-  // board names its groups, so it is a `.group-head` over the account card and `optionGroups`
-  // builds the plate — the same shape as Speed, Engine or Debrid (see `optionGroups`).
+  // **A group of `option`s, and the board draws the plate** — the same shape as Speed,
+  // Engine or Debrid. The heading is the pane's (`paneSignin`), not the box's.
   return el(
     "div",
     { class: "provider", id: "account" },
-    groupHead("Sign in"),
     said ? el("p", { class: "signin-said", text: said }) : null,
     rows.length ? el("div", { class: "account-list" }, ...rows) : null,
     accountForm(),
@@ -4660,7 +4673,10 @@ function renderSearch() {
   // film and a show with the same name are two different things, and "Title" on
   // every line told you nothing about which one this is.
   const drawSuggestions = (_text, metas = []) => {
-    const nodes = metas.map((m) =>
+    // **What you are already watching is not offered back to you.** The results wall drops
+    // those titles (`hideOwned`); the dropdown did not, so the same film you are part-way
+    // through came back as a suggestion while the wall it leads to had dropped it.
+    const nodes = hideOwned(metas).map((m) =>
       suggestRow(m.type === "series" ? "Show" : "Movie", m.name, () =>
         go(`#/t/${m.type === "series" ? "series" : "movie"}/${String(m.id || "").replace(/^tmdb:/, "")}`),
       ),
@@ -8173,7 +8189,10 @@ function visRow(checked, level, id, title, desc, depth = 0) {
  * half-right.
  */
 function paneSignin() {
-  return [signInCard()];
+  // **`Sign in` is a group head like Speed, Engine or Debrid.** It sat *inside* the account
+  // box, which put a section title in the plate it names; it is the pane's heading, and the
+  // pane is where it belongs.
+  return [groupHead("Sign in"), signInCard()];
 }
 
 /**
@@ -8287,15 +8306,15 @@ function visCardBlock(v, row, card, index, total) {
     el("div", { class: "vis-card-head" },
       visRow(on, "card", card.key, titleOf(card, row), `${cats.length} catalog rows`),
       cats.length ? visFold(titleOf(card, row), open, () => { setVisOpen("openCards", `${row}:${card.key}`, !open); render(); }) : null,
-      visBtn("Move up", "▲", () => moveVisCard(row, card.key, -1), index === 0),
-      visBtn("Move down", "▼", () => moveVisCard(row, card.key, 1), index === total - 1),
+      visBtn("Move up", "\u2191", () => moveVisCard(row, card.key, -1), index === 0),
+      visBtn("Move down", "\u2193", () => moveVisCard(row, card.key, 1), index === total - 1),
     ),
     open
       ? el("div", { class: "vis-card-rows" },
           ...list.map((cat, i) => el("div", { class: "vis-leaf" },
             visRow(v.catalogs[cat.id] !== false, "catalog", cat.id, cat.name, "", 1),
-            visBtn("Move up", "▲", () => moveVisCatalog(row, card, cat.id, -1), i === 0),
-            visBtn("Move down", "▼", () => moveVisCatalog(row, card, cat.id, 1), i === list.length - 1),
+            visBtn("Move up", "\u2191", () => moveVisCatalog(row, card, cat.id, -1), i === 0),
+            visBtn("Move down", "\u2193", () => moveVisCatalog(row, card, cat.id, 1), i === list.length - 1),
           )),
         )
       : null,
@@ -8905,21 +8924,18 @@ function applyTheme() {
   // is *filled* with the colour; a thing — a card, a catalog title, a face — is *ringed* by
   // it. There is no choice to make: a control is a surface you press and a card is a thing
   // you are on, so the two do not want the same mark. `mark` switches the whole treatment
-  // off, and `markLevel` decides how loud it is (see `--mark-fill` / `--mark-ring`).
-  const marks = { soft: [0.14, 2], normal: [0.22, 2], strong: [0.32, 3] }[state.markLevel] || [0.22, 2];
+  // off (see `--mark-fill` / `--mark-ring`).
+  const marks = [0.22, 2];
   root.classList.toggle("mark-off", state.mark === false);
   root.style.setProperty("--mark-fill", state.mark === false ? "0" : String(marks[0]));
   root.style.setProperty("--mark-ring", state.mark === false ? "0px" : `${marks[1]}px`);
   // The pop's reach, and the blur's — both settings, both written as one property each so
   // the stylesheet never has to know which one is chosen.
-  root.style.setProperty("--pop-lift", { close: "2px", normal: "5px", far: "9px" }[state.popLift] || "5px");
+  root.style.setProperty("--pop-lift", "5px");
   root.classList.toggle("blur-off", state.blur === false);
-  // **Where the blur lands.** The switch used to answer for popups only, then for popups and
-  // the card you are on; now it says which. `no-popup-blur` takes the scrims off the dialogs
-  // while the card keeps its blur; the other way round is the spotlight's own check.
-  root.classList.toggle("no-popup-blur", state.blurWhere === "cards");
-  root.classList.toggle("no-card-blur", state.blurWhere === "popups");
-  root.style.setProperty("--blur-amount", { light: "6px", normal: "10px", heavy: "16px" }[state.blurLevel] || "10px");
+  // **One depth, one reach.** The blur answers for popups and for the card you are on, at the
+  // app's own strength — it used to be three dials deciding what and how much.
+  root.style.setProperty("--blur-amount", "10px");
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
@@ -9241,16 +9257,19 @@ function paneAnimation() {
 /**
  * **Settings → Effects: the three things the app does to show you where you are.**
  *
- * They are the whole vocabulary — a card answers the cursor, what you are *on* is marked, and
- * the page around it can be put out of focus — so they are one pane, and each of them says how
- * far it goes:
+ * They are the whole vocabulary, and each of them is one switch:
  *
- * - **Popup** — the lift under the cursor, and how far it lifts.
- * - **Fills & rings** — one setting with two answers, because the two do not want the same
- *   mark: a **control** (a button, an icon, a menu row, a dropdown) is *filled* with the
- *   selection colour, and a **thing** (a card, a catalog title, a face) is *ringed* by it.
- * - **Blur** — what the page does behind a popup and around the card you are on, how far, and
- *   where it lands.
+ * - **Popup** — what you point at lifts under the cursor.
+ * - **Fills & rings** — a **control** (a button, an icon, a menu row, a dropdown) is *filled*
+ *   with the selection colour, and a **thing** (a card, a catalog title, a face) is *ringed*
+ *   by it.
+ * - **Blur** — the page behind a popup, and the page around the card you are on, is put out
+ *   of focus.
+ *
+ * **The dials are gone.** Each had three positions and each position was a *different* app
+ * promising the same three things: Popup ×3, Fills & rings ×3, Blur ×3 ×3. What was asked
+ * for was the three answers, not thirty ways to say them, so the app's own strength is the
+ * only one and there is nothing here to get wrong.
  */
 function paneInteraction() {
   const set = (key, value, on) => {
@@ -9259,31 +9278,17 @@ function paneInteraction() {
     applyTheme();
     render();
   };
-  const choice = (key, value, title, desc, tag = key) =>
-    radioRow(state[key] === value, tag, title, desc, () => set(key, value));
 
   return [
     // ---------------------------------------------------------------- Popup
     groupHead("Popup"),
     toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => set("pop", e.target.checked)),
-    choice("popLift", "close", "Close", "The gentlest lift — a card barely leaves its place.", "poplift-row"),
-    choice("popLift", "normal", "Normal", "The app's own lift: a card rises a little under the cursor.", "poplift-row"),
-    choice("popLift", "far", "Far", "A taller lift, for a screen read from across the room.", "poplift-row"),
     // ------------------------------------------------------- Fills & rings
     groupHead("Fills & rings"),
     toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the selection colour; a card or a catalog title you are on is ringed by it.", (e) => set("mark", e.target.checked)),
-    choice("markLevel", "soft", "Soft", "A whisper of the colour — enough to find your place on a dim screen.", "mark-row"),
-    choice("markLevel", "normal", "Normal", "The app's own strength: a clear fill under a control, a clear ring around a card.", "mark-row"),
-    choice("markLevel", "strong", "Strong", "A louder fill and a thicker ring, for a screen viewed from far away.", "mark-row"),
     // ---------------------------------------------------------------- Blur
     groupHead("Blur"),
     toggleRow(state.blur !== false, "Blur the page", "Everything behind a popup, and everything around a card you are on, is put out of focus.", (e) => set("blur", e.target.checked)),
-    choice("blurWhere", "popups", "Popups", "Only what is behind a dialog, the assistant and a trailer.", "blurwhere-row"),
-    choice("blurWhere", "cards", "Cards", "Only the page around the card or catalog title you are on.", "blurwhere-row"),
-    choice("blurWhere", "both", "Both", "A dialog and the card you are on — everywhere the app puts the page out of focus.", "blurwhere-row"),
-    choice("blurLevel", "light", "Light", "A soft out-of-focus, so the page is still readable through it.", "blurlevel-row"),
-    choice("blurLevel", "normal", "Normal", "The app's own blur.", "blurlevel-row"),
-    choice("blurLevel", "heavy", "Heavy", "A hard out-of-focus, for a screen you are watching from across the room.", "blurlevel-row"),
   ];
 }
 
@@ -10458,6 +10463,19 @@ let spotExit = 0;
 /** Where the pointer was, so a redraw can pick the card it is over back up. */
 const spotPointer = { x: -1, y: -1 };
 
+/** The picture of `node` that stands in for it on the scrim: no clicks, no keyboard, no ids. */
+function spotCopy(node, r) {
+  const box = node.cloneNode(true);
+  box.removeAttribute("id");
+  for (const n of box.querySelectorAll("[id]")) n.removeAttribute("id");
+  box.classList.add("sel-sharp");
+  box.setAttribute("aria-hidden", "true");
+  box.setAttribute("tabindex", "-1");
+  box.style.width = `${r.width}px`;
+  box.style.height = `${r.height}px`;
+  return box;
+}
+
 /** Take the scrim and the copy down, and give the card its own look back. */
 function dropSpotlight(now = false) {
   clearTimeout(spotExit);
@@ -10470,8 +10488,8 @@ function dropSpotlight(now = false) {
   // **It leaves the way it arrived.** The scrim used to be thrown away between two frames, so
   // the page snapped back into focus; it fades out over the same beat it fades in on.
   if (now) return view.remove();
-  view.classList.add("out");
-  setTimeout(() => view.remove(), 200);
+  view.classList.remove("on");
+  setTimeout(() => view.remove(), 240);
 }
 
 /** Keep the copy level with the card it stands for, and let go if that card is gone. */
@@ -10489,25 +10507,46 @@ function spotFollow() {
 /** Put the page out of focus around `node`, or move the sharp copy to it. */
 function spotlight(node) {
   if (!node?.isConnected || !node.matches?.(SPOT_CONTENT)) return dropSpotlight();
-  if (state.blur === false || state.blurWhere === "popups" || spotBlocked()) return dropSpotlight();
+  if (state.blur === false || spotBlocked()) return dropSpotlight();
   if (spotNow?.node === node) return spotFollow();
-  dropSpotlight();
   const r = node.getBoundingClientRect();
   if (!r.width || !r.height) return;
+
+  // **Walking the row is one movement, not one per card.** The scrim is the same screen-wide
+  // wash behind any of them, so it stays exactly where it is and only the *picture* changes:
+  // the card you have left fades out as the one you have arrived on fades in, under a blur
+  // that never blinks. Tearing the scrim down and building it again for every card is what
+  // made moving along a row look like two separate events.
+  if (spotNow) {
+    const { view, box: was, node: left } = spotNow;
+    left.classList.remove("sel-on");
+    const next = spotCopy(node, r);
+    next.style.transition = "opacity 170ms ease";
+    next.classList.add("sel-in");
+    view.append(next);
+    node.classList.add("sel-on");
+    spotNow = { node, view, box: next };
+    spotFollow();
+    requestAnimationFrame(() => {
+      was.style.transition = "opacity 170ms ease";
+      was.style.opacity = "0";
+      next.classList.remove("sel-in");
+    });
+    setTimeout(() => was.remove(), 220);
+    return;
+  }
+
   node.classList.add("sel-on");
   const view = el("div", { class: "sel-blur", id: "sel-blur", "aria-hidden": "true" });
-  const box = node.cloneNode(true);
-  box.removeAttribute("id");
-  for (const n of box.querySelectorAll("[id]")) n.removeAttribute("id");
-  box.classList.add("sel-sharp");
-  box.setAttribute("aria-hidden", "true");
-  box.setAttribute("tabindex", "-1");
-  box.style.width = `${r.width}px`;
-  box.style.height = `${r.height}px`;
-  view.append(box);
+  view.append(spotCopy(node, r));
   document.body.append(view);
-  spotNow = { node, view, box };
+  spotNow = { node, view, box: view.firstElementChild };
   spotFollow();
+  // **And it arrives rather than appearing.** It was drawn at full strength in the frame it was
+  // made, which is the whole of "the blur has no animation" — the page was simply out of focus
+  // by the next frame. One rAF after it is in the document, the class that says "on" gives it
+  // its 200ms.
+  requestAnimationFrame(() => view.classList.add("on"));
   window.addEventListener("scroll", spotFollow, true);
   window.addEventListener("resize", spotFollow);
 }
@@ -10515,7 +10554,7 @@ function spotlight(node) {
 /** Put the blur back on the card under the pointer — or under the keyboard — after a redraw. */
 function spotReArm() {
   dropSpotlight(true);
-  if (state.blur === false || state.blurWhere === "popups") return;
+  if (state.blur === false) return;
   const under = spotPointer.x >= 0 ? document.elementFromPoint(spotPointer.x, spotPointer.y) : null;
   // `elementFromPoint` skips the scrim (it takes no clicks) but not the copy, which lives
   // inside it — so the match is taken from the card the element belongs to either way.
