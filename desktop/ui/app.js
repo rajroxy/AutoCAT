@@ -489,16 +489,38 @@ const ACCENTS = [
   // that wants the accent to be a texture rather than a colour.
   ["sand", "Sand", "214, 190, 156", "#d6be9c", "#a88f6d"],
   ["indigo", "Indigo", "122, 130, 236", "#7a82ec", "#4c53bd"],
-  ["lime", "Lime", "166, 214, 90", "#a6d65a", "#769f2f"],
   ["ice", "Ice", "126, 208, 226", "#7ed0e2", "#4b9cb1"],
   // **Two more ends.** A plum that sits between the violet and the copper without being
   // either, and a mint between the teal and the green — so the board has a colour for a
   // screen the first fourteen do not.
   ["plum", "Plum", "186, 130, 220", "#ba82dc", "#8a52b0"],
   ["mint", "Mint", "84, 214, 160", "#54d6a0", "#2f9d73"],
+  // **Three more ends of the range.** The hues nothing else on the board reaches: a true
+  // yellow, the pink-magenta between the rose and the plum, and the green between the green
+  // and the mint.
+  ["lemon", "Lemon", "232, 208, 96", "#e8d060", "#b3a02e"],
+  ["magenta", "Magenta", "214, 106, 206", "#d66ace", "#a0419a"],
+  ["jade", "Jade", "96, 200, 150", "#60c896", "#3a9a6d"],
 ];
 
-const accentOf = (id) => ACCENTS.find(([key]) => key === id) || ACCENTS[0];
+/**
+ * **Four the selection colour has to itself.**
+ *
+ * The selection colour paints what you *picked* — a checked row, a card you are on — so it
+ * carries the deeper, more saturated end of the range the app has no use for as a tint: the
+ * jewel tones. They are on the Selection colour board only (see `paneAppearance`); the
+ * highlight colour is what the app is dressed in, and a jewel there is a different question.
+ */
+const SELECT_EXTRA = [
+  ["ruby", "Ruby", "216, 66, 96", "#d84260", "#a82946"],
+  ["sapphire", "Sapphire", "58, 110, 224", "#3a6ee0", "#2a4ea8"],
+  ["emerald", "Emerald", "52, 190, 130", "#34be82", "#1f8f5e"],
+  ["amethyst", "Amethyst", "168, 106, 226", "#a86ae2", "#7d45b0"],
+];
+/** Every colour the app can paint a selection with, in board order. */
+const SELECT_ACCENTS = [...ACCENTS, ...SELECT_EXTRA];
+
+const accentOf = (id) => [...ACCENTS, ...SELECT_EXTRA].find(([key]) => key === id) || ACCENTS[0];
 
 /**
  * **The marks a profile can wear.**
@@ -963,7 +985,10 @@ const state = {
   accent: localStorage.getItem(KEY.accent) || "gold",
   // **The selection colour follows the highlight until it is set.** Empty means "same as the
   // accent", so nothing changes for anyone who never opens this setting.
-  select: localStorage.getItem(KEY.select) || "",
+  // **The selection colour is a choice of its own.** It used to fall back to the highlight
+  // through a "Match highlight" card on the board; that card is gone, so an install that has
+  // never picked one takes the highlight it is already wearing — the same colour, made explicit.
+  select: localStorage.getItem(KEY.select) || localStorage.getItem(KEY.accent) || "copper",
   // The selection colour as a ring around the choice, or as the fill of it.
   selStyle: localStorage.getItem(KEY.selStyle) === "ring" ? "ring" : "fill",
   // **Two choices, not three.** "Follow system" was the third and it is gone from the
@@ -8193,6 +8218,10 @@ function paneProfile() {
     radioRow(!settingsUnified(), "modes", "Separate", "Each mode keeps its own: keys, add-ons, Debrid, playlists, playback and layout. Switching carries the settings you are looking at across, once.", () => {
       if (settingsUnified()) setUnified(false);
     }),
+    // **The lists are a group of their own.** The editor stood under the Modes head, so the two
+    // switches that decide whether the modes share their settings sat in the same plate as the
+    // Movies and Shows rows they have nothing to do with.
+    editing ? groupHead("Lists") : null,
     editing
       ? (liveProfile() ? liveVisEditor(v) : vodVisEditor(v))
       : null,
@@ -8879,9 +8908,10 @@ function paneAppearance() {
   // is on — while the highlight colour tints the app around them. "Match highlight" is the
   // default and keeps the two together.
   const selectionGrid = () => {
-    const [, , , accBase, accDeep] = accentOf(state.accent);
-    const choices = [["auto", "Match highlight", accBase, accDeep], ...ACCENTS.map(([id, label, , base, deep]) => [id, label, base, deep])];
-    const on = state.select || "auto";
+    // **Every colour, and four the highlight board does not carry.** No "Match highlight" card:
+    // that card was the *absence* of a choice, which is why the board could never show it as one.
+    const choices = SELECT_ACCENTS.map(([id, label, , base, deep]) => [id, label, base, deep]);
+    const on = state.select || state.accent;
     return el("div", { class: "accent-grid" },
       ...choices.map(([id, label, base, deep]) =>
         el("button", {
@@ -8893,7 +8923,7 @@ function paneAppearance() {
           "aria-pressed": String(on === id),
           style: `--swatch: ${base}; --swatch-deep: ${deep}`,
           onclick: () => {
-            state.select = id === "auto" ? "" : id;
+            state.select = id;
             localStorage.setItem(KEY.select, state.select);
             applyTheme();
             render();

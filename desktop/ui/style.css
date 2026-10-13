@@ -1435,11 +1435,9 @@ html.select-ring .profile-tile.active {
   box-shadow: inset 0 0 0 2px rgba(var(--select-rgb, var(--accent-rgb)), 0.85);
   color: #fff;
 }
-html.select-ring .row-switch .row-btn.active {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  box-shadow: inset 0 0 0 2px rgba(var(--select-rgb, var(--accent-rgb)), 0.85);
-}
+/* **The Movies / Shows pill is furniture, not a row.** It is the solid accent plate the Home
+   tab is, and it stays filled in **both** shapes: a ring drawn round a pill that already says
+   "you are here" is the same sentence twice, and it reads as a box around the word. */
 
 /* **A choice that cannot apply is dimmed, and it says why with the switch above it.** */
 .option.off { opacity: 0.45; cursor: default; }
@@ -4860,3 +4858,20 @@ html.select-fill :is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip
    — it names the card under it the way a section title does — so the pane builds its own group
    and the board leaves it exactly as it is. */
 .settings-pane .option-group.solo { padding: 0; background: transparent; }
+
+/* ============================================================================
+   **One blur behind everything the switch covers.**
+   ----------------------------------------------------------------------------
+   The assistant and a dialog blurred by 22px, the trailer by 26 and the blur behind your own
+   card by 13 — so the same setting looked like a different setting depending on what was
+   open, and the blur around your card read as a lighter effect than the blur around a dialog.
+   They are one recipe now: one radius, one saturation, one dim. The trailer keeps the heavier
+   dim it needs — a clip playing has to be the only thing on screen — and blurs like the rest.
+   ============================================================================ */
+.assistant-overlay, .modal-backdrop, .sel-blur, .trailer-overlay, .overlay-backdrop {
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+.assistant-overlay, .modal-backdrop, .sel-blur, .overlay-backdrop {
+  background: rgba(4, 5, 8, 0.55);
+}
