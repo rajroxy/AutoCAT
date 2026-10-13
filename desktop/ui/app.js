@@ -2424,23 +2424,17 @@ function signInCard() {
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
   const { rows, current, room } = accountList();
 
+  // **`Sign in` is a heading, not a line on the plate.** It names the card under it the way
+  // a section title names its rows, so it sits on the page with the account card beneath it
+  // rather than inside a box of its own above another box (see `optionGroups`).
   return el(
     "div",
-    { class: "provider", id: "account" },
+    { class: "option-group solo" },
+    groupHead("Sign in"),
     el(
       "div",
-      { class: "provider-head" },
-      el(
-        "div",
-        {},
-        el("span", { class: "option-title", text: "Sign in" }),
-        el("span", {
-          class: "option-desc",
-          text: "Each profile keeps up to five local accounts of its own on this machine. Each one is a separate app — its own keys, cards, watchlist and settings — and nothing about any of them leaves this machine.",
-        }),
-      ),
-    ),
-    said ? el("p", { class: "signin-said", text: said }) : null,
+      { class: "provider", id: "account" },
+      said ? el("p", { class: "signin-said", text: said }) : null,
     rows.length ? el("div", { class: "account-list" }, ...rows) : null,
     accountForm(),
     current
@@ -2453,10 +2447,11 @@ function signInCard() {
           onclick: signOutAccount,
         })
       : null,
-    el("p", {
-      class: "option-desc",
-      text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
-    }),
+      el("p", {
+        class: "option-desc",
+        text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
+      }),
+    ),
   );
 }
 
@@ -9868,6 +9863,10 @@ function optionGroups(items) {
   for (const node of flat) {
     const cls = node.classList || {};
     if (cls.contains("option-desc")) continue;
+    // **A pane may hand back a group of its own.** The Account pane's `Sign in` is a heading
+    // for the card under it rather than a plate holding it (see `signInCard`), so it builds
+    // its own group and the board leaves it exactly as it was built.
+    if (cls.contains("option-group")) { close(); out.push(node); continue; }
     if (cls.contains("h-divider")) { close(); continue; }
     if (cls.contains("group-head")) { close(); run = { label: node, nodes: [], plain: 0 }; continue; }
     // Its *own* title: a direct child, not the one inside a `provider-head`.
@@ -10235,8 +10234,10 @@ async function render() {
   const main = document.getElementById("main");
   // An empty answer is a failure too, so it gets the same panel rather than a blank page.
   main.replaceChildren(...(Array.isArray(nodes) && nodes.length ? nodes : [screenError(null, view)]));
-  // A new screen has no card left to stand in for.
-  dropSpotlight();
+  // The screen was thrown away along with any card the blur was standing in for — and the
+  // pointer has not moved, so nothing would fire to put it back. Re-arm from where the
+  // pointer and the keyboard actually are, so the blur is not lost by a redraw.
+  spotReArm();
   // Now that the frames are in the document, lay the cards' own pictures into
   // them — in place of the generated vector scene.
   hydrateContent();
@@ -10374,6 +10375,8 @@ const spotBlocked = () =>
   Boolean(document.querySelector(".assistant-overlay:not([hidden]), .trailer-overlay:not([hidden])"));
 let spotNow = null;
 let spotExit = 0;
+/** Where the pointer was, so a redraw can pick the card it is over back up. */
+const spotPointer = { x: -1, y: -1 };
 
 /** Take the scrim and the copy down, and give the card its own look back. */
 function dropSpotlight() {
@@ -10424,9 +10427,22 @@ function spotlight(node) {
   window.addEventListener("resize", spotFollow);
 }
 
+/** Put the blur back on the card under the pointer — or under the keyboard — after a redraw. */
+function spotReArm() {
+  dropSpotlight();
+  if (state.blur === false) return;
+  const under = spotPointer.x >= 0 ? document.elementFromPoint(spotPointer.x, spotPointer.y) : null;
+  // `elementFromPoint` skips the scrim (it takes no clicks) but not the copy, which lives
+  // inside it — so the match is taken from the card the element belongs to either way.
+  const node = under?.closest?.(SPOT_CONTENT) || document.activeElement?.closest?.(SPOT_CONTENT);
+  if (node) spotlight(node);
+}
+
 /** The pointer and the keyboard both "select"; this is what watches them. */
 function setupSpotlight() {
   document.addEventListener("pointerover", (e) => {
+    spotPointer.x = e.clientX;
+    spotPointer.y = e.clientY;
     const node = e.target?.closest?.(SPOT_CONTENT);
     if (!node) return;
     clearTimeout(spotExit);
