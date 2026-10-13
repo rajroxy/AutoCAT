@@ -39,9 +39,16 @@ export function setFallbackScope(who) {
   fallback = cleanScope(who);
 }
 
-/** Run `fn` with every store pointing at `who`'s files. */
-export function withScope(who, fn) {
-  return als.run({ who: cleanScope(who) }, fn);
+/**
+ * Run `fn` with every store pointing at `who`'s files, and at `mode`'s settings.
+ *
+ * `mode` is `vod` or `iptv` (or `""` for one shared set — see `scopedFileMode`). Only the
+ * settings store uses it: the two modes are two ways to use the app, so a Debrid account or
+ * a playlist added in one belongs to it, while the Library and the watchlist stay one
+ * history across both.
+ */
+export function withScope(who, fn, mode = "") {
+  return als.run({ who: cleanScope(who), mode: cleanScope(mode).toLowerCase() }, fn);
 }
 
 /**
@@ -69,6 +76,12 @@ export function currentScope() {
   return store ? store.who : fallback;
 }
 
+/** The mode the work in hand belongs to ("" = VOD and IPTV share one set of settings). */
+export function currentMode() {
+  const store = als.getStore();
+  return store ? store.mode || "" : "";
+}
+
 /**
  * The file for `base` in the profile the work in hand belongs to: `settings.json`
  * becomes `settings.<who>.json`.
@@ -79,6 +92,29 @@ export function currentScope() {
  * profile, so the next profile starts with the defaults rather than a copy of the
  * first one's keys.
  */
+/**
+ * **The file for one mode's settings.** `settings.you.json` becomes
+ * `settings.you-iptv.json`, and the plain, un-moded file stays exactly where it was for
+ * callers that name no mode (Stremio reading the addon, the scripts, the tests).
+ *
+ * **The mode's copy starts as the one you had.** An install that has been using one set of
+ * settings gets it in *both* modes the first time each is opened, rather than landing in a
+ * fresh app; from there the two go their own way. It is written once — an existing file is
+ * never touched.
+ */
+export function scopedFileMode(base, name, mode) {
+  const plain = scopedFile(base, name);
+  const clean = cleanScope(mode).toLowerCase();
+  if (!clean) return plain;
+  const file = plain.replace(/\.json$/, `.${clean}.json`);
+  try {
+    if (!fs.existsSync(file) && fs.existsSync(plain)) fs.copyFileSync(plain, file);
+  } catch {
+    /* a read-only fs: the file name is still the right one for this run */
+  }
+  return file;
+}
+
 export function scopedFile(base, name) {
   const who = currentScope();
   if (!who) return base;

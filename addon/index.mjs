@@ -1567,6 +1567,10 @@ export async function handleAddon(req, res, pathname, origin) {
   const scope = scopeFrom(who, asked);
   // The account carried over from before accounts existed adopts the files that were there.
   if (asked && scope !== who && takeAdoption(asked)) adoptScopeFiles(who, asked);
+  // **Which mode the settings belong to.** VOD and IPTV keep their own settings (`mode=`),
+  // so a playlist added in IPTV is not a playlist in the films app — while the Library and
+  // the watchlist stay one history, which is why they are not filed by mode.
+  const mode = cleanScope(params.get("mode")).toLowerCase();
   return withScope(scope, async () => {
     try { setKey(tmdbKey()); } catch { /* the TMDB module owns its own key */ }
     if (who !== lastScoped) {
@@ -1577,7 +1581,7 @@ export async function handleAddon(req, res, pathname, origin) {
       }
     }
     return serveAddon(req, res, pathname, origin);
-  });
+  }, mode);
 }
 
 /**

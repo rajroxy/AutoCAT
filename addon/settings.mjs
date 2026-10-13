@@ -11,7 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { currentScope, scopedFile, setFallbackScope } from "./scope.mjs";
+import { currentMode, currentScope, scopedFile, scopedFileMode, setFallbackScope } from "./scope.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Overridable so tests never touch the real settings file.
@@ -48,7 +48,7 @@ let cacheFile = BASE_FILE;
  * file name, at the moment of use.
  */
 const file = () => {
-  const next = scopedFile(BASE_FILE, "settings");
+  const next = scopedFileMode(BASE_FILE, "settings", currentMode());
   if (next !== cacheFile) {
     cacheFile = next;
     cache = null;

@@ -106,7 +106,10 @@ const AS_STORE = "nuvio.as";
 /** The id of the profile every install starts with — see `DEFAULT_PEOPLE`. */
 const HOME_PROFILE = "you";
 /** How the app *looks* is the machine's; everything else is the profile's. */
-const MACHINE_KEYS = new Set(["theme", "accent", "motion", "font", "blur", "pop", "speed", "glow"]);
+/* **`profile` is here because the scope depends on it.** It holds the *mode* — VOD or IPTV
+   — and since the mode is part of the settings scope below, the mode itself cannot be
+   stored inside a scope. It is the machine's, like how the app looks. */
+const MACHINE_KEYS = new Set(["theme", "accent", "motion", "font", "blur", "pop", "speed", "glow", "profile"]);
 /**
  * **A profile, and the local account in use inside it.**
  *
@@ -139,11 +142,100 @@ const setActiveAccount = (id) => {
     /* a browser that will not store it still signs in for this run */
   }
 };
-const activeScope = () => {
+/** The store key the mode lives under — unscoped, for the reason above. */
+const MODE_STORE = "nuvio.profile";
+/** Whether VOD and IPTV share one set of settings instead of keeping their own. */
+const UNIFIED_STORE = "nuvio.unified";
+const settingsUnified = () => {
+  try { return localStorage.getItem(UNIFIED_STORE) === "1"; } catch { return false; }
+};
+
+/**
+ * **Which mode the app is in — VOD or IPTV.**
+ *
+ * Read from an unscoped key: the mode is what the scope is *built* from (see below), so it
+ * cannot be filed inside one. The mode used to sit in a scoped key, so a store with none
+ * yet takes that one over rather than dropping a live profile into VOD.
+ */
+const activeMode = () => {
+  try {
+    const raw = localStorage.getItem(MODE_STORE);
+    if (raw) return raw === LIVE_PROFILE ? LIVE_PROFILE : "VOD";
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(`${MODE_STORE}@`) && localStorage.getItem(key) === LIVE_PROFILE) return LIVE_PROFILE;
+    }
+  } catch {
+    /* nothing stored */
+  }
+  return "VOD";
+};
+
+/** The profile and the local account, without the mode. */
+const baseScope = () => {
   const who = activeProfile();
   const as = activeAccount();
   return as ? `${who}-${as}` : who;
 };
+
+/** The scope one mode's settings live under — `you-vod`, `you-iptv`. Pure: no flag read. */
+const scopeForMode = (mode) => (mode ? `${baseScope()}-${mode.toLowerCase()}` : baseScope());
+
+/**
+ * **A store that has never been used inherits the one you are in.**
+ *
+ * Turning the mode split on, or switching mode, points every setting at another store: the
+ * one you were just looking at becomes the starting point, so nothing resets to the defaults
+ * on the way across. It fills only empty slots, so a store you have already used is untouched.
+ */
+function seedLocalScope(target, source = activeScope()) {
+  if (!target || target === source) return 0;
+  // **Once per store.** A store that has been seeded is not topped up again — a setting you
+  // deliberately cleared in one mode is not refilled from the other on the next start.
+  const flag = `nuvio.seeded@${target}`;
+  try {
+    if (localStorage.getItem(flag) !== null) return 0;
+  } catch {
+    return 0;
+  }
+  let moved = 0;
+  for (const [name, raw] of Object.entries(SETTING_KEYS)) {
+    if (MACHINE_KEYS.has(name)) continue;
+    try {
+      const from = localStorage.getItem(`${raw}@${source}`);
+      const to = `${raw}@${target}`;
+      if (from !== null && localStorage.getItem(to) === null) {
+        localStorage.setItem(to, from);
+        moved += 1;
+      }
+    } catch {
+      /* nothing stored, nothing to move */
+    }
+  }
+  try {
+    localStorage.setItem(flag, "1");
+  } catch {
+    /* a browser that will not store the marker seeds again next time, which is harmless */
+  }
+  return moved;
+}
+
+/**
+ * **Every setting is each mode's own.**
+ *
+ * VOD and IPTV are two ways to use the app rather than two looks at one library: the Debrid
+ * account, the provider keys, the playlists and the playback choices of one have nothing to
+ * do with the other's, and sharing them meant installing an IPTV source to watch films. So
+ * the mode is part of the scope the settings are filed under — both here and on the server
+ * (`settings.<scope>-<mode>.json`) — and **Unified settings** (Settings → Profile) makes the
+ * two share one set again for anyone who wants that.
+ *
+ * The *library* is deliberately not split this way: what you watched is one history.
+ */
+const activeScope = () => scopeForMode(settingsUnified() ? "" : activeMode());
+
+/** The mode the server files settings under ("" when the two are unified). */
+const scopeMode = () => (settingsUnified() ? "" : activeMode().toLowerCase());
 const KEY = new Proxy(SETTING_KEYS, {
   get(target, prop) {
     const raw = target[prop];
@@ -220,6 +312,10 @@ function splitInheritedLocal() {
 }
 migrateScope();
 splitInheritedLocal();
+// **The mode's own store opens as the one you had.** An install that has been using one set
+// of settings finds them in the mode it is in (`you-vod`), and the other mode gets its copy
+// the first time it is opened (`chooseProfile`) — so the split never lands on the defaults.
+seedLocalScope(settingsUnified() ? baseScope() : activeScope(), baseScope());
 
 const PINNED = /\| Top 10|^Upcoming$|Airing Today|On the Air|Now Playing|^Latest|^Newest|^Trending|^Plan to Watch$|^Watching$|^Watched$/;
 
@@ -734,7 +830,7 @@ const state = {
   refresh: readJSON(KEY.refresh, 60),
   // Bumped by a refresh so a re-read is a new URL for the browser cache too.
   gen: 0,
-  profile: profileName(localStorage.getItem(KEY.profile)),
+  profile: activeMode(),
   profiles: PROFILES,
   // The people on this machine (the profile screen) and the one that is on. Kept in
   // this browser only — a profile is a name, not an account.
@@ -997,7 +1093,8 @@ const withScope = (path) => {
   // **Two names, not one joined string.** The server reads the profile for the account
   // list and the pair for the stores, so it is told both rather than handed a string it
   // would have to take apart.
-  const query = `who=${encodeURIComponent(who)}${as ? `&as=${encodeURIComponent(as)}` : ""}`;
+  const mode = scopeMode();
+  const query = `who=${encodeURIComponent(who)}${as ? `&as=${encodeURIComponent(as)}` : ""}${mode ? `&mode=${encodeURIComponent(mode)}` : ""}`;
   return `${path}${path.includes("?") ? "&" : "?"}${query}`;
 };
 
@@ -1046,7 +1143,7 @@ const post = async (path, body) => {
   // has parsed anything else (see `scopeStores` in the addon).
   const scoped =
     typeof body === "object" && body !== null
-      ? { ...body, who: body.who ?? activeProfile(), as: body.as ?? activeAccount() }
+      ? { ...body, who: body.who ?? activeProfile(), as: body.as ?? activeAccount(), mode: body.mode ?? scopeMode() }
       : body;
   const res = await fetch(API + withScope(path), {
     method: "POST",
@@ -2175,23 +2272,47 @@ const shuffleIcon = () =>
 
 /* ---- switch profile ------------------------------------------------------- */
 
-/** Pick a profile and enter the app. */
+/** Pick a mode and enter the app. */
 function chooseProfile(name) {
-  state.profile = name;
-  localStorage.setItem(KEY.profile, name);
-  pushSettings({ profile: name });
-  // Each profile's settings are its own: entering Live TV & Sports lands on its
-  // Source section, and entering Movies & Shows lands on Content — so the two
-  // never share a section that does not exist for them.
-  const first = name === LIVE_PROFILE ? "livesource" : SETTINGS_SECTIONS[0][0];
-  state.settingsSection = first;
-  localStorage.setItem(KEY.section, first);
+  const mode = name === LIVE_PROFILE ? LIVE_PROFILE : "VOD";
+  // **The mode carries its own settings.** Every setting is filed under the scope the mode
+  // is part of (unless the two are unified), so the store you are leaving hands its values
+  // to the one you are entering, once — and the screen is reloaded, because the scope is
+  // read as the work happens, all over the app and by the server. A half-switched scope
+  // would be two stores in one screen.
+  seedLocalScope(settingsUnified() ? baseScope() : scopeForMode(mode));
+  try {
+    localStorage.setItem(MODE_STORE, mode);
+    // Each mode's settings are its own: entering Live TV & Sports lands on its Source
+    // section, entering Movies & Shows lands on Content.
+    const first = mode === LIVE_PROFILE ? "livesource" : SETTINGS_SECTIONS[0][0];
+    localStorage.setItem(`${SETTING_KEYS.section}@${settingsUnified() ? baseScope() : scopeForMode(mode)}`, first);
+  } catch {
+    /* a browser that will not store it still switches for this run */
+  }
   // **The link you arrived on, once you have said who you are.** Set by `boot()`; a
   // normal start (no link) has nothing here and lands on Home.
-  const target = pendingDeepLink;
+  location.hash = pendingDeepLink || "#/";
   pendingDeepLink = "";
-  location.hash = target || "#/";
-  render();
+  location.reload();
+}
+
+/**
+ * **Unified settings, or two apps.**
+ *
+ * On, VOD and IPTV share one set — the app the install always had. Off (the default), each
+ * mode keeps its own: its keys and add-ons, its Debrid account, its playlists, its playback
+ * and layout choices. Flipping it moves what you are looking at into the store you are
+ * moving to, once, and reloads.
+ */
+function setUnified(on) {
+  seedLocalScope(on ? baseScope() : scopeForMode(activeMode()));
+  try {
+    localStorage.setItem(UNIFIED_STORE, on ? "1" : "0");
+  } catch {
+    /* switches for this run */
+  }
+  location.reload();
 }
 
 /**
@@ -2671,7 +2792,10 @@ function renderModes() {
       // mode picker.
       el("p", { class: "hero-kicker", text: "Modes" }),
       el("h1", { class: "view-title", text: "What do you want to watch?" }),
-      el("p", { class: "view-hint", text: `Watching as ${watcher}. Each mode keeps its own settings.` }),
+      el("p", {
+        class: "view-hint",
+        text: `Watching as ${watcher}. ${settingsUnified() ? "One set of settings is shared by both modes." : "Each mode keeps its own settings."}`,
+      }),
       el(
         "div",
         { class: "profile-grid" },
@@ -3817,10 +3941,12 @@ const micMark = () =>
  * **The voice pad: one press, and the app listens.**
  *
  * Speak-up-while-browsing had a switch in Settings and a microphone inside the Ask box, so
- * *using* it meant finding a box first. It is a floating button on Home now, in the
- * bottom-right corner where nothing else lives, and pressing it starts the same listener the
- * Ask box uses — what you say becomes a search either way (see `startVoice` / `aiIntent`).
- * Settings → Assistant turns it off.
+ * *using* it meant finding a box first. It is the microphone beside the Movies / Shows
+ * switch, and pressing it starts the same listener the Ask box uses — what you say becomes a
+ * search either way (see `startVoice` / `aiIntent`). Settings → Assistant turns it off.
+ *
+ * It is a **square**: the plate in the app's own 12px corners with the drawn microphone and
+ * nothing else, so it reads as a button beside the switch rather than a bar along it.
  */
 function voicePad() {
   if (state.speak?.browse === false) return null;
@@ -3835,7 +3961,6 @@ function voicePad() {
       onclick: () => startVoice(null),
     },
     micMark(),
-    el("span", { text: "Speak" }),
   );
 }
 
@@ -8057,6 +8182,12 @@ function paneProfile() {
         ? "Switch off anything this profile should not show, then press Done. Off by default: with the editor closed, everything shows and nothing is hidden."
         : "This is the profile the app is using. Names are changed on the profile screen at boot; press Edit to choose which rows, cards and catalogs this profile shows.",
     }),
+    // **The two modes, and whether they share.** VOD and IPTV are two ways to use the app:
+    // separate, each keeps its own keys, add-ons, Debrid account, playlists, playback and
+    // layout (and the mode switch carries what you are looking at across, once). Unified,
+    // they are one app again — the way this install worked before the split.
+    groupHead("Modes"),
+    toggleRow(settingsUnified(), "Unified settings", "VOD and IPTV share one set of settings. Off, each mode keeps its own — keys, add-ons, Debrid, playlists, playback and layout. Switching this carries the settings you are looking at across.", (e) => setUnified(e.target.checked)),
     editing
       ? (liveProfile() ? liveVisEditor(v) : vodVisEditor(v))
       : null,
@@ -8714,7 +8845,7 @@ function paneAppearance() {
   // with the colour's name under it. The chosen one wears the accent ring the rest of the
   // app uses; a row of bare circles could only tell you the colour of the dot.
   return [
-    groupHead("Accent colour"),
+    groupHead("Highlight colour"),
     el("div", { class: "provider" },
       el("div", { class: "accent-grid" },
         ...ACCENTS.map(([id, label, , base, deep]) =>
@@ -8848,7 +8979,7 @@ function panePlayback() {
   }, "Secondary subtitle");
   return [
     el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Playback engine" }),
+      el("span", { class: "option-title", text: "Engine" }),
       el("div", { class: "options" },
         ...ENGINE_CHOICES.map(([id, label]) => radioRow(playbackEngine().engine === id, "engine", label, "", () => savePlaybackEngine({ engine: id }))),
       ),
@@ -8893,7 +9024,7 @@ function panePlayback() {
 
 function paneLayout() {
   return [
-    groupHead("Layout"),
+    groupHead("Card view"),
     ...LAYOUTS.map(([value, title, desc]) =>
     radioRow(state.layout === value, "layout", title, desc, () => {
       state.layout = value;
@@ -8932,7 +9063,7 @@ function paneAnimation() {
         render();
       }, "Speed").node,
     ),
-    groupHead("Motion"),
+    groupHead("Animation"),
     ...MOTIONS.map(([value, title, desc]) =>
       radioRow(state.motion === value, "motion", title, desc, () => {
         state.motion = value;
