@@ -2487,16 +2487,18 @@ function signInCard() {
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
   const { rows, current, room } = accountList();
 
-  // **The accounts and the form are two boxes.** They were one: the name and address you
-  // type sat in the same plate as the accounts already on the machine, so "Add account"
-  // read as one more row of the list above it. The list is one box; making an account is
-  // another, with the button that does it.
+  // **One main box, the label inside it, and a box per thing under the label.** The heading
+  // stood *outside* the plate as a group head, and the form sat in the same plate as the
+  // accounts, so "Add account" read as one more row of the list above it. The word `Sign in`
+  // names the whole card; the accounts are one box; making an account is another.
   return [
     el(
       "div",
       { class: "provider", id: "account" },
+      groupHead("Sign in"),
       said ? el("p", { class: "signin-said", text: said }) : null,
-      rows.length ? el("div", { class: "account-list" }, ...rows) : null,
+      rows.length ? el("div", { class: "account-box account-list" }, ...rows) : null,
+      el("div", { class: "account-box account-new", id: "account-new" }, accountForm()),
       current
         ? el("button", {
             class: "btn subtle focusable",
@@ -2512,7 +2514,6 @@ function signInCard() {
         text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
       }),
     ),
-    el("div", { class: "provider account-new", id: "account-new" }, accountForm()),
   ];
 }
 
@@ -8229,7 +8230,7 @@ function paneSignin() {
   // **`Sign in` is a group head like Speed, Engine or Debrid.** It sat *inside* the account
   // box, which put a section title in the plate it names; it is the pane's heading, and the
   // pane is where it belongs.
-  return [groupHead("Sign in"), ...signInCard()];
+  return signInCard();
 }
 
 /**
@@ -8327,9 +8328,27 @@ const visBtn = (label, text, onClick, dead = false) =>
     },
   });
 
-/** The fold button, wherever a level of the tree can open. */
+/**
+ * The fold button, wherever a level of the tree can open.
+ *
+ * **The caret is the app's own.** This one drew a `▾` or a `▸` *character*, which sits on a
+ * different baseline in every font and is a different weight from the triangle every dropdown
+ * in Settings uses. It is the same triangle now — `.dropdown-caret`'s own shape — turned on
+ * its side while the level is shut.
+ */
 const visFold = (label, open, onFold) =>
-  visBtn(open ? `Fold ${label}` : `Show ${label}`, open ? "▾" : "▸", onFold);
+  el("button", {
+    class: `vis-fold vis-btn focusable${open ? " open" : ""}`,
+    type: "button",
+    title: open ? `Fold ${label}` : `Show ${label}`,
+    "aria-label": open ? `Fold ${label}` : `Show ${label}`,
+    "aria-expanded": String(open),
+    onclick: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onFold();
+    },
+  }, el("span", { class: "vis-caret", "aria-hidden": "true" }));
 
 /** A card inside a tab: its switch, its fold, and the two move buttons. */
 function visCardBlock(v, row, card, index, total) {

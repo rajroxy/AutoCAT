@@ -1373,7 +1373,12 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
    the two things you can do with it — Use (switch to it) or Forget (take it off the
    machine). The one in use is filled with the accent and wears the word instead of a
    button, because that one is not a choice you can make again. */
+/* **A box per thing, inside the one main box.** The accounts and the form are two different
+   jobs, and one plate for both made the form read as another row of the list. */
+.account-box { padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
+.account-box + .account-box { margin-top: 12px; }
 .account-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 4px; }
+.account-box.account-list { margin: 12px 0 0; }
 /* **The account row is a box.** It was painted in `--panel-2`, which is the same value the
    card behind it uses — so the name and its two buttons sat on the card with no edge, and
    "which of these is a row?" had no answer. It takes the app's own raised plate. */
@@ -1937,14 +1942,13 @@ textarea:focus-visible {
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
-/* **The tag arrows light up like everything else.** They answered the cursor with a
-   slightly stronger tint and nothing else, so on a dark row the one control you press to
-   reach more tags did not read as pressable. They wear the same highlight ring as a card
-   or a button on hover and on focus, and the press itself flips them to the solid accent
-   plate, so a click lands with an answer. */
-.chip-arrow:hover:not(:disabled) { background: rgba(var(--accent-rgb), 0.32); color: #fff; box-shadow: var(--hl); }
-.chip-arrow:focus-visible { outline: none; box-shadow: var(--hl); }
-.chip-arrow:active:not(:disabled) { background: var(--accent); color: #0b0b0b; box-shadow: var(--hl); transform: none; }
+/* **The tag arrows are controls: they fill.** They were the one control in the app still
+   wearing the 3px ring — a box drawn around a 22px square that says "there are more tags
+   this way", twice as loud as the tags it scrolls. The tint is the answer, and the press
+   flips it to the solid plate so a click lands with one. */
+.chip-arrow:hover:not(:disabled) { background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); color: #fff; box-shadow: none; }
+.chip-arrow:focus-visible { outline: none; box-shadow: none; background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); }
+.chip-arrow:active:not(:disabled) { background: var(--accent); color: #0b0b0b; box-shadow: none; transform: none; }
 /* An arrow at its own end of the list has nowhere to go, and says so. */
 .chip-arrow.at-end, .chip-arrow:disabled { opacity: 0.32; cursor: default; }
 .chip-arrow .glyph svg { width: 15px; height: 15px; }
@@ -2443,7 +2447,7 @@ body { background: var(--ink); }
    the accent marking today and the day you picked. */
 .cal-cell { border: 0; background: var(--panel-2); }
 .cal-cell:hover { background: rgba(var(--accent-rgb), 0.16); }
-.cal-cell.today { box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.7); }
+.cal-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
 .cal-cell.selected { background: rgba(var(--accent-rgb), 0.2); box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* An empty state is a panel, not a dotted box. */
@@ -3935,12 +3939,14 @@ select option:hover {
 .btn:hover, .btn:focus-visible,
 .accent-card:hover, .accent-card:focus-visible,
 .settings-tab:focus-visible,
+/* **An open dropdown is filled, not ringed.** The ring was drawn by `:focus-within`, so the
+   control wore a box around itself for as long as its own menu was open — the app pointing at
+   something you had already opened. The row is a control: it fills. */
 .dropdown-btn:hover, .dropdown-btn:focus-visible, .dropdown:focus-within .dropdown-btn {
   transform: none;
-  /* The generic keyboard ring is a 3px outline on the button itself; every surface here
-     draws the highlight instead, so nothing wears two. */
   outline: none;
-  box-shadow: var(--hl);
+  box-shadow: none;
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
 }
 
 /* **The keyboard lands on the card, not on the picture inside it.** The arrow keys step
@@ -3996,13 +4002,19 @@ select option:hover {
   background: rgba(var(--select-rgb, var(--accent-rgb)), 0.2);
   color: #fff;
 }
-.cal-cell.selected { box-shadow: none; background: rgba(var(--accent-rgb), 0.2); }
-/* `today` is a fact about the date, not a selection — one hairline, no accent box. */
-.cal-cell.today { box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.45); }
+/* The day you picked is *filled* with the highlight; today is *ringed* by it — a hairline
+   at 45% was neither, and read as a pale pink box on a day that means something. */
+.cal-cell.selected { box-shadow: none; background: rgba(var(--accent-rgb), 0.22); }
+.cal-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* **The buttons that are filled stay filled.** Movies/Shows and the active chips are
    solid accent plates with dark text — and a plate stays a plate while it is hovered. */
-.row-btn.active, .btn.pin.active {
+.row-btn.active {
+  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  color: #14110a;
+  box-shadow: none;
+}
+.btn.pin.active {
   background: linear-gradient(160deg, var(--accent), var(--accent-deep));
   color: #14110a;
   box-shadow: none;
@@ -4047,9 +4059,17 @@ select option:hover {
    word is not. */
 .chip:not(.active):hover, .chip:not(.active):focus-visible,
 .model-chip:not(.suggested):hover, .chip-more:hover,
-.filter-chip:not(.active):hover, .search-filter-btn:hover {
+.filter-chip:not(.active):hover {
   background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
   color: #fff;
+}
+/* **Filters is furniture, like Play and the Movies / Shows pill.** It is the bar's own solid
+   plate and it stays one — this rule used to hand it the control tint, so the one button in
+   the bar went pale under the cursor while Play next to it did not. */
+.search-filter-btn:hover, .search-filter-btn:focus-visible {
+  background: var(--accent);
+  color: #0b0c10;
+  box-shadow: none;
 }
 button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
 
@@ -4133,6 +4153,13 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .vis-leaf .vis-option { flex: 1; min-width: 0; }
 .vis-card-head { display: flex; align-items: center; gap: 8px; }
 .vis-card-head .vis-option { flex: 1; min-width: 0; }
+/* **The fold caret is the app's caret.** Same triangle as every dropdown in Settings, turned
+   on its side while the level is shut — the character `▾` sat on a different baseline in every
+   font and was a different weight from the one thing it is meant to match. */
+.vis-caret { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--muted); }
+.vis-fold.open .vis-caret { border-top-color: var(--text); }
+.vis-fold:not(.open) .vis-caret { transform: rotate(-90deg); }
+.vis-fold:hover .vis-caret, .vis-fold:focus-visible .vis-caret { border-top-color: var(--text); }
 .vis-fold {
   flex: none;
   width: 30px;
@@ -4370,7 +4397,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .icon-btn.active:hover, .icon-btn.active:focus-visible,
 .profile-tile.active:hover, .profile-tile.active:focus-visible,
 .cal-cell.selected:hover, .cal-cell.selected:focus-visible,
-.cal-cell.today:hover, .cal-cell.today:focus-visible,
 /* **The tab you are on — Home, Movies, Shows.** The solid accent plate already says
    "you are here"; a ring on top of it is the app pointing at what you already chose. */
 .tab[aria-selected="true"]:hover, .tab[aria-selected="true"]:focus-visible,
@@ -4792,10 +4818,16 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 /* --------------------------------------------------------------- a control */
 /* **The cursor and the keyboard get the same answer.** This was hover-only, so the keyboard
    fell back to the generic 3px accent ring — a box drawn around whatever the D-pad was on,
-   which in Settings meant a ring around every option. A control is *filled* for both. */
-:is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .row-btn, .tab, .icon-btn,
+   which in Settings meant a ring around every option. A control is *filled* for both.
+   **The list is the controls, and nothing else.** It used to begin with `.focusable`, which
+   is every pressable surface in the app *including* the cards, the catalog tiles, the search
+   results and the faces — so a thing was being filled *and* ringed at once, and a poster
+   answered the cursor with a wash of colour over its own artwork. A thing rings; a control
+   fills; there is no overlap any more. */
+:is(.settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .row-btn, .tab, .icon-btn,
   .btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
-  .menu-item, .dropdown-item, .dropdown-btn):is(:hover, :focus-visible, :has(:focus-visible)) {
+  .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
+  .profile-tile, .rec-btn, .chip-more):is(:hover, :focus-visible, :has(:focus-visible)) {
   /* `background-color`, not `background`: a plate that is a gradient (the Home tab, the Play
      button, the chosen Movies / Shows pill) keeps its gradient and takes this under it. */
   background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
@@ -4820,6 +4852,13 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   background-color: var(--accent);
   background-image: linear-gradient(160deg, var(--accent), var(--accent-deep));
   box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
+}
+
+/* **And a thing is never filled.** One statement, after the control rule, so no list above
+   can put a wash behind a card, a poster, a catalog title, a face or a channel. */
+:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card,
+  .trailer-card, .person, .card-face, .hero-frame, .upcoming-card):is(:hover, :focus-visible, :has(:focus-visible)) {
+  background-color: transparent;
 }
 
 /* ------------------------------------------------------------------- a thing */
@@ -4858,3 +4897,17 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   -webkit-backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.15);
 }
 
+/* ============================================================================
+   **A pin that is on wears a ring.**
+   ----------------------------------------------------------------------------
+   Plan to Watch and Add to Library are not furniture like the Home tab or the Movies /
+   Shows pill: they are a *state* you set, and beside Play and Ask Assistant that state has
+   to be visible at a glance. The plate says it in the accent; the ring says it a second
+   time without covering the words. Written last, because the rule that fills a control on
+   hover (`box-shadow: none`) would otherwise take it back the moment you pointed at it.
+   ============================================================================ */
+.btn.pin.active,
+.btn.pin.active:hover, .btn.pin.active:focus-visible,
+.btn.pin.custom.active, .btn.pin.custom.active:hover {
+  box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
+}
