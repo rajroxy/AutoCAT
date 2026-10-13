@@ -5014,7 +5014,9 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 
 /* **The ratings row, and your own rating beside it.** The services' plates lead; the grid
    of ten sits to the right of them, on the same line. */
-.ratings-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+/* **Your rating sits beside the service plates**, on the same line and close to them, so
+   the row reads as "what the world says, and what you say" rather than two separate rows. */
+.ratings-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .my-rating { display: flex; flex-direction: column; gap: 8px; }
 .my-rating-label { font-size: 12px; font-weight: 700; color: var(--muted); }
 .my-rating-grid { display: grid; grid-template-columns: repeat(10, 30px); gap: 4px; }
@@ -5208,3 +5210,37 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   border: 0;
   outline: none;
 }
+
+/* ============================================================================
+   **The live banner is the VOD banner's shape: two posters.**
+   ============================================================================ */
+.live-hero .hero-art { background: var(--panel-2); }
+.live-hero-arts {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.72fr) minmax(200px, 1.28fr);
+  gap: 14px;
+  align-self: stretch;
+  min-height: 220px;
+}
+.live-hero-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+.live-hero-frame.live-hero-empty { background: linear-gradient(160deg, var(--panel-2), var(--panel)); }
+.live-hero-still { display: block; width: 100%; height: 100%; object-fit: cover; }
+.live-hero-still-empty {
+  padding: 12px;
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+.live-hero .hero-body { align-self: center; }
+
+/* **A title page's own actions sit lower still.** */
+.title-hero .title-actions { margin: 118px 0 26px; }

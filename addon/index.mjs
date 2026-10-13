@@ -57,6 +57,7 @@ import {
   moveRow as customMoveRow,
   MAX_ROWS as MAX_CUSTOM_ROWS,
   counts as customCounts,
+  keys as customKeys,
   add as customAdd,
   remove as customRemove,
   metasFor as customMetas,
@@ -1522,7 +1523,7 @@ function customPayload() {
   // `rows` carries each row's name and order as well as its count: the title page draws
   // one "Add to …" button per row, so the names are needed on every read, not only in the
   // settings pane. (`rows` used to be counts alone, which is a subset of this.)
-  return { rows: customRowList(), counts: customCounts(), items: customItems() };
+  return { rows: customRowList(), counts: customCounts(), keys: customKeys(), items: customItems() };
 }
 
 /**
@@ -1682,7 +1683,7 @@ async function serveAddon(req, res, pathname, origin) {
       }
       return true;
     }
-    json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: accountPayload(req, origin) });
+    json(res, 200, { ...publicSettings(), options: appOptions(), dns: publicDns(), customSites: publicSites(), prefs: getPrefs(), account: accountPayload(req, origin), customKeys: customKeys() });
     return true;
   }
 
@@ -2425,6 +2426,7 @@ async function serveAddon(req, res, pathname, origin) {
       watchlistFile: fs.existsSync(WATCHLIST_FILE),
       watchlist: watchlistCounts(),
       customRows: customCounts(),
+      customKeys: customKeys(),
       aiProvider: aiState().provider,
       aiReady: aiState().ready,
       // **What the app has survived.** A page under scraping whose own script throws is
@@ -2509,7 +2511,10 @@ async function serveAddon(req, res, pathname, origin) {
    * row from a title page, and this is where the row's name and place are kept.
    */
   if (pathname === "/custom-rows.json") {
-    json(res, 200, { ok: true, rows: customRowList(), max: MAX_CUSTOM_ROWS });
+    // **The rows, and what is inside them.** The app filters a title out of Home and Search
+    // once it belongs to you — a pin does it, and so does a Library row — and that filter
+    // needs the *keys*; the counts alone can only say how many, never which.
+    json(res, 200, { ok: true, rows: customRowList(), max: MAX_CUSTOM_ROWS, counts: customCounts(), keys: customKeys(), items: customItems() });
     return true;
   }
 

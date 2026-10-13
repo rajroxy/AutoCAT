@@ -367,7 +367,13 @@ export function publicSettings() {
   // a retired tracker (AniList) must not put it back in the UI.
   const mask = (group) =>
     Object.fromEntries(
-      Object.keys(DEFAULTS[group] || {}).map((k) => [k, { enabled: Boolean(s[group]?.[k]?.enabled), hasKey: Boolean(s[group]?.[k]?.key) }]),
+      Object.keys(DEFAULTS[group] || {}).map((k) => [k, {
+        enabled: Boolean(s[group]?.[k]?.enabled),
+        hasKey: Boolean(s[group]?.[k]?.key),
+        // **A tracker's token is reported as a yes/no, never as the value.** It is what every
+        // write is sent as, so the pane has to be able to say one is set without holding it.
+        hasToken: Boolean(s[group]?.[k]?.token),
+      }]),
     );
   return {
     profile: s.profile,

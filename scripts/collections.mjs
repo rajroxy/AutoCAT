@@ -75,6 +75,7 @@ export const CONTINENTS = {
   "North America": ["US", "CA", "MX"],
   "South America": ["BR", "AR", "CO", "CL", "PE"],
   Africa: ["NG", "ZA", "EG", "KE", "MA", "GH"],
+  "Middle East": ["AE", "SA", "IL", "TR", "QA", "KW", "BH", "OM", "JO", "LB"],
   Oceania: ["AU", "NZ"],
 };
 
@@ -439,8 +440,12 @@ const POPULAR_REGIONAL = new Set([
   "TV4 Play", "NRK TV", "TV 2 Play", "TVP", "Voyo",
   // —— Türkiye and Russia
   "Exxen", "Kinopoisk", "Okko",
-  // —— the Middle East
-  "Shahid VIP", "OSN+", "STARZPLAY",
+  // —— the Middle East. The list is the region's own platforms **and** the two worldwide
+  // services whose Middle East catalogue is their own (`Netflix` and `Prime Video` are read
+  // from the region's own data, not invented): the Gulf's broadcasters' services, the two
+  // Saudi-backed platforms, and the Israeli and Turkish ones a viewer there would name.
+  "Shahid VIP", "OSN+", "STARZPLAY", "Netflix", "Prime Video", "MBC+", "TOD", "Zee5",
+  "yes+", "Partner", "Cellcom tv", "Hot", "HBO Max", "Apple TV+",
   // —— the Americas
   "Globoplay", "VIX", "Paramount Plus", "Crave", "CBC Gem",
 ]);

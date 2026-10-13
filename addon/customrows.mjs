@@ -224,6 +224,16 @@ export function counts() {
   return Object.fromEntries(rows().map((r) => [r.id, r.count]));
 }
 
+/**
+ * **What is inside each row, as title keys.** The app filters a title out of Home and Search
+ * once it belongs to you — a pin does it, and so does a Library row — and that filter needs
+ * the *keys*, not the counts. Sent with the settings so the screen behind a title updates the
+ * moment the title is put in a row, instead of at the next boot.
+ */
+export function keys() {
+  return Object.fromEntries([...load().entries()].map(([row, map]) => [row, [...map.keys()]]));
+}
+
 /** Every stored title, tagged with the row it is in — what the app reads. */
 export function items() {
   return [...load().entries()].flatMap(([row, map]) => [...map.values()].map((item) => ({ ...item, row })));

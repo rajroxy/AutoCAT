@@ -38,6 +38,9 @@ const SETTING_KEYS = {
   subtitles: "autocat.subtitles",
   dns: "autocat.dns",
   customSites: "autocat.customSites",
+  // **What the Library holds, as keys.** Scoped like every other setting, so each profile
+  // reads its own — the filter that hides a title you own needs it before the server answers.
+  customKeys: "autocat.customKeys",
   prefs: "autocat.prefs",
   tracking: "autocat.tracking",
   posters: "autocat.posters",
@@ -117,7 +120,14 @@ const HOME_PROFILE = "you";
 /* **`profile` is here because the scope depends on it.** It holds the *mode* — VOD or IPTV
    — and since the mode is part of the settings scope below, the mode itself cannot be
    stored inside a scope. It is the machine's, like how the app looks. */
-const MACHINE_KEYS = new Set(["theme", "accent", "select", "motion", "font", "pop", "speed", "glow", "profile", "mark"]);
+/* **The look is the mode's now, not the machine's.** The accent, the selection colour, the
+   font, the motion, the pop and the mark switches were unscoped — so VOD and IPTV, which are
+   two sets of settings everywhere else, shared one appearance, and "the accent does not
+   change with the mode" was the answer to a screen that says they are separate. They are
+   filed per scope like every other setting now; only the **resolved theme** (the mirror the
+   boot script reads, rewritten from the accent on every apply) and **which mode is on** stay
+   the machine's, because the scope is built from them. */
+const MACHINE_KEYS = new Set(["theme", "profile"]);
 /**
  * **A profile, and the local account in use inside it.**
  *
@@ -258,6 +268,27 @@ const KEY = new Proxy(SETTING_KEYS, {
  * name holds a value, the plain value becomes this profile's. The plain name is then
  * removed, so the *next* profile starts empty instead of inheriting someone else's app.
  */
+/**
+ * **The look, handed to the mode you are in.** These keys used to be the machine's, so a
+ * store written before they were scoped holds them once, unscoped. They are copied into the
+ * scope that is on (once) and the plain copy is left alone — the other mode then inherits
+ * them the first time it is opened, by the same seeding every other setting gets.
+ */
+function migrateLookScope() {
+  for (const name of ["accent", "select", "motion", "font", "pop", "mark", "speed", "glow"]) {
+    const raw = SETTING_KEYS[name];
+    if (!raw) continue;
+    try {
+      const plain = localStorage.getItem(raw);
+      if (plain === null) continue;
+      const scoped = `${raw}@${activeScope()}`;
+      if (localStorage.getItem(scoped) === null) localStorage.setItem(scoped, plain);
+    } catch {
+      /* nothing to migrate */
+    }
+  }
+}
+
 function migrateScope() {
   let moved = 0;
   for (const [name, raw] of Object.entries(SETTING_KEYS)) {
@@ -345,6 +376,7 @@ function migrateBrand() {
 }
 migrateBrand();
 migrateScope();
+migrateLookScope();
 splitInheritedLocal();
 // **The mode's own store opens as the one you had.** An install that has been using one set
 // of settings finds them in the mode it is in (`you-vod`), and the other mode gets its copy
@@ -470,7 +502,12 @@ const LAYOUTS = [
  * changing one pick re-tints buttons, chips, borders and highlights together instead of
  * leaving half the UI in the old colour.
  */
+/* **The system colour, first.** The app's own neutral — the grey the boot screen's plate is
+   built on — so the whole app can be set to "no colour of its own" with one press, and the
+   board under it is the same sixteen the highlight has. */
+const SYSTEM_ACCENT = ["system", "System", "150, 156, 166", "#969ca6", "#6d7480"];
 const ACCENTS = [
+  SYSTEM_ACCENT,
   // **Copper is the app's own colour.** It is the first entry, so it is what a fresh
   // install wears and what an accent that is no longer on the board falls back to
   // (see `accentOf`) — a warm metal that reads the same on a bright and a dim screen.
@@ -513,7 +550,12 @@ const ACCENTS = [
  * from each other**. Nothing is dropped by name for its own sake: the entries that went are
  * the ones whose nearest neighbour was another entry.
  */
-const SELECT_ACCENTS = ACCENTS;
+/* **System is the highlight's own default.** It leads the board and it is what the app is
+   tinted with until a colour is picked — the boot screen's plate is built on it, so "no
+   colour of its own" is the app's own look rather than one of sixteen. The **selection**
+   board keeps the sixteen colours only: the ring around a choice is a colour you chose to
+   notice, and a grey ring says nothing. */
+const SELECT_ACCENTS = ACCENTS.filter(([id]) => id !== "system");
 
 /**
  * **A colour this build still has.**
@@ -709,6 +751,12 @@ const TRACKER_GROUPS = [
       ["trakt", "Trakt", "Scrobbling and watched history for films and shows."],
       ["simkl", "SIMKL", "Watched history across films, shows and anime."],
     ],
+    // **Two boxes, and neither of them is a secret you have to hand us.** Trakt and SIMKL
+    // both ask an *app* to identify itself (`client id`) and then hand back a **token** once
+    // you authorise on their site; the token is what every write is sent as. The pane asks
+    // for both, stores both on the server, and reports only whether each one is set — so the
+    // outbound half works with nothing registered by us and no key of ours in your install.
+    token: true,
   },
   {
     // **Anime and Asian drama are one group.** They were two — "Anime" and "Asian
@@ -970,6 +1018,10 @@ const state = {
   customItems: [],
   // The custom card's rows (Settings → Custom Rows): `[{ id, name, order, count }]`.
   customRows: [],
+  // **What is inside each Library row, as title keys.** Read back from the last answer so a
+  // title put in a row stays hidden from Home and Search across a reload, before the server
+  // has answered again. See `customKeySet` / `ownedKeys`.
+  customKeys: readJSON(KEY.customKeys, {}),
   // Who is signed in, as the server knows: `{ configured, providers, user }`. Mirrored
   // from `/settings` like everything else, and only ever *displayed* — the session lives
   // in an HttpOnly cookie this page cannot read, which is the point of it.
@@ -1001,7 +1053,7 @@ const state = {
   settingsSection: localStorage.getItem(KEY.section) || "profile",
   // The Library row currently being renamed, if any — see `paneCustomRows`.
   customRowEdit: "",
-  accent: storedAccent(KEY.accent),
+  accent: storedAccent(KEY.accent) || "system",
   // **The selection colour follows the highlight until it is set.** Empty means "same as the
   // accent", so nothing changes for anyone who never opens this setting.
   // **The selection colour is a choice of its own.** It used to fall back to the highlight
@@ -1279,6 +1331,7 @@ function mergeServerSettings(res) {
       const on = group?.[name]?.enabled;
       if (typeof on === "boolean") store[name].enabled = on;
       if (group?.[name]?.hasKey) store[name].hasKey = true;
+      if (group?.[name]?.hasToken) store[name].hasToken = true;
     }
     writeJSON(key, store);
   };
@@ -1297,6 +1350,19 @@ function mergeServerSettings(res) {
       };
     }
     writeJSON(KEY.signin, state.signin);
+  }
+  // **The Library's rows come back with the settings, and with their contents.** The app
+  // asks for the rows on its own (`loadCustomRows`), but a title that has just been put in a
+  // row is filtered out of Home and Search by `ownedKeys`, and that filter reads the
+  // *contents* — which only arrive on this payload. Without this the title stayed on Home
+  // until the next boot.
+  // **The Library's contents come back with the settings.** A title put in a Library row is
+  // filtered out of Home and Search the same way a pinned one is — and that filter reads the
+  // *keys*, which only arrive on this payload. Without them the title stayed on the screen
+  // behind you until the next boot, which is the "it hides from Home only after a reload".
+  if (res.customKeys && typeof res.customKeys === "object") {
+    state.customKeys = res.customKeys;
+    writeJSON(KEY.customKeys, state.customKeys);
   }
   if (res.providers) fold(res.providers, state.providers, KEY.providers);
   if (res.tracking) fold(res.tracking, state.tracking, KEY.tracking);
@@ -1571,6 +1637,13 @@ async function toggleCustomRow(item, rowId = CUSTOM_ROW) {
   try {
     const res = await post("/customrows", { row: rowId, item: pinOf(item) });
     if (res && Array.isArray(res.items)) applyCustomRows(res);
+    // **The filter is told at once.** `ownedKeys` is what keeps a title you own out of Home
+    // and Search; without this it only learned about a Library row on the next boot, so a
+    // title you had just filed stayed on the screen behind you.
+    if (res?.keys && typeof res.keys === "object") {
+      state.customKeys = res.keys;
+      writeJSON(KEY.customKeys, state.customKeys);
+    }
   } catch {
     /* offline — the list simply does not change */
   }
@@ -1849,10 +1922,24 @@ function emptyRowText(catalog) {
  * not scroll" meant.)
  */
 /** The keys of the titles this profile has started or finished, as the store names them. */
+/**
+ * **What already belongs to you.** A title in the Library — pinned as Watching or Watched, or
+ * sitting in one of your own Library rows — is not offered back to you on Home, in Search or
+ * in the search dropdown; the Watchlist card and the Library card are where it lives. Both
+ * halves are here so there is one answer to "is this mine" rather than three.
+ */
 function ownedKeys() {
   const out = new Set();
   for (const [key, value] of Object.entries(state.watchlist || {})) {
     if (value === "watching" || value === "watched") out.add(key);
+  }
+  // A row's own titles count as owned: the moment one is put in a row it leaves the rows it
+  // was found in, the same way a pin does. **The calendar's own row is not one of yours** —
+  // a plan is a plan about a date, and a title you have planned is one you are still looking
+  // for, so it stays where it was found.
+  for (const [row, keys] of Object.entries(state.customKeys || {})) {
+    if (row === CAL_ROW) continue;
+    if (Array.isArray(keys)) for (const key of keys) out.add(key);
   }
   return out;
 }
@@ -6858,7 +6945,7 @@ function libraryButton(item) {
     title: anyInside
       ? "In your Library — press, then scroll or use left/right to walk the rows, and press to move it"
       : "Press, then scroll or use left/right to walk your Library rows, and press to add it",
-  }, label, el("span", { class: "library-hint", "aria-hidden": "true", text: "\u2195" }));
+  }, label);
   const paint = () => {
     const row = rows[armed];
     if (row) {
@@ -7471,26 +7558,42 @@ async function verifyKey(name, store, keyName, path = "/providers/verify") {
   render();
 }
 
-function keyRow(group, name, label, desc, store, keyName, verifyPath = "/providers/verify") {
+function keyRow(group, name, label, desc, store, keyName, verifyPath = "/providers/verify", withToken = false) {
   const entry = store[name] || (store[name] = {});
   const input = el("input", {
     class: "text-input focusable",
     type: "password",
-    placeholder: entry.hasKey ? "•••••••• (set — paste a new key to replace)" : "Paste API key…",
+    placeholder: entry.hasKey ? "•••••••• (set — paste a new one to replace)" : withToken ? "Paste your client id…" : "Paste API key…",
     id: `${group}-${name}-key`,
   });
+  // **The token is the second box, and it is the one every write is sent with.** Trakt and
+  // SIMKL both work this way: the client id identifies the app, and the token — handed back
+  // when you authorise on their site — is what a scrobble or a rating travels as. Neither
+  // needs anything registered by us, which is the only way a shipped app can do this.
+  const tokenInput = withToken
+    ? el("input", {
+        class: "text-input focusable",
+        type: "password",
+        placeholder: entry.hasToken ? "•••••••• token (set — paste a new one to replace)" : "Paste your access token…",
+        id: `${group}-${name}-token`,
+      })
+    : null;
   const save = el("button", {
     class: "btn primary focusable",
     type: "button",
     text: entry.hasKey ? "Replace key" : "Save key",
     onclick: async () => {
       const key = input.value.trim();
-      if (!key) return;
-      store[name] = { ...entry, enabled: true, hasKey: true };
+      const token = tokenInput ? tokenInput.value.trim() : "";
+      if (!key && !token) return;
+      store[name] = { ...entry, enabled: true, hasKey: Boolean(key) || entry.hasKey, hasToken: Boolean(token) || entry.hasToken };
       writeJSON(keyName, store);
-      await pushSettings({ [group]: { [name]: { enabled: true, key } } });
+      await pushSettings({ [group]: { [name]: { enabled: true, ...(key ? { key } : {}), ...(token ? { token } : {}) } } });
       input.value = "";
-      await verifyKey(name, store, keyName, verifyPath);
+      if (tokenInput) tokenInput.value = "";
+      // The token is what the writes travel as, so a key alone is not worth a round trip.
+      if (key) await verifyKey(name, store, keyName, verifyPath);
+      else render();
     },
   });
   const clear = entry.hasKey
@@ -7499,9 +7602,9 @@ function keyRow(group, name, label, desc, store, keyName, verifyPath = "/provide
         type: "button",
         text: "Remove key",
         onclick: async () => {
-          store[name] = { ...entry, enabled: false, hasKey: false };
+          store[name] = { ...entry, enabled: false, hasKey: false, hasToken: false };
           writeJSON(keyName, store);
-          await pushSettings({ [group]: { [name]: { enabled: false, key: "" } } });
+          await pushSettings({ [group]: { [name]: { enabled: false, key: "", token: "" } } });
           render();
         },
       })
@@ -7511,7 +7614,13 @@ function keyRow(group, name, label, desc, store, keyName, verifyPath = "/provide
     el("div", { class: "provider-head" },
       el("div", {},
         el("span", { class: "option-title", text: label }),
-        el("span", { class: `badge ${entry.enabled && entry.hasKey ? "on" : "off"}`, text: entry.hasKey ? (entry.enabled ? "enabled" : "key set · off") : "no key" }),
+        el("span", {
+          class: `badge ${entry.enabled && (entry.hasKey || entry.hasToken) ? "on" : "off"}`,
+          text: entry.hasToken && entry.hasKey
+            ? entry.enabled ? "connected" : "set · off"
+            : entry.hasToken ? (entry.enabled ? "token set" : "token · off")
+              : entry.hasKey ? (entry.enabled ? "client id set" : "client id · off") : "nothing set",
+        }),
       ),
       el("label", { class: "switch" },
         el("input", {
@@ -7528,7 +7637,7 @@ function keyRow(group, name, label, desc, store, keyName, verifyPath = "/provide
       ),
     ),
     el("p", { class: "option-desc", text: desc }),
-    el("div", { class: "source-form" }, input, save, clear),
+    el("div", { class: "source-form" }, input, tokenInput, save, clear),
     entry.hasKey
       ? el("div", { class: "provider-check" },
           el("button", { class: "btn subtle focusable", type: "button", text: "Check connection", onclick: () => verifyKey(name, store, keyName, verifyPath) }),
@@ -8749,7 +8858,7 @@ function paneTracking() {
         el("span", { class: "option-title", text: group.title }),
         el("span", { class: "option-desc", text: group.hint }),
       ),
-      ...group.services.map(([name, label, desc]) => keyRow("tracking", name, label, desc, state.tracking, KEY.tracking)),
+      ...group.services.map(([name, label, desc]) => keyRow("tracking", name, label, desc, state.tracking, KEY.tracking, "/providers/verify", Boolean(group.token))),
     ].filter(Boolean)),
   ];
 }
@@ -11390,25 +11499,7 @@ function liveHeroBlock() {
   const channel = channels.length ? channels[LAUNCH_SEED % channels.length] : null;
   const { now } = channel ? nowNext(channel, state.live.guide) : { now: null };
   const groups = channel?.groups || [];
-  const art = channel
-    ? el(
-        "button",
-        {
-          class: "hero-art focusable live-hero-art",
-          type: "button",
-          title: `Open ${channel.name}`,
-          "aria-label": `Open ${channel.name}`,
-          onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
-        },
-        channel.logo
-          ? el("img", { class: "live-hero-logo", src: channel.logo, alt: "", loading: "lazy" })
-          : el("span", { class: "live-hero-initials", text: initialsOf(channel.name) }),
-      )
-    : el(
-        "div",
-        { class: "hero-art live-hero-art live-hero-empty", "aria-hidden": "true" },
-        el("span", { class: "live-hero-initials", text: sports ? "S" : "L" }),
-      );
+  const art = liveHeroArt(channel, now, sports);
   return el(
     "section",
     { class: "hero live-hero" },
@@ -11439,6 +11530,37 @@ function liveHeroBlock() {
     ),
     art,
   );
+}
+
+/**
+ * **The live banner's two posters.** The VOD banner shows the card's artwork in a frame; the
+ * live one had a channel logo in it and nothing else, so the top of Live TV & Sports was a
+ * third the height of Home's with one picture on it. Two frames now, side by side, exactly
+ * the shape the VOD banner's frame is: the channel's logo on the first (or the mode's own
+ * plate while there is no playlist) and the picture of **what is on it now** on the second —
+ * a programme's own still when the guide has one, and the app's plate when it does not.
+ */
+function liveHeroArt(channel, now, sports) {
+  const frame = (children, extra = "") => el("div", { class: `hero-art live-hero-frame${extra}`, "aria-hidden": "true" }, children);
+  const logoFrame = channel
+    ? el(
+        "button",
+        {
+          class: "hero-art focusable live-hero-art",
+          type: "button",
+          title: `Open ${channel.name}`,
+          "aria-label": `Open ${channel.name}`,
+          onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
+        },
+        channel.logo
+          ? el("img", { class: "live-hero-logo", src: channel.logo, alt: "", loading: "lazy" })
+          : el("span", { class: "live-hero-initials", text: initialsOf(channel.name) }),
+      )
+    : frame(el("span", { class: "live-hero-initials", text: sports ? "S" : "L" }), " live-hero-empty");
+  const still = now?.still
+    ? el("img", { class: "live-hero-still", src: now.still, alt: "", loading: "lazy" })
+    : el("span", { class: "live-hero-still-empty", text: now?.title || "Nothing in the guide yet" });
+  return el("div", { class: "live-hero-arts" }, logoFrame, frame(still, now?.still ? "" : " live-hero-empty"));
 }
 
 /**
