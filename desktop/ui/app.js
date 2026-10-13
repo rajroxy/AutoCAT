@@ -10817,12 +10817,13 @@ const liveProfile = () => state.profile === LIVE_PROFILE;
  * and each one is switched by its own key exactly as a Movies card is.
  */
 const LIVE_CARDS = [
-  // **One card, two views.** Settings → Source → Guide and Categories picks which: the
-  // list draws the Guide card, the grid draws the channel wall — and that wall is named
-  // Guide too, because it is the same card. There is no separate Channels card.
-  ["live-guide", "Guide (list or grid)"],
+  // **One switch per card family.** The home draws the Guide, then Recordings and the
+  // sports Highlights (one family), then the Watchlist, then the two Upcoming cards. The
+  // Guide card is always the guide table — Settings → Source → Guide and Categories still
+  // chooses the *screen*'s layout (list or grid), not the card's.
+  ["live-guide", "Guide"],
   ["live-recordings", "Recordings / Highlights"],
-  ["live-upcoming", "Upcoming"],
+  ["live-upcoming", "Upcoming (Live TV & Sports)"],
 ];
 const liveCardOn = (key) => !picking() || visFor().cards[key] !== false;
 
@@ -11418,47 +11419,6 @@ function guideCard(mode = "livetv") {
   });
 }
 
-/**
- * The channel wall — **the Guide card's grid view.**
- *
- * It was a **Categories** card that listed category names and nothing else, which is a
- * table of contents for a list you have not seen; it is the channels themselves now, one
- * mark each, with the count. Settings → Source → Guide and Categories decides which view
- * the live home's first card wears: the list draws the Guide card, the grid draws this
- * wall — under the same name, `Guide`, because it is the same card. There is no separate
- * Channels card beside it any more.
- */
-function channelsCard({ title = "", action = null, mode = "livetv" } = {}) {
-  const channels = liveChannelsShown(mode);
-  const rows = channels.slice(0, 4).map((channel) =>
-    el(
-      "div",
-      { class: "guide-mini-row" },
-      el("span", { class: "guide-mini-name", text: channel.name }),
-      el("span", { class: "guide-mini-block", text: channel.groups?.[0] || "—" }),
-    ),
-  );
-  if (!rows.length) {
-    rows.push(
-      el("div", { class: "guide-mini-row" },
-        el("span", { class: "guide-mini-name", text: "Channels" }),
-        el("span", { class: "guide-mini-block bare", text: state.live.loading ? "reading…" : "—" })),
-    );
-  }
-  return liveCard({
-    id: "open-channels",
-    // **The same card, whichever view is on.** With the grid chosen this wall *is* the
-    // live home's Guide card — one mark per channel — so it carries that name and opens
-    // the guide, rather than being a second card called Channels beside it.
-    title: title || (liveRowKey() === "sports" ? "Sports channels" : "Channels"),
-    sub: channels.length
-      ? `${channels.length} channels${state.live.groups.length ? ` · ${state.live.groups.length} groups` : ""}`
-      : "Reading the channel list…",
-    rows,
-    posters: channels.slice(0, 6),
-    action: () => go("#/categories"),
-  });
-}
 
 /**
  * **The Upcoming card, on the live side too — and it is the same card.**
@@ -11534,7 +11494,10 @@ function liveWatchlistCard() {
     title: "Watchlist",
     sub: posters.length ? `${items.length} pinned · press to open` : "Pin a title from any title page",
     grid: wall,
-    action: () => go("#/x/watchlist"),
+    // **The card's own page, not the explore route.** `#/x/watchlist` means "explore one
+    // catalog of the watchlist" and needs a catalog id after the key; without it the route
+    // parses to an empty one. The card page (`#/c/<key>`) is the list of rows this card holds.
+    action: () => go("#/c/watchlist"),
   });
 }
 
