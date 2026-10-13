@@ -54,9 +54,13 @@ const SETTING_KEYS = {
   pop: "autocat.pop",
   speed: "autocat.speed",
   accent: "autocat.accent",
-  // **Ring or fill** for the selection colour (Settings → Interaction): the same colour,
-  // drawn as a ring around the chosen row or as the fill of it.
-  selStyle: "autocat.selStyle",
+  // **How far a card lifts** under the cursor (Settings → Effects → Popup), and how the
+  // app marks what you are on (Fills & rings) and how far it blurs (Blur).
+  popLift: "autocat.popLift",
+  mark: "autocat.mark",
+  markLevel: "autocat.markLevel",
+  blurWhere: "autocat.blurWhere",
+  blurLevel: "autocat.blurLevel",
   // The colour a *selection* wears — the chosen row, the checked box — on top of the
   // highlight colour the app is tinted with (see `applyTheme`).
   select: "autocat.select",
@@ -115,7 +119,8 @@ const HOME_PROFILE = "you";
 /* **`profile` is here because the scope depends on it.** It holds the *mode* — VOD or IPTV
    — and since the mode is part of the settings scope below, the mode itself cannot be
    stored inside a scope. It is the machine's, like how the app looks. */
-const MACHINE_KEYS = new Set(["theme", "accent", "select", "selStyle", "motion", "font", "blur", "pop", "speed", "glow", "profile"]);
+const MACHINE_KEYS = new Set(["theme", "accent", "select", "motion", "font", "blur", "pop", "speed", "glow", "profile",
+  "popLift", "mark", "markLevel", "blurWhere", "blurLevel"]);
 /**
  * **A profile, and the local account in use inside it.**
  *
@@ -499,7 +504,9 @@ const ACCENTS = [
   // yellow, the pink-magenta between the rose and the plum, and the green between the green
   // and the mint.
   ["lemon", "Lemon", "232, 208, 96", "#e8d060", "#b3a02e"],
-  ["magenta", "Magenta", "214, 106, 206", "#d66ace", "#a0419a"],
+  ["bronze", "Bronze", "184, 130, 80", "#b88250", "#8a5c33"],
+  ["ocean", "Ocean", "72, 168, 208", "#48a8d0", "#2f7ba0"],
+  ["blush", "Blush", "240, 170, 180", "#f0aab4", "#bd7c86"],
   ["jade", "Jade", "96, 200, 150", "#60c896", "#3a9a6d"],
 ];
 
@@ -516,6 +523,9 @@ const SELECT_EXTRA = [
   ["sapphire", "Sapphire", "58, 110, 224", "#3a6ee0", "#2a4ea8"],
   ["emerald", "Emerald", "52, 190, 130", "#34be82", "#1f8f5e"],
   ["amethyst", "Amethyst", "168, 106, 226", "#a86ae2", "#7d45b0"],
+  ["topaz", "Topaz", "230, 170, 60", "#e6aa3c", "#b37f1f"],
+  ["turquoise", "Turquoise", "46, 200, 190", "#2ec8be", "#1f9a92"],
+  ["grape", "Grape", "150, 90, 200", "#965ac8", "#6f3a99"],
 ];
 /** Every colour the app can paint a selection with, in board order. */
 const SELECT_ACCENTS = [...ACCENTS, ...SELECT_EXTRA];
@@ -1003,6 +1013,14 @@ const state = {
   // **Pop on hover** (Settings → Motion): a card, a tile, a button or a row head lifts
   // under the cursor. On by default — it is the app's own feel — and one switch to stop it.
   pop: localStorage.getItem(KEY.pop) !== "0",
+  // How far the lift goes, and how the app marks what you are on. `mark` is on by default:
+  // with it off nothing is filled and nothing is ringed, and the app is flat.
+  popLift: localStorage.getItem(KEY.popLift) || "normal",
+  mark: localStorage.getItem(KEY.mark) !== "0",
+  markLevel: localStorage.getItem(KEY.markLevel) || "normal",
+  // What the blur covers, and how far. "both" is the default: popups *and* the card you are on.
+  blurWhere: localStorage.getItem(KEY.blurWhere) || "both",
+  blurLevel: localStorage.getItem(KEY.blurLevel) || "normal",
   // How long a fill, a ring or a lift takes. One variable drives every transition.
   speed: localStorage.getItem(KEY.speed) || "smooth",
   // Blur the page behind a popup (the assistant, a dialog). On unless turned off.
@@ -2449,17 +2467,14 @@ function signInCard() {
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
   const { rows, current, room } = accountList();
 
-  // **`Sign in` is a heading, not a line on the plate.** It names the card under it the way
-  // a section title names its rows, so it sits on the page with the account card beneath it
-  // rather than inside a box of its own above another box (see `optionGroups`).
+  // **`Sign in` is a group like every other one.** It names the card under it the way the
+  // board names its groups, so it is a `.group-head` over the account card and `optionGroups`
+  // builds the plate — the same shape as Speed, Engine or Debrid (see `optionGroups`).
   return el(
     "div",
-    { class: "option-group solo" },
+    { class: "provider", id: "account" },
     groupHead("Sign in"),
-    el(
-      "div",
-      { class: "provider", id: "account" },
-      said ? el("p", { class: "signin-said", text: said }) : null,
+    said ? el("p", { class: "signin-said", text: said }) : null,
     rows.length ? el("div", { class: "account-list" }, ...rows) : null,
     accountForm(),
     current
@@ -2472,11 +2487,10 @@ function signInCard() {
           onclick: signOutAccount,
         })
       : null,
-      el("p", {
-        class: "option-desc",
-        text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
-      }),
-    ),
+    el("p", {
+      class: "option-desc",
+      text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
+    }),
   );
 }
 
@@ -4055,13 +4069,16 @@ async function renderCard(key) {
   const row = rowOf(c);
   // The catalogs this profile shows: a hidden row is not drawn here either, so the
   // card reads exactly as Home does (and the chip line cannot link to it).
-  const catalogs = orderedCatalogs(c).filter(catalogVisible);
+  // **A row with a page of its own is not drawn on the card.** `Watched` is reachable from
+  // Settings → Content (and from `#/x/watchlist/watched`), so the Watchlist card holds what
+  // you are on and what is queued — not a list you go to the settings for.
+  const catalogs = orderedCatalogs(c).filter(catalogVisible).filter((cat) => !cat.offcard);
   // The tags the header draws, in the card's own order — the chips are all the page
   // needs up there now that the name lives in the top bar. Every card keeps them,
   // the For You card included: they were dropped once as "duplicating the headings"
   // and that was wrong — nobody asked for it, and the line is how a card's rows are
   // named in one place.
-  const chips = row.catalogs.filter(catalogVisible);
+  const chips = row.catalogs.filter(catalogVisible).filter((cat) => !cat.offcard);
 
   // Name and tags first, the artwork card second — the same reading order as the
   // banner — and the frame holds **one landscape backdrop** from the card's own
@@ -4588,11 +4605,11 @@ function renderSearch() {
   // three under them already give.
   const filters = {
     type: params.get("type") || "",
-    // **The Region scopes the search.** "All countries" is still there to pick, but a
-    // search that says nothing about where it is reads the region set in
-    // Settings → Content — the same choice the Regional OTT cards follow — so the
-    // app has one answer to "where am I" rather than two.
-    country: params.get("country") || state.country || "all",
+    // **"All countries" is the default, not the region.** A search that says nothing about
+    // where it is used to quietly take the region set for the Regional OTT cards, so the
+    // filter opened with a country already chosen — and the one chip you would have to press
+    // to search everything was the one chip that was not pressed.
+    country: params.get("country") || "all",
     category: params.get("category") || "all",
     period: params.get("period") || "all",
     // The **original language** of a title. There is no chip line for it (a wall of
@@ -4993,8 +5010,7 @@ function renderSearch() {
  */
 const filtersActive = (f) =>
   Boolean(f.type) ||
-  ["category", "period", "lang"].some((k) => f[k] !== "all") ||
-  (f.country !== "all" && f.country !== state.country) ||
+  ["country", "category", "period", "lang"].some((k) => f[k] !== "all") ||
   f.sort !== "popularity";
 
 /* ----------------------------------------------------------------- calendar */
@@ -8817,6 +8833,11 @@ const FALLBACK_COUNTRIES = [["US", "United States"], ["IN", "India"], ["GB", "Un
  * left is the one switch that really does change a row's contents.
  */
 function paneContent() {
+  // **The Watched page is a catalog, so it is opened by its id.** The row is published like
+  // every other one (it is only kept off the Watchlist card — see `offcard`), so the page it
+  // opens is the same endless grid a catalog gets, with your own titles and nothing else.
+  const watched = (state.collections.find((c) => c.key === "watchlist")?.movie?.catalogs || [])
+    .find((cat) => cat.state === "watched");
   // **No Region picker.** The Regional OTT card publishes the countries the Countries
   // card covers (see `regionalOtt`), so there is no one region to point the app at; the
   // country a *search* starts on is picked on the search screen itself.
@@ -8832,6 +8853,27 @@ function paneContent() {
     radioRow(!state.safe, "safe", "NSFW", "Include adult titles where TMDB supports it.", () => {
       state.safe = false; writeJSON(KEY.safe, false); pushSettings({ safe: false }); render();
     }),
+    // **A row that is a page.** Watched used to sit on the Watchlist card between what you
+    // are on and what is queued; it is a list you go *to*, so it opens here — the same
+    // endless grid a catalog gets on its own page (`#/x/watchlist/watched`).
+    groupHead("Watched"),
+    el(
+      "div",
+      { class: "provider" },
+      el("p", {
+        class: "option-desc",
+        text: "Every title you have marked watched, in one grid — the same page a catalog gets.",
+      }),
+      el("p", { class: "option-title", text: "Watched titles" }),
+      el("button", {
+        class: "btn focusable",
+        type: "button",
+        id: "open-watched",
+        text: "Open watched titles",
+        title: "Every title marked Watched, newest first",
+        onclick: () => watched && go(`#/x/watchlist/${encodeURIComponent(watched.id)}`),
+      }),
+    ),
     groupHead("Refresh catalogs & metadata"),
     ...REFRESH_CHOICES.map(([minutes, label]) =>
       radioRow(Number(state.refresh) === minutes, "refresh", label, minutes === 0 ? "Nothing is re-read until you press Refresh now." : `Catalogs and metadata are re-read every ${minutes} minutes.`, () => {
@@ -8859,12 +8901,25 @@ function applyTheme() {
   // **The typeface is one custom property.** Written here with the accent, and written
   // into the boot record below, so the first paint is already in the chosen face.
   root.style.setProperty("--font", FONT_STACKS[state.font] || FONT_STACK);
+  // **Two answers, one setting.** A control — a button, an icon, a menu row, a dropdown —
+  // is *filled* with the colour; a thing — a card, a catalog title, a face — is *ringed* by
+  // it. There is no choice to make: a control is a surface you press and a card is a thing
+  // you are on, so the two do not want the same mark. `mark` switches the whole treatment
+  // off, and `markLevel` decides how loud it is (see `--mark-fill` / `--mark-ring`).
+  const marks = { soft: [0.14, 2], normal: [0.22, 2], strong: [0.32, 3] }[state.markLevel] || [0.22, 2];
+  root.classList.toggle("mark-off", state.mark === false);
+  root.style.setProperty("--mark-fill", state.mark === false ? "0" : String(marks[0]));
+  root.style.setProperty("--mark-ring", state.mark === false ? "0px" : `${marks[1]}px`);
+  // The pop's reach, and the blur's — both settings, both written as one property each so
+  // the stylesheet never has to know which one is chosen.
+  root.style.setProperty("--pop-lift", { close: "2px", normal: "5px", far: "9px" }[state.popLift] || "5px");
   root.classList.toggle("blur-off", state.blur === false);
-  // The selection colour is painted as a ring on the chosen row instead of a fill of it.
-  // The two classes are a pair: **Ring** rings what you are on, **Fill** fills it and
-  // draws no ring anywhere (see the block at the end of the stylesheet).
-  root.classList.toggle("select-ring", state.selStyle === "ring");
-  root.classList.toggle("select-fill", state.selStyle !== "ring");
+  // **Where the blur lands.** The switch used to answer for popups only, then for popups and
+  // the card you are on; now it says which. `no-popup-blur` takes the scrims off the dialogs
+  // while the card keeps its blur; the other way round is the spotlight's own check.
+  root.classList.toggle("no-popup-blur", state.blurWhere === "cards");
+  root.classList.toggle("no-card-blur", state.blurWhere === "popups");
+  root.style.setProperty("--blur-amount", { light: "6px", normal: "10px", heavy: "16px" }[state.blurLevel] || "10px");
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
@@ -9184,52 +9239,51 @@ function paneAnimation() {
 }
 
 /**
- * **Settings → Interaction: what the app does when you point at or pick something.**
+ * **Settings → Effects: the three things the app does to show you where you are.**
  *
- * Its own section because both switches answer the same question — what happens to the
- * thing *around* what you picked. They used to sit at the foot of Motion, where a switch
- * about the blur behind a dialog had nothing to do with how fast a screen changes; the
- * board names the subject instead (Accent, Motion, Layout, Interaction).
+ * They are the whole vocabulary — a card answers the cursor, what you are *on* is marked, and
+ * the page around it can be put out of focus — so they are one pane, and each of them says how
+ * far it goes:
+ *
+ * - **Popup** — the lift under the cursor, and how far it lifts.
+ * - **Fills & rings** — one setting with two answers, because the two do not want the same
+ *   mark: a **control** (a button, an icon, a menu row, a dropdown) is *filled* with the
+ *   selection colour, and a **thing** (a card, a catalog title, a face) is *ringed* by it.
+ * - **Blur** — what the page does behind a popup and around the card you are on, how far, and
+ *   where it lands.
  */
 function paneInteraction() {
+  const set = (key, value, on) => {
+    state[key] = value;
+    localStorage.setItem(KEY[key], value);
+    applyTheme();
+    render();
+  };
+  const choice = (key, value, title, desc, tag = key) =>
+    radioRow(state[key] === value, tag, title, desc, () => set(key, value));
+
   return [
-    el("p", { class: "option-desc", text: "How the app answers the cursor and the keyboard, and what happens to the page around the thing you opened." }),
-    // **Pop on hover.** The lift under a card, a tile, a button, a chip, a row head —
-    // anything you can point at.
-    groupHead("Hover"),
-    toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => {
-      state.pop = e.target.checked;
-      localStorage.setItem(KEY.pop, state.pop ? "1" : "0");
-      applyTheme();
-      render();
-    }),
-    // **The blur behind a popup.** The assistant, a trailer, a quick look and the player's
-    // own panels open over a page; this decides whether the page behind them is blurred
-    // out. The thing you opened it from stays sharp either way (`keepSharp`).
-    // **How the selection colour is drawn.** The colour is chosen in Accent; this says what
-    // shape it takes on the thing you picked — a ring around it, or the fill of it. The
-    // highlight colour is untouched either way: it is the Home tab, the Play button and the
-    // rest of the app's own furniture.
-    groupHead("Chosen"),
-    radioRow(state.selStyle === "ring", "selstyle", "Ring", "The selection colour outlines what you picked and leaves its fill alone.", () => {
-      state.selStyle = "ring";
-      localStorage.setItem(KEY.selStyle, "ring");
-      applyTheme();
-      render();
-    }),
-    radioRow(state.selStyle !== "ring", "selstyle", "Fill", "The selection colour becomes the fill of what you picked, the way it is now.", () => {
-      state.selStyle = "fill";
-      localStorage.setItem(KEY.selStyle, "fill");
-      applyTheme();
-      render();
-    }),
-    groupHead("Popups"),
-    toggleRow(state.blur !== false, "Blur behind a popup", "When the assistant, a trailer or a quick look opens, everything behind it is blurred — including the card you opened it from.", (e) => {
-      state.blur = e.target.checked;
-      localStorage.setItem(KEY.blur, state.blur ? "1" : "0");
-      applyTheme();
-      render();
-    }),
+    // ---------------------------------------------------------------- Popup
+    groupHead("Popup"),
+    toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => set("pop", e.target.checked)),
+    choice("popLift", "close", "Close", "The gentlest lift — a card barely leaves its place.", "poplift-row"),
+    choice("popLift", "normal", "Normal", "The app's own lift: a card rises a little under the cursor.", "poplift-row"),
+    choice("popLift", "far", "Far", "A taller lift, for a screen read from across the room.", "poplift-row"),
+    // ------------------------------------------------------- Fills & rings
+    groupHead("Fills & rings"),
+    toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the selection colour; a card or a catalog title you are on is ringed by it.", (e) => set("mark", e.target.checked)),
+    choice("markLevel", "soft", "Soft", "A whisper of the colour — enough to find your place on a dim screen.", "mark-row"),
+    choice("markLevel", "normal", "Normal", "The app's own strength: a clear fill under a control, a clear ring around a card.", "mark-row"),
+    choice("markLevel", "strong", "Strong", "A louder fill and a thicker ring, for a screen viewed from far away.", "mark-row"),
+    // ---------------------------------------------------------------- Blur
+    groupHead("Blur"),
+    toggleRow(state.blur !== false, "Blur the page", "Everything behind a popup, and everything around a card you are on, is put out of focus.", (e) => set("blur", e.target.checked)),
+    choice("blurWhere", "popups", "Popups", "Only what is behind a dialog, the assistant and a trailer.", "blurwhere-row"),
+    choice("blurWhere", "cards", "Cards", "Only the page around the card or catalog title you are on.", "blurwhere-row"),
+    choice("blurWhere", "both", "Both", "A dialog and the card you are on — everywhere the app puts the page out of focus.", "blurwhere-row"),
+    choice("blurLevel", "light", "Light", "A soft out-of-focus, so the page is still readable through it.", "blurlevel-row"),
+    choice("blurLevel", "normal", "Normal", "The app's own blur.", "blurlevel-row"),
+    choice("blurLevel", "heavy", "Heavy", "A hard out-of-focus, for a screen you are watching from across the room.", "blurlevel-row"),
   ];
 }
 
@@ -9893,10 +9947,6 @@ function optionGroups(items) {
   for (const node of flat) {
     const cls = node.classList || {};
     if (cls.contains("option-desc")) continue;
-    // **A pane may hand back a group of its own.** The Account pane's `Sign in` is a heading
-    // for the card under it rather than a plate holding it (see `signInCard`), so it builds
-    // its own group and the board leaves it exactly as it was built.
-    if (cls.contains("option-group")) { close(); out.push(node); continue; }
     if (cls.contains("h-divider")) { close(); continue; }
     if (cls.contains("group-head")) { close(); run = { label: node, nodes: [], plain: 0 }; continue; }
     // Its *own* title: a direct child, not the one inside a `provider-head`.
@@ -10409,14 +10459,19 @@ let spotExit = 0;
 const spotPointer = { x: -1, y: -1 };
 
 /** Take the scrim and the copy down, and give the card its own look back. */
-function dropSpotlight() {
+function dropSpotlight(now = false) {
   clearTimeout(spotExit);
   if (!spotNow) return;
-  spotNow.node.classList.remove("sel-on");
-  document.getElementById("sel-blur")?.remove();
+  const { node, view } = spotNow;
+  node.classList.remove("sel-on");
   window.removeEventListener("scroll", spotFollow, true);
   window.removeEventListener("resize", spotFollow);
   spotNow = null;
+  // **It leaves the way it arrived.** The scrim used to be thrown away between two frames, so
+  // the page snapped back into focus; it fades out over the same beat it fades in on.
+  if (now) return view.remove();
+  view.classList.add("out");
+  setTimeout(() => view.remove(), 200);
 }
 
 /** Keep the copy level with the card it stands for, and let go if that card is gone. */
@@ -10434,7 +10489,7 @@ function spotFollow() {
 /** Put the page out of focus around `node`, or move the sharp copy to it. */
 function spotlight(node) {
   if (!node?.isConnected || !node.matches?.(SPOT_CONTENT)) return dropSpotlight();
-  if (state.blur === false || spotBlocked()) return dropSpotlight();
+  if (state.blur === false || state.blurWhere === "popups" || spotBlocked()) return dropSpotlight();
   if (spotNow?.node === node) return spotFollow();
   dropSpotlight();
   const r = node.getBoundingClientRect();
@@ -10459,8 +10514,8 @@ function spotlight(node) {
 
 /** Put the blur back on the card under the pointer — or under the keyboard — after a redraw. */
 function spotReArm() {
-  dropSpotlight();
-  if (state.blur === false) return;
+  dropSpotlight(true);
+  if (state.blur === false || state.blurWhere === "popups") return;
   const under = spotPointer.x >= 0 ? document.elementFromPoint(spotPointer.x, spotPointer.y) : null;
   // `elementFromPoint` skips the scrim (it takes no clicks) but not the copy, which lives
   // inside it — so the match is taken from the card the element belongs to either way.

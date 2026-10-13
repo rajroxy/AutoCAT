@@ -613,7 +613,7 @@ function collectionsPayload(root) {
             .filter(Boolean)
         : defs
             .filter((d) => d.type === type)
-            .map((d) => ({ id: d.id, name: d.name, kind: d.entry?.kind || "", state: d.entry?.state || "", row: d.entry?.row || "", divider: Boolean(d.entry?.divider) })),
+            .map((d) => ({ id: d.id, name: d.name, kind: d.entry?.kind || "", state: d.entry?.state || "", row: d.entry?.row || "", divider: Boolean(d.entry?.divider), offcard: Boolean(d.entry?.offcard) })),
     });
     // `divider` marks the card that is preceded by a vertical rule in the app;
     // `hidden` marks a card the grid does not draw (the banner's own source) — and

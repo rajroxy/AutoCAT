@@ -489,7 +489,10 @@ const original = (name, studio, take) => ({ name, kind: "original", studio: stud
  * never an empty invention.
  */
 const ORIGINALS = VERIFIED.originals || {};
-const watchlist = (name, state) => ({ name, kind: "watchlist", state });
+// `offcard` keeps a row **out of the card's own picture** without taking it out of the
+// payload: `Watched` is a page of its own now (Settings → Content → Watched), and a row
+// the card does not draw is exactly what that needs.
+const watchlist = (name, state, offcard) => ({ name, kind: "watchlist", state, offcard: Boolean(offcard) });
 
 /**
  * Keyword entries for one card, straight from the verified table.
@@ -781,7 +784,7 @@ const buildCollections = (code = "") => {
     catalogs: both([
       watchlist("Watching", "watching"),
       watchlist("Plan to Watch", "planned"),
-      watchlist("Watched", "watched"),
+      watchlist("Watched", "watched", true),
     ]),
   },
   {

@@ -1419,22 +1419,6 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 /* **The selection as a ring** (Settings → Interaction → Chosen). The same colour the checked
    rows wear as a fill, drawn around them instead — the row keeps the plate's grey and the
    colour is its outline. */
-html.select-ring .option:has(input:checked),
-html.select-ring .vis-option:has(input:checked),
-html.select-ring .settings-pane .option-group .option:has(input:checked) {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: transparent;
-  box-shadow: inset 0 0 0 2px rgba(var(--select-rgb, var(--accent-rgb)), 0.85);
-}
-html.select-ring .settings-pane .option-group .option:has(input:checked) { background: var(--panel-2); }
-html.select-ring .menu-item.active,
-html.select-ring .dropdown-item.active,
-html.select-ring .dropdown-btn[aria-expanded="true"],
-html.select-ring .profile-tile.active {
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 0 0 2px rgba(var(--select-rgb, var(--accent-rgb)), 0.85);
-  color: #fff;
-}
 /* **The Movies / Shows pill is furniture, not a row.** It is the solid accent plate the Home
    tab is, and it stays filled in **both** shapes: a ring drawn round a pill that already says
    "you are here" is the same sentence twice, and it reads as a box around the word. */
@@ -4748,73 +4732,85 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 }
 
 /* ============================================================================
-   **What you are on is a selection — and a selection wears the selection colour.**
+   **What you are on: a control is filled, a thing is ringed.**
    ----------------------------------------------------------------------------
-   The ring that answered the cursor and the keyboard was the *highlight* colour, and the
-   highlight colour is the app's furniture: the Home tab, the Play button, a chip. A
-   **card or a catalog title** is not furniture, it is content, and the thing you are on is
-   what you *selected*. So it wears the colour chosen under Settings → Accent → Selection
-   colour, in the shape Settings → Effects → Chosen asks for:
+   One setting, two answers, because the two are not the same kind of thing. A **control** —
+   a button, an icon, a menu row, a dropdown, a chip, a tab — is a surface you press, so what
+   you are on is *filled* with the selection colour. A **thing** — a card, a catalog title, a
+   face, a channel — is something you are *on*, so it is *ringed* by that colour and its own
+   picture is left alone. There is nothing to choose: a ring around a button is a box drawn
+   around a word, and a fill behind a poster is a colour nobody can see.
 
-   - **Fill** (the default): the selection colour as a **wash across the whole card** — the
-     artwork included, because a poster *is* most of a card and a fill that only reached the
-     caption read as a label pasted along the bottom edge. The picture is drawn over the wash
-     at just under full strength, which is what lets the colour be seen through it.
-   - **Ring**: the card keeps the plate it always had, and the colour is its outline.
-
-   One list of eight surfaces, written once and used by every state: the card, the catalog
-   title, the search result, the category tile, the channel card, the season, the company and
-   the trailer card. `.sel-on` is one of those states — the class the blur behind a selection
-   puts on the card it stands in for, so the sharp copy and the card underneath agree.
+   Both are one setting (Settings → Effects → Fills & rings): `mark` switches the whole
+   treatment off, and `markLevel` decides how loud it is — `--mark-fill` for the fill's alpha,
+   `--mark-ring` for the ring's width (see `applyTheme`).
    ============================================================================ */
-:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.3);
+/* --------------------------------------------------------------- a control */
+:is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .row-btn, .tab, .icon-btn,
+  .btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
+  .menu-item, .dropdown-item, .dropdown-btn):hover {
+  /* `background-color`, not `background`: a plate that is a gradient (the Home tab, the Play
+     button, the chosen Movies / Shows pill) keeps its gradient and takes this under it. */
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
   box-shadow: none;
 }
-:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) img {
-  opacity: 0.72;
+/* The chosen things — a ticked row, the open menu, the tile you are on — wear the same
+   colour at the same strength, so "hovered" and "chosen" are one look, not two. */
+:is(.option, .vis-option, .menu-item, .dropdown-item, .dropdown-btn, .profile-tile, .cal-cell,
+  .view-mark, .avatar-pick, .episode-item, .stream, .settings-tab).active,
+.options :is(.option, .vis-option):has(input:checked),
+.settings-pane .option-group .option:has(input:checked),
+.menu-item.active, .dropdown-btn[aria-expanded="true"] {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
 }
-/* **Ring.** The plate stays and the colour is drawn around the card: a chosen card that
-   reads as chosen without turning into a plate of accent. */
-html.select-ring :is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) {
-  background-color: var(--panel);
-  box-shadow: 0 0 0 3px var(--select, var(--accent));
+/* ------------------------------------------------------------------- a thing */
+:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) {
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
 }
-html.select-ring :is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :has(:focus-visible), .sel-on) img {
-  opacity: 1;
-}
+/* A face rings its picture, not its card — the card is a button with a name on it. */
+.person:hover .person-face,
+.person:has(:focus-visible) .person-face { outline: none; box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent)); }
 
-/* **A card being stood in for holds still.** The sharp copy is a picture of the card, taken
-   where the card sits — so the card may not lift under the copy, and it may not drift into
-   the lift either: the transform and the transition to it are both off while it is selected. */
-.sel-on { transform: none !important; transition-property: none !important; }
+/* **Nothing moves without a beat.** Every one of these changes a colour or a shadow under
+   the cursor; without a transition the board snapped from one state to the next, which is the
+   part that read as rough rather than as fast. */
+:is(.focusable, .settings-tab, .chip, .filter-chip, .row-btn, .tab, .icon-btn, .btn, .alpha,
+  .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .menu-item, .dropdown-item,
+  .dropdown-btn, .option, .vis-option, .icon-box, .poster, .result, .cat-tile, .channel-card,
+  .season-card, .company-card, .trailer-card) {
+  transition: background-color 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+/* The lift is a setting too (`--pop-lift`), so a screen read from across the room can make it
+   taller: see the Popup group in Settings → Effects. */
+.pop-on :is(.icon-box, .icon-art, .poster, .cat-tile, .icon-btn, .accent-card, .profile-tile):hover {
+  transform: translateY(calc(var(--pop-lift, 5px) * -1));
+}
+.pop-on :is(.btn, .chip, .row-head-link):hover { transform: translateY(calc(var(--pop-lift, 5px) * -0.6)); }
 
 /* ============================================================================
-   **The blur behind a selection** (Settings → Effects → Popups).
+   **The blur behind a popup, and around the card you are on.**
    ----------------------------------------------------------------------------
-   The switch blurs the page behind a dialog. It answers for the app's own content the same
-   way: the card you are on stays sharp and everything *around* it is put out of focus — one
-   card legible, the rest of the page behind it.
-
-   One fixed scrim does the blurring, and the selected thing is kept sharp by drawing a copy
-   of it over that scrim, exactly where it sits. The copy is a picture — no clicks, no
-   keyboard (`aria-hidden`, `pointer-events: none`) — and the real card is still the thing the
-   cursor and the keyboard are on, so a press lands where it should.
+   One switch (Settings → Effects → Blur) with a reach and a depth. The card you are on is kept
+   sharp by drawing a copy of it over the scrim, exactly where it sits — a picture of it, with
+   no clicks and no keyboard, so the real card is still the thing the cursor is on.
    ============================================================================ */
 .sel-blur {
   position: fixed;
   inset: 0;
   z-index: 45;
   pointer-events: none;
-  background: rgba(4, 5, 8, 0.42);
-  backdrop-filter: blur(13px) saturate(1.12);
-  -webkit-backdrop-filter: blur(13px) saturate(1.12);
-  animation: sel-blur-in 0.18s ease both;
+  /* **A light hand.** The scrim used to be a heavy dim over a hard blur, which read as the
+     page being taken away rather than pushed back. It is a soft wash now — you can still see
+     the screen behind it, which is the point of a spotlight. */
+  background: rgba(4, 5, 8, 0.28);
+  backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.08);
+  -webkit-backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.08);
+  transition: opacity 160ms ease;
 }
-@keyframes sel-blur-in { from { opacity: 0; } to { opacity: 1; } }
-/* Off with the switch — the same one that turns the blur off behind a popup. With it off
-   there is no scrim at all: a dim with nothing blurred would just be a curtain. */
-.blur-off .sel-blur { display: none !important; }
+.sel-blur.out { opacity: 0; }
+.blur-off .sel-blur, .no-card-blur .sel-blur { display: none !important; }
+/* **The sharp copy carries its own light.** Drawn flat on the scrim its edge was a hard cut
+   against the blur; a soft shadow under it reads as the card standing in front of the page. */
 .sel-sharp {
   position: fixed !important;
   z-index: 1;
@@ -4822,56 +4818,20 @@ html.select-ring :is(.icon-box, .poster, .result, .cat-tile, .channel-card, .sea
   pointer-events: none !important;
   transform: none !important;
   animation: none !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
 }
+/* **A card being stood in for holds still** — the copy is a picture of it, taken where it sits. */
+.sel-on { transform: none !important; transition-property: none !important; }
 
-/* ============================================================================
-   **Fill means filled — and never a ring.**
-   ----------------------------------------------------------------------------
-   Settings → Effects → Chosen answers one question: is what you are on *filled* with the
-   selection colour, or *ringed* by it? `--hl` is the ring the whole app answers the cursor
-   and the keyboard with, so with **Fill** chosen it is switched off at the root and every
-   one of those rules draws nothing; what you are on is **filled** instead, at the strength
-   the chosen settings tile already wears. The content surfaces above are filled outright —
-   a card is a thing, not a control — and these are the controls: the buttons, chips, tiles,
-   menu rows, the settings board and the calendar's cells.
-
-   With **Ring** chosen nothing here applies: `--hl` is the ring it always was. Only these two
-   classes decide; the highlight colour is untouched either way — it is still the Home tab,
-   the Play button and the app's furniture.
-   ============================================================================ */
-html.select-fill { --hl: none; }
-html.select-fill :is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .row-btn, .tab,
-  .icon-btn, .btn, .alpha, .person, .avatar-pick, .vis-fold, .accent-card, .cal-cell, .site-row):hover,
-html.select-fill :is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .row-btn, .tab,
-  .icon-btn, .btn, .alpha, .person, .avatar-pick, .vis-fold, .accent-card, .cal-cell, .site-row):focus-visible {
-  /* `background-color`, not `background`: a plate that is a gradient (the Home tab, the
-     Play button, the chosen Movies/Shows pill) keeps its gradient and takes this under it. */
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.22);
+/* **One depth behind everything the switch covers.** The assistant and a dialog blurred by
+   22px, the trailer by 26, the blur around your card by 13 — the same setting looked like a
+   different setting depending on what was open. They take `--blur-amount` together, and
+   `no-popup-blur` takes the dialogs out of it when the blur is set to cards only. */
+:is(.assistant-overlay, .modal-backdrop, .trailer-overlay, .overlay-backdrop) {
+  backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.15);
+  -webkit-backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.15);
 }
-
-/* The settings tile you are on is a **chosen** thing, like a ticked row beside it — so it
-   wears the selection colour too, instead of the highlight the hovered tile no longer uses. */
-.settings-tab.active { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.22); }
-
-/* **A pane may hand back a group of its own.** Everything a pane returns is gathered into the
-   board's plates (see `optionGroups`); the Account pane's `Sign in` is a *heading*, not a plate
-   — it names the card under it the way a section title does — so the pane builds its own group
-   and the board leaves it exactly as it is. */
-.settings-pane .option-group.solo { padding: 0; background: transparent; }
-
-/* ============================================================================
-   **One blur behind everything the switch covers.**
-   ----------------------------------------------------------------------------
-   The assistant and a dialog blurred by 22px, the trailer by 26 and the blur behind your own
-   card by 13 — so the same setting looked like a different setting depending on what was
-   open, and the blur around your card read as a lighter effect than the blur around a dialog.
-   They are one recipe now: one radius, one saturation, one dim. The trailer keeps the heavier
-   dim it needs — a clip playing has to be the only thing on screen — and blurs like the rest.
-   ============================================================================ */
-.assistant-overlay, .modal-backdrop, .sel-blur, .trailer-overlay, .overlay-backdrop {
-  backdrop-filter: blur(18px) saturate(1.15);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
-}
-.assistant-overlay, .modal-backdrop, .sel-blur, .overlay-backdrop {
-  background: rgba(4, 5, 8, 0.55);
+.no-popup-blur :is(.assistant-overlay, .modal-backdrop, .trailer-overlay, .overlay-backdrop) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
