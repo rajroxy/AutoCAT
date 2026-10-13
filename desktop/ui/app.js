@@ -5902,7 +5902,6 @@ const MUSIC_TRACKS = [
   ["none", "None", ""],
   ["loop", "Lofi Loop", "./audio/browse-loop.wav"],
   ["chill", "Lofi Chill", "./audio/lofi-chill.wav"],
-  ["rain", "Lofi Rain", "./audio/lofi-rain.wav"],
   ["night", "Lofi Night", "./audio/lofi-night.wav"],
 ];
 const musicTrack = () => MUSIC_TRACKS.find(([id]) => id === state.sound?.music) || MUSIC_TRACKS[0];
