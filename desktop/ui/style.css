@@ -1416,6 +1416,31 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 }
 
 .option:has(input:checked) { border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.6); background: rgba(var(--select-rgb, var(--accent-rgb)), 0.06); }
+/* **The selection as a ring** (Settings → Interaction → Chosen). The same colour the checked
+   rows wear as a fill, drawn around them instead — the row keeps the plate's grey and the
+   colour is its outline. */
+html.select-ring .option:has(input:checked),
+html.select-ring .vis-option:has(input:checked),
+html.select-ring .settings-pane .option-group .option:has(input:checked) {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px rgba(var(--select-rgb, var(--accent-rgb)), 0.85);
+}
+html.select-ring .settings-pane .option-group .option:has(input:checked) { background: var(--panel-2); }
+html.select-ring .menu-item.active,
+html.select-ring .dropdown-item.active,
+html.select-ring .dropdown-btn[aria-expanded="true"],
+html.select-ring .profile-tile.active {
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 2px rgba(var(--select-rgb, var(--accent-rgb)), 0.85);
+  color: #fff;
+}
+html.select-ring .row-switch .row-btn.active {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  box-shadow: inset 0 0 0 2px rgba(var(--select-rgb, var(--accent-rgb)), 0.85);
+}
+
 /* **A choice that cannot apply is dimmed, and it says why with the switch above it.** */
 .option.off { opacity: 0.45; cursor: default; }
 .option.off:hover, .option.off:focus-visible { box-shadow: none; }

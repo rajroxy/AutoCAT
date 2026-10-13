@@ -54,6 +54,9 @@ const SETTING_KEYS = {
   pop: "nuvio.pop",
   speed: "nuvio.speed",
   accent: "nuvio.accent",
+  // **Ring or fill** for the selection colour (Settings → Interaction): the same colour,
+  // drawn as a ring around the chosen row or as the fill of it.
+  selStyle: "nuvio.selStyle",
   // The colour a *selection* wears — the chosen row, the checked box — on top of the
   // highlight colour the app is tinted with (see `applyTheme`).
   select: "nuvio.select",
@@ -112,7 +115,7 @@ const HOME_PROFILE = "you";
 /* **`profile` is here because the scope depends on it.** It holds the *mode* — VOD or IPTV
    — and since the mode is part of the settings scope below, the mode itself cannot be
    stored inside a scope. It is the machine's, like how the app looks. */
-const MACHINE_KEYS = new Set(["theme", "accent", "select", "motion", "font", "blur", "pop", "speed", "glow", "profile"]);
+const MACHINE_KEYS = new Set(["theme", "accent", "select", "selStyle", "motion", "font", "blur", "pop", "speed", "glow", "profile"]);
 /**
  * **A profile, and the local account in use inside it.**
  *
@@ -935,6 +938,8 @@ const state = {
   // **The selection colour follows the highlight until it is set.** Empty means "same as the
   // accent", so nothing changes for anyone who never opens this setting.
   select: localStorage.getItem(KEY.select) || "",
+  // The selection colour as a ring around the choice, or as the fill of it.
+  selStyle: localStorage.getItem(KEY.selStyle) === "ring" ? "ring" : "fill",
   // **Two choices, not three.** "Follow system" was the third and it is gone from the
   // pane, so a machine that still has it stored resolves to Always animate — which is
   // what it was already doing everywhere except a device asking for reduced motion.
@@ -1489,68 +1494,23 @@ function refreshPins(item) {
 }
 
 /**
- * **Blur the page — all but the thing you opened it from.**
+ * **The page behind a popup is blurred — all of it.**
  *
- * A popup dims the page behind it, and with the blur on it also throws that page out of
- * focus — which is the point, except for the one thing you were looking at: the cover you
- * pressed closes the moment the dialog opens, and what you were reading your way through
- * is gone. So the page is blurred and **the card (or button) you opened it from is not**:
- * a copy of it is drawn inside the popup's own layer, over the blur and under the panel,
- * exactly where the original sits — and it follows the page as it scrolls.
- *
- * It is a picture of the thing, not the thing: no clicks, no keyboard, `aria-hidden`. The
- * original is hidden while the copy stands in for it, and both are put back on close. The
- * whole treatment is off with the switch (Settings → Interaction).
+ * It used to be blurred all but the card you opened the popup from: a picture of that card
+ * was drawn over the blur so what you were reading stayed sharp. That exception is gone —
+ * a popup now throws the whole page behind it out of focus, the thing you pressed with it.
+ * The treatment is off with the switch (Settings → Interaction → Popups).
  */
 let sharpPeek = null;
+/**
+ * **Nothing is kept sharp.** The copy that used to stand over the blur is gone, so there is
+ * nothing to follow, drop or hide behind a dialog — the whole backdrop is out of focus.
+ */
 function dropSharp() {
-  if (!sharpPeek) return;
-  const { clone, origin } = sharpPeek;
-  window.removeEventListener("scroll", sharpFollow, true);
-  window.removeEventListener("resize", sharpFollow);
-  clone.remove();
-  origin?.classList?.remove("pop-sharp-origin");
   sharpPeek = null;
 }
-/** Keep the copy level with the thing it stands for, and let go if that thing is gone. */
-function sharpFollow() {
-  if (!sharpPeek) return;
-  const { clone, origin } = sharpPeek;
-  if (!origin.isConnected) return dropSharp();
-  const rect = origin.getBoundingClientRect();
-  if (!rect.width || !rect.height) return dropSharp();
-  clone.style.left = `${rect.left}px`;
-  clone.style.top = `${rect.top}px`;
-  clone.style.width = `${rect.width}px`;
-  clone.style.height = `${rect.height}px`;
-}
-function keepSharp(container) {
+function keepSharp() {
   dropSharp();
-  if (state.blur === false) return;
-  const origin = document.activeElement;
-  // **Only a control on the page itself.** A button inside a dialog, a dropdown or the
-  // picker that opened it is not "the thing you were looking at", and a copy of it would
-  // be a second Close button floating over the panel.
-  if (!origin || origin === document.body || origin === document.documentElement) return;
-  if (!origin.closest?.("#main")) return;
-  const rect = origin.getBoundingClientRect();
-  if (!rect.width || !rect.height || rect.bottom < 0 || rect.top > innerHeight) return;
-  const clone = origin.cloneNode(true);
-  clone.removeAttribute("id");
-  for (const node of clone.querySelectorAll("[id]")) node.removeAttribute("id");
-  clone.classList.remove("focusable");
-  clone.classList.add("pop-sharp");
-  clone.setAttribute("aria-hidden", "true");
-  clone.setAttribute("tabindex", "-1");
-  clone.style.left = `${rect.left}px`;
-  clone.style.top = `${rect.top}px`;
-  clone.style.width = `${rect.width}px`;
-  clone.style.height = `${rect.height}px`;
-  container.append(clone);
-  origin.classList.add("pop-sharp-origin");
-  sharpPeek = { clone, origin };
-  window.addEventListener("scroll", sharpFollow, true);
-  window.addEventListener("resize", sharpFollow);
 }
 
 const modal = {
@@ -8850,6 +8810,8 @@ function applyTheme() {
   // into the boot record below, so the first paint is already in the chosen face.
   root.style.setProperty("--font", FONT_STACKS[state.font] || FONT_STACK);
   root.classList.toggle("blur-off", state.blur === false);
+  // The selection colour is painted as a ring on the chosen row instead of a fill of it.
+  root.classList.toggle("select-ring", state.selStyle === "ring");
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
@@ -9190,8 +9152,25 @@ function paneInteraction() {
     // **The blur behind a popup.** The assistant, a trailer, a quick look and the player's
     // own panels open over a page; this decides whether the page behind them is blurred
     // out. The thing you opened it from stays sharp either way (`keepSharp`).
+    // **How the selection colour is drawn.** The colour is chosen in Accent; this says what
+    // shape it takes on the thing you picked — a ring around it, or the fill of it. The
+    // highlight colour is untouched either way: it is the Home tab, the Play button and the
+    // rest of the app's own furniture.
+    groupHead("Chosen"),
+    radioRow(state.selStyle === "ring", "selstyle", "Ring", "The selection colour outlines what you picked and leaves its fill alone.", () => {
+      state.selStyle = "ring";
+      localStorage.setItem(KEY.selStyle, "ring");
+      applyTheme();
+      render();
+    }),
+    radioRow(state.selStyle !== "ring", "selstyle", "Fill", "The selection colour becomes the fill of what you picked, the way it is now.", () => {
+      state.selStyle = "fill";
+      localStorage.setItem(KEY.selStyle, "fill");
+      applyTheme();
+      render();
+    }),
     groupHead("Popups"),
-    toggleRow(state.blur !== false, "Blur behind a popup", "When the assistant, a trailer or a quick look opens, the page behind it is blurred — everything except the card you opened it from, which stays sharp.", (e) => {
+    toggleRow(state.blur !== false, "Blur behind a popup", "When the assistant, a trailer or a quick look opens, everything behind it is blurred — including the card you opened it from.", (e) => {
       state.blur = e.target.checked;
       localStorage.setItem(KEY.blur, state.blur ? "1" : "0");
       applyTheme();
@@ -9294,20 +9273,34 @@ function dropdown(options, initial, onPick, caption = "") {
   const menu = el("div", { class: "dropdown-menu", hidden: true });
   const root = el("div", { class: "dropdown" });
   const close = () => { menu.hidden = true; root.classList.remove("open"); };
+  // **The value the picker holds is marked, not just the row under the cursor.** The open list
+  // said nothing about which of its entries was the current one until you hovered it.
+  const entries = new Map();
+  const mark = (v) => {
+    for (const [k, node] of entries) {
+      node.classList.toggle("active", k === v);
+      node.setAttribute("aria-selected", String(k === v));
+    }
+  };
   for (const [v, text] of options) {
-    menu.append(el("button", {
-      class: "dropdown-item focusable",
+    const entry = el("button", {
+      class: `dropdown-item focusable${v === value ? " active" : ""}`,
       type: "button",
+      role: "option",
+      "aria-selected": String(v === value),
       text,
       onclick: () => {
         value = v;
         label.textContent = text;
+        mark(v);
         close();
         // A picker that opens something (a season) says so; a picker that only
         // records a value (the add-on type) has nothing to do here.
         if (onPick) onPick(v);
       },
-    }));
+    });
+    entries.set(v, entry);
+    menu.append(entry);
   }
   root.append(
     el("button", {
