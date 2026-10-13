@@ -235,18 +235,28 @@ body {
    one drawn microphone on the accent plate, the same weight as the Filter button. */
 /* **The line the voice button shares with the switch.** The switch keeps the space it always
    had between the banner and the cards; the voice button is pushed to the right of it. */
-.home-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.home-switch-row .row-switch { margin-right: 0; }
-/* **A rounded button, not a disc.** The app has no circles in it: the voice control is the
-   same plate as Filter or Play — a drawn microphone and the word, in the app's own radius. */
-.voice-pad {
+.home-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 26px 0 34px; }
+/* **One line, one centre.** The switch's own margins (26 over 34 under) are asymmetric, so on
+   a centred flex line it rode 4px high while the voice button beside it sat on the centre —
+   two buttons on one line, off by four pixels. The row carries that spacing now and the
+   switch inside it has none, so the two sit level. */
+.home-switch-row .row-switch { margin: 0; }
+/* **The Movies / Shows plate itself.** No disc and no flat plate of its own: A flat accent fill in its own 12px corners read as a
+   different kind of object from the switch button beside it, which is a gradient pill — so
+   the voice control is now that same button: the same gradient, the same pill, the same
+   padding and the same 14px label, with the microphone where the switch has its word. */
+.btn.primary.voice-pad {
   display: inline-flex;
   align-items: center;
   gap: 9px;
   flex: none;
-  padding: 11px 20px;
-  border-radius: 12px;
-  font-weight: 800;
+  padding: 9px 22px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  color: #14110a;
+  border: 0;
 }
 .voice-pad svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 /* **The calendar's plans line, with the switch on it.** */
@@ -4508,9 +4518,18 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    controls; the words around them were read once and then stood in the way of the
    thing they described. The headings and the paragraphs are out.
    ============================================================================ */
-.settings-pane .group-head,
 .settings-pane p.option-title,
 .settings-pane .option-desc { display: none; }
+
+/* **A group of options says what it is.** The panes that gather their controls into a
+   `.provider` block always carried a `span.option-title` over them — "Sign in", "Browsing
+   music", "Speed", "Enrichment" — but the group heads written as a `.group-head` were
+   switched off along with the paragraphs, so half the board named its groups and half did
+   not, and two groups with nothing between them read as one long list. They are back: the
+   label, and the gap the head's own margin gives it. */
+.settings-pane .group-head { margin: 26px 0 12px; }
+.settings-pane .group-head:first-child { margin-top: 0; }
+.settings-pane .group-head .option-title { font-size: 15px; font-weight: 700; }
 
 /* **One box per option, in every pane, in both modes.** The Content pane's rows are one box
    each; the panes that gathered theirs inside a `.provider` panel read as one clump of

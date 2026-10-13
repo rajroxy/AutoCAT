@@ -7104,6 +7104,15 @@ function radioRow(checked, name, title, desc, onchange) {
   );
 }
 
+/**
+ * **A group of options, named.** One label over the controls that answer the same
+ * question — "Sign in", "Browsing music", "Speed" are the same kind of text, and the
+ * panes that only had a wall of switches had none. The head carries its own margin, so a
+ * group also gets the gap that makes it read as a group rather than as one long list.
+ */
+const groupHead = (title) =>
+  el("div", { class: "group-head" }, el("span", { class: "option-title", text: title }));
+
 async function verifyKey(name, store, keyName, path = "/providers/verify") {
   const entry = store[name] || (store[name] = {});
   entry.status = { ok: false, text: "Checking…" };
@@ -8535,6 +8544,7 @@ function paneAi() {
       // pane, and this is the AI pane: one switch about someone else's cards in the
       // middle of the provider keys was a setting in the wrong room.
       el("p", { class: "option-desc", text: "Pick a free provider and paste its API key. The key is stored on the server, never in the page, and the Ask box falls back to a plain search when no key is set." }),
+      groupHead("Providers"),
       ...AI_PROVIDERS.map(([slug, label, signup, note]) => aiProviderRow(slug, label, signup, note)),
     ] : null,
   ];
@@ -8567,14 +8577,18 @@ function paneContent() {
   // card covers (see `regionalOtt`), so there is no one region to point the app at; the
   // country a *search* starts on is picked on the search screen itself.
   return [
+    // **Two groups, two names.** The SFW/NSFW pair and the refresh clock are different
+    // subjects, and they used to run into each other with nothing between them: this
+    // pane's heading was one of the kind that was switched off. Both are group heads now,
+    // so "how often?" starts a group of its own right under the one above it.
+    groupHead("Adult content"),
     radioRow(state.safe, "safe", "SFW", "Safe for work — adult titles excluded (TMDB default).", () => {
       state.safe = true; writeJSON(KEY.safe, true); pushSettings({ safe: true }); render();
     }),
     radioRow(!state.safe, "safe", "NSFW", "Include adult titles where TMDB supports it.", () => {
       state.safe = false; writeJSON(KEY.safe, false); pushSettings({ safe: false }); render();
     }),
-    el("p", { class: "option-title", text: "Refresh catalogs & metadata" }),
-    el("p", { class: "option-desc", text: "How often the addon re-reads TMDB and the screen re-reads itself. The addon's cache follows the same interval, so a row can actually come back different." }),
+    groupHead("Refresh catalogs & metadata"),
     ...REFRESH_CHOICES.map(([minutes, label]) =>
       radioRow(Number(state.refresh) === minutes, "refresh", label, minutes === 0 ? "Nothing is re-read until you press Refresh now." : `Catalogs and metadata are re-read every ${minutes} minutes.`, () => {
         state.refresh = minutes;
@@ -8841,6 +8855,7 @@ function paneAnimation() {
         render();
       }, "Speed").node,
     ),
+    groupHead("Motion"),
     ...MOTIONS.map(([value, title, desc]) =>
       radioRow(state.motion === value, "motion", title, desc, () => {
         state.motion = value;
@@ -8865,6 +8880,7 @@ function paneInteraction() {
     el("p", { class: "option-desc", text: "How the app answers the cursor and the keyboard, and what happens to the page around the thing you opened." }),
     // **Pop on hover.** The lift under a card, a tile, a button, a chip, a row head —
     // anything you can point at.
+    groupHead("Hover"),
     toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => {
       state.pop = e.target.checked;
       localStorage.setItem(KEY.pop, state.pop ? "1" : "0");
@@ -8874,6 +8890,7 @@ function paneInteraction() {
     // **The blur behind a popup.** The assistant, a trailer, a quick look and the player's
     // own panels open over a page; this decides whether the page behind them is blurred
     // out. The thing you opened it from stays sharp either way (`keepSharp`).
+    groupHead("Popups"),
     toggleRow(state.blur !== false, "Blur behind a popup", "When the assistant, a trailer or a quick look opens, the page behind it is blurred — everything except the card you opened it from, which stays sharp.", (e) => {
       state.blur = e.target.checked;
       localStorage.setItem(KEY.blur, state.blur ? "1" : "0");
@@ -8909,6 +8926,7 @@ function paneSound() {
   });
   return [
     el("p", { class: "option-desc", text: "Nothing here is on until you turn it on, and nothing plays over a title once it is playing." }),
+    groupHead("Clicks"),
     toggleRow(sound.clicks, "A click when you press something", "A short, soft tick on a button, a tile and a card — never on a scroll, and never on a screen you did not press.", (e) => set({ clicks: e.target.checked })),
     // **The music is a track you pick, not a switch you flip.** Every track ships inside
     // the app, so this works with no network; None is the default and plays nothing. It
@@ -8947,7 +8965,9 @@ function paneNotifications() {
   };
   return [
     el("p", { class: "option-desc", text: `Notifications for this profile (${state.profile}). A notification is drawn in the app; nothing leaves the machine and no account is needed.` }),
+    groupHead("Calendar"),
     toggleRow(n.calendar, "Pinned titles in the Calendar", "Tell me when a title I pinned to watch comes out, and when a pinned episode airs.", (e) => set({ calendar: e.target.checked })),
+    groupHead("Library"),
     toggleRow(n.releases, "New releases in my Library", "Tell me when something in the Library gets a new season or a new episode.", (e) => set({ releases: e.target.checked })),
 
   ];
