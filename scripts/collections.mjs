@@ -425,31 +425,38 @@ export const REGIONAL_SERVICES = (type) => {
  */
 const POPULAR_REGIONAL = new Set([
   // —— the Pacific
-  "9Now", "Stan", "BINGE", "SBS On Demand", "TVNZ+", "ThreeNow",
+  "9Now", "Stan", "BINGE", "SBS On Demand", "TVNZ+", "ThreeNow", "Neon", "Foxtel Now",
+  "Kayo Sports", "Optus Sport", "Sky Sport Now", "Maori+", "M\u0101ori+",
   // —— Britain and Ireland
-  "BBC iPlayer", "ITVX", "Channel 4",
+  "BBC iPlayer", "ITVX", "Channel 4", "BritBox",
   // —— South Asia
-  "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt",
+  "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt", "Sony Liv", "Hoichoi",
   // —— Korea and Japan
-  "TVING", "wavve", "Coupang Play", "U-NEXT", "Hulu",
+  "TVING", "wavve", "Coupang Play", "U-NEXT", "Hulu", "ABEMA", "Lemino", "d Anime Store",
   // —— Greater China and South-East Asia
-  "iQIYI", "WeTV", "Viu", "Vidio", "Catchplay", "Mewatch",
-  // —— continental Europe
-  "ZDF", "ARD Mediathek", "RTL+", "Joyn", "ORF ON", "Sky", "Canal+", "M6+",
-  "Movistar Plus+", "rtve", "Mediaset Infinity", "Videoland", "NPO Start", "Viaplay",
-  "TV4 Play", "NRK TV", "TV 2 Play", "TVP", "Voyo",
+  "iQIYI", "WeTV", "Viu", "Vidio", "Catchplay", "Mewatch", "Tencent Video", "Youku",
+  "Mango TV", "Bilibili", "myTV SUPER", "TrueID", "sooka", "Astro GO", "Vision+",
+  // —— continental Europe. The broadcasters' own services first, then the pay platforms,
+  // then the markets that have their own catalogue in one country only.
+  "ZDF", "ARD Mediathek", "RTL+", "Joyn", "ORF ON", "Sky", "Canal+", "M6+", "Molotov",
+  "Movistar Plus+", "Atresplayer", "Filmin", "rtve", "Mediaset Infinity", "NOW", "RaiPlay",
+  "Videoland", "NLZIET", "NPO Start", "Viaplay", "TV4 Play", "NRK TV", "TV 2 Play",
+  "Yle Areena", "TVP", "Player", "Polsat Box Go", "Voyo", "SkyShowtime",
   // —— Türkiye and Russia
-  "Exxen", "Kinopoisk", "Okko",
+  "Exxen", "Gain", "tabii", "Kinopoisk", "Okko", "Wink", "START",
   // —— the Middle East. **The region's own platforms, and only those.** The worldwide
   // services (Netflix, Prime Video, HBO Max, Apple TV+) were on this list once and did not
   // belong on it: they have their own card (see `GLOBAL_OTT`), and a Regional OTT row for
-  // one of them says the region has a service of its own that it does not. What is left is
-  // the region's own: the Gulf's broadcasters' services, the Saudi-backed platforms, and
-  // the Israeli and Turkish ones a viewer there would name.
-  "Shahid VIP", "OSN+", "STARZPLAY", "MBC+", "TOD",
-  "yes+", "Partner", "Cellcom tv", "Hot",
+  // one of them says the region has a service of its own that it does not.
+  "Shahid VIP", "OSN+", "STARZPLAY", "MBC+", "TOD", "Jawwy TV", "stc tv",
+  "yes+", "Partner", "Cellcom tv", "Hot", "WATCH IT", "Yango Play", "Weyyak",
+  // —— Africa
+  "Showmax", "DStv Stream", "SABC+", "IROKOTV", "eVOD", "Buni TV",
   // —— the Americas
-  "Globoplay", "VIX", "Paramount Plus", "Crave", "CBC Gem",
+  "Globoplay", "Telecine", "Claro tv+", "Vivo Play", "PlayPlus", "Looke", "Flow", "DGO",
+  "CINE.AR Play", "VIX", "ViX Premium", "Claro video", "Cin\u00e9polis KLIC", "Univer Video",
+  "Paramount Plus", "Crave", "CBC Gem", "ICI TOU.TV EXTRA", "STACKTV", "Club Illico",
+  "RiverTV", "TSN+", "Sportsnet+",
 ]);
 
 /** Is this a service the Regional OTT card publishes? (@see `regionalServicesFor` in addon/catalogs.mjs) */
@@ -501,7 +508,7 @@ function regionalOttByContinent(kind = "all") {
           // services (see `withRegionalServices`); a continent row is not one of those and
           // is kept by its flag rather than being swept away with the static list.
           rows.push({
-            name: kind === "top10" ? `${name} · ${svc.name} | Top 10` : `${name} · ${svc.name}`,
+            name: kind === "top10" ? `${svc.name} | Top 10` : svc.name,
             kind: "provider",
             providerId: svc.id,
             region: String(svc.region || code).toUpperCase(),

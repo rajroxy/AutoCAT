@@ -5594,8 +5594,7 @@ function renderLiveCalendar() {
           text: `${sports ? "Sport" : "Live TV"} · ${channels.length ? `${channels.length} channels` : "no channels yet"}`,
         }),
       ),
-      liveRowSwitch(),
-    ),
+      ),
   ];
 
   // **The window is stated, not assumed.** The guide was read for a fixed number of
@@ -7465,6 +7464,7 @@ function myRatingGrid(meta) {
   // and the wheel (or left/right, or a remote's own arrows) moves the score inside the same
   // box; press again to save it. The score is drawn as you move it — that *is* the rating,
   // waiting to be written.
+  let armed = mine;
   const value = el("span", { class: "rating-value", text: mine ? `${mine}/10` : "\u2013" });
   const box = el("button", {
     class: `rating my-rating focusable${mine ? " on" : ""}`,
@@ -9925,7 +9925,7 @@ function sourceMoveButtons(order, pos) {
 
 function sourceRow(source, index, order = [], pos = 0) {
   const list = Array.isArray(source.allProviders) && source.allProviders.length ? source.allProviders : null;
-  return el("div", { class: "source" },
+  return el("div", { class: "source provider" },
     el("div", { class: "source-main" },
       el("span", { class: "source-type", text: `${typeLabel(source.type)}${source.name ? ` · ${source.name}` : ""}` }),
       el("span", { class: "source-url", text: source.url }),
@@ -9984,6 +9984,9 @@ function paneAddonsPlugins() {
   // the AutoCAT app runs itself, and the server-side runner for it was removed with it.
   return [
     groupHead("Installed sources"),
+    // **Each add-on wears the Debrid pane's box** (see `sourceRow`, which carries the
+    // `provider` class for exactly this): a pane's rows are boxes inside its plate, and the
+    // add-on form and its sources were the one screen where they lay flat on the plate.
     ...sourceSection("Stremio add-ons", "A Stremio add-on URL is read on the server (manifest.json), so it works even when the host sends no CORS headers — its catalogs, metadata, streams and subtitles are listed as providers. A stream the add-on publishes as a torrent is played through your debrid account when one is set up in Settings → Debrid — a browser cannot join a public swarm on its own, so that account is what makes those streams play.", ADDON_TYPES, addons),
   ];
 }
@@ -10826,32 +10829,16 @@ const LIVE_CARDS = [
 const liveCardOn = (key) => !picking() || visFor().cards[key] !== false;
 
 const liveRowKey = () => state.liveRow;
-const setLiveRow = (value) => {
-  state.liveRow = value;
-  localStorage.setItem(KEY.liveRow, value);
-};
 
-/** The Live TV / Sports switch — the profile's own two buttons. */
-function liveRowSwitch() {
-  return el(
-    "div",
-    { class: "row-switch", role: "tablist", "aria-label": "Live TV or Sports" },
-    ...LIVE_ROWS.filter(([value]) => !picking() || visFor().rows[value] !== false).map(([value, label]) =>
-      el("button", {
-        class: `row-btn focusable${liveRowKey() === value ? " active" : ""}`,
-        type: "button",
-        role: "tab",
-        id: `live-row-${value}`,
-        "aria-selected": String(liveRowKey() === value),
-        text: label,
-        onclick: () => {
-          setLiveRow(value);
-          render();
-        },
-      }),
-    ),
-  );
-}
+/**
+ * **The Live TV / Sports switch is gone.** It asked which half of the profile you wanted,
+ * and the answer is both: the IPTV home carries the live row and the sports row one after the
+ * other, so the buttons were a tab strip in front of content that is all on one page. The
+ * lineup is asked for by name where it is needed (`liveChannelsShown("sports")`).
+ */
+
+/** Is this channel a sports channel? The one test the lineup is read with. */
+const isSportChannel = (channel) => /sport/i.test(`${channel?.name || ""} ${(channel?.groups || []).join(" ")}`);
 
 /** The live source, as the app keeps it (the server keeps its own masked copy). */
 function liveSource() {
@@ -10960,7 +10947,7 @@ async function loadLive({ force = false } = {}) {
  * lineup with nothing sport-shaped in it falls back to the whole list, so the tab
  * is never an empty screen on a playlist that simply does not carry any.
  */
-function liveChannelsShown() {
+function liveChannelsShown(row = liveRowKey()) {
   const all = state.live.all || [];
   // **The country you picked scopes the lineup — all of it.** The setting used to
   // only decide whose guide was read, so the card and the guide showed the whole
@@ -10975,7 +10962,10 @@ function liveChannelsShown() {
     ? all.filter((c) => !c.country || codes.includes(String(c.country).toUpperCase()))
     : all;
   const list = inCountry.length ? inCountry : all;
-  if (liveRowKey() !== "sports") return list;
+  // **The row is asked for, not read off a switch.** With the Live TV / Sports buttons gone a
+  // caller that wants the sports lineup says so — `liveChannelsShown("sports")`; the default is
+  // the whole lineup.
+  if (row !== "sports") return list;
   const sport = list.filter((c) => /sport/i.test(`${c.name || ""} ${(c.groups || []).join(" ")}`));
   return sport.length ? sport : list;
 }
@@ -11131,7 +11121,6 @@ function renderGuide() {
   return [
     el("h1", { class: "view-title", text: "Guide" }),
     el("p", { class: "view-hint", text: `${channels.length} channels · the next ${LIVE_GUIDE_HOURS} hours` }),
-    liveRowSwitch(),
     // Country and category filter strips for immersive guide
     (() => {
       const all = state.live.all || [];
@@ -11240,7 +11229,7 @@ function channelRow(name, channels) {
  * first few rows of what is inside it, then the name and a line of description under
  * it — and the frame is the button, the way a cover is.
  */
-function liveCard({ id, title, sub, rows, action, posters = [], grid = null, spotlight = false }) {
+function liveCard({ id, title, sub, rows, action, posters = [], grid = null, spotlight = false, wrap = "" }) {
   // **The frame holds six channel logos**, the way a Movies card holds its own
   // posters: a wall of `.content-tile`s in the same `.icon-wrap`. Only when there
   // is nothing to draw (no lineup read yet) does it fall back to the guide rows.
@@ -11259,7 +11248,7 @@ function liveCard({ id, title, sub, rows, action, posters = [], grid = null, spo
     { class: "icon-box live-card" + (spotlight ? " card-spotlight" : "") },
     el(
       "div",
-      { class: `icon-wrap${filled ? " art-filled" : ""}` },
+      { class: `icon-wrap${filled ? " art-filled" : ""}${wrap ? ` ${wrap}` : ""}` },
       grid
         ? grid
         : el(
@@ -11360,7 +11349,7 @@ function guideGrid(channels, { hours = 3 } = {}) {
 }
 
 /** The Guide card — the first card of the profile, and its way into the grid. */
-function guideCard() {
+function guideCard(mode = "livetv") {
   // **The card's frame is the guide itself** — the same TiviMate table the Guide
   // screen draws, six channels across three hours, with the now-marker and each
   // channel's own programme blocks. It used to be four "now playing" lines, which
@@ -11369,18 +11358,62 @@ function guideCard() {
   // programme data, so a table drawn on the card had no schedule to draw — every row
   // said "No programme data" until you opened the screen that fetched it.
   if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
-  const channels = liveChannelsShown().slice(0, 6);
+  // **The card is the guide's screen in miniature, the way TiviMate draws one**: the
+  // categories across the top, the channel you are on in the panel at the top left — its mark
+  // and what it is playing now — and the schedule beside it. The strip filters the table
+  // without leaving the home screen, and `All` puts every category back.
+  const all = liveChannelsShown(mode);
+  const groups = [...new Set((state.live.all || []).flatMap((c) => c.groups || []).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const cat = state.live.guideCategory || "";
+  const inCat = cat ? all.filter((c) => (c.groups || []).includes(cat)) : all;
+  const channels = (inCat.length ? inCat : all).slice(0, 6);
+  const preview = channels[0] || all[0] || null;
+  const previewNow = preview ? nowNext(preview, state.live.guide).now : null;
+  const cardCats = el("div", { class: "cat-strip guide-card-cats" },
+    el("button", {
+      class: `chip focusable${cat ? "" : " active"}`,
+      type: "button",
+      text: "All",
+      onclick: () => { state.live.guideCategory = ""; render(); },
+    }),
+    ...groups.slice(0, 14).map((group) =>
+      el("button", {
+        class: `chip focusable${cat === group ? " active" : ""}`,
+        type: "button",
+        text: group,
+        onclick: () => { state.live.guideCategory = state.live.guideCategory === group ? "" : group; render(); },
+      }),
+    ),
+  );
+  // The preview is the panel the strip feeds: the channel the table starts on, and what it is
+  // playing now (its own still when the guide has one).
+  const cardPreview = el("div", { class: "guide-preview" },
+    preview?.logo
+      ? el("img", { class: "guide-preview-logo", src: preview.logo, alt: "", loading: "lazy" })
+      : el("span", { class: "guide-preview-initials", text: initialsOf(preview?.name || "TV") }),
+    el("span", { class: "guide-preview-name", text: preview?.name || "No channel yet" }),
+    el("span", { class: "guide-preview-now", text: previewNow ? `Now playing · ${previewNow.title}` : "No programme data" }),
+  );
   const updated = state.live.updated ? new Date(state.live.updated).toLocaleTimeString() : "";
   return liveCard({
     id: "open-guide",
-    title: "Guide",
+    title: mode === "sports" ? "Sports" : "Guide",
     sub: [
       `${state.live.total || state.live.all.length} channels`,
       state.live.groups.length ? `${state.live.groups.length} categories` : "",
       updated ? `updated ${updated}` : "",
       state.live.guide && state.live.guide.epg === false ? "no EPG yet" : "",
     ].filter(Boolean).join(" · "),
-    grid: liveView().guide === "list" ? guideListBlock(channels, { compact: true }) : guideGrid(channels, { hours: 3 }),
+    // The card is taller than the poster cards: a strip, a preview panel and a table cannot
+    // live inside a 32:9 band.
+    wrap: "guide-wrap-frame",
+    grid: el("div", { class: "guide-wrap" },
+      cardCats,
+      cardPreview,
+      el("div", { class: "guide-table" },
+        liveView().guide === "list" ? guideListBlock(channels, { compact: true }) : guideGrid(channels, { hours: 3 }),
+      ),
+    ),
     action: () => go("#/guide"),
   });
 }
@@ -11395,8 +11428,8 @@ function guideCard() {
  * wall — under the same name, `Guide`, because it is the same card. There is no separate
  * Channels card beside it any more.
  */
-function channelsCard({ title = "", action = null } = {}) {
-  const channels = liveChannelsShown();
+function channelsCard({ title = "", action = null, mode = "livetv" } = {}) {
+  const channels = liveChannelsShown(mode);
   const rows = channels.slice(0, 4).map((channel) =>
     el(
       "div",
@@ -11436,11 +11469,11 @@ function channelsCard({ title = "", action = null } = {}) {
  * in the VOD card's own frames: the channel's mark is the picture, the channel is the tag,
  * the programme is the title.
  */
-function liveUpcomingCard() {
+function liveUpcomingCard(mode = "livetv") {
   if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
   if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
   const picks = [];
-  for (const channel of liveChannelsShown()) {
+  for (const channel of liveChannelsShown(mode)) {
     const { next } = nowNext(channel, state.live.guide);
     if (next && next.title) picks.push({ channel, next });
     if (picks.length === 2) break;
@@ -11470,9 +11503,9 @@ function liveUpcomingCard() {
     return tile;
   });
   return liveCard({
-    id: "open-live-upcoming",
+    id: mode === "sports" ? "open-live-upcoming-sports" : "open-live-upcoming",
     title: "Upcoming",
-    sub: picks.length ? "What is on next" : "No guide read yet",
+    sub: picks.length ? (mode === "sports" ? "Next on your sports channels" : "What is on next") : "No guide read yet",
     spotlight: true,
     grid: el("div", { class: "content-strip spotlight-strip" },
       el("div", { class: "spotlight-track" }, ...tiles)),
@@ -11480,10 +11513,10 @@ function liveUpcomingCard() {
   });
 }
 
-function recordingsCard() {
-  // **Highlights on the Sports row.** The Sports tab is about what happened, so the card
-  // that holds what you kept is named for it there — the same card, the name the row uses.
-  const sports = typeof liveRowKey === "function" && liveRowKey() === "sports";
+function recordingsCard(mode = "livetv") {
+  // **Highlights on the sports row.** The sports half of the home is about what happened, so
+  // the card that holds what you kept is named for it there — the same card, the row's name.
+  const sports = mode === "sports";
   const list = recordingsGet();
   const upcoming = list.filter((r) => r.stop > Date.now()).slice(0, 6);
   const rows = upcoming.length
@@ -11496,7 +11529,7 @@ function recordingsCard() {
         el("span", { class: "guide-mini-block bare", text: "Schedule from guide" })
       )];
   return liveCard({
-    id: "open-recordings",
+    id: sports ? "open-highlights" : "open-recordings",
     title: sports ? "Highlights" : "Recordings",
     sub: `${list.length} total · ${upcoming.length} upcoming`,
     rows,
@@ -11516,78 +11549,58 @@ function recordingsCard() {
  * one channel per launch the way every card picks its own slice.
  */
 function liveHeroBlock() {
-  const channels = liveChannelsShown().filter((c) => c.name);
-  const sports = liveRowKey() === "sports";
-  // **The banner is the screen's, not the playlist's.** It was drawn only when a playlist
-  // had answered, so a fresh install — or one whose M3U has not been pasted yet — opened
-  // Live TV & Sports on three cards and an empty top, which reads as a screen that failed to
-  // load rather than one waiting for a source. The banner is always there: with a channel it
-  // is that channel, without one it is the screen saying where channels come from.
-  const channel = channels.length ? channels[LAUNCH_SEED % channels.length] : null;
-  const { now } = channel ? nowNext(channel, state.live.guide) : { now: null };
-  const groups = channel?.groups || [];
-  const art = liveHeroArt(channel, now, sports);
+  // **Two posters, one live and one sport.** The banner wears the VOD banner's own shape — a
+  // frame on each side, each half the width and each as tall as a VOD hero's artwork — and the
+  // two halves answer the screen's two questions: what is on Live TV now, and what is on
+  // Sports now. There is no text column any more, because there is no tab strip to name: the
+  // one page carries both rows. The panels are pictures, so they are not buttons and the
+  // cursor stays an arrow over them.
+  const liveList = liveChannelsShown("livetv").filter((c) => c.name);
+  const sportList = liveChannelsShown("sports").filter((c) => c.name);
+  const pick = (list) => (list.length ? list[LAUNCH_SEED % list.length] : null);
+  const liveOnly = liveList.filter((c) => !isSportChannel(c));
+  const liveChannel = pick(liveOnly.length ? liveOnly : liveList);
+  const sportChannel = pick(sportList);
+  const liveNow = liveChannel ? nowNext(liveChannel, state.live.guide).now : null;
+  const sportNow = sportChannel ? nowNext(sportChannel, state.live.guide).now : null;
   return el(
     "section",
-    { class: "hero live-hero" },
-    el(
-      "div",
-      { class: "hero-body" },
-      el("p", { class: "hero-kicker", text: sports ? "Sports" : "Live TV" }),
-      el("h2", { class: "hero-title", text: channel ? channel.name : sports ? "Sports" : "Live TV" }),
-      el("p", {
-        class: "hero-line",
-        text: channel
-          ? now
-            ? `Now playing · ${now.title}`
-            : [groups[0], channel.country].filter(Boolean).join(" · ") || "Live channel"
-          : "No playlist yet — add an M3U URL, a file or an Xtream login under Settings → Source and this fills with your channels.",
-      }),
-      chipLine(
-        groups.map((group) =>
-          el("button", {
-            class: "chip focusable",
-            type: "button",
-            text: group,
-            onclick: () => go(`#/categories/${encodeURIComponent(group)}`),
-          }),
-        ),
-        { className: "hero-cats" },
-      ),
-    ),
-    art,
+    { class: "hero live-hero live-hero-pair" },
+    liveHeroPoster({ kind: "livetv", label: "Live TV", channel: liveChannel, now: liveNow }),
+    liveHeroPoster({ kind: "sports", label: "Sports", channel: sportChannel, now: sportNow }),
   );
 }
 
 /**
- * **The live banner's two posters.** The VOD banner shows the card's artwork in a frame; the
- * live one had a channel logo in it and nothing else, so the top of Live TV & Sports was a
- * third the height of Home's with one picture on it. Two frames now, side by side, exactly
- * the shape the VOD banner's frame is: the channel's logo on the first (or the mode's own
- * plate while there is no playlist) and the picture of **what is on it now** on the second —
- * a programme's own still when the guide has one, and the app's plate when it does not.
+ * **One half of the IPTV banner: the channel that is on now.**
+ *
+ * A picture of what is playing — the programme's own still when the guide has one, the
+ * channel's mark on the app's plate when it does not — with the channel's name and what it is
+ * playing written on the frame, the way the tagged artwork draws its own title. It is not a
+ * button: it is the screen saying what is on, and a hand cursor over a caption promises a page
+ * that does not exist.
  */
-function liveHeroArt(channel, now, sports) {
-  const frame = (children, extra = "") => el("div", { class: `hero-art live-hero-frame${extra}`, "aria-hidden": "true" }, children);
-  const logoFrame = channel
-    ? el(
-        "button",
-        {
-          class: "hero-art focusable live-hero-art",
-          type: "button",
-          title: `Open ${channel.name}`,
-          "aria-label": `Open ${channel.name}`,
-          onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
-        },
-        channel.logo
-          ? el("img", { class: "live-hero-logo", src: channel.logo, alt: "", loading: "lazy" })
-          : el("span", { class: "live-hero-initials", text: initialsOf(channel.name) }),
-      )
-    : frame(el("span", { class: "live-hero-initials", text: sports ? "S" : "L" }), " live-hero-empty");
-  const still = now?.still
+function liveHeroPoster({ kind, label, channel, now }) {
+  const image = now?.still
     ? el("img", { class: "live-hero-still", src: now.still, alt: "", loading: "lazy" })
-    : el("span", { class: "live-hero-still-empty", text: now?.title || "Nothing in the guide yet" });
-  return el("div", { class: "live-hero-arts" }, logoFrame, frame(still, now?.still ? "" : " live-hero-empty"));
+    : channel?.logo
+      ? el("img", { class: "live-hero-still live-hero-still-logo", src: channel.logo, alt: "", loading: "lazy" })
+      : el("span", { class: "live-hero-initials", text: initialsOf(channel?.name || label) });
+  return el(
+    "div",
+    { class: `hero-art live-hero-frame live-hero-poster live-hero-${kind}`, "aria-hidden": "true" },
+    image,
+    el(
+      "div",
+      { class: "live-hero-caption" },
+      el("span", { class: "live-hero-caption-kicker", text: label }),
+      el("span", { class: "live-hero-caption-name", text: channel ? channel.name : label }),
+      el("span", {
+        class: "live-hero-caption-line",
+        text: now ? `Now playing · ${now.title}` : channel ? "Live now" : "No playlist yet — add an M3U URL under Settings → Source",
+      }),
+    ),
+  );
 }
 
 /**
@@ -11603,18 +11616,28 @@ function renderLiveHome() {
   if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
   const nodes = [
     liveHeroBlock(),
-    liveRowSwitch(),
+    // **Six cards, two rows: the live row, then the sports row.** Guide, Recordings and
+    // Upcoming first — the live half exactly as it was — and under them the same three for
+    // sports: the sports guide, the highlights kept from it, and what is on next on those
+    // channels. The switch that used to choose between the two is gone, so both are here.
     el(
       "div",
       { class: "icons grid live-cards" },
       ...[
         liveCardOn("live-guide")
           ? (liveView().guide === "list"
-              ? guideCard()
-              : channelsCard({ title: "Guide", action: () => go("#/guide") }))
+              ? guideCard("livetv")
+              : channelsCard({ title: "Guide", action: () => go("#/guide"), mode: "livetv" }))
           : null,
-        liveCardOn("live-recordings") ? recordingsCard() : null,
-        liveCardOn("live-upcoming") ? liveUpcomingCard() : null,
+        liveCardOn("live-recordings") ? recordingsCard("livetv") : null,
+        liveCardOn("live-upcoming") ? liveUpcomingCard("livetv") : null,
+        liveCardOn("live-guide")
+          ? (liveView().guide === "list"
+              ? guideCard("sports")
+              : channelsCard({ title: "Sports", action: () => go("#/guide"), mode: "sports" }))
+          : null,
+        liveCardOn("live-recordings") ? recordingsCard("sports") : null,
+        liveCardOn("live-upcoming") ? liveUpcomingCard("sports") : null,
       ].filter(Boolean),
     ),
   ].filter(Boolean);
