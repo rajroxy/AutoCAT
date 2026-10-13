@@ -1416,6 +1416,9 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 }
 
 .option:has(input:checked) { border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.6); background: rgba(var(--select-rgb, var(--accent-rgb)), 0.06); }
+/* **A choice that cannot apply is dimmed, and it says why with the switch above it.** */
+.option.off { opacity: 0.45; cursor: default; }
+.option.off:hover, .option.off:focus-visible { box-shadow: none; }
 .option input { margin-top: 3px; accent-color: var(--select, var(--accent)); width: 18px; height: 18px; }
 .option-body { display: block; flex: 1; }
 .option-title { display: block; font-size: 15px; font-weight: 700; }
@@ -4553,6 +4556,15 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .settings-pane .option-group > * + * { margin-top: 10px; }
 .settings-pane .option-group > .group-head { margin: 0 0 12px; }
 .settings-pane .option-group .option { background: var(--panel-2); margin-bottom: 0; }
+/* **Nothing inside a settings plate draws a ring under the cursor.** The row you are pointing
+   at, the switch on it and the box around it were outlined on hover — a hairline the board
+   already dropped everywhere else. Keyboard focus keeps its ring; the pointer does not. */
+.settings-pane .option:hover, .settings-pane .option:not(.btn):hover,
+.settings-pane .vis-option:hover, .settings-pane .site-row:hover,
+.settings-pane .option-group .provider:hover,
+.settings-pane .text-input:hover {
+  box-shadow: none;
+}
 /* **A chosen row in Settings wears the selection colour**, not just the plate's grey: the box
    rule above outranks the checked tint, so it is restated here with the colour it means. */
 .settings-pane .option-group .option:has(input:checked) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14); }
@@ -4567,6 +4579,7 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    tracker, subtitle, Debrid and AI rows (the account card, the DNS switch, the Speed picker)
    are the grey plate they always were: `--panel`, its own padding, the app's radius, and no
    hairline. The hairline was what read as a box drawn around the box. */
+.settings-pane .site-row { padding: 14px 16px; border-radius: 12px; }
 .settings-pane .provider {
   padding: 14px 16px;
   margin-bottom: 0;

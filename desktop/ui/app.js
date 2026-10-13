@@ -7291,9 +7291,12 @@ function toggleRow(checked, title, desc, onchange) {
   );
 }
 
-function radioRow(checked, name, title, desc, onchange) {
-  return el("label", { class: "option focusable", tabindex: "0" },
-    el("input", { type: "radio", name, checked, onchange }),
+function radioRow(checked, name, title, desc, onchange, disabled = false) {
+  // **A choice that cannot apply is off, not gone.** "Hardware first" is meaningless while
+  // hardware decoding is switched off, so the row is dimmed and untouchable until it is back
+  // on — the pair is read as one setting, not two that contradict each other.
+  return el("label", { class: `option focusable${disabled ? " off" : ""}`, tabindex: disabled ? "-1" : "0" },
+    el("input", { type: "radio", name, checked, disabled, onchange }),
     el("span", { class: "option-body" },
       el("span", { class: "option-title", text: title }),
       desc ? el("span", { class: "option-desc", text: desc }) : null,
@@ -7403,9 +7406,9 @@ function paneDebrid() {
   return [
     el("p", { class: "option-desc", text: "A torrent stream has no web address of its own — the add-on publishes an info hash, and the file lives in a swarm. A browser can only reach swarm peers that speak WebRTC, which is why a torrent without a debrid account usually never starts. A debrid service fetches the torrent on its own servers and hands back a direct link, so it plays like any other stream." }),
     el("div", { class: "group-head" },
-      // **The accounts, by name.** "Services" was generic and "Torrent services" said the
-      // stream rather than the thing you are signing in to; these are debrid accounts.
-      el("span", { class: "option-title", text: "Debrid accounts" }),
+      // **Not "Services", not "Torrent services", and not the pane's own word either.** What
+      // is in these boxes is a membership you paste a key from.
+      el("span", { class: "option-title", text: "Memberships" }),
       el("span", { class: "option-desc", text: active ? `Enabled services are tried in order; the first one that answers serves the stream. Right now: ${active[1]}.` : "Enable one and it takes over the torrent streams automatically. Paste a key, then press Check connection." }),
     ),
     ...DEBRID_SERVICES.map(([name, label, desc]) => keyRow("debrid", name, label, desc, state.debrid, KEY.debrid, "/debrid/verify")),
@@ -9059,7 +9062,14 @@ function panePlayback() {
     groupHead("Engine"),
     ...ENGINE_CHOICES.map(([id, label]) => radioRow(playbackEngine().engine === id, "engine", label, "", () => savePlaybackEngine({ engine: id }))),
     groupHead("Decoder"),
-    ...DECODER_CHOICES.map(([id, label]) => radioRow(playbackEngine().decoder === id, "decoder", label, "", () => savePlaybackEngine({ decoder: id }))),
+    // **The decoder order follows the hardware switch.** With hardware decoding off the box's
+    // decoder is not used at all, so "Hardware first" cannot be chosen and "Software first" is
+    // what is in force; turning hardware back on hands the stored choice back.
+    ...DECODER_CHOICES.map(([id, label]) => radioRow(
+      (playbackEngine().hardware ? playbackEngine().decoder : "software") === id,
+      "decoder", label, "", () => savePlaybackEngine({ decoder: id }),
+      !playbackEngine().hardware && id === "hardware",
+    )),
     groupHead("Hardware"),
     toggleRow(playbackEngine().hardware, "Hardware decoding", "A TV box's own decoder reads the file; off is the troubleshooting switch for a box whose decoder mangles a stream.", (e) => savePlaybackEngine({ hardware: e.target.checked })),
     // **Apart, because they answer different questions.** One is whether the box's own
@@ -9220,6 +9230,10 @@ function paneSound() {
     // **The music is a track you pick, not a switch you flip.** Every track ships inside
     // the app, so this works with no network; None is the default and plays nothing. It
     // stops the moment a title starts, and never plays inside the player.
+    // **The music and its volume are one group.** They were two plates, which read as two
+    // settings; the track and how loud it is are the same setting seen twice. The clicks are
+    // the other group.
+    groupHead("Music"),
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Browsing music" }),
       el("p", { class: "option-desc", text: "A loop under the app while you browse, from the app's own files — no network, nothing downloaded. It gives way the moment a title plays." }),
@@ -9256,7 +9270,8 @@ function paneNotifications() {
     el("p", { class: "option-desc", text: `Notifications for this profile (${state.profile}). A notification is drawn in the app; nothing leaves the machine and no account is needed.` }),
     groupHead("Calendar"),
     toggleRow(n.calendar, "Pinned titles in the Calendar", "Tell me when a title I pinned to watch comes out, and when a pinned episode airs.", (e) => set({ calendar: e.target.checked })),
-    groupHead("Library"),
+    // **Not "Library"** — the left menu already has a pane by that name.
+    groupHead("New releases"),
     toggleRow(n.releases, "New releases in my Library", "Tell me when something in the Library gets a new season or a new episode.", (e) => set({ releases: e.target.checked })),
 
   ];
@@ -9579,7 +9594,7 @@ function paneAddonsPlugins() {
   // **Add-ons only.** The Nuvio plugin half of this pane is gone: a plugin is code
   // the Nuvio app runs itself, and the server-side runner for it was removed with it.
   return [
-    groupHead("Installed add-ons"),
+    groupHead("Installed sources"),
     ...sourceSection("Stremio add-ons", "A Stremio add-on URL is read on the server (manifest.json), so it works even when the host sends no CORS headers — its catalogs, metadata, streams and subtitles are listed as providers. A stream the add-on publishes as a torrent is played through your debrid account when one is set up in Settings → Debrid — a browser cannot join a public swarm on its own, so that account is what makes those streams play.", ADDON_TYPES, addons),
   ];
 }
