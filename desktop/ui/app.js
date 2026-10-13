@@ -2300,10 +2300,10 @@ function chooseProfile(name) {
 /**
  * **Unified settings, or two apps.**
  *
- * On, VOD and IPTV share one set — the app the install always had. Off (the default), each
- * mode keeps its own: its keys and add-ons, its Debrid account, its playlists, its playback
- * and layout choices. Flipping it moves what you are looking at into the store you are
- * moving to, once, and reloads.
+ * **Unified** (Settings → Profile) makes the two share one set — the app the install always
+ * had. **Separate**, the default, keeps each mode's own: its keys and add-ons, its Debrid
+ * account, its playlists, its playback and layout choices. Choosing either moves what you
+ * are looking at into the store you are moving to, once, and reloads.
  */
 function setUnified(on) {
   seedLocalScope(on ? baseScope() : scopeForMode(activeMode()));
@@ -3945,8 +3945,8 @@ const micMark = () =>
  * switch, and pressing it starts the same listener the Ask box uses — what you say becomes a
  * search either way (see `startVoice` / `aiIntent`). Settings → Assistant turns it off.
  *
- * It is a **square**: the plate in the app's own 12px corners with the drawn microphone and
- * nothing else, so it reads as a button beside the switch rather than a bar along it.
+ * The plate is the app's own: the accent gradient in 12px corners, a drawn microphone and
+ * the word Speak — the same weight as the Movies / Shows button beside it.
  */
 function voicePad() {
   if (state.speak?.browse === false) return null;
@@ -3961,6 +3961,7 @@ function voicePad() {
       onclick: () => startVoice(null),
     },
     micMark(),
+    el("span", { text: "Speak" }),
   );
 }
 
@@ -8187,7 +8188,12 @@ function paneProfile() {
     // layout (and the mode switch carries what you are looking at across, once). Unified,
     // they are one app again — the way this install worked before the split.
     groupHead("Modes"),
-    toggleRow(settingsUnified(), "Unified settings", "VOD and IPTV share one set of settings. Off, each mode keeps its own — keys, add-ons, Debrid, playlists, playback and layout. Switching this carries the settings you are looking at across.", (e) => setUnified(e.target.checked)),
+    radioRow(settingsUnified(), "modes", "Unified", "VOD and IPTV share one set of settings — the app the install always had.", () => {
+      if (!settingsUnified()) setUnified(true);
+    }),
+    radioRow(!settingsUnified(), "modes", "Separate", "Each mode keeps its own: keys, add-ons, Debrid, playlists, playback and layout. Switching carries the settings you are looking at across, once.", () => {
+      if (settingsUnified()) setUnified(false);
+    }),
     editing
       ? (liveProfile() ? liveVisEditor(v) : vodVisEditor(v))
       : null,
@@ -8978,17 +8984,18 @@ function panePlayback() {
     render();
   }, "Secondary subtitle");
   return [
-    el("div", { class: "provider" },
-      el("span", { class: "option-title", text: "Engine" }),
-      el("div", { class: "options" },
-        ...ENGINE_CHOICES.map(([id, label]) => radioRow(playbackEngine().engine === id, "engine", label, "", () => savePlaybackEngine({ engine: id }))),
-      ),
-      el("div", { class: "options" },
-        ...DECODER_CHOICES.map(([id, label]) => radioRow(playbackEngine().decoder === id, "decoder", label, "", () => savePlaybackEngine({ decoder: id }))),
-      ),
-      toggleRow(playbackEngine().hardware, "Hardware decoding", "", (e) => savePlaybackEngine({ hardware: e.target.checked })),
-      toggleRow(playbackEngine().tunneling, "Tunneled playback", "", (e) => savePlaybackEngine({ tunneling: e.target.checked })),
-    ),
+    // **Three questions, three groups.** The engine, the decoder order and the two switches
+    // about the device's own pipeline were one wall of boxes under one label, so "Auto" and
+    // "Hardware first" read as alternatives to each other. They are different questions: which
+    // engine plays the file, which decoder it asks first, and whether the hardware and the
+    // display take the picture themselves.
+    groupHead("Engine"),
+    ...ENGINE_CHOICES.map(([id, label]) => radioRow(playbackEngine().engine === id, "engine", label, "", () => savePlaybackEngine({ engine: id }))),
+    groupHead("Decoder"),
+    ...DECODER_CHOICES.map(([id, label]) => radioRow(playbackEngine().decoder === id, "decoder", label, "", () => savePlaybackEngine({ decoder: id }))),
+    groupHead("Hardware"),
+    toggleRow(playbackEngine().hardware, "Hardware decoding", "A TV box's own decoder reads the file; off is the troubleshooting switch for a box whose decoder mangles a stream.", (e) => savePlaybackEngine({ hardware: e.target.checked })),
+    toggleRow(playbackEngine().tunneling, "Tunneled playback", "The decoder writes straight to the display instead of through the app's own surface — what makes 4K HDR play on a set-top box, and the reason the app's controls cannot be drawn over the picture.", (e) => savePlaybackEngine({ tunneling: e.target.checked })),
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Resolution" }),
       el("p", { class: "option-desc", text: "The ceiling a stream may reach for. Auto takes whatever the source offers; 1080p never plays a larger one." }),

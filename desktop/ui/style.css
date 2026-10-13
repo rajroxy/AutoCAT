@@ -248,12 +248,12 @@ body {
 .btn.primary.voice-pad {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 9px;
   flex: none;
-  width: 36px;
-  height: 36px;
-  padding: 0;
+  padding: 9px 18px;
   border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
   background: linear-gradient(160deg, var(--accent), var(--accent-deep));
   color: #14110a;
   border: 0;
@@ -4558,11 +4558,17 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    controls squeezed into a single card — the "very compact" board. The panel's own chrome is
    what goes: what is left is the rows, each its own box, spaced the way Content's are. The
    markup is shared by VOD and by the IPTV profile, so one rule does both. */
+/* **A row inside a group is a box, the way an add-on row is.** The provider, tracker,
+   subtitle, Debrid and AI rows (and the DNS switch) had their panel chrome stripped so the
+   board did not read as "a list inside a list" — but with each group now a panel of its own,
+   what that leaves is bare text inside a grey box. They are boxes again: the same fill and
+   hairline an add-on row wears. */
 .settings-pane .provider {
-  padding: 0;
-  margin-bottom: 12px;
-  border: 0;
-  background: none;
+  padding: 12px 14px;
+  margin-bottom: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius);
+  background: var(--panel-2);
 }
 .settings-pane .provider > * + * { margin-top: 10px; }
 .settings-pane .option { background: var(--panel); }
