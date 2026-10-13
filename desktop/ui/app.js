@@ -62,7 +62,9 @@ const SETTING_KEYS = {
   select: "autocat.select",
   motion: "autocat.motion",
   font: "autocat.font",
-  blur: "autocat.blur",
+  // **Which row each screen is reading.** Home, Search, the Calendar and the Calendar's plans
+  // each keep their own answer (see `rowSwitch`).
+  rows: "autocat.rows",
   // The resolved accent colours, written for the boot script in `index.html`.
   theme: "autocat.theme",
   pickCards: "autocat.pickCards",
@@ -115,8 +117,7 @@ const HOME_PROFILE = "you";
 /* **`profile` is here because the scope depends on it.** It holds the *mode* — VOD or IPTV
    — and since the mode is part of the settings scope below, the mode itself cannot be
    stored inside a scope. It is the machine's, like how the app looks. */
-const MACHINE_KEYS = new Set(["theme", "accent", "select", "motion", "font", "blur", "pop", "speed", "glow", "profile",
-  "mark"]);
+const MACHINE_KEYS = new Set(["theme", "accent", "select", "motion", "font", "pop", "speed", "glow", "profile", "mark"]);
 /**
  * **A profile, and the local account in use inside it.**
  *
@@ -1026,8 +1027,6 @@ const state = {
   mark: localStorage.getItem(KEY.mark) !== "0",
   // How long a fill, a ring or a lift takes. One variable drives every transition.
   speed: localStorage.getItem(KEY.speed) || "smooth",
-  // Blur the page behind a popup (the assistant, a dialog). On unless turned off.
-  blur: localStorage.getItem(KEY.blur) !== "0",
   // **Sound and notifications.** Each is a small map of switches rather than
   // than a single flag, because they are separate questions: a click when you press
   // something is not the same as music under the browsing, and a calendar reminder is not
@@ -1113,6 +1112,12 @@ const apiType = () => state.row;
 const setRow = (row) => {
   state.row = row;
   localStorage.setItem(KEY.row, row);
+};
+/** One switch per screen: Home's is `state.row`, and these are the other three. */
+const rowScope = (scope) => (state.rows || {})[scope] || "movie";
+const setRowScope = (scope, value) => {
+  state.rows = { ...(state.rows || {}), [scope]: value };
+  writeJSON(KEY.rows, state.rows);
 };
 const cardByKey = (key) => state.collections.find((c) => c.key === key);
 /**
@@ -2482,29 +2487,33 @@ function signInCard() {
   const said = new URLSearchParams(location.hash.split("?")[1] || "").get("signin_error") || account.refused || "";
   const { rows, current, room } = accountList();
 
-  // **A group of `option`s, and the board draws the plate** — the same shape as Speed,
-  // Engine or Debrid. The heading is the pane's (`paneSignin`), not the box's.
-  return el(
-    "div",
-    { class: "provider", id: "account" },
-    said ? el("p", { class: "signin-said", text: said }) : null,
-    rows.length ? el("div", { class: "account-list" }, ...rows) : null,
-    accountForm(),
-    current
-      ? el("button", {
-          class: "btn subtle focusable",
-          type: "button",
-          id: "sign-out",
-          text: "Sign out",
-          title: `Leave ${current} on this machine — its data stays with it`,
-          onclick: signOutAccount,
-        })
-      : null,
-    el("p", {
-      class: "option-desc",
-      text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
-    }),
-  );
+  // **The accounts and the form are two boxes.** They were one: the name and address you
+  // type sat in the same plate as the accounts already on the machine, so "Add account"
+  // read as one more row of the list above it. The list is one box; making an account is
+  // another, with the button that does it.
+  return [
+    el(
+      "div",
+      { class: "provider", id: "account" },
+      said ? el("p", { class: "signin-said", text: said }) : null,
+      rows.length ? el("div", { class: "account-list" }, ...rows) : null,
+      current
+        ? el("button", {
+            class: "btn subtle focusable",
+            type: "button",
+            id: "sign-out",
+            text: "Sign out",
+            title: `Leave ${current} on this machine — its data stays with it`,
+            onclick: signOutAccount,
+          })
+        : null,
+      el("p", {
+        class: "option-desc",
+        text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
+      }),
+    ),
+    el("div", { class: "provider account-new", id: "account-new" }, accountForm()),
+  ];
 }
 
 /**
@@ -3943,23 +3952,34 @@ function collectionGrid(row) {
   return container;
 }
 
-/** The Movies / Shows switch that lives under the hero banner. */
-function rowSwitch() {
+/**
+ * **The Movies / Shows switch, and it belongs to the screen it stands on.**
+ *
+ * There was one answer for the whole app: pressing Shows on the Calendar changed Home, and
+ * pressing it on Home changed the Calendar's month, because all four switches read and wrote
+ * the same setting. They are four switches about four screens, so each keeps its own — Home
+ * (`row`, the one the rest of the app still means by "the row"), Search, the Calendar, and
+ * the Calendar's own plans line.
+ */
+function rowSwitch(scope = "home") {
+  const mine = scope === "home" ? state.row : rowScope(scope);
+  const pick = (value) => {
+    if (scope === "home") setRow(value);
+    else setRowScope(scope, value);
+    state.order = {};
+    render();
+  };
   return el(
     "div",
     { class: "row-switch", role: "tablist", "aria-label": "Movies or Shows" },
     ...[["movie", "Movies"], ["series", "Shows"]].filter(([value]) => rowEnabled(value)).map(([value, label]) =>
       el("button", {
-        class: `row-btn focusable${state.row === value ? " active" : ""}`,
+        class: `row-btn focusable${mine === value ? " active" : ""}`,
         type: "button",
         role: "tab",
-        "aria-selected": String(state.row === value),
+        "aria-selected": String(mine === value),
         text: label,
-        onclick: () => {
-          setRow(value);
-          state.order = {};
-          render();
-        },
+        onclick: () => pick(value),
       }),
     ),
   );
@@ -4634,6 +4654,11 @@ function renderSearch() {
   };
   const FILTER_KEYS = ["country", "category", "period", "lang"];
   const vocab = state.searchVocab || SEARCH_FALLBACK;
+  // **This screen's own switch** (see `rowSwitch`). The bar, its dropdown and the results
+  // below all answer to it: a search for a name you half-remember is a search for a film
+  // *or* for a series, and the switch is how you say which.
+  const barRow = rowScope("search");
+  const barType = () => (barRow === "series" ? "show" : "movie");
 
   // No `text-input` here: that class paints a bordered box, and inside the bar's own
   // panel it drew a second border around the placeholder.
@@ -4676,7 +4701,7 @@ function renderSearch() {
     // **What you are already watching is not offered back to you.** The results wall drops
     // those titles (`hideOwned`); the dropdown did not, so the same film you are part-way
     // through came back as a suggestion while the wall it leads to had dropped it.
-    const nodes = hideOwned(metas).map((m) =>
+    const nodes = hideOwned(metas).filter((m) => (m.type === "movie" ? "movie" : "show") === barType()).map((m) =>
       suggestRow(m.type === "series" ? "Show" : "Movie", m.name, () =>
         go(`#/t/${m.type === "series" ? "series" : "movie"}/${String(m.id || "").replace(/^tmdb:/, "")}`),
       ),
@@ -4766,11 +4791,11 @@ function renderSearch() {
   let searchObserver = null;
 
   const appendMetas = (metas) => {
-    // **The Results follow the Movies / Shows switch.** A search answers both rows at
-    // once, so the two headings sat one under the other and the switch that says which
-    // row you are on had nothing on this screen to be. It is the same switch Home wears
-    // (see `rowSwitch`), and the grid it governs is this one.
-    const wanted = state.row === "series" ? "show" : "movie";
+    // **The Results follow this screen's switch.** A search answers both rows at once, so
+    // the two headings sat one under the other and the switch that says which row you are on
+    // had nothing on this screen to be. It is this screen's own switch (`rowSwitch("search")`)
+    // — the one standing above the bar — and the grid it governs is this one.
+    const wanted = barType();
     for (const m of metas) {
       const key = m.type === "movie" ? "movie" : "show";
       if (key !== wanted) continue;
@@ -4960,6 +4985,12 @@ function renderSearch() {
     filterRow("Sort", vocab.sorts, filters.sort, (v) => pick("sort", v)),
   );
 
+  // **The switch and the filters are never both on screen.** They answer the same question
+  // from two ends — which half of the catalogue to look through, and what to narrow it to —
+  // and the panel is tall enough to carry the screen on its own. Opening it hides the
+  // switch; closing it brings the switch back.
+  const switchRow = el("div", { class: "search-switch-row", id: "search-switch-row" }, rowSwitch("search"));
+
   const filterBtn = el(
     "button",
     {
@@ -4971,6 +5002,7 @@ function renderSearch() {
       "aria-expanded": String(!panel.hidden),
       onclick: () => {
         panel.hidden = !panel.hidden;
+        switchRow.hidden = !panel.hidden;
         filterBtn.setAttribute("aria-expanded", String(!panel.hidden));
       },
     },
@@ -4994,11 +5026,10 @@ function renderSearch() {
     // being browsed; a search box that asks "what is this called?" is not a row, and the
     // two buttons sat between the field and its own heading for no reason. What kind of
     // title a search is looking for is the **Type** row in Filters, one press away.
-    // **The same Movies / Shows switch Home wears, above the bar.** A search answers both
-    // rows at once and the results follow this switch, so the switch belongs on the screen
-    // that is about to be read by it — not only on Home, where it was the only place to say
-    // which half of the catalogue you are looking through.
-    rowSwitch(),
+    // **The same Movies / Shows switch Home wears, above the bar** — this screen's own copy
+    // of it (see `rowSwitch`), because a search is read through one row at a time and Home
+    // should not change its mind because you searched for something.
+    switchRow,
     el(
       "div",
       { class: "search-wrap" },
@@ -5218,20 +5249,23 @@ function renderVodCalendar() {
     const open = Boolean(state.calendar.day);
     plans.hidden = open;
     if (open) return;
-    const items = calendarPins();
+    // **The plans answer the switch beside them.** "Your plans" held every planned title, so
+    // the film you planned sat in the Shows list — the same mixing the grid had. A plan is
+    // about a title, and a title is a film or a series.
+    const planRow = rowScope("plan");
+    const planItems = calendarPins().filter((m) => (m.type === "series") === (planRow === "series"));
     plans.replaceChildren(
       el(
         "div",
         { class: "plans-head" },
         el("h3", { class: "section-title", text: "Your plans" }),
-        // **The switch sits on the plans line.** The calendar reads the row you are on (see
-        // `calRow`), so the switch that says which row that is belongs on this screen, right
-        // of the heading.
-        rowSwitch(),
+        // **The switch sits on the plans line**, and it is the plans' own: the films you
+        // planned are not the series you planned, and one line should not answer for both.
+        rowSwitch("plan"),
       ),
-      items.length
-        ? el("div", { class: "grid-titles" }, ...items.map((m) => calendarCard(m, { date: true })))
-        : el("p", { class: "empty", text: "Nothing planned from the calendar yet — plan a release above." }),
+      planItems.length
+        ? el("div", { class: "grid-titles" }, ...planItems.map((m) => calendarCard(m, { date: true })))
+        : el("p", { class: "empty", text: `Nothing planned here yet — plan a ${rowScope("plan") === "series" ? "series" : "film"} release above.` }),
     );
   }
 
@@ -5239,11 +5273,11 @@ function renderVodCalendar() {
   drawDetail();
   drawPlans();
 
-  // **The calendar follows the Movies / Shows switch.** It read both rows and mixed them
-  // into one grid, so the switch that says which row you are on had nothing to do here —
-  // the film you were looking for sat beside a series you were not. It reads the row you
-  // are on: films under Movies, series under Shows, exactly like every other screen.
-  const calRow = state.row === "series" ? "series" : "movie";
+  // **The calendar reads its own switch.** It read both rows and mixed them into one grid, so
+  // the switch that says which row you are on had nothing to do here — the film you were
+  // looking for sat beside a series you were not. It is the calendar's own answer now, so
+  // turning to Shows here does not turn Home over to series.
+  const calRow = rowScope("calendar") === "series" ? "series" : "movie";
   get(`/calendar/${calRow}/${month}.json${catalogQuery()}`)
     .then((data) => {
       const seen = new Set();
@@ -5275,7 +5309,7 @@ function renderVodCalendar() {
         el("span", { class: "cal-month", text: `${MONTH_NAMES[mon - 1]} ${year}` }),
         el("button", { class: "icon-btn focusable", type: "button", text: "›", "aria-label": "Next month", onclick: () => { state.calendar = { month: shiftMonth(month, 1), day: null }; render(); } }),
       ),
-      rowSwitch(),
+      rowSwitch("calendar"),
     ),
     el("p", { class: "view-hint", text: `${calRow === "series" ? "Series" : "Films"} releasing this month${state.language ? ` · ${state.language}` : ""}` }),
     grid,
@@ -5569,20 +5603,23 @@ function renderLiveCalendar() {
     const open = Boolean(state.calendar.day);
     plans.hidden = open;
     if (open) return;
-    const items = calendarPins();
+    // **The plans answer the switch beside them.** "Your plans" held every planned title, so
+    // the film you planned sat in the Shows list — the same mixing the grid had. A plan is
+    // about a title, and a title is a film or a series.
+    const planRow = rowScope("plan");
+    const planItems = calendarPins().filter((m) => (m.type === "series") === (planRow === "series"));
     plans.replaceChildren(
       el(
         "div",
         { class: "plans-head" },
         el("h3", { class: "section-title", text: "Your plans" }),
-        // **The switch sits on the plans line.** The calendar reads the row you are on (see
-        // `calRow`), so the switch that says which row that is belongs on this screen, right
-        // of the heading.
-        rowSwitch(),
+        // **The switch sits on the plans line**, and it is the plans' own: the films you
+        // planned are not the series you planned, and one line should not answer for both.
+        rowSwitch("plan"),
       ),
-      items.length
-        ? el("div", { class: "grid-titles" }, ...items.map((m) => calendarCard(m, { date: true })))
-        : el("p", { class: "empty", text: "Nothing planned yet — plan a release or a programme to see it here." }),
+      planItems.length
+        ? el("div", { class: "grid-titles" }, ...planItems.map((m) => calendarCard(m, { date: true })))
+        : el("p", { class: "empty", text: `Nothing planned here yet — plan a ${rowScope("plan") === "series" ? "series" : "film"} release to see it here.` }),
     );
   };
 
@@ -8192,7 +8229,7 @@ function paneSignin() {
   // **`Sign in` is a group head like Speed, Engine or Debrid.** It sat *inside* the account
   // box, which put a section title in the plate it names; it is the pane's heading, and the
   // pane is where it belongs.
-  return [groupHead("Sign in"), signInCard()];
+  return [groupHead("Sign in"), ...signInCard()];
 }
 
 /**
@@ -8931,11 +8968,7 @@ function applyTheme() {
   root.style.setProperty("--mark-ring", state.mark === false ? "0px" : `${marks[1]}px`);
   // The pop's reach, and the blur's — both settings, both written as one property each so
   // the stylesheet never has to know which one is chosen.
-  root.style.setProperty("--pop-lift", "5px");
-  root.classList.toggle("blur-off", state.blur === false);
-  // **One depth, one reach.** The blur answers for popups and for the card you are on, at the
-  // app's own strength — it used to be three dials deciding what and how much.
-  root.style.setProperty("--blur-amount", "10px");
+  root.style.setProperty("--pop-lift", "3px");
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
@@ -9272,7 +9305,7 @@ function paneAnimation() {
  * only one and there is nothing here to get wrong.
  */
 function paneInteraction() {
-  const set = (key, value, on) => {
+  const set = (key, value) => {
     state[key] = value;
     localStorage.setItem(KEY[key], value);
     applyTheme();
@@ -9286,9 +9319,6 @@ function paneInteraction() {
     // ------------------------------------------------------- Fills & rings
     groupHead("Fills & rings"),
     toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the selection colour; a card or a catalog title you are on is ringed by it.", (e) => set("mark", e.target.checked)),
-    // ---------------------------------------------------------------- Blur
-    groupHead("Blur"),
-    toggleRow(state.blur !== false, "Blur the page", "Everything behind a popup, and everything around a card you are on, is put out of focus.", (e) => set("blur", e.target.checked)),
   ];
 }
 
@@ -10319,10 +10349,6 @@ async function render() {
   const main = document.getElementById("main");
   // An empty answer is a failure too, so it gets the same panel rather than a blank page.
   main.replaceChildren(...(Array.isArray(nodes) && nodes.length ? nodes : [screenError(null, view)]));
-  // The screen was thrown away along with any card the blur was standing in for — and the
-  // pointer has not moved, so nothing would fire to put it back. Re-arm from where the
-  // pointer and the keyboard actually are, so the blur is not lost by a redraw.
-  spotReArm();
   // Now that the frames are in the document, lay the cards' own pictures into
   // them — in place of the generated vector scene.
   hydrateContent();
@@ -10433,165 +10459,6 @@ function horizontalWheel() {
   );
 }
 
-/* ------------------------------------------------- the blur around a selection */
-
-/**
- * **Everything around the thing you are on is put out of focus.**
- *
- * Settings → Effects → Popups blurs the page behind a dialog. The same switch answers
- * for the app's own content: a card on Home, a catalog title, a search result. The card
- * you are on is kept sharp and **everything around it blurs**, so the one thing you are
- * looking at is the only legible thing on the screen.
- *
- * One fixed scrim does the blurring, and the card is kept sharp by drawing a **copy of
- * it** over that scrim, exactly where it sits. The copy is a picture of the card — no
- * clicks, no keyboard (`aria-hidden`, `pointer-events: none`) — and the real card is
- * still underneath, still the thing the cursor and the keyboard are on, so a press lands
- * where it should and the copy may be thrown away at any moment.
- *
- * It follows the pointer (with a beat on the way out, so crossing the gap between two
- * cards is not "leaving") and it follows the keyboard. It is off with the switch, it does
- * not run over a dialog that has its own scrim, and it drops the moment its card is gone.
- */
-const SPOT_CONTENT =
-  ".icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card";
-/** True while a dialog with its own scrim is up — it is already the whole screen. */
-const spotBlocked = () =>
-  Boolean(document.querySelector(".assistant-overlay:not([hidden]), .trailer-overlay:not([hidden])"));
-let spotNow = null;
-let spotExit = 0;
-/** Where the pointer was, so a redraw can pick the card it is over back up. */
-const spotPointer = { x: -1, y: -1 };
-
-/** The picture of `node` that stands in for it on the scrim: no clicks, no keyboard, no ids. */
-function spotCopy(node, r) {
-  const box = node.cloneNode(true);
-  box.removeAttribute("id");
-  for (const n of box.querySelectorAll("[id]")) n.removeAttribute("id");
-  box.classList.add("sel-sharp");
-  box.setAttribute("aria-hidden", "true");
-  box.setAttribute("tabindex", "-1");
-  box.style.width = `${r.width}px`;
-  box.style.height = `${r.height}px`;
-  return box;
-}
-
-/** Take the scrim and the copy down, and give the card its own look back. */
-function dropSpotlight(now = false) {
-  clearTimeout(spotExit);
-  if (!spotNow) return;
-  const { node, view } = spotNow;
-  node.classList.remove("sel-on");
-  window.removeEventListener("scroll", spotFollow, true);
-  window.removeEventListener("resize", spotFollow);
-  spotNow = null;
-  // **It leaves the way it arrived.** The scrim used to be thrown away between two frames, so
-  // the page snapped back into focus; it fades out over the same beat it fades in on.
-  if (now) return view.remove();
-  view.classList.remove("on");
-  setTimeout(() => view.remove(), 240);
-}
-
-/** Keep the copy level with the card it stands for, and let go if that card is gone. */
-function spotFollow() {
-  if (!spotNow) return;
-  const { node, box } = spotNow;
-  const r = node.getBoundingClientRect();
-  if (!node.isConnected || !r.width || !r.height || r.bottom < 0 || r.top > innerHeight) return dropSpotlight();
-  box.style.left = `${r.left}px`;
-  box.style.top = `${r.top}px`;
-  box.style.width = `${r.width}px`;
-  box.style.height = `${r.height}px`;
-}
-
-/** Put the page out of focus around `node`, or move the sharp copy to it. */
-function spotlight(node) {
-  if (!node?.isConnected || !node.matches?.(SPOT_CONTENT)) return dropSpotlight();
-  if (state.blur === false || spotBlocked()) return dropSpotlight();
-  if (spotNow?.node === node) return spotFollow();
-  const r = node.getBoundingClientRect();
-  if (!r.width || !r.height) return;
-
-  // **Walking the row is one movement, not one per card.** The scrim is the same screen-wide
-  // wash behind any of them, so it stays exactly where it is and only the *picture* changes:
-  // the card you have left fades out as the one you have arrived on fades in, under a blur
-  // that never blinks. Tearing the scrim down and building it again for every card is what
-  // made moving along a row look like two separate events.
-  if (spotNow) {
-    const { view, box: was, node: left } = spotNow;
-    left.classList.remove("sel-on");
-    const next = spotCopy(node, r);
-    next.style.transition = "opacity 170ms ease";
-    next.classList.add("sel-in");
-    view.append(next);
-    node.classList.add("sel-on");
-    spotNow = { node, view, box: next };
-    spotFollow();
-    requestAnimationFrame(() => {
-      was.style.transition = "opacity 170ms ease";
-      was.style.opacity = "0";
-      next.classList.remove("sel-in");
-    });
-    setTimeout(() => was.remove(), 220);
-    return;
-  }
-
-  node.classList.add("sel-on");
-  const view = el("div", { class: "sel-blur", id: "sel-blur", "aria-hidden": "true" });
-  view.append(spotCopy(node, r));
-  document.body.append(view);
-  spotNow = { node, view, box: view.firstElementChild };
-  spotFollow();
-  // **And it arrives rather than appearing.** It was drawn at full strength in the frame it was
-  // made, which is the whole of "the blur has no animation" — the page was simply out of focus
-  // by the next frame. One rAF after it is in the document, the class that says "on" gives it
-  // its 200ms.
-  requestAnimationFrame(() => view.classList.add("on"));
-  window.addEventListener("scroll", spotFollow, true);
-  window.addEventListener("resize", spotFollow);
-}
-
-/** Put the blur back on the card under the pointer — or under the keyboard — after a redraw. */
-function spotReArm() {
-  dropSpotlight(true);
-  if (state.blur === false) return;
-  const under = spotPointer.x >= 0 ? document.elementFromPoint(spotPointer.x, spotPointer.y) : null;
-  // `elementFromPoint` skips the scrim (it takes no clicks) but not the copy, which lives
-  // inside it — so the match is taken from the card the element belongs to either way.
-  const node = under?.closest?.(SPOT_CONTENT) || document.activeElement?.closest?.(SPOT_CONTENT);
-  if (node) spotlight(node);
-}
-
-/** The pointer and the keyboard both "select"; this is what watches them. */
-function setupSpotlight() {
-  document.addEventListener("pointerover", (e) => {
-    spotPointer.x = e.clientX;
-    spotPointer.y = e.clientY;
-    const node = e.target?.closest?.(SPOT_CONTENT);
-    if (!node) return;
-    clearTimeout(spotExit);
-    spotlight(node);
-  });
-  document.addEventListener("pointerout", (e) => {
-    const node = e.target?.closest?.(SPOT_CONTENT);
-    if (!node || node !== spotNow?.node || node.contains(e.relatedTarget)) return;
-    // A beat on the way out: the gap between two cards is not leaving the cards.
-    clearTimeout(spotExit);
-    spotExit = setTimeout(() => {
-      if (!spotNow?.node?.matches(":focus-visible")) dropSpotlight();
-    }, 240);
-  });
-  document.addEventListener("focusin", (e) => {
-    const node = e.target?.closest?.(SPOT_CONTENT);
-    if (!node) return;
-    clearTimeout(spotExit);
-    spotlight(node);
-  });
-  document.addEventListener("focusout", (e) => {
-    const node = e.target?.closest?.(SPOT_CONTENT);
-    if (node && node === spotNow?.node && !node.matches(":hover")) dropSpotlight();
-  });
-}
 
 function setupInput() {
   // **Back goes back**, the way a browser's Back does — to the screen you were on,
@@ -10625,8 +10492,6 @@ function setupInput() {
   for (const node of document.querySelectorAll("[data-close]")) node.addEventListener("click", () => modal.close());
   window.addEventListener("hashchange", render);
   horizontalWheel();
-  // The blur around whatever you are on — the same switch as the popup blur.
-  setupSpotlight();
 
   document.addEventListener("keydown", (e) => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName ?? "");

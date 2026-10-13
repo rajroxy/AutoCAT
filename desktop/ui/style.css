@@ -861,7 +861,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 }
 .search-filter-btn:hover, .search-filter-btn:focus-visible { background: var(--accent); color: #0b0c10; }
 .search-filter-btn:active { background: var(--accent-deep); }
-.search-filter-btn.on { background: var(--accent-deep); border-color: transparent; color: #0b0c10; }
+
 
 /* The bar is the suggestion panel's own box: without a positioning context here the
    floating list anchored to the page wrapper, put itself under the filter panel and
@@ -1124,11 +1124,18 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 }
 .accent-card-name { font-size: 13.5px; font-weight: 700; color: inherit; }
 /* The one you picked keeps the ring, and its name reads white. */
+/* **The chosen colour is a plate, not a box round the card.** The ring was the app drawing
+   the selection colour around the very card that *is* that colour — and Settings is the one
+   screen where nothing wears a ring (see the mark section). The plate says it instead. */
 .accent-card.active {
-  background: rgba(var(--accent-rgb), 0.2);
+  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.3);
   color: #fff;
-  box-shadow: var(--hl);
 }
+
+/* **The switch above the search bar steps aside for the filters.** One line, and it is
+   either the row you are searching or the panel that narrows it — never both. */
+.search-switch-row { display: flex; align-items: center; }
+.search-switch-row[hidden] { display: none; }
 
 /* ------------------------------------------------------------------ explore */
 
@@ -1602,6 +1609,11 @@ textarea:focus-visible {
 /* The poster service upgrades the artwork silently — no BTTR badge on the card. */
 .poster { position: relative; }
 
+/* **The switch above the search bar steps aside for the filters.** One line, and it is
+   either the row you are searching or the panel that narrows it — never both. */
+.search-switch-row { display: flex; align-items: center; }
+.search-switch-row[hidden] { display: none; }
+
 /* ------------------------------------------------------------------ explore */
 
 .explore-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -2022,6 +2034,12 @@ textarea:focus-visible {
    `animation: none` above drops it — so with motion off (or reduced motion) AutoCAT is on
    the screen, whole, with no rule needed to put it there. */
 
+/* **Nothing in a small plate is clipped.** A chip, a tag or a card label is a pill one line
+   tall, and a line box set at `1` has no room for the ascent of a capital or an accent — the
+   top of the first letter is shaved by the pill's own radius. These four take the room their
+   glyphs need, the same way the catalog headings already do. */
+:is(.chip, .tag, .filter-chip, .model-chip, .cat-tile-name, .cal-cell, .chip-more) { line-height: 1.4; }
+
 /* ------------------------------------------------------------ boot screen */
 
 /* Covers the app until the first screen is drawn. `motion-off` (and the system
@@ -2044,12 +2062,12 @@ textarea:focus-visible {
 .boot-brand { display: flex; align-items: center; gap: 4px; }
 /* The name and the progress line, stacked: the line is exactly as wide as the word. */
 .boot-name-col { display: flex; flex-direction: column; align-items: stretch; gap: 9px; }
-/* **One wordmark, cut in two weights.** `Auto` is the word; the cat is the C; `AT` finishes
-   `CAT`. Set all three at 900 they were three blocks of the same colour and the animal had
-   nothing to be the middle of — so `Auto` is the light half and the initials are the heavy
-   one, which is what makes it read as a mark rather than as a sentence. Both halves share one
-   gradient (cream down into the lavender of the cat's own ear) so the type and the animal are
-   cut from the same material. */
+/* **One wordmark, one cut.** `Auto` is the word; the cat is the C; `AT` finishes `CAT` — so
+   the five letters are one word and are set as one: the same 46px, the same 700, the same
+   tracking. They were split into a light half and a heavy half, which read as two words and
+   left the letters after the cat looking like a different font from the letters before it.
+   Both halves share one gradient (cream down into the lavender of the cat's own ear) so the
+   type and the animal are cut from the same material. */
 .boot-name,
 .boot-letters,
 .boot-letter {
@@ -2061,9 +2079,8 @@ textarea:focus-visible {
 .boot-name {
   margin: 0;
   font-size: 46px;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1;
-  /* Caps need the opposite of the tight tracking lower case wants. */
   letter-spacing: -0.005em;
   filter: drop-shadow(0 3px 20px rgba(var(--accent-rgb), 0.3));
 }
@@ -2153,9 +2170,9 @@ textarea:focus-visible {
      holds the progress line. */
   margin: 0 0 13px -12px;
   font-size: 46px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.005em;
   filter: drop-shadow(0 3px 20px rgba(var(--accent-rgb), 0.3));
 }
 /* Each initial carries the gradient on its own: a clipped background lives on the element
@@ -3839,10 +3856,6 @@ select option:hover {
 /* **The blur behind a popup, switchable.** The assistant, a dialog and the account
    sheet all draw a scrim over the page; this is the switch that decides whether that
    scrim blurs the page behind it (Settings → Animation). Off, the scrim is a dim only. */
-.blur-off .assistant-overlay,
-.blur-off .modal-backdrop,
-.blur-off .trailer-overlay,
-.blur-off .overlay-backdrop { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 
 /* **The one thing that stays sharp.** The page behind a popup is blurred; the thing you
    opened it *from* is not — a copy of it is drawn inside the popup's own layer, on top of
@@ -4027,11 +4040,15 @@ select option:hover {
    was taken off them ("too small to ring"), so hovering a tag did nothing you could see
    and pressing one left no mark at all. They take the same accent ring on hover and on
    the keyboard, and the ones you have *not* picked also take the tint. */
+/* **A tag is a control: it fills, it does not ring.** These are the app's smallest controls, and
+   the rule that lit them carried its own 3px ring — a box drawn around a chip three letters
+   wide, and one that beat the "a control is filled" rule on specificity, so every chip in the
+   app answered the cursor with a ring. The tint is the answer; the shield of a pill around a
+   word is not. */
 .chip:not(.active):hover, .chip:not(.active):focus-visible,
 .model-chip:not(.suggested):hover, .chip-more:hover,
 .filter-chip:not(.active):hover, .search-filter-btn:hover {
-  box-shadow: var(--hl);
-  background: rgba(var(--accent-rgb), 0.2);
+  background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
   color: #fff;
 }
 button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
@@ -4129,7 +4146,7 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   line-height: 1;
   cursor: pointer;
 }
-.vis-fold:hover, .vis-fold:focus-visible { color: var(--text); box-shadow: var(--hl); outline: none; }
+.vis-fold:hover, .vis-fold:focus-visible { color: var(--text); outline: none; }
 .vis-card.off .vis-card-head .vis-option { opacity: 0.6; }
 
 /* ---------------------------------------------- the trailer's own controls */
@@ -4793,10 +4810,26 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .menu-item.active, .dropdown-btn[aria-expanded="true"] {
   background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
 }
+/* **The plates that are already filled ring.** Play, Ask Assistant and Speak are solid
+   accent plates: a wash of the selection colour under a solid plate is invisible, so the
+   three of them answer the cursor with the outline instead — the same answer a card gives. */
+:is(.btn.primary, .voice-pad, #title-assistant):is(:hover, :focus-visible, :has(:focus-visible)) {
+  /* The plate stays the plate — Play does not go pale under the cursor — and the ring is
+     drawn with a hair of the page between the two, so it reads as an outline around the
+     button rather than as a slightly different orange edge. */
+  background-color: var(--accent);
+  background-image: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
+}
+
 /* ------------------------------------------------------------------- a thing */
-:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :focus-visible, :has(:focus-visible), .sel-on) {
+:is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :focus-visible, :has(:focus-visible)) {
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
 }
+/* **A face rings its picture, and its card is not filled.** `.person` is a `.focusable`
+   button, so it was taking the control fill *as well* as the ring around the picture — the
+   crew list answered the cursor with a wash of colour instead of an outline. */
+.person.focusable:is(:hover, :focus-visible, :has(:focus-visible)) { background-color: transparent; }
 /* A face rings its picture, not its card — the card is a button with a name on it. */
 .person:hover .person-face,
 .person:has(:focus-visible) .person-face { outline: none; box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent)); }
@@ -4816,51 +4849,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
   transform: translateY(calc(var(--pop-lift, 5px) * -1));
 }
 .pop-on :is(.btn, .chip, .row-head-link):hover { transform: translateY(calc(var(--pop-lift, 5px) * -0.6)); }
-
-/* ============================================================================
-   **The blur behind a popup, and around the card you are on.**
-   ----------------------------------------------------------------------------
-   One switch (Settings → Effects → Blur) with a reach and a depth. The card you are on is kept
-   sharp by drawing a copy of it over the scrim, exactly where it sits — a picture of it, with
-   no clicks and no keyboard, so the real card is still the thing the cursor is on.
-   ============================================================================ */
-.sel-blur {
-  position: fixed;
-  inset: 0;
-  z-index: 45;
-  pointer-events: none;
-  /* **A light hand.** The scrim used to be a heavy dim over a hard blur, which read as the
-     page being taken away rather than pushed back. It is a soft wash now — you can still see
-     the screen behind it, which is the point of a spotlight. */
-  background: rgba(4, 5, 8, 0.28);
-  backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.08);
-  -webkit-backdrop-filter: blur(var(--blur-amount, 10px)) saturate(1.08);
-  /* **It arrives, it moves and it leaves.** The scrim is drawn at nothing and takes 200ms to
-     reach its depth — the same beat `--quick` gives every other change — so the page goes soft
-     rather than switching. Walking a row keeps the scrim and only swaps the sharp picture
-     (see `spotlight`), which is the movement: no blink between one card and the next. */
-  opacity: 0;
-  transition: opacity 200ms var(--ease, ease);
-}
-.sel-blur.on { opacity: 1; }
-.sel-blur.out { opacity: 0; }
-.blur-off .sel-blur { display: none !important; }
-/* **The sharp copy carries its own light.** Drawn flat on the scrim its edge was a hard cut
-   against the blur; a soft shadow under it reads as the card standing in front of the page. */
-.sel-sharp {
-  position: fixed !important;
-  z-index: 1;
-  margin: 0 !important;
-  pointer-events: none !important;
-  transform: none !important;
-  animation: none !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
-}
-/* The picture that has just been put down fades up from nothing, so the card you arrived on
-   arrives instead of cutting in. */
-.sel-sharp.sel-in { opacity: 0; }
-/* **A card being stood in for holds still** — the copy is a picture of it, taken where it sits. */
-.sel-on { transform: none !important; transition-property: none !important; }
 
 /* **One depth behind everything the switch covers.** The assistant and a dialog blurred by
    22px, the trailer by 26, the blur around your card by 13 — the same setting looked like a
