@@ -7397,7 +7397,9 @@ function paneDebrid() {
   return [
     el("p", { class: "option-desc", text: "A torrent stream has no web address of its own — the add-on publishes an info hash, and the file lives in a swarm. A browser can only reach swarm peers that speak WebRTC, which is why a torrent without a debrid account usually never starts. A debrid service fetches the torrent on its own servers and hands back a direct link, so it plays like any other stream." }),
     el("div", { class: "group-head" },
-      el("span", { class: "option-title", text: "Services" }),
+      // **Not "Services", and not "Debrid" either** — the pane's own tile says Debrid. These
+      // are the accounts that make a torrent stream playable.
+      el("span", { class: "option-title", text: "Torrent services" }),
       el("span", { class: "option-desc", text: active ? `Enabled services are tried in order; the first one that answers serves the stream. Right now: ${active[1]}.` : "Enable one and it takes over the torrent streams automatically. Paste a key, then press Check connection." }),
     ),
     ...DEBRID_SERVICES.map(([name, label, desc]) => keyRow("debrid", name, label, desc, state.debrid, KEY.debrid, "/debrid/verify")),
@@ -7491,9 +7493,9 @@ function paneSubtitles() {
       text: "A stream's own subtitle tracks are listed in the player. When it carries none — or carries one language and not yours — the player searches the services enabled below and plays the one you pick like any other subtitle. Each needs its own free key; the more you enable, the more titles are covered.",
     }),
     el("div", { class: "group-head" },
-      // **Not "Services".** Debrid's plate says that, and two plates with one name read as one
-      // list. These are the subtitle services.
-      el("span", { class: "option-title", text: "Subtitle services" }),
+      // **Not "Services".** Debrid's plate said that too, and two plates with one name read as
+      // one list. These are subtitles.
+      el("span", { class: "option-title", text: "Subtitles" }),
       el("span", {
         class: "option-desc",
         text: active.length
@@ -7547,7 +7549,9 @@ function paneSubtitles() {
       el("span", { class: "option-title", text: "Language" }),
       el("span", { class: "option-desc", text: "Which language the player asks for. It follows what the app is browsed in until you pick one here." }),
     ),
-    el("div", { class: "source-form" }, picker.node),
+    el("div", { class: "provider" },
+      el("div", { class: "source-form" }, picker.node),
+    ),
   ];
 }
 
@@ -8374,7 +8378,8 @@ function panePosters() {
     // pane's own board and the chosen one wears the accent. **No heading above them** —
     // the tile you are on says which pane this is — and the line that explains what the
     // choice does sits above them instead.
-    groupHead("Poster service"),
+    // **Not "Poster service"** — the tile above already says Posters.
+    groupHead("Artwork"),
     ...POSTER_SERVICES.map(([id, label, url, desc]) =>
       radioRow(current === id, "posterservice", label, desc, () => savePosters({ source: id, pattern: url, enabled: id !== "none" })),
     ),
@@ -8444,7 +8449,7 @@ function paneProviders() {
   };
   return [
     el("p", { class: "option-desc", text: "Paste a key and enable a provider. Catalogs keep the same names; the provider changes what is behind them." }),
-    groupHead("Metadata"),
+    groupHead("Catalog & metadata"),
     providerRow("tmdb"),
     providerRow("tvdb"),
     el("div", { class: "group-head" },
@@ -8498,7 +8503,8 @@ function paneRatings() {
     // inside one "Ratings service" panel, which read as a list inside a list; as boxes
     // they sit in the pane's own board, and the chosen one wears the accent like every
     // other choice in Settings.
-    groupHead("Rating source"),
+    // **Not "Rating source"** — the tile above already says Ratings, and the label repeated it.
+    groupHead("Source"),
     ...RATING_SERVICES.filter(([id]) => id === "none").map(pick),
     // **One box per service, stacked full width — MDBList first.** They were drawn two to
     // a line, half the pane each, which cut both labels short and made the two services
@@ -8732,7 +8738,7 @@ function paneAi() {
     writeJSON(KEY.speak, state.speak);
   };
   return [
-    groupHead("Ask AI"),
+    groupHead("Ask box"),
     toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
@@ -9266,7 +9272,9 @@ function dropdown(options, initial, onPick, caption = "") {
 
 /** One source section (Add-ons or Plugins), with server-side inspection. */
 function sourceSection(title, hint, types, list) {
-  const picker = dropdown(types, types[0][0]);
+  // **One kind of source, so no picker to pick it.** The dropdown held a single entry and asked
+  // a question with one answer; it is gone, and the type is the only one there is.
+  const picker = types.length > 1 ? dropdown(types, types[0][0]) : null;
   const urlInput = el("input", { class: "text-input focusable", type: "text", placeholder: "https://…" });
   const add = el("button", {
     class: "btn primary focusable",
@@ -9278,7 +9286,7 @@ function sourceSection(title, hint, types, list) {
       // **The row says what it is doing from the first frame**, and it is read right
       // away: a source added here used to sit on "Reading this source's providers…"
       // until something happened to read it, which is the row that never moved.
-      state.sources.push({ type: picker.value(), url, status: { ok: false, text: "Reading the manifest…" } });
+      state.sources.push({ type: picker ? picker.value() : types[0][0], url, status: { ok: false, text: "Reading the manifest…" } });
       urlInput.value = "";
       saveSources();
       render();
@@ -9288,7 +9296,7 @@ function sourceSection(title, hint, types, list) {
   });
   return [
     el("p", { class: "option-desc", text: hint }),
-    el("div", { class: "source-form" }, picker.node, urlInput, add),
+    el("div", { class: "source-form" }, picker ? picker.node : null, urlInput, add),
     list.length
       ? el("div", { class: "sources" }, ...list.map((s, pos) => sourceRow(s, state.sources.indexOf(s), list, pos)))
       : el("p", { class: "option-desc", text: "None added yet." }),
@@ -9516,7 +9524,6 @@ function paneAddonsPlugins() {
   // **Add-ons only.** The Nuvio plugin half of this pane is gone: a plugin is code
   // the Nuvio app runs itself, and the server-side runner for it was removed with it.
   return [
-    groupHead("Stremio add-ons"),
     ...sourceSection("Stremio add-ons", "A Stremio add-on URL is read on the server (manifest.json), so it works even when the host sends no CORS headers — its catalogs, metadata, streams and subtitles are listed as providers. A stream the add-on publishes as a torrent is played through your debrid account when one is set up in Settings → Debrid — a browser cannot join a public swarm on its own, so that account is what makes those streams play.", ADDON_TYPES, addons),
   ];
 }
