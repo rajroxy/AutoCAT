@@ -4580,6 +4580,12 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
    are the grey plate they always were: `--panel`, its own padding, the app's radius, and no
    hairline. The hairline was what read as a box drawn around the box. */
 .settings-pane .site-row { padding: 14px 16px; border-radius: 12px; }
+/* **A row is the one box in the plate.** It sits inside a plate now, so it takes the plate's
+   lighter fill the way every other card does — and its name reads as text at rest instead of
+   a field drawn inside a box inside a box. Pressing Edit makes it a field again. */
+.settings-pane .option-group > .site-row { background: var(--panel-2); }
+.settings-pane .option-group > .site-row .text-input { background: transparent; padding: 8px 0; }
+.settings-pane .option-group > .site-row.editing .text-input { background: rgba(255, 255, 255, 0.07); padding: 10px 14px; }
 
 /* **The mark is drawn here, not by the platform.** A native checkbox and radio arrive with the
    browser's own hairline outline — a light circle and a light square drawn on top of the app's

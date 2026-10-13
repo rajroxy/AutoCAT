@@ -7405,10 +7405,10 @@ function paneDebrid() {
   return [
     el("p", { class: "option-desc", text: "A torrent stream has no web address of its own — the add-on publishes an info hash, and the file lives in a swarm. A browser can only reach swarm peers that speak WebRTC, which is why a torrent without a debrid account usually never starts. A debrid service fetches the torrent on its own servers and hands back a direct link, so it plays like any other stream." }),
     el("div", { class: "group-head" },
-      // **The accounts, said plainly.** "Services" was generic, "Torrent services" named the
-      // stream instead of the thing you sign in to, and "Memberships" was a word nobody uses
-      // for Real-Debrid. These are debrid accounts.
-      el("span", { class: "option-title", text: "Debrid accounts" }),
+      // **What the accounts are for.** "Services" was too thin and "Accounts" is the pane
+      // beside this one; what a debrid account buys you is a torrent someone else has already
+      // fetched — a cached torrent.
+      el("span", { class: "option-title", text: "Cached torrents" }),
       el("span", { class: "option-desc", text: active ? `Enabled services are tried in order; the first one that answers serves the stream. Right now: ${active[1]}.` : "Enable one and it takes over the torrent streams automatically. Paste a key, then press Check connection." }),
     ),
     ...DEBRID_SERVICES.map(([name, label, desc]) => keyRow("debrid", name, label, desc, state.debrid, KEY.debrid, "/debrid/verify")),
@@ -8748,7 +8748,7 @@ function paneAi() {
     writeJSON(KEY.speak, state.speak);
   };
   return [
-    groupHead("Helper"),
+    groupHead("Help me"),
     toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
@@ -8815,7 +8815,7 @@ function paneContent() {
     // subjects, and they used to run into each other with nothing between them: this
     // pane's heading was one of the kind that was switched off. Both are group heads now,
     // so "how often?" starts a group of its own right under the one above it.
-    groupHead("Adult content"),
+    groupHead("Adult & kids"),
     radioRow(state.safe, "safe", "SFW", "Safe for work — adult titles excluded (TMDB default).", () => {
       state.safe = true; writeJSON(KEY.safe, true); pushSettings({ safe: true }); render();
     }),
@@ -9754,10 +9754,10 @@ function paneCustomRows() {
       el("span", { class: "option-title", text: "Rows" }),
       el("span", { class: "option-desc", text: "Rename in place, reorder with the arrows, or delete a row with everything in it." }),
     ),
-    // **Each row is a card**, the way a debrid service or an add-on is: the plate holds the
-    // list, and every row in it is its own box.
+    // **A row is the box.** It was wrapped in a card as well, which put a box inside a box
+    // inside the plate for one line; `.site-row` is already a plate of its own.
     ...(rows.length
-      ? rows.map((row, index) => el("div", { class: "provider" }, rowEditor(row, index)))
+      ? rows.map((row, index) => rowEditor(row, index))
       : [el("p", { class: "option-desc", text: "No rows yet." })]),
   ];
 }
