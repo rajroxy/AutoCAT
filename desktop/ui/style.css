@@ -1144,13 +1144,6 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 /* ------------------------------------------------------------------- sources */
 
 .source-form { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 16px; }
-/* **A row you added is one line.** The editor's own form keeps the room the pane's forms want
-   between them; inside a row that room was empty space, and the row grew to twice the height
-   of the switch rows it sits between. A row is a name, two arrows and two buttons — the same
-   height as `Play the next episode automatically`. */
-.custom-row .source-form { margin: 0; }
-.custom-row { padding: 8px 12px; }
-
 .text-input {
   font: inherit;
   font-size: 14px;
@@ -4620,6 +4613,13 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .settings-pane .option-group > .site-row { background: var(--panel-2); }
 .settings-pane .option-group > .site-row .text-input { background: transparent; padding: 8px 0; }
 .settings-pane .option-group > .site-row.editing .text-input { background: rgba(255, 255, 255, 0.07); padding: 10px 14px; }
+/* **A row you added is one line, like the switch rows above it.** The editor's own form keeps
+   the 16px the pane's forms want between them, and the settings row is padded for a name, a
+   domain and a row of buttons — inside the Library that room was empty space, and a row with a
+   name, two arrows and two buttons stood twice as tall as `Play the next episode
+   automatically` next to it. Same shape as an option row now, because that is what it is. */
+.settings-pane .site-row.custom-row { padding: 8px 12px; }
+.settings-pane .site-row.custom-row .source-form { margin: 0; }
 
 /* **The mark is drawn here, not by the platform.** A native checkbox and radio arrive with the
    browser's own hairline outline — a light circle and a light square drawn on top of the app's
