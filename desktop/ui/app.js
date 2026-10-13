@@ -2502,13 +2502,13 @@ function signInCard() {
       { class: "provider", id: "account" },
       groupHead("Sign in"),
       said ? el("p", { class: "signin-said", text: said }) : null,
-      el("div", { class: "account-box account-new", id: "account-new" }, accountForm()),
+      el("div", { class: "account-new", id: "account-new" }, accountForm()),
     ),
     el(
       "div",
       { class: "provider", id: "account-list-box" },
       groupHead("Accounts"),
-      rows.length ? el("div", { class: "account-box account-list" }, ...rows) : null,
+      rows.length ? el("div", { class: "account-list" }, ...rows) : null,
       current
         ? el("button", {
             class: "btn subtle focusable",
@@ -6839,17 +6839,22 @@ function pinButtons(item) {
 function libraryButton(item) {
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
   const anyInside = rows.some((row) => inCustomRow(item, row.id));
-  const menu = el("div", { class: "library-pop-menu dropdown-menu", hidden: true, role: "menu" });
+  // **The rows, in the page, as the app's own chips.** This was a fixed-position dropdown
+  // menu that opened on *hover* — so resting on the button opened a menu you had not asked
+  // for, and on a remote there was no way to walk it and come back. The row labels are a
+  // line of chips under the button now: press the button to show them, move with the
+  // arrows (or the wheel), press again on a row to put the title in it. There is nothing
+  // floating over the page and nothing to dismiss.
+  const picker = el("div", { class: "library-picker", hidden: true });
   for (const row of rows) {
     const inside = inCustomRow(item, row.id);
-    menu.append(
+    picker.append(
       el("button", {
-        class: `dropdown-item focusable${inside ? " active" : ""}`,
+        class: `chip focusable${inside ? " active" : ""}`,
         type: "button",
-        role: "menuitem",
-        text: inside ? `${row.name} · added` : row.name,
+        text: inside ? `${row.name} \u2713` : row.name,
         title: inside ? `Take it out of ${row.name}` : `Put this in ${row.name}`,
-        onclick: () => { close(); toggleCustomRow(item, row.id); },
+        onclick: (event) => { event.stopPropagation(); toggleCustomRow(item, row.id); },
       }),
     );
   }
@@ -6862,55 +6867,31 @@ function libraryButton(item) {
     title: anyInside ? "In your Library — pick a row to move it, or the row it is in to take it out" : "Add this to one of your Library rows",
     text: anyInside ? "In your Library" : "Add to Library",
   });
-  const root = el("div", { class: "library-pop" }, btn, menu);
+  const root = el("div", { class: "library-pop" }, btn, picker);
   const open = () => {
-    if (!menu.hidden) return;
-    menu.hidden = false;
+    if (!picker.hidden) return;
+    picker.hidden = false;
     btn.setAttribute("aria-expanded", "true");
     root.classList.add("open");
-    placeMenu();
+    // **The first row is where the cursor goes.** Pressing the button is asking to pick a
+    // row, so the picker's own first chip takes the focus and the arrows are already on it.
+    picker.querySelector("button")?.focus();
   };
   const close = () => {
-    if (menu.hidden) return;
-    menu.hidden = true;
+    if (picker.hidden) return;
+    picker.hidden = true;
     btn.setAttribute("aria-expanded", "false");
     root.classList.remove("open");
+    btn.focus();
   };
-  // **Under the button, on the page.** `.library-pop-menu` is `position: fixed` (see the
-  // stylesheet), so the row of four can never clip it and the list is never squeezed into
-  // the button's own box. A short list is capped and scrolls, which is what lets a long
-  // set of rows be walked with the wheel rather than pushing the page around.
-  const placeMenu = () => {
-    const box = btn.getBoundingClientRect();
-    menu.style.left = `${Math.round(box.left)}px`;
-    menu.style.minWidth = `${Math.round(box.width)}px`;
-    const below = window.innerHeight - box.bottom - 12;
-    const above = box.top - 12;
-    const useBelow = below >= Math.min(240, above) || below >= 160;
-    menu.style.maxHeight = `${Math.max(140, Math.round(useBelow ? below : above))}px`;
-    if (useBelow) {
-      menu.style.top = `${Math.round(box.bottom + 8)}px`;
-      menu.style.bottom = "auto";
-    } else {
-      menu.style.bottom = `${Math.round(window.innerHeight - box.top + 8)}px`;
-      menu.style.top = "auto";
-    }
-  };
-  // The hover is what the user asked for by name: resting on the button shows the rows.
-  root.addEventListener("pointerenter", open);
-  root.addEventListener("pointerleave", (event) => {
-    // Leaving for the menu itself is not leaving.
-    if (menu.contains(event.relatedTarget)) return;
-    close();
-  });
-  btn.addEventListener("focus", open);
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    if (menu.hidden) open();
+    if (picker.hidden) open();
     else close();
   });
-  document.addEventListener("pointerdown", (event) => { if (!root.contains(event.target)) close(); }, true);
-  window.addEventListener("resize", () => { if (!menu.hidden) placeMenu(); });
+  // Escape backs out to the button; a press anywhere else closes the line.
+  root.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } });
+  document.addEventListener("pointerdown", (event) => { if (!root.contains(event.target)) { picker.hidden = true; btn.setAttribute("aria-expanded", "false"); root.classList.remove("open"); } }, true);
   return root;
 }
 
@@ -7359,22 +7340,61 @@ function ratingsRow(ratings, note, meta) {
 function myRatingGrid(meta) {
   const key = watchKey(meta);
   const mine = Number((state.ratings?.mine || {})[key]) || 0;
-  return el("div", { class: "my-rating", id: "my-rating" },
-    el("span", { class: "my-rating-label", text: mine ? `Your rating · ${mine}/10` : "Your rating" }),
-    el("div", { class: "my-rating-grid" },
-      ...Array.from({ length: 10 }, (_, i) => {
-        const value = i + 1;
-        return el("button", {
-          class: `my-rating-btn focusable${mine === value ? " on" : ""}`,
-          type: "button",
-          text: String(value),
-          "aria-pressed": String(mine === value),
-          title: mine === value ? "Press again to take the rating back" : `Rate this ${value}/10`,
-          onclick: () => setMyRating(meta, value),
-        });
-      }),
-    ),
-  );
+  // **The grid is one control, not ten.** Ten focus stops made the D-pad walk through
+  // every score on the way to the next thing on the page, and each number had to be landed
+  // on exactly. It is one stop now: press it — a click, or OK on a remote — and the arrows
+  // (or the wheel, or a middle-button scroll) move the score, then a press writes it. A
+  // mouse still lands on a number directly, because a number is what a mouse clicks.
+  let armed = mine || 0;
+  const label = el("span", { class: "my-rating-label", text: "" });
+  const grid = el("div", {
+    class: "my-rating-grid",
+    role: "slider",
+    tabindex: "0",
+    "aria-label": "Your rating",
+    "aria-valuemin": "1",
+    "aria-valuemax": "10",
+  });
+  const buttons = Array.from({ length: 10 }, (_, i) => {
+    const value = i + 1;
+    return el("button", {
+      class: "my-rating-btn",
+      type: "button",
+      tabindex: "-1",
+      text: String(value),
+      title: `Rate this ${value}/10`,
+      onclick: (event) => { event.stopPropagation(); setMyRating(meta, value); },
+    });
+  });
+  grid.append(...buttons);
+  const paint = () => {
+    label.textContent = armed ? `Your rating · ${armed}/10` : "Your rating";
+    grid.setAttribute("aria-valuenow", String(armed || 0));
+    buttons.forEach((b, i) => b.classList.toggle("on", i + 1 === armed));
+  };
+  const step = (by) => {
+    armed = Math.min(10, Math.max(1, (armed || (by > 0 ? 0 : 11)) + by));
+    paint();
+  };
+  grid.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); step(1); return; }
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); step(-1); return; }
+    // **A second press is the answer.** OK / Enter / space writes the score the arrows
+    // landed on; pressing it again on the same number takes the rating back, which is the
+    // only way to unrate a title without walking to a "clear" control.
+    if (event.key === "Enter" || event.key === " " || event.key === "Select") {
+      event.preventDefault();
+      if (armed) setMyRating(meta, armed);
+    }
+  });
+  grid.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    step(event.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  // The first press arms the grid and nothing else — the score is the second press.
+  grid.addEventListener("click", () => { if (!armed) { armed = mine || 5; paint(); } });
+  paint();
+  return el("div", { class: "my-rating", id: "my-rating" }, label, grid);
 }
 
 /** Keep a rating, and hand it to the trackers (see `/tracking/rate`). */

@@ -784,8 +784,8 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
    like the thing you had chosen. Only the field lights the bar now. */
 .search-bar:has(.search-input:focus) {
   background: var(--panel);
-  border-color: rgba(var(--accent-rgb), 0.75);
-  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.2);
+  border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.75);
+  box-shadow: 0 0 0 3px var(--select, var(--accent));
 }
 /* The magnifier: same 24px stroke glyph the rest of the controls draw. */
 .search-glyph { flex: none; display: flex; color: var(--faint); }
@@ -821,7 +821,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 .search-bar:has(.search-input:focus) {
   background: var(--panel);
   border-color: transparent;
-  box-shadow: var(--hl);
+  box-shadow: 0 0 0 3px var(--select, var(--accent));
 }
 /* A named control, not an empty square: the funnel plus the word, in the app's own
    button shape. */
@@ -965,8 +965,8 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   transition: background 0.15s ease, color 0.15s ease;
 }
 .filter-chip:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
-.filter-chip.active { background: var(--accent); color: #0b0c10; }
-.filter-chip.active:hover { background: var(--accent); color: #0b0c10; }
+.filter-chip.active { background: var(--select, var(--accent)); color: #0b0c10; }
+.filter-chip.active:hover { background: var(--select, var(--accent)); color: #0b0c10; }
 .result-head { margin: 22px 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 /* Search results are two lists — Movies, then Shows — so they need a gap. */
 .search-group + .search-group { margin-top: 10px; }
@@ -1037,8 +1037,8 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   color: var(--muted);
   cursor: pointer;
 }
-.model-chip:hover { color: var(--text); border-color: rgba(var(--accent-rgb), 0.5); }
-.model-chip.suggested { border-color: rgba(var(--accent-rgb), 0.45); color: #e8dfc8; }
+.model-chip:hover { color: var(--text); border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.5); }
+.model-chip.suggested { border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.45); color: #e8dfc8; }
 
 /* A named group inside a settings pane, with its own rule under it. */
 .group-head { display: flex; flex-direction: column; gap: 2px; margin: 22px 0 12px; }
@@ -1778,7 +1778,10 @@ textarea:focus-visible {
 .cal-cell.blank { border: 0; background: transparent; cursor: default; }
 .cal-cell:hover { border-color: rgba(var(--accent-rgb), 0.5); }
 .cal-cell.today { background: var(--accent); color: #0b0b0b; border-color: transparent; }
-.cal-cell.selected { background: rgba(var(--accent-rgb), 0.14); border-color: var(--accent); }
+/* **The day you opened is a selection, not the highlight.** Today is where the app is (the
+   accent); the day you clicked is a thing you *chose*, which is what the selection colour
+   is for. */
+.cal-cell.selected { background: var(--select, var(--accent)); color: #0b0b0b; border-color: transparent; }
 .cal-day { font-size: 14px; font-weight: 800; }
 .cal-count { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
 .cal-count.empty { color: transparent; }
@@ -1924,7 +1927,7 @@ textarea:focus-visible {
 }
 .chip-clamped .chip-track > * { scroll-snap-align: start; }
 .chip-clamped .chip-track::-webkit-scrollbar { width: 0; height: 0; }
-.chip-clamped .chip-track:focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.5); outline-offset: 4px; border-radius: 10px; }
+.chip-clamped .chip-track:focus-visible { outline: 2px solid rgba(var(--select-rgb, var(--accent-rgb)), 0.6); outline-offset: 4px; border-radius: 10px; }
 /* **The arrows sit at the right edge.** They are a full-width strip that pushes its
    two buttons to the right, so a clamped line (the search filters, a card's tag
    line) keeps its arrows on the right where the eye already is. */
@@ -1958,7 +1961,7 @@ textarea:focus-visible {
    flips it to the solid plate so a click lands with one. */
 .chip-arrow:hover:not(:disabled) { background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); color: #fff; box-shadow: none; }
 .chip-arrow:focus-visible { outline: none; box-shadow: none; background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); }
-.chip-arrow:active:not(:disabled) { background: var(--accent); color: #0b0b0b; box-shadow: none; transform: none; }
+.chip-arrow:active:not(:disabled) { background: var(--select, var(--accent)); color: #0b0b0b; box-shadow: none; transform: none; }
 /* An arrow at its own end of the list has nowhere to go, and says so. */
 .chip-arrow.at-end, .chip-arrow:disabled { opacity: 0.32; cursor: default; }
 .chip-arrow .glyph svg { width: 15px; height: 15px; }
@@ -2016,12 +2019,12 @@ textarea:focus-visible {
   text-align: center;
   cursor: pointer;
 }
-.alpha:hover:not(:disabled) { background: rgba(var(--accent-rgb), 0.2); color: #fff; }
-.alpha:focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.6); outline-offset: 1px; }
+.alpha:hover:not(:disabled) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.2); color: #fff; }
+.alpha:focus-visible { outline: 2px solid rgba(var(--select-rgb, var(--accent-rgb)), 0.6); outline-offset: 1px; }
 .alpha.off { opacity: 0.3; }
 /* A letter that is not loaded yet is dimmed, never dead: picking it pages the row
    in until that letter's titles arrive. */
-.alpha.off:hover { background: rgba(var(--accent-rgb), 0.14); }
+.alpha.off:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14); }
 /* A short window gets a shorter column rather than a cut-off one: 26 letters at
    18px plus the plate is ~507px, which fits anywhere above a small laptop. */
 @media (max-height: 640px) {
@@ -2255,7 +2258,7 @@ body { background: var(--ink); }
 
 /* The chosen letter in the rail is filled, so the filter is visible on the rail
    itself and not only in the line above the grid. */
-.alpha.on { background: var(--accent); color: #0b0b0b; }
+.alpha.on { background: var(--select, var(--accent)); color: #0b0b0b; }
 
 /* Explore's chosen letter: what is being shown, and the way back. */
 .explore-filter {
@@ -4081,7 +4084,8 @@ select option:hover {
 .search-filter-btn:hover, .search-filter-btn:focus-visible {
   background: var(--accent);
   color: #0b0c10;
-  box-shadow: none;
+  /* The plate stays the plate; the ring it answers with is the selection colour. */
+  box-shadow: 0 0 0 3px var(--select, var(--accent));
 }
 /* **A chip answers in the selection colour, not the highlight.** These are the pills you
    *choose* between — a genre, a catalog tag, a filter — and they were being tinted from the
@@ -4518,7 +4522,10 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .search-bar:has(.search-input:focus-visible),
 .search-bar:has(.search-input:focus) {
   background: var(--panel);
-  box-shadow: var(--hl);
+  /* **The bar's ring is the selection colour.** It wore the app's own highlight — the
+     colour the app is tinted with — while the thing the ring is *for* is the selection:
+     the field you are in. Two colours for "you are here" in one control. */
+  box-shadow: 0 0 0 3px var(--select, var(--accent));
 }
 
 /* **A person's card rings its face, not its name.**
@@ -4947,12 +4954,17 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    not make them pale (the control fill would paint the selection colour over the highlight,
    so a filled cell flickers between two colours as you point at it). */
 .cal-cell.today,
-.cal-cell.selected,
 .cal-cell.today:hover,
-.cal-cell.selected:hover,
-.cal-cell.today:focus-visible,
-.cal-cell.selected:focus-visible {
+.cal-cell.today:focus-visible {
   background-color: var(--accent);
+  background-image: none;
+  color: #0b0b0b;
+  box-shadow: none;
+}
+.cal-cell.selected,
+.cal-cell.selected:hover,
+.cal-cell.selected:focus-visible {
+  background-color: var(--select, var(--accent));
   background-image: none;
   color: #0b0b0b;
   box-shadow: none;
@@ -4965,9 +4977,9 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    is the thing you came to do. It answers the cursor with the ring and a light fill of its
    own; Play and Speak stay plates. */
 #title-assistant:is(:hover, :focus-visible, :has(:focus-visible)) {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
   background-image: none;
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  box-shadow: none;
 }
 
 /* **The search bar answers nothing by itself.** Pointing at it did nothing you asked for —
@@ -5032,4 +5044,87 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 
 /* **The line under the title's buttons gets its room.** The row read as part of the
    overview above it; it starts further down the column now, at the banner's own rhythm. */
-.title-hero .title-actions { margin: 72px 0 26px; }
+.title-hero .title-actions { margin: 96px 0 26px; }
+
+/* ============================================================================
+   **The episode row: the ring on the cover, the fill on the play.**
+   ----------------------------------------------------------------------------
+   `.ep-row` was in the controls list, so pointing at an episode filled the whole
+   row *and* the cover inside it — a wash across the number, the still, the title and
+   the description, on a row whose only pressable thing is the picture. The row is a
+   row: it does not answer the cursor. The cover rings in the selection colour and
+   the play mark on it fills, which is the same answer a card gives.
+   ============================================================================ */
+.ep-row,
+.ep-row:hover,
+.ep-row:focus-visible,
+.ep-row:has(:focus-visible) {
+  background-color: var(--panel);
+  box-shadow: none;
+}
+.ep-row .ep-still,
+.ep-row .ep-card-art {
+  border-radius: 10px;
+}
+.ep-row .ep-still:hover,
+.ep-row .ep-still:focus-visible,
+.ep-row .ep-card-art:hover,
+.ep-row .ep-card-art:focus-visible,
+.ep-row .ep-card-art:has(:focus-visible) {
+  outline: none;
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+}
+/* **The play mark is the thing you press, so it is the thing that fills.** It sat in the
+   accent; the play badge on an episode is a choice you make, like every other fill. */
+.ep-play {
+  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.92);
+  color: #fff;
+}
+.ep-card-art:hover .ep-play,
+.ep-card-art:focus-visible .ep-play,
+.player-center:hover, .player-center:focus-visible {
+  background: var(--select, var(--accent));
+  color: #0b0b0b;
+}
+
+/* **A calendar tile's date tag is the selection colour.** It was white on black, which sat
+   on the artwork as a foreign object; it is the pill every other tag in the app is. */
+.cal-tag {
+  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.92);
+  color: #0b0b0b;
+}
+
+/* **The Library's rows, in the page.** The picker is the app's own chip line under the
+   button — press Add to Library, walk the labels with the arrows or the wheel, press one to
+   put the title in it. Nothing floats, nothing is dismissed. */
+.library-pop { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.library-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.library-picker[hidden] { display: none; }
+
+/* **The rating grid is one control.** The cursor says so, and the ring it answers with is
+   the selection colour — the same ring the field and the chosen row take. */
+.my-rating-grid { cursor: pointer; border-radius: 12px; }
+.my-rating-grid:hover { background: rgba(255, 255, 255, 0.04); }
+.my-rating-grid:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--select, var(--accent)); }
+.my-rating-btn { cursor: pointer; }
+
+/* **No up/down arrow anywhere wears the highlight.** The strip arrows and the editor's move
+   arrows answer in the selection colour or in grey, in every state, so the two colours in
+   the app keep their two meanings. */
+.chip-arrow,
+.vis-btn {
+  background-color: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+.chip-arrow:hover:not(:disabled),
+.chip-arrow:focus-visible,
+.chip-arrow:active:not(:disabled),
+.vis-btn:hover,
+.vis-btn:focus-visible {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  color: #fff;
+  box-shadow: none;
+  outline: none;
+}
+.chip-arrow:disabled, .chip-arrow.at-end { background-color: transparent; }
