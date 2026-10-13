@@ -70,7 +70,13 @@
    are tinted from `--accent-rgb` now, so the whole app's ruling changes with the accent
    the way the chips and buttons already do. Panels keep their neutral hairline: a
    border around a box is a box's edge, not a rule across the page. */
-:root { --rule: rgba(var(--accent-rgb), 0.55); --rule-soft: rgba(var(--accent-rgb), 0.16); }
+/* **A rule is a rule, not the accent.** The lines were tinted from the accent so the whole
+   app's ruling changed with the highlight; on a warm highlight that made every divider a
+   coloured bar — the one thing on a page that carries no meaning of its own wearing the
+   colour that means "you are on this". They are neutral now, and there is no taper at the
+   ends: a rule that fades out at both ends reads as a thinner, fading line rather than the
+   plain line between two things. */
+:root { --rule: rgba(255, 255, 255, 0.22); --rule-soft: rgba(255, 255, 255, 0.13); }
 hr { border: 0; height: 1px; background: var(--rule); }
 .topbar { border-bottom-color: var(--rule-soft); }
 .detail-row { border-bottom-color: var(--rule-soft); }
@@ -314,7 +320,7 @@ body {
      It was white at 55% — the one line in the top bar that stayed grey whatever colour
      the app was wearing, which is what "the vertical line does not follow the accent
      on different pages" was. */
-  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.2), var(--rule) 50%, rgba(var(--accent-rgb), 0.2));
+  background: var(--rule);
 }
 
 /* **The arrow's rule sits closer than the bar's own gap.** The topbar spaces its
@@ -588,9 +594,9 @@ body {
   .section-art { width: 100%; }
 }
 
-.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--accent-rgb), 0.13); color: #e8dfc8; border: 0; font-family: inherit; }
+.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--select-rgb, var(--accent-rgb)), 0.13); color: #e8dfc8; border: 0; font-family: inherit; }
 button.chip { cursor: pointer; }
-button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
+button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26); color: #fff; }
 
 .cat-row { margin-bottom: 28px; }
 
@@ -772,7 +778,11 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 .search-bar:hover { background: var(--panel); border-color: rgba(255, 255, 255, 0.14); }
-.search-bar:focus-within {
+/* **The bar's highlight is for the field, not for anything inside it.** `:focus-within`
+   fired for *any* control in the row, so pressing **Filters** lit the whole bar as if you
+   had clicked into the search box — two controls answering one press, and the bar looked
+   like the thing you had chosen. Only the field lights the bar now. */
+.search-bar:has(.search-input:focus) {
   background: var(--panel);
   border-color: rgba(var(--accent-rgb), 0.75);
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.2);
@@ -933,7 +943,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.chip-more:hover { color: #fff; border-color: rgba(var(--accent-rgb), 0.55); background: rgba(var(--accent-rgb), 0.12); }
+.chip-more:hover { color: #fff; border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.55); background: rgba(var(--select-rgb, var(--accent-rgb)), 0.12); }
 .chip-more .glyph svg { width: 13px; height: 13px; transition: transform 0.18s ease; }
 .chip-more.up .glyph svg { transform: rotate(180deg); }
 .filter-row .chip-more { margin-top: 2px; }
@@ -989,7 +999,7 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
 .source-providers { padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); margin-bottom: 12px; }
 .source-providers-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--accent-rgb), 0.13); color: #e8dfc8; }
+.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--select-rgb, var(--accent-rgb)), 0.13); color: #e8dfc8; }
 .empty-panel { padding: 26px; border: 1px dashed rgba(255, 255, 255, 0.16); border-radius: var(--radius); display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
 
 /* ------------------------------------------------------------- providers */
@@ -1245,8 +1255,8 @@ button.chip:hover { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
   transition: background 0.15s ease, color 0.15s ease;
 }
 .tag:hover { background: rgba(255, 255, 255, 0.13); color: var(--text); }
-.tag.on { background: rgba(var(--accent-rgb), 0.9); color: #10110f; }
-.tag.on:hover { background: var(--accent); }
+.tag.on { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.9); color: #10110f; }
+.tag.on:hover { background: var(--select, var(--accent)); }
 
 /* No scrollbar is drawn on a row: the row scrolls with the wheel (see
    `horizontalWheel` in app.js) and with the D-pad, and a chunky bar under every
@@ -1641,7 +1651,7 @@ textarea:focus-visible {
      page on a dim screen; it is two pixels and nearly solid, with the soft ends kept. */
   height: 2px;
   margin: 4px 0 22px;
-  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.95) 12%, rgba(var(--accent-rgb), 0.95) 88%, rgba(var(--accent-rgb), 0.2));
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* ------------------------------------------------------ Live TV & Sports */
@@ -1767,7 +1777,7 @@ textarea:focus-visible {
 }
 .cal-cell.blank { border: 0; background: transparent; cursor: default; }
 .cal-cell:hover { border-color: rgba(var(--accent-rgb), 0.5); }
-.cal-cell.today { border-color: rgba(var(--accent-rgb), 0.7); }
+.cal-cell.today { background: var(--accent); color: #0b0b0b; border-color: transparent; }
 .cal-cell.selected { background: rgba(var(--accent-rgb), 0.14); border-color: var(--accent); }
 .cal-day { font-size: 14px; font-weight: 800; }
 .cal-count { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
@@ -2358,7 +2368,7 @@ body { background: var(--ink); }
   font-weight: 600;
 }
 .chip:hover, .model-chip:hover { background: rgba(255, 255, 255, 0.17); }
-.chip.active, .filter-chip.active { background: var(--accent); color: #0b0b0b; }
+.chip.active, .filter-chip.active { background: var(--select, var(--accent)); color: #0b0b0b; }
 
 /* **One voice for every label.** Captions were small-caps with letter-spacing in
    nineteen places — the search result heads, the filter labels, the card
@@ -2440,15 +2450,17 @@ body { background: var(--ink); }
 /* A chosen row, a hovered result, a recommended model, a pin: a fill, not a border. */
 .option:has(input:checked) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14); }
 .result:hover { background: var(--panel-2); }
-.model-chip.suggested { background: rgba(var(--accent-rgb), 0.18); }
+.model-chip.suggested { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.18); }
 .btn.pin { background: rgba(255, 255, 255, 0.1); }
 
 /* The month grid: flat blocks on the page instead of twenty-eight hairlines, with
    the accent marking today and the day you picked. */
 .cal-cell { border: 0; background: var(--panel-2); }
-.cal-cell:hover { background: rgba(var(--accent-rgb), 0.16); }
-.cal-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
-.cal-cell.selected { background: rgba(var(--accent-rgb), 0.2); box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-cell:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.16); }
+/* **Today is filled, like Home and Play.** A 2px ring drawn *inside* the cell read as a box
+   around a number rather than as the day the app is on; the chosen day and today wear the
+   highlight at full strength, with ink on it. */
+.cal-cell.today, .cal-cell.selected { background: var(--accent); color: #0b0b0b; box-shadow: none; }
 
 /* An empty state is a panel, not a dotted box. */
 .empty-panel { border: 0; background: var(--panel); }
@@ -4005,7 +4017,7 @@ select option:hover {
 /* The day you picked is *filled* with the highlight; today is *ringed* by it — a hairline
    at 45% was neither, and read as a pale pink box on a day that means something. */
 .cal-cell.selected { box-shadow: none; background: rgba(var(--accent-rgb), 0.22); }
-.cal-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-cell.today { background: var(--accent); color: #0b0b0b; box-shadow: none; }
 
 /* **The buttons that are filled stay filled.** Movies/Shows and the active chips are
    solid accent plates with dark text — and a plate stays a plate while it is hovered. */
@@ -4071,7 +4083,11 @@ select option:hover {
   color: #0b0c10;
   box-shadow: none;
 }
-button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); color: #fff; }
+/* **A chip answers in the selection colour, not the highlight.** These are the pills you
+   *choose* between — a genre, a catalog tag, a filter — and they were being tinted from the
+   accent while the chosen row beside them used the selection colour, so the app had two
+   "this is on" colours in one line of the same screen. */
+button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.24); color: #fff; }
 
 /* **Menus.** The row under the cursor inside an open menu is a tinted plate; the button
    that opens it wears the ring like everything else. */
@@ -4089,10 +4105,18 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
 
 /* **A field you are typing in** shows it with its fill, not with a box around it. */
-.text-input:focus, select:focus, select.text-input:focus, .search-input:focus {
+.text-input:focus, select:focus, select.text-input:focus {
   outline: none;
   box-shadow: none;
   background: rgba(255, 255, 255, 0.13);
+}
+/* **The search field is not a filled square.** It took the same "a field you are typing in
+   is filled" wash as a settings box, which inside the bar's own panel drew a lighter
+   rectangle — the square in the screenshot. The bar is the field's box; the text sits on it. */
+.search-input:focus, .search-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 
@@ -4491,8 +4515,6 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .search-bar .search-input:hover,
 .search-bar .search-input:focus,
 .search-bar .search-input:focus-visible { outline: none !important; box-shadow: none !important; }
-.search-bar:hover,
-.search-bar:focus-within,
 .search-bar:has(.search-input:focus-visible),
 .search-bar:has(.search-input:focus) {
   background: var(--panel);
@@ -4845,7 +4867,7 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 /* **The plates that are already filled ring.** Play, Ask Assistant and Speak are solid
    accent plates: a wash of the selection colour under a solid plate is invisible, so the
    three of them answer the cursor with the outline instead — the same answer a card gives. */
-:is(.btn.primary, .voice-pad, #title-assistant):is(:hover, :focus-visible, :has(:focus-visible)) {
+:is(.btn.primary, .voice-pad):is(:hover, :focus-visible, :has(:focus-visible)) {
   /* The plate stays the plate — Play does not go pale under the cursor — and the ring is
      drawn with a hair of the page between the two, so it reads as an outline around the
      button rather than as a slightly different orange edge. */
@@ -4911,3 +4933,103 @@ button.chip:not(.active):hover { background: rgba(var(--accent-rgb), 0.24); colo
 .btn.pin.custom.active, .btn.pin.custom.active:hover {
   box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
 }
+
+/* ============================================================================
+   **The last word: the few answers that must not be talked out of.**
+   ----------------------------------------------------------------------------
+   Every rule here has a twin further up the file — the control fill, the card ring, the
+   bar's own highlight — and each one is the statement that wins, in one place, so nothing
+   has to be hunted down a second time when a later pass narrows something.
+   ============================================================================ */
+
+/* **The chosen day is a plate, not a box.** Today and the day you opened wear the highlight
+   at full strength — the same fill Home and Play wear — with ink on it, and the cursor does
+   not make them pale (the control fill would paint the selection colour over the highlight,
+   so a filled cell flickers between two colours as you point at it). */
+.cal-cell.today,
+.cal-cell.selected,
+.cal-cell.today:hover,
+.cal-cell.selected:hover,
+.cal-cell.today:focus-visible,
+.cal-cell.selected:focus-visible {
+  background-color: var(--accent);
+  background-image: none;
+  color: #0b0b0b;
+  box-shadow: none;
+}
+.cal-cell.today .cal-day, .cal-cell.selected .cal-day { color: #0b0b0b; }
+.cal-cell.today .cal-count, .cal-cell.selected .cal-count { color: rgba(11, 11, 11, 0.72); }
+
+/* **Ask Assistant is a button, not a plate.** It was drawn as a solid accent plate on hover
+   like Play and Speak — three solid buttons in one row, in the row where only one of them
+   is the thing you came to do. It answers the cursor with the ring and a light fill of its
+   own; Play and Speak stay plates. */
+#title-assistant:is(:hover, :focus-visible, :has(:focus-visible)) {
+  background-color: rgba(255, 255, 255, 0.08);
+  background-image: none;
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+}
+
+/* **The search bar answers nothing by itself.** Pointing at it did nothing you asked for —
+   the highlight belongs to the field, and the field is inside it. */
+.search-bar,
+.search-bar:hover { box-shadow: none; }
+.search-bar .search-input,
+.search-bar .search-input:hover,
+.search-bar .search-input:focus,
+.search-bar .search-input:focus-visible {
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+/* **The ratings row, and your own rating beside it.** The services' plates lead; the grid
+   of ten sits to the right of them, on the same line. */
+.ratings-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.my-rating { display: flex; flex-direction: column; gap: 8px; }
+.my-rating-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.my-rating-grid { display: grid; grid-template-columns: repeat(10, 30px); gap: 4px; }
+.my-rating-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+/* The score you put on it is the answer, so it is the filled plate — the same treatment a
+   chosen row takes, in the selection colour. */
+.my-rating-btn.on,
+.my-rating-btn.on:hover,
+.my-rating-btn.on:focus-visible {
+  background-color: var(--select, var(--accent));
+  color: #0b0b0b;
+  box-shadow: none;
+}
+@media (max-width: 560px) { .my-rating-grid { grid-template-columns: repeat(5, 30px); } }
+
+/* **No outlines on the live surfaces, either.** The channel tiles kept a 1px hairline (the
+   one place the outline pass missed, because a live card is drawn by its own rules), and a
+   channel card is a picture on a plate like every other card in the app. */
+.channel-card,
+.channel-art,
+.channel-card:hover,
+.channel-card:focus-visible,
+.cat-tile,
+.guide,
+.guide-head,
+.guide-row,
+.cal-live-row,
+.live-cards .icon-box {
+  border: 0;
+}
+.channel-card:hover, .channel-card:focus-visible { border-color: transparent; }
+
+/* **The line under the title's buttons gets its room.** The row read as part of the
+   overview above it; it starts further down the column now, at the banner's own rhythm. */
+.title-hero .title-actions { margin: 72px 0 26px; }

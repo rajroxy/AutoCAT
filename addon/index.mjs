@@ -64,6 +64,7 @@ import {
 import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, isOttSort } from "./catalogs.mjs";
 import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
+import { pushRating } from "./trackers.mjs";
 import { applyPosters, postersEnabled, checkPosterService, imdbId } from "./posters.mjs";
 import { applyContentSource, contentSourceActive, contentSourceStats } from "./tvdb.mjs";
 import { inspectSource } from "./sources.mjs";
@@ -1754,6 +1755,28 @@ async function serveAddon(req, res, pathname, origin) {
       const s = getSettings();
       const key = s.providers?.[name]?.key || (name === "tmdb" ? tmdbKey() : "");
       json(res, 200, await verifyProvider(name, key));
+    } catch (err) {
+      json(res, 400, { ok: false, text: String(err?.message || err) });
+    }
+    return true;
+  }
+
+  // **A rating goes out to the trackers, and the answer says which ones took it.** The grid
+  // on a title page posts here; the rating itself is kept by the app either way, so this is
+  // a copy being delivered rather than a value being stored (see `addon/trackers.mjs`).
+  if (pathname === "/tracking/rate") {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "POST, OPTIONS",
+        "access-control-allow-headers": "content-type",
+      });
+      res.end();
+      return true;
+    }
+    try {
+      const { item, rating } = await readBody(req);
+      json(res, 200, await pushRating(item, Number(rating) || 0));
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });
     }

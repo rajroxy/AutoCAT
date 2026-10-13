@@ -1446,7 +1446,7 @@ async function setWatchState(item, next) {
  * on purpose stays where it was put, and the write happens once per player, not on every
  * `timeupdate`.
  */
-const WATCH_AT = 0.05;
+const WATCH_AT = 0.005;
 /** Where a title is finished. **Finish it and it leaves Watching for Watched.** */
 const WATCHED_AT = 0.92;
 /** One write per state per playback: a two-hour film calls this on every `timeupdate`. */
@@ -1465,8 +1465,13 @@ async function watchedPast(meta, ratio) {
   // Plan to Watch or Watched on purpose stays where it was put; a title with nothing to say
   // about itself is moved, and one already in Watching is allowed to finish into Watched — the
   // same rule at both ends, so nothing sits in Watching after you have seen it.
+  // **A plan you start is the thing you are now watching.** Plan to Watch is a decision
+  // about *later*; pressing play settles it. So a planned title moves like one that has
+  // nothing to say about itself — which is what makes the Watching row fill from the
+  // Calendar and every other screen, not only from titles pinned by hand. Watched is the one
+  // state that is kept: something you have already seen does not go back into Watching.
   const held = state.watchlist[key];
-  if (held && !(next === "watched" && held === "watching")) return;
+  if (held === "watched") return;
   await setWatchState(item, next);
 }
 
@@ -2497,8 +2502,13 @@ function signInCard() {
       { class: "provider", id: "account" },
       groupHead("Sign in"),
       said ? el("p", { class: "signin-said", text: said }) : null,
-      rows.length ? el("div", { class: "account-box account-list" }, ...rows) : null,
       el("div", { class: "account-box account-new", id: "account-new" }, accountForm()),
+    ),
+    el(
+      "div",
+      { class: "provider", id: "account-list-box" },
+      groupHead("Accounts"),
+      rows.length ? el("div", { class: "account-box account-list" }, ...rows) : null,
       current
         ? el("button", {
             class: "btn subtle focusable",
@@ -5128,12 +5138,6 @@ async function calendarUnplan(item) {
   render();
 }
 
-/** `2026-10-02` → `Fri, October 2`, put together the way the guide builds its day headings. */
-function planDayLabel(iso) {
-  const [y, m, d] = String(iso || "").split("-").map(Number);
-  if (!y || !m || !d) return "";
-  return new Date(y, m - 1, d).toLocaleDateString([], { weekday: "short", day: "numeric", month: "long" });
-}
 
 function calendarCard(m, opts = {}) {
   const planned = isCalendarPin(m);
@@ -5147,9 +5151,9 @@ function calendarCard(m, opts = {}) {
     // **The airing date, in the same voice the Upcoming card uses** — "Coming 9 Oct" —
     // so a date on a calendar tile reads the way a date reads everywhere else in the app.
     m.releaseDate ? el("span", { class: "cal-tag", text: upcomingTag(m) }) : null,
-    // **The plan's own line.** The day list says it by being on that day; the plans list
-    // is not on a day, so it says which date the plan was made for.
-    opts.date && m.releaseDate ? el("span", { class: "cal-plan-date", text: planDayLabel(m.releaseDate) }) : null,
+    // **No second date under the tile.** A plan's card said the date twice — the tag over
+    // the poster and `Fri, October 2` under it — so every day of the grid carried two dates
+    // in two voices. The tag is the one that stays.
     // A calendar pin is a plan about a **date**, and it is a toggle: planning says
     // so, and pressing it again takes the plan back. It was briefly add-only, which
     // left a plan you had changed your mind about with no way off the calendar.
@@ -6324,7 +6328,7 @@ async function renderTitle(type, id) {
           )
         : null,
 
-      ratingsRow(data.ratings, data.ratingsNote),
+      ratingsRow(data.ratings, data.ratingsNote, meta),
 
       trailersRow(data.trailers),
 
@@ -7324,21 +7328,69 @@ function openTrailer(t) {
  * plate is — a row that quietly holds only TMDB is what made "why is it only TMDB?"
  * a fair question rather than something the page answered.
  */
-function ratingsRow(ratings, note) {
+function ratingsRow(ratings, note, meta) {
   const list = (ratings || []).filter((r) => r && r.value);
-  if (!list.length && !note) return null;
+  // **The row draws even with nothing to report.** It now carries the rate grid beside the
+  // services' plates, and a row that vanished when the services had nothing to say would
+  // take the one thing on the page *you* put a number into with it.
   return el("section", { class: "title-row" },
     el("h3", { class: "row-head", text: "Ratings" }),
-    list.length
-      ? el("div", { class: "ratings" }, ...list.map((r) =>
-          el("div", { class: "rating" },
-            el("span", { class: "rating-value", text: String(r.value) }),
-            el("span", { class: "rating-source", text: r.label || r.source }),
-          )
-        ))
-      : null,
+    el("div", { class: "ratings-row" },
+      list.length
+        ? el("div", { class: "ratings" }, ...list.map((r) =>
+            el("div", { class: "rating" },
+              el("span", { class: "rating-value", text: String(r.value) }),
+              el("span", { class: "rating-source", text: r.label || r.source }),
+            )
+          ))
+        : el("p", { class: "title-source-note", text: "No service answered — see Settings → Ratings." }),
+      meta ? myRatingGrid(meta) : null,
+    ),
     note ? el("p", { class: "title-source-note", text: note }) : null,
   );
+}
+
+/**
+ * **Rate it yourself, beside the ratings.** A grid of ten, to the right of the services'
+ * plates — the score you put on a title, kept with the title and (once a tracker is
+ * connected in Settings → Tracking) sent out with everything else you watch. The one you
+ * picked is the plate you are on, so the grid reads as an answer rather than as a keyboard.
+ */
+function myRatingGrid(meta) {
+  const key = watchKey(meta);
+  const mine = Number((state.ratings?.mine || {})[key]) || 0;
+  return el("div", { class: "my-rating", id: "my-rating" },
+    el("span", { class: "my-rating-label", text: mine ? `Your rating · ${mine}/10` : "Your rating" }),
+    el("div", { class: "my-rating-grid" },
+      ...Array.from({ length: 10 }, (_, i) => {
+        const value = i + 1;
+        return el("button", {
+          class: `my-rating-btn focusable${mine === value ? " on" : ""}`,
+          type: "button",
+          text: String(value),
+          "aria-pressed": String(mine === value),
+          title: mine === value ? "Press again to take the rating back" : `Rate this ${value}/10`,
+          onclick: () => setMyRating(meta, value),
+        });
+      }),
+    ),
+  );
+}
+
+/** Keep a rating, and hand it to the trackers (see `/tracking/rate`). */
+async function setMyRating(meta, value) {
+  const key = watchKey(meta);
+  const mine = { ...(state.ratings?.mine || {}) };
+  if (Number(mine[key]) === value) delete mine[key];
+  else mine[key] = value;
+  state.ratings = { ...(state.ratings || {}), mine };
+  writeJSON(KEY.ratings, state.ratings);
+  render();
+  try {
+    await post("/tracking/rate", { item: pinOf(meta), rating: Number(mine[key]) || 0 });
+  } catch {
+    /* the rating is kept here either way */
+  }
 }
 
 /** Fill a strip that needed its own request. */
@@ -8417,8 +8469,17 @@ function liveVisEditor(v) {
         ),
         open
           ? el("div", { class: "vis-card-rows" },
-              ...LIVE_CARDS.map(([key, name]) => el("div", { class: "vis-leaf" },
-                visRow(liveCardOn(key), "card", key, name, ""),
+              // **A live card is a card, the same as one on the VOD side.** These were drawn
+              // as flat `.vis-leaf` rows while the VOD editor put each card in its own plate
+              // with its head row inside — so the same editor read as two different lists
+              // depending on the mode, and the live one was the tighter of the two. A live
+              // card has no catalog rows under it, so its plate holds one row and nothing
+              // else, and there is no fold and no order to move (the live home's four cards
+              // are the app's, not the profile's).
+              ...LIVE_CARDS.map(([key, name]) => el("div", { class: "vis-card" },
+                el("div", { class: "vis-card-head" },
+                  visRow(liveCardOn(key), "card", key, name, ""),
+                ),
               )),
             )
           : null,
@@ -8644,6 +8705,15 @@ function paneTracking() {
     // the one the Library is drawn from, so a tracker is told what you watched and is
     // never asked what it thinks — which is why connecting one cannot rewrite a row.
     el("p", { class: "option-desc", text: "Sync runs one way. Watched state goes out to the service you connect; nothing is read back, so a list kept elsewhere can never overwrite what your Library shows." }),
+    // **What the box under this line wants.** A tracker is not a place you paste a personal
+    // key: Trakt and SIMKL ask an *app* to identify itself (the client id you register on
+    // their site) and then hand back a token once you authorise, and the token is what a
+    // watched mark or a rating is sent with. Saying so here is the difference between a
+    // field that looks broken and one that is waiting for the right thing.
+    el("p", {
+      class: "option-desc",
+      text: "The box under a service takes that client id — the app you register on the service's own site. The token an authorisation hands back is stored beside it, and nothing is ever read from the service.",
+    }),
     ...TRACKER_GROUPS.flatMap((group) => [
       // The divider belongs *before* the group it separates, the way the rule on a
       // collection page sits above the row it introduces.
