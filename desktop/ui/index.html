@@ -16,6 +16,10 @@
       if (theme.base) root.style.setProperty("--accent", theme.base);
       if (theme.rgb) root.style.setProperty("--accent-rgb", theme.rgb);
       if (theme.deep) root.style.setProperty("--accent-deep", theme.deep);
+      // The selection colour, painted before the first frame like the accent beside it.
+      if (theme.select) root.style.setProperty("--select", theme.select);
+      if (theme.selectRgb) root.style.setProperty("--select-rgb", theme.selectRgb);
+      if (theme.selectDeep) root.style.setProperty("--select-deep", theme.selectDeep);
       // **No typeface here any more.** A stored `theme.font` from a build that offered the
       // setting is deliberately ignored: the app is set in one face (see `--font` in
       // style.css), so an old choice cannot leave someone on a face the app no longer has.

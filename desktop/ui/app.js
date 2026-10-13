@@ -54,6 +54,9 @@ const SETTING_KEYS = {
   pop: "nuvio.pop",
   speed: "nuvio.speed",
   accent: "nuvio.accent",
+  // The colour a *selection* wears — the chosen row, the checked box — on top of the
+  // highlight colour the app is tinted with (see `applyTheme`).
+  select: "nuvio.select",
   motion: "nuvio.motion",
   font: "nuvio.font",
   blur: "nuvio.blur",
@@ -109,7 +112,7 @@ const HOME_PROFILE = "you";
 /* **`profile` is here because the scope depends on it.** It holds the *mode* — VOD or IPTV
    — and since the mode is part of the settings scope below, the mode itself cannot be
    stored inside a scope. It is the machine's, like how the app looks. */
-const MACHINE_KEYS = new Set(["theme", "accent", "motion", "font", "blur", "pop", "speed", "glow", "profile"]);
+const MACHINE_KEYS = new Set(["theme", "accent", "select", "motion", "font", "blur", "pop", "speed", "glow", "profile"]);
 /**
  * **A profile, and the local account in use inside it.**
  *
@@ -929,6 +932,9 @@ const state = {
   // The Library row currently being renamed, if any — see `paneCustomRows`.
   customRowEdit: "",
   accent: localStorage.getItem(KEY.accent) || "gold",
+  // **The selection colour follows the highlight until it is set.** Empty means "same as the
+  // accent", so nothing changes for anyone who never opens this setting.
+  select: localStorage.getItem(KEY.select) || "",
   // **Two choices, not three.** "Follow system" was the third and it is gone from the
   // pane, so a machine that still has it stored resolves to Always animate — which is
   // what it was already doing everywhere except a device asking for reduced motion.
@@ -7397,9 +7403,9 @@ function paneDebrid() {
   return [
     el("p", { class: "option-desc", text: "A torrent stream has no web address of its own — the add-on publishes an info hash, and the file lives in a swarm. A browser can only reach swarm peers that speak WebRTC, which is why a torrent without a debrid account usually never starts. A debrid service fetches the torrent on its own servers and hands back a direct link, so it plays like any other stream." }),
     el("div", { class: "group-head" },
-      // **Not "Services", and not "Debrid" either** — the pane's own tile says Debrid. These
-      // are the accounts that make a torrent stream playable.
-      el("span", { class: "option-title", text: "Torrent services" }),
+      // **The accounts, by name.** "Services" was generic and "Torrent services" said the
+      // stream rather than the thing you are signing in to; these are debrid accounts.
+      el("span", { class: "option-title", text: "Debrid accounts" }),
       el("span", { class: "option-desc", text: active ? `Enabled services are tried in order; the first one that answers serves the stream. Right now: ${active[1]}.` : "Enable one and it takes over the torrent streams automatically. Paste a key, then press Check connection." }),
     ),
     ...DEBRID_SERVICES.map(([name, label, desc]) => keyRow("debrid", name, label, desc, state.debrid, KEY.debrid, "/debrid/verify")),
@@ -8738,7 +8744,7 @@ function paneAi() {
     writeJSON(KEY.speak, state.speak);
   };
   return [
-    groupHead("Ask box"),
+    groupHead("Helper"),
     toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
@@ -8843,6 +8849,13 @@ function applyTheme() {
   root.style.setProperty("--accent", base);
   root.style.setProperty("--accent-rgb", rgb);
   root.style.setProperty("--accent-deep", deep);
+  // **The selection colour**, which is the accent unless someone chose their own: the chosen
+  // row, the checked box and the active pill read it, so the tint and the selection can be
+  // two different colours.
+  const sel = state.select ? accentOf(state.select) : null;
+  root.style.setProperty("--select", sel ? sel[3] : base);
+  root.style.setProperty("--select-rgb", sel ? sel[2] : rgb);
+  root.style.setProperty("--select-deep", sel ? sel[4] : deep);
   root.classList.toggle("motion-off", state.motion === "off");
   root.classList.toggle("pop-on", state.pop !== false);
   root.style.setProperty("--quick", (SPEEDS.find(([id]) => id === state.speed) || SPEEDS[2])[3]);
@@ -8851,7 +8864,13 @@ function applyTheme() {
   // the first paint**. Without it the app painted its default gold and then
   // re-tinted a frame later — the "golden accent on boot" flash.
   try {
-    localStorage.setItem(KEY.theme, JSON.stringify({ base, rgb, deep, motion: state.motion }));
+    localStorage.setItem(KEY.theme, JSON.stringify({
+      base, rgb, deep,
+      select: sel ? sel[3] : base,
+      selectRgb: sel ? sel[2] : rgb,
+      selectDeep: sel ? sel[4] : deep,
+      motion: state.motion,
+    }));
   } catch {
     /* private mode — the app still tints, it just flashes on the next boot */
   }
@@ -8865,6 +8884,37 @@ function paneAppearance() {
   // colour as the artwork** (the same base → deep gradient the app's accent is built from),
   // with the colour's name under it. The chosen one wears the accent ring the rest of the
   // app uses; a row of bare circles could only tell you the colour of the dot.
+  // **The selection colour is the accent's twin.** Same board, same cards, one difference:
+  // these paint what a *choice* wears — the row you picked, the box you ticked, the pill that
+  // is on — while the highlight colour tints the app around them. "Match highlight" is the
+  // default and keeps the two together.
+  const selectionGrid = () => {
+    const [, , , accBase, accDeep] = accentOf(state.accent);
+    const choices = [["auto", "Match highlight", accBase, accDeep], ...ACCENTS.map(([id, label, , base, deep]) => [id, label, base, deep])];
+    const on = state.select || "auto";
+    return el("div", { class: "accent-grid" },
+      ...choices.map(([id, label, base, deep]) =>
+        el("button", {
+          class: `accent-card focusable${on === id ? " active" : ""}`,
+          type: "button",
+          id: `select-${id}`,
+          title: label,
+          "aria-label": `${label} — selection colour`,
+          "aria-pressed": String(on === id),
+          style: `--swatch: ${base}; --swatch-deep: ${deep}`,
+          onclick: () => {
+            state.select = id === "auto" ? "" : id;
+            localStorage.setItem(KEY.select, state.select);
+            applyTheme();
+            render();
+          },
+        },
+          el("span", { class: "accent-card-art", "aria-hidden": "true" }),
+          el("span", { class: "accent-card-name", text: label }),
+        ),
+      ),
+    );
+  };
   return [
     groupHead("Highlight colour"),
     el("div", { class: "provider" },
@@ -8891,6 +8941,8 @@ function paneAppearance() {
         ),
       ),
     ),
+    groupHead("Selection colour"),
+    el("div", { class: "provider" }, selectionGrid()),
     // **No glow switch.** The highlight is the ring, full stop: an optional halo around
     // it was a second look for the same information, and it never read the way it was
     // meant to on a full-width row.
@@ -9010,6 +9062,9 @@ function panePlayback() {
     ...DECODER_CHOICES.map(([id, label]) => radioRow(playbackEngine().decoder === id, "decoder", label, "", () => savePlaybackEngine({ decoder: id }))),
     groupHead("Hardware"),
     toggleRow(playbackEngine().hardware, "Hardware decoding", "A TV box's own decoder reads the file; off is the troubleshooting switch for a box whose decoder mangles a stream.", (e) => savePlaybackEngine({ hardware: e.target.checked })),
+    // **Apart, because they answer different questions.** One is whether the box's own
+    // decoder reads the file; the other is whether the decoder writes to the display itself.
+    groupHead("Display"),
     toggleRow(playbackEngine().tunneling, "Tunneled playback", "The decoder writes straight to the display instead of through the app's own surface — what makes 4K HDR play on a set-top box, and the reason the app's controls cannot be drawn over the picture.", (e) => savePlaybackEngine({ tunneling: e.target.checked })),
     // **One plate for the five.** Resolution, the two audio languages and the two subtitle
     // languages answer one question — what the player picks when it opens a stream — so they
@@ -9524,6 +9579,7 @@ function paneAddonsPlugins() {
   // **Add-ons only.** The Nuvio plugin half of this pane is gone: a plugin is code
   // the Nuvio app runs itself, and the server-side runner for it was removed with it.
   return [
+    groupHead("Installed add-ons"),
     ...sourceSection("Stremio add-ons", "A Stremio add-on URL is read on the server (manifest.json), so it works even when the host sends no CORS headers — its catalogs, metadata, streams and subtitles are listed as providers. A stream the add-on publishes as a torrent is played through your debrid account when one is set up in Settings → Debrid — a browser cannot join a public swarm on its own, so that account is what makes those streams play.", ADDON_TYPES, addons),
   ];
 }
@@ -9655,6 +9711,7 @@ function paneCustomRows() {
       el("span", { class: "option-title", text: "Add a row" }),
       el("span", { class: "option-desc", text: `The card holds up to ${max} rows.` }),
     ),
+    el("div", { class: "provider" },
     el("div", { class: "source-form" },
       newName,
       el("button", {
@@ -9676,11 +9733,16 @@ function paneCustomRows() {
       }),
       addNote,
     ),
+    ),
     el("div", { class: "group-head" },
       el("span", { class: "option-title", text: "Rows" }),
       el("span", { class: "option-desc", text: "Rename in place, reorder with the arrows, or delete a row with everything in it." }),
     ),
-    ...(rows.length ? rows.map(rowEditor) : [el("p", { class: "option-desc", text: "No rows yet." })]),
+    // **Each row is a card**, the way a debrid service or an add-on is: the plate holds the
+    // list, and every row in it is its own box.
+    ...(rows.length
+      ? rows.map((row, index) => el("div", { class: "provider" }, rowEditor(row, index)))
+      : [el("p", { class: "option-desc", text: "No rows yet." })]),
   ];
 }
 
@@ -9769,7 +9831,7 @@ function optionGroups(items) {
     const cls = node.classList || {};
     if (cls.contains("option-desc")) continue;
     if (cls.contains("h-divider")) { close(); continue; }
-    if (cls.contains("group-head")) { close(); run = { label: node, nodes: [] }; continue; }
+    if (cls.contains("group-head")) { close(); run = { label: node, nodes: [], plain: 0 }; continue; }
     // Its *own* title: a direct child, not the one inside a `provider-head`.
     const own = cls.contains("provider") ? [...node.children].find((c) => c.classList.contains("option-title")) : null;
     if (own) {
@@ -9784,19 +9846,23 @@ function optionGroups(items) {
       if (body.length && body.every((c) => c.classList.contains("option"))) {
         close();
         own.remove();
-        run = { label: groupHead(own.textContent), nodes: body.map((c) => { c.remove(); return c; }) };
+        run = { label: groupHead(own.textContent), nodes: body.map((c) => { c.remove(); return c; }), plain: 0 };
         continue;
       }
       // **A plate that is already named is the name.** Under one that says what the group is
       // ("Preferences", "Services"), a card keeps its own name *inside* its own box — the Debrid
       // services' shape — instead of opening a second, equally named plate.
-      if (run && run.label) { run.nodes.push(node); continue; }
+      // Only while the plate is a stack of named cards. A plate that has already taken a
+      // plain row ("Clicks") is that row's group, and the next named card opens its own —
+      // otherwise the sound pane's music pickers were swallowed by the clicks label.
+      if (run && run.label && run.plain === 0) { run.nodes.push(node); continue; }
       close();
       own.remove();
       out.push(el("div", { class: "option-group" }, groupHead(own.textContent), node));
       continue;
     }
-    if (!run) run = { label: null, nodes: [] };
+    if (!run) run = { label: null, nodes: [], plain: 0 };
+    run.plain += 1;
     run.nodes.push(node);
   }
   close();
