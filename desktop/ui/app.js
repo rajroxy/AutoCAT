@@ -7491,7 +7491,9 @@ function paneSubtitles() {
       text: "A stream's own subtitle tracks are listed in the player. When it carries none — or carries one language and not yours — the player searches the services enabled below and plays the one you pick like any other subtitle. Each needs its own free key; the more you enable, the more titles are covered.",
     }),
     el("div", { class: "group-head" },
-      el("span", { class: "option-title", text: "Services" }),
+      // **Not "Services".** Debrid's plate says that, and two plates with one name read as one
+      // list. These are the subtitle services.
+      el("span", { class: "option-title", text: "Subtitle services" }),
       el("span", {
         class: "option-desc",
         text: active.length
@@ -7628,13 +7630,18 @@ function paneDns() {
       el("p", { class: "option-desc", text: "Off is the machine's own resolver. On, the app asks the resolver below and only this app is affected." }),
     ),
     el("div", { class: "group-head" }, el("span", { class: "option-title", text: "Resolver" })),
-    el("div", { class: "source-form" }, picker.node),
-    el("div", { class: "source-form" }, primaryInput, secondaryInput),
-    el("p", { class: "option-desc", text: "The two addresses are IPv4 or IPv6. A preset fills them in; Custom uses what you type." }),
-    el("div", { class: "source-form" },
-      el("button", { class: "btn primary focusable", type: "button", text: "Save", onclick: () => saveDns({ primary: primaryInput.value.trim(), secondary: secondaryInput.value.trim() }) }),
-      el("button", { class: "btn subtle focusable", type: "button", id: "dns-test", text: "Test DNS", onclick: () => testDnsNow(status) }),
-      status,
+    // **The resolver's controls sit in a box of their own.** The picker, the two addresses and
+    // the buttons were bare rows on the plate; they are one card inside it, the shape every
+    // other group has.
+    el("div", { class: "provider" },
+      el("div", { class: "source-form" }, picker.node),
+      el("div", { class: "source-form" }, primaryInput, secondaryInput),
+      el("p", { class: "option-desc", text: "The two addresses are IPv4 or IPv6. A preset fills them in; Custom uses what you type." }),
+      el("div", { class: "source-form" },
+        el("button", { class: "btn primary focusable", type: "button", text: "Save", onclick: () => saveDns({ primary: primaryInput.value.trim(), secondary: secondaryInput.value.trim() }) }),
+        el("button", { class: "btn subtle focusable", type: "button", id: "dns-test", text: "Test DNS", onclick: () => testDnsNow(status) }),
+        status,
+      ),
     ),
   ];
 }
@@ -8725,7 +8732,7 @@ function paneAi() {
     writeJSON(KEY.speak, state.speak);
   };
   return [
-    groupHead("AI assistant"),
+    groupHead("Ask AI"),
     toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
@@ -8998,6 +9005,10 @@ function panePlayback() {
     groupHead("Hardware"),
     toggleRow(playbackEngine().hardware, "Hardware decoding", "A TV box's own decoder reads the file; off is the troubleshooting switch for a box whose decoder mangles a stream.", (e) => savePlaybackEngine({ hardware: e.target.checked })),
     toggleRow(playbackEngine().tunneling, "Tunneled playback", "The decoder writes straight to the display instead of through the app's own surface — what makes 4K HDR play on a set-top box, and the reason the app's controls cannot be drawn over the picture.", (e) => savePlaybackEngine({ tunneling: e.target.checked })),
+    // **One plate for the five.** Resolution, the two audio languages and the two subtitle
+    // languages answer one question — what the player picks when it opens a stream — so they
+    // are "Preferences" together rather than five plates that say their own name again.
+    groupHead("Preferences"),
     el("div", { class: "provider" },
       el("span", { class: "option-title", text: "Resolution" }),
       el("p", { class: "option-desc", text: "The ceiling a stream may reach for. Auto takes whatever the source offers; 1080p never plays a larger one." }),
@@ -9759,21 +9770,23 @@ function optionGroups(items) {
       // and "Browsing music" carried their name at the top of the box they filled, so there was
       // no plate around the label and the control it owns. The name moves out to the plate's
       // first line and the card itself becomes the box inside it — the Account shape.
-      close();
-      own.remove();
       // **A card that holds nothing but a row is the plate's own row.** "Next episode" carried
       // one switch inside a card inside the plate — three paddings around one line. The row
       // moves up into the plate, the way the Engine and Decoder rows already sit in theirs.
-      const body = [...node.children].filter((c) => !c.classList.contains("option-desc") && !c.classList.contains("h-divider"));
+      const body = [...node.children].filter((c) => c !== own && !c.classList.contains("option-desc") && !c.classList.contains("h-divider"));
       if (body.length && body.every((c) => c.classList.contains("option"))) {
+        close();
+        own.remove();
         run = { label: groupHead(own.textContent), nodes: body.map((c) => { c.remove(); return c; }) };
         continue;
       }
-      // **A plate holding one control holds it directly.** The pickers ("Resolution", "Primary
-      // audio") were a plate around a padded card around one dropdown — a box, a box and a box
-      // for one line. The card's own chrome goes and the control is what sits in the plate.
-      const tight = body.length === 1;
-      out.push(el("div", { class: `option-group${tight ? " tight" : ""}` }, groupHead(own.textContent), node));
+      // **A plate that is already named is the name.** Under one that says what the group is
+      // ("Preferences", "Services"), a card keeps its own name *inside* its own box — the Debrid
+      // services' shape — instead of opening a second, equally named plate.
+      if (run && run.label) { run.nodes.push(node); continue; }
+      close();
+      own.remove();
+      out.push(el("div", { class: "option-group" }, groupHead(own.textContent), node));
       continue;
     }
     if (!run) run = { label: null, nodes: [] };
