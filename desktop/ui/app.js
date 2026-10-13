@@ -8437,6 +8437,7 @@ function paneProviders() {
   };
   return [
     el("p", { class: "option-desc", text: "Paste a key and enable a provider. Catalogs keep the same names; the provider changes what is behind them." }),
+    groupHead("Metadata"),
     providerRow("tmdb"),
     providerRow("tvdb"),
     el("div", { class: "group-head" },
@@ -8724,6 +8725,7 @@ function paneAi() {
     writeJSON(KEY.speak, state.speak);
   };
   return [
+    groupHead("AI assistant"),
     toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
@@ -8751,7 +8753,9 @@ function paneAi() {
       // pane, and this is the AI pane: one switch about someone else's cards in the
       // middle of the provider keys was a setting in the wrong room.
       el("p", { class: "option-desc", text: "Pick a free provider and paste its API key. The key is stored on the server, never in the page, and the Ask box falls back to a plain search when no key is set." }),
-      groupHead("Providers"),
+      // **Not "Providers".** This pane's providers are the AI models; the *Providers* pane is
+      // TMDB and TVDB, and the same word over a different list read as that list.
+      groupHead("AI models"),
       ...AI_PROVIDERS.map(([slug, label, signup, note]) => aiProviderRow(slug, label, signup, note)),
     ] : null,
   ];
@@ -9765,7 +9769,11 @@ function optionGroups(items) {
         run = { label: groupHead(own.textContent), nodes: body.map((c) => { c.remove(); return c; }) };
         continue;
       }
-      out.push(el("div", { class: "option-group" }, groupHead(own.textContent), node));
+      // **A plate holding one control holds it directly.** The pickers ("Resolution", "Primary
+      // audio") were a plate around a padded card around one dropdown — a box, a box and a box
+      // for one line. The card's own chrome goes and the control is what sits in the plate.
+      const tight = body.length === 1;
+      out.push(el("div", { class: `option-group${tight ? " tight" : ""}` }, groupHead(own.textContent), node));
       continue;
     }
     if (!run) run = { label: null, nodes: [] };
