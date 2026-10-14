@@ -10587,6 +10587,9 @@ async function render() {
   // which used to leave `#main` empty: a black page under a working top bar, with the
   // watchdog as the only thing that would ever explain it. The failure is drawn now.
   try {
+  // **The whole-window guide is a state of the screen, not of the button.** Leaving the
+  // guide puts the top bar back, so a page cannot inherit a guide's full screen.
+  if (view !== "guide" && guideImmersive()) document.body.classList.remove("guide-immersive");
   if (view === "guide") nodes = renderGuide();
   else if (view === "recordings") nodes = renderRecordings();
   else if (view === "livewatchlist") nodes = renderLiveWatchlist();
@@ -11060,6 +11063,40 @@ function nowNext(channel, guide) {
  * still draws the lineup and says so once at the top, rather than inventing a
  * schedule or hiding the screen.
  */
+/**
+ * **The guide's own full screen.**
+ *
+ * The button asked the browser for fullscreen — and a preview panel refuses that, the
+ * promise rejects, and the guide stayed in the page: a button that looked like it did
+ * nothing. The state the app can always keep is its own (`.guide-immersive`): the top
+ * bar goes, the page's gutter goes, and the table takes the whole window. The browser's
+ * fullscreen is still asked for on top of it, and Escape — or the button again — returns.
+ */
+const guideImmersive = () => document.body.classList.contains("guide-immersive");
+
+/** Is the top bar hidden because the guide is using the whole window? */
+function toggleGuideImmersive() {
+  const on = !guideImmersive();
+  document.body.classList.toggle("guide-immersive", on);
+  if (on) {
+    document.getElementById("guide-screen")?.requestFullscreen?.().catch(() => {});
+    document.addEventListener("keydown", guideImmersiveEscape);
+  } else {
+    document.removeEventListener("keydown", guideImmersiveEscape);
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  }
+  render();
+}
+
+/** Escape leaves the guide's own full screen the way it leaves the browser's. */
+function guideImmersiveEscape(event) {
+  if (event.key !== "Escape" || !guideImmersive()) return;
+  document.removeEventListener("keydown", guideImmersiveEscape);
+  document.body.classList.remove("guide-immersive");
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  render();
+}
+
 function renderGuide() {
   if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
   if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
@@ -11146,14 +11183,9 @@ function renderGuide() {
         class: "btn focusable",
         type: "button",
         id: "guide-fullscreen",
-        text: document.fullscreenElement ? "Leave full screen" : "Full screen",
+        text: guideImmersive() ? "Exit full screen" : "Full screen",
         title: "Fill the screen with the guide",
-        onclick: () => {
-          const node = document.getElementById("guide-screen");
-          if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-          else node?.requestFullscreen?.().catch(() => {});
-          setTimeout(() => render(), 120);
-        },
+        onclick: () => toggleGuideImmersive(),
       }),
     ),
     // Country and category filter strips for immersive guide

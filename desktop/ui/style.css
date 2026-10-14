@@ -491,10 +491,10 @@ body {
    wears — in **both** Upcoming cards, because both draw this one tile. */
 .spotlight-tile-art {
   position: absolute;
-  inset: 8px;
-  width: calc(100% - 16px);
-  height: calc(100% - 16px);
-  border-radius: 8px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
   object-fit: cover;
   object-position: 50% 40%;
 }
@@ -504,14 +504,14 @@ body {
 /* **An empty slot is the app's empty slot.** The blank tile wore `--panel-2`, a shade lighter
    than the card it sits on — which is what drew the "outline" around the poster that had no
    picture. It is the same faint fill every other empty slot in the app uses. */
-.spotlight-tile-art.blank { background: rgba(255, 255, 255, 0.035); }
+.spotlight-tile-art.blank { background: transparent; }
 /* The tag and the name are **drawn on the frame**, the way the tagged artwork draws
    them: a pill across the top, the title under it at the bottom. */
 .spotlight-frame {
   position: absolute;
-  /* On the picture, not the tile: the same 8px inset and corner as the art under it. */
-  inset: 8px;
-  border-radius: 8px;
+  /* On the picture's own edge: the tile's corner, with no second frame drawn inside it. */
+  inset: 0;
+  border-radius: 10px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -5544,4 +5544,78 @@ button.rating.my-rating {
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
 }
 
+/* ============================================================================
+   **The live banner's posters are the Movies banner's poster.**
+   ----------------------------------------------------------------------------
+   The reference is the poster frame the Movies home draws (.hero-art): a 16:9 plate, a
+   1px hairline, `var(--radius)` for the corner, and the picture **filling it** edge
+   to edge. The IPTV pair had the picture inset 10px inside a second rounded corner,
+   so two posters on the live home read as a different kind of object from the one
+   poster on the Movies home. Same plate, same corner, same flush picture.
+   ============================================================================ */
+.live-hero-poster { border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); }
+.live-hero-poster .live-hero-still {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  object-fit: cover;
+  object-position: 50% 20%;
+}
+/* The caption sits on the picture's own bottom edge and corner — no second rounded
+   rectangle drawn over the poster. */
+.live-hero-caption { left: 0; right: 0; bottom: 0; border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }
 
+/* ============================================================================
+   **The Guide is the screen, not a box on it.**
+   ----------------------------------------------------------------------------
+   Full width — the page's own gutter was boxing a table that wants every pixel —
+   and as tall as the window, with the ruler held at its top. A preview panel
+   refuses the Fullscreen API the browser is asked for, so the guide also has an
+   **immersive** state of its own (see the Full screen button): it drops the top bar
+   and hands the table the whole window, whether or not the browser granted
+   fullscreen.
+   ============================================================================ */
+.main:has(.guide-screen) { padding: 22px 24px 60px; }
+.guide-screen { display: flex; flex-direction: column; min-height: calc(100vh - 230px); }
+.guide-screen .guide-body { flex: 1; min-height: 0; max-height: none; }
+.guide-screen .guide-row:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+body.guide-immersive .topbar { display: none; }
+body.guide-immersive .main { padding: 0; }
+body.guide-immersive .guide-screen { min-height: 100vh; }
+body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+.guide-screen:fullscreen { display: flex; flex-direction: column; }
+.guide-screen:fullscreen .guide-body { flex: 1; height: auto; }
+
+
+
+/* ============================================================================
+   **The Guide's list view is a list.**
+   ----------------------------------------------------------------------------
+   It had no rules at all — it fell back to the browser's own buttons, which is the
+   plain boxed list the report called out. Each row is the app's own row now: the
+   channel, what is on, and when it starts, on the panel's fill and answering the
+   cursor with the selection wash every other control wears.
+   ============================================================================ */
+.guide-list { display: flex; flex-direction: column; gap: 6px; }
+.guide-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.guide-list-row:hover,
+.guide-list-row:focus-visible { background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); }
+.guide-list-logo { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: var(--panel-2); overflow: hidden; }
+.guide-list-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.guide-list-name { flex: none; width: 220px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide-list-now { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide-list-at { flex: none; color: var(--faint); font-size: 12px; }
