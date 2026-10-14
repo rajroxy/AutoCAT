@@ -5402,30 +5402,32 @@ button.rating.my-rating {
 .poster-wall-empty { grid-column: 1 / -1; grid-row: 1 / -1; display: grid; place-items: center; color: var(--muted); font-size: 13px; font-weight: 700; }
 
 /* ============================================================================
-   **Profiles and Modes: a ring when you point at one, a fill when it is the one.**
+   **Profiles and Modes: the chosen card rings, the others fill.**
    ----------------------------------------------------------------------------
-   The chosen profile wore an inset ring in the accent — a box drawn round the card you had
-   already chosen, which is the ring the board has no other use for. A control answers the
-   cursor with the **selection** colour and says what is chosen with its **fill**, so that is
-   what these tiles do: the cursor rings the selection colour, the chosen card is filled with
-   it, and nothing draws a box round a choice. Written last so no earlier rule can put the
-   accent ring back.
+   Two statements, and they are the app's own: **the one you are on wears the selection
+   colour as a ring** — the same mark the chosen day wears on the calendar — and **every other
+   card answers the cursor with the selection colour as a fill**, the way every control in the
+   app does. It was the other way round (the chosen card filled, the cursor rang), and before
+   that the chosen card wore an *accent* ring, which is a box drawn round a choice using a
+   colour that means something else. Written last so no earlier rule can put the accent ring
+   back or flatten the fill.
    ============================================================================ */
+/* **Not chosen: the selection colour as a fill under the cursor.** This is the app's own
+   highlight — `mark-fill` is the wash every control wears — so an unselected profile answers
+   the pointer exactly like the Movies / Shows button beside it. The keyboard keeps the ring
+   `.focusable` draws, so the fill is not the only thing saying where the focus is. */
 .profile-tile:not(.active):hover,
 .profile-tile:not(.active):focus-visible {
-  background-color: var(--panel);
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
 }
-/* At rest the chosen card is its fill and nothing else — no box drawn round a choice you
-   have already made. Under the cursor, or on the keyboard, it answers the same way every
-   other tile does, so the ring never disappears where the keyboard needs it. */
-.profile-tile.active {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.18);
-  box-shadow: none;
-}
+/* **Chosen: the selection colour as a ring.** The card you are on wears the mark the chosen
+   calendar day wears — an outline in the selection colour — at rest and under the cursor
+   alike, so pointing at it does not make the chosen profile look like an unchosen one. */
+.profile-tile.active,
 .profile-tile.active:hover,
 .profile-tile.active:focus-visible {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.18);
+  background-color: var(--panel);
+  background-image: none;
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
 }
 
