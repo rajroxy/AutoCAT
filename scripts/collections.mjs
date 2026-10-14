@@ -1460,8 +1460,19 @@ const decadeGenres = (type, list) =>
 const discoverRow = (suffix = "", take) => [
   discover(`Latest${suffix}`, "latest", take),
   discover(`Newest${suffix}`, "new", take),
+  // **The back of the date order.**
+  // The card asks five questions about the whole catalogue and *Oldest* and *Least popular* are
+  // the two the owner's own list names and the build never published: the newest and the most
+  // popular were the only ends of those two orders the card reached. Both are `curated` rows with
+  // the order written out (`date.asc` is turned into the release-date field of whichever media
+  // type asked, so one row serves films and series) and the same vote floors the Explore page's
+  // own *Oldest* / *Least popular* orders use, so the row and the order cannot disagree.
+  curated(`Oldest${suffix}`, { sort_by: "date.asc", "vote_count.gte": 5 }, take),
   preset(`Trending${suffix}`, "trending", take),
   preset(`Popular${suffix}`, "popular", take),
+  // **The back of the popularity order**, with a real audience behind each one — which is what
+  // makes it a shelf of deep cuts rather than a row of nothing.
+  curated(`Least popular${suffix}`, { sort_by: "popularity.asc", "vote_count.gte": 50 }, take),
   preset(`Top Rated${suffix}`, "top_rated", take),
 ];
 
@@ -1496,6 +1507,9 @@ const discoverPlusRow = (take) => [
   // The canon: the highest rated of the most seen, so the row is the titles everyone
   // already knows rather than the ones only a few do.
   curated("All-Time Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 5000 }, take),
+  // **What is fresh**: this season's best, with enough of an audience to mean something — the
+  // sixth question in the owner's list, and the one row of the six the build never carried.
+  curated("Fresh", { sort_by: "vote_average.desc", "vote_average.gte": 7, "vote_count.gte": 100, within: 120 }, take),
 ];
 
 /**
@@ -1609,10 +1623,10 @@ const buildCollections = (code = "") => {
     key: "discover-top-10",
     lines: ["Discover", "Plus"],
     scene: "spotlight-top-10",
-    // **The two Discover cards' catalogs are the other way round.** The verified orders
-    // (Latest / Newest / Trending / Popular / Top Rated) read on the Plus card and the
-    // verdicts (Acclaimed, Hidden Gems, Cult Classics) on the plain one.
-    catalogs: both(discoverRow()),
+    // **The six verdicts, at twenty-five a row.** The card is named for the questions only it
+    // asks — what is acclaimed, what a pick is, what the gems are — so those are the rows it
+    // holds; the plain **Discover** card beside it asks the seven orders.
+    catalogs: both(discoverPlusRow(TOP25)),
   },
   {
     key: "on-the-board",
@@ -1675,7 +1689,9 @@ const buildCollections = (code = "") => {
     key: "discover",
     lines: ["Discover"],
     scene: "discover",
-    catalogs: both(discoverPlusRow(TOP25)),
+    // **The seven orders**, uncapped: the newest, the oldest, what is rising, what is popular and
+    // what nobody has found, and the best reviewed of all of it.
+    catalogs: both(discoverRow()),
   },
   {
     key: "popular-by-genre",

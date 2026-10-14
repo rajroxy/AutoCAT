@@ -488,7 +488,20 @@ export async function askAI(prompt, opts = {}) {
  * `context` is the title the page is on: its name, year, and what it is. It is put in
  * front of the question, so "will I like it?" has something to be about.
  */
-const ABOUT_SYSTEM = `You answer questions about one film or series, in plain English, in two or three short sentences. Answer the question that was asked and nothing else: no search queries, no lists, no catalog names, no markdown. Use what you know about the title — its story, its tone, who it is for. Never invent a plot, a cast member or a fact; if you do not know the title, say so in one sentence.`;
+const ABOUT_SYSTEM = `You answer questions about one film or series, in plain English, in two or three short sentences. Answer the question that was asked and nothing else: no search queries, no lists, no catalog names, no markdown. Use what you know about the title — its story, its tone, who it is for. Never invent a plot, a cast member or a fact. If the question is not about this title — a request for something to watch, an either/or, a mood — answer it anyway from your own knowledge of films and series. Never reply that you do not know which title is meant.`;
+
+/**
+ * **A box with no title on it is not a question about a title.**
+ *
+ * The Ask AI box on Home carries no film or series — you open it and ask for one ("name a
+title to watch in a pair tonight", "something funny under two hours"). It was answered with
+the *about this title* system prompt all the same, and that prompt tells the model to say so
+when it does not know the title it is being asked about — so **every** question, typed or
+spoken, came back as "I do not know the title you are referring to". With no title in the
+context the model is a **recommender**, and the prompt says exactly that: name concrete
+titles, one line each, and never ask which title is meant.
+ */
+const RECOMMEND_SYSTEM = `You recommend things to watch, from your own knowledge of films and television. Answer the request with at most three concrete titles, each on its own line as "Title (year) — one short reason". No preamble, no markdown, no bullet characters, no questions back, and never reply that you do not know which title is meant: no title is being referred to. If the request names a title, answer about that one. If you truly cannot name a title, say it in one line.`;
 
 export async function askAbout(question, context = {}, opts = {}) {
   const provider = opts.provider || aiProviderName();
@@ -499,6 +512,10 @@ export async function askAbout(question, context = {}, opts = {}) {
   const key = opts.key ?? aiKey(provider);
   if (!key) return { ok: false, text: `No ${cfg.label} key saved — paste one in Settings → Assistant.` };
 
+  // **What the box is holding, if anything.** A name in the context means the question is
+  // about that one title and is answered as prose; nothing means the question is for a
+  // recommendation, which is a different job with a different prompt (see above).
+  const aboutTitle = Boolean(String(context.name || "").trim());
   const about = [context.name && `Title: ${context.name}`, context.year && `Year: ${context.year}`, context.type && `Type: ${context.type === "series" ? "series" : "film"}`, context.overview && `Synopsis: ${String(context.overview).slice(0, 600)}`]
     .filter(Boolean)
     .join("\n");
@@ -507,8 +524,13 @@ export async function askAbout(question, context = {}, opts = {}) {
   // Prose needs room for a paragraph; the search path's six words do not.
   const speak = async (candidate) => {
     try {
-      const raw = await complete(cfg, key, candidate, prompt, { system: ABOUT_SYSTEM, maxTokens: 400 });
-      const text = String(raw || "").replace(/\s*\n\s*/g, " ").trim().slice(0, 900);
+      const raw = await complete(cfg, key, candidate, prompt, { system: aboutTitle ? ABOUT_SYSTEM : RECOMMEND_SYSTEM, maxTokens: 400 });
+      // **One line per title stays one line.** An about-this-title answer is a paragraph and
+      // its newlines are wrapped away; a recommendation is a list of names, and flattening it
+      // into one line was the "three titles, one line each" answer arriving as a wall.
+      const text = aboutTitle
+        ? String(raw || "").replace(/\s*\n\s*/g, " ").trim().slice(0, 900)
+        : String(raw || "").split(/\n+/).map((line) => line.trim()).filter(Boolean).slice(0, 6).join("\n").slice(0, 900);
       return text ? { ok: true, provider, model: candidate, text } : null;
     } catch (err) {
       return err;

@@ -429,7 +429,13 @@ const SORTABLE_KINDS = new Set(["genre", "genre-decade", "decade", "continent", 
  * ask no such question — and neither card asks it from the card page, where the rows
  * are just a wall of their own titles.
  */
-const isOttTop10Card = (card) => /^(global|regional)-ott-top-10$/.test(String(card?.key || ""));
+// **Every ◆ Top 10 card, named by its own key.** It was the Global and Regional pair alone,
+// so the **Specialist Top 10** (`specialist-top-10`) fell outside it and opened its Explore
+// pages with a Shuffle sample row in front of a list the owner ranks as a Top 10 — the one
+// thing a Top 10 is not. A card that publishes a capped list of one service's best is the same
+// card wherever it sits, and all three carry `-top-10` in their key. (`discover-top-10` matches
+// too; the Discover cards are already outside both the sample row and the order control.)
+const isOttTop10Card = (card) => /-top-10$/.test(String(card?.key || ""));
 
 /**
  * **The cards whose rows are streaming services.**
@@ -3876,6 +3882,13 @@ const REFRESH_CHOICES = [
 ];
 
 let refreshTimer = null;
+/** How often the due time is checked — the timer is a check, not the interval itself. */
+const AUTO_REFRESH_TICK = 30_000;
+/** The interval Settings asks for, in ms. 0 means "only when you press Refresh now". */
+let refreshEvery = 0;
+/** **When the next automatic re-read is due.** A due time, not a countdown of ticks: it survives
+ *  navigation, and it survives a tick that could not run (see `autoRefreshTick`). */
+let refreshDue = 0;
 
 /**
  * Re-read the screen now.
@@ -3919,6 +3932,8 @@ async function refreshNow() {
   } catch {
     /* the screen is re-read either way */
   }
+  // A manual press is a refresh too: the next automatic one waits a full interval from here.
+  refreshDue = refreshEvery ? Date.now() + refreshEvery : 0;
   // A refresh re-reads whatever the current screen is made of — including the
   // channel list and the guide, which are catalogs too.
   if (liveProfile()) {
@@ -3929,21 +3944,52 @@ async function refreshNow() {
   render();
 }
 
+/**
+ * **A tick that could not run is remembered, not thrown away.**
+ *
+ * The clock used to be a `setInterval` of the whole interval, re-created on every render, and its
+ * callback simply `return`ed when the tab was hidden, a quick look was open or the screen was not
+ * one of home/card/explore. So the one tick an hour landed on a moment it could not use — a
+ * hidden tab, an open quick look, a title page — and the next chance was another whole hour away:
+ * the reported "hourly refresh: nothing refreshes". The tick is a lookup of the due time now, and
+ * a due time that passes while the app cannot re-read **stays due**, so the screen refreshes at
+ * the next moment it can (the tab coming back, the quick look closing).
+ */
+function autoRefreshTick() {
+  if (!refreshDue || Date.now() < refreshDue) return;
+  if (document.visibilityState !== "visible") return;
+  if (document.querySelector("#modal:not([hidden])")) return;
+  // Nothing is redrawn under a picture that is playing; the due time waits for it.
+  if (document.querySelector(".player")) return;
+  // A refresh re-reads the screen that is up, and the reading screens are the ones with rows.
+  if (!["home", "card", "explore", "title"].includes(parseHash().view)) return;
+  refreshDue = 0;
+  refreshNow();
+}
+
 function startAutoRefresh() {
-  stopAutoRefresh();
   const minutes = Number(state.refresh);
-  if (!minutes || minutes <= 0) return;
-  refreshTimer = setInterval(() => {
-    if (document.visibilityState !== "visible") return;
-    if (document.querySelector("#modal:not([hidden])")) return;
-    if (!["home", "card", "explore"].includes(parseHash().view)) return;
-    refreshNow();
-  }, minutes * 60_000);
+  const every = minutes > 0 ? minutes * 60_000 : 0;
+  // **The due time outlives the renders.** `render` runs on every navigation, and re-arming the
+  // clock there meant a viewer who moved around never reached the end of an interval at all: it is
+  // re-armed only when the interval in Settings actually changes.
+  if (every !== refreshEvery) {
+    refreshEvery = every;
+    refreshDue = every ? Date.now() + every : 0;
+  }
+  if (!every) {
+    stopAutoRefresh();
+    return;
+  }
+  if (refreshTimer) return; // already ticking
+  refreshTimer = setInterval(autoRefreshTick, AUTO_REFRESH_TICK);
+  document.addEventListener("visibilitychange", autoRefreshTick);
 }
 
 function stopAutoRefresh() {
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = null;
+  document.removeEventListener("visibilitychange", autoRefreshTick);
 }
 
 /** The hero banner — which card it shows changes at random every ten seconds. */
@@ -6566,8 +6612,14 @@ async function renderTitle(type, id) {
         backdrop
           ? el("img", { class: "title-hero-art", src: backdrop, alt: "", loading: "eager" })
           : poster
+            // **The plate is the poster itself, blurred.** With only the poster on the frame, the
+            // frame's own flat plate showed as dark bands above and below it (the reported "black
+            // band on the title poster"). A blurred, oversized copy of the same picture fills the
+            // frame, so the banner is the artwork edge to edge and the poster still stands whole
+            // on top of it.
             ? el("div", { class: "title-hero-poster" },
-                el("img", { src: poster, alt: "", loading: "eager" }),
+                el("img", { class: "title-hero-poster-blur", src: poster, alt: "", loading: "eager", "aria-hidden": "true" }),
+                el("img", { class: "title-hero-poster-art", src: poster, alt: "", loading: "eager" }),
               )
             : null,
       ),
@@ -7015,7 +7067,7 @@ async function openAssistant(meta, opts = {}) {
         // and with it off there is no button rather than a button that does nothing.
         state.speak?.ask === false
           ? null
-          : el("button", { class: "btn focusable", type: "button", id: "assistant-voice", text: "🎙 Voice", title: "Say your question", onclick: () => voiceInto(question, ask) }),
+          : el("button", { class: "btn focusable", type: "button", id: "assistant-voice", text: "Voice", title: "Say your question", onclick: () => voiceInto(question, ask) }),
       ),
       // **The tags are the two things a page cannot tell you** — plus, on Home, the owner's
       // own shortcuts. The row wraps: a suggestion line that hides behind a scroll is a
@@ -7222,8 +7274,12 @@ function libraryButton(item) {
     else if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); step(-1); }
   });
   btn.addEventListener("wheel", (event) => {
-    // **The wheel belongs to the button while it is under the cursor** — the walk moves the
-    // row, the page does not scroll (and no page-level wheel handler sees it).
+    // **The wheel belongs to the button only once it has been picked up.** It walked the rows on
+    // *every* wheel event over the button, so merely scrolling the page past it armed the walk
+    // and left the label reading a Library row's name — the reported "I scroll and the library
+    // row shows, and Add to Library never comes back". A press picks the button up (`armed >= 0`);
+    // until then the wheel is the page's and the label stays where it is.
+    if (armed < 0) return;
     event.preventDefault();
     event.stopPropagation();
     step(event.deltaY > 0 ? 1 : -1);
