@@ -504,7 +504,12 @@ body {
 /* **An empty slot is the app's empty slot.** The blank tile wore `--panel-2`, a shade lighter
    than the card it sits on — which is what drew the "outline" around the poster that had no
    picture. It is the same faint fill every other empty slot in the app uses. */
-.spotlight-tile-art.blank { background: transparent; }
+/* **A tile with no picture draws nothing at all.** A `<img>` with no usable source is not
+   invisible in Chromium: it paints the broken-image box, which framed every empty poster on
+   the Upcoming card in a 1px light line — the "white lines" at the edges of the posters. The
+   element is taken out of the layout until there is a picture for it (`putSpotlightArt`
+   clears `blank`, and the tile is the app's own flat plate again). */
+.spotlight-tile-art.blank { background: transparent; display: none; }
 /* The tag and the name are **drawn on the frame**, the way the tagged artwork draws
    them: a pill across the top, the title under it at the bottom. */
 .spotlight-frame {
@@ -5376,41 +5381,11 @@ button.rating.my-rating {
 .live-hero-caption-name { font-size: 18px; font-weight: 800; color: var(--text); }
 .live-hero-caption-line { font-size: 13px; color: var(--muted); }
 
-/* ============================================================================
-   **The Guide card is a TiviMate screen in miniature.**
-   ----------------------------------------------------------------------------
-   The strip of categories on top, the channel you are on in the panel at the top left — its
-   mark and what it is playing now — and the schedule beside it. The card is taller than the
-   poster cards because a strip, a panel and a table cannot live inside a 32:9 band.
-   ============================================================================ */
-.icon-wrap.guide-wrap-frame { aspect-ratio: 16 / 9; }
-.guide-wrap {
-  position: absolute;
-  inset: 10px;
-  display: grid;
-  grid-template-columns: 178px minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-}
-.guide-wrap .guide-card-cats { grid-column: 1 / -1; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
-.guide-wrap .guide-card-cats::-webkit-scrollbar { display: none; }
-.guide-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--panel-2);
-  text-align: center;
-  overflow: hidden;
-}
-.guide-preview-logo { max-width: 74%; max-height: 48%; object-fit: contain; }
-.guide-preview-initials { font-size: 30px; font-weight: 800; color: var(--muted); }
-.guide-preview-name { font-size: 13.5px; font-weight: 800; color: var(--text); }
-.guide-preview-now { font-size: 12px; color: var(--muted); }
-.guide-table { min-width: 0; overflow: hidden; }
+/* **The Guide card draws no table of its own.** It drew the whole TiviMate screen in a card's
+   frame — the categories, a preview panel and three hours of schedule — which made the first
+   card of the home a full-width band twice the height of every card beside it. The table lives
+   on the Guide *screen*, which fills the window when it opens (see `renderGuide`); the card is
+   the home's way into it, drawn as the six-channel wall every live card uses. */
 /* **The star on a guide row.** A channel is kept by pressing it, and it is a button of its own
    beside the channel rather than something inside it — a control nested in a button cannot be
    reached by the keyboard. Off it is a hollow star, on it is the selection colour. */
@@ -5431,14 +5406,6 @@ button.rating.my-rating {
 .guide-pin:hover, .guide-pin:focus-visible { color: var(--text); background: rgba(255, 255, 255, 0.06); }
 .guide-pin.on, .guide-pin.on:hover { color: var(--select, var(--accent)); }
 
-/* **The Guide card takes the whole row.** It is a table with a time ruler across it; inside one
-   260px column it could only be a thumbnail of itself. Full width it is the guide, drawn on
-   Home, with the columns wide enough to read. */
-.icons.grid .icon-box:has(.guide-wrap-frame) { grid-column: 1 / -1; }
-.icons.grid .icon-box:has(.guide-wrap-frame) .icon-wrap.guide-wrap-frame {
-  aspect-ratio: 32 / 9;
-  min-height: 340px;
-}
 
 /* ============================================================================
    **The Guide screen is the screen.**
@@ -5478,12 +5445,6 @@ button.rating.my-rating {
   border-radius: 8px;
   background: rgba(3, 4, 6, 0.66);
 }
-/* **The frame is a door.** The guide table's own rows are channel buttons; everything else in
-   the card's frame opens the full guide (see `liveCard`), so the frame says so. */
-.guide-wrap { cursor: pointer; }
-.guide-wrap .guide-channel,
-.guide-wrap .guide-wrap button,
-.guide-wrap .chip { cursor: pointer; }
 
 /* ============================================================================
    **The Watchlist card's wall.** Six posters in the card's own frame, the way the Movies
@@ -5562,7 +5523,12 @@ button.rating.my-rating {
    so two posters on the live home read as a different kind of object from the one
    poster on the Movies home. Same plate, same corner, same flush picture.
    ============================================================================ */
-.live-hero-poster { border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); }
+/* **No hairline on the live banner's posters.** This one carried a 1px
+   `rgba(255, 255, 255, 0.18)` edge — the app drew a hairline around nearly every surface once,
+   and this was the last one standing, so the IPTV banner's two posters wore a light line the
+   Movies banner's single poster has not had since that pass. Same plate, same corner, and now
+   the same edge: none. */
+.live-hero-poster { border: 0; border-radius: var(--radius); }
 .live-hero-poster .live-hero-still {
   inset: 0;
   width: 100%;

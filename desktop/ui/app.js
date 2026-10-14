@@ -10589,7 +10589,17 @@ async function render() {
   try {
   // **The whole-window guide is a state of the screen, not of the button.** Leaving the
   // guide puts the top bar back, so a page cannot inherit a guide's full screen.
-  if (view !== "guide" && guideImmersive()) document.body.classList.remove("guide-immersive");
+  // **And the guide opens full-window by itself.** An IPTV player's guide *is* the screen —
+  // a TiviMate-shaped table in the page's column is a card's guide — so arriving in it drops
+  // the top bar and hands the table the window. That happens once per visit: the Full screen
+  // button (and Escape) can put the page back, and a redraw leaves that choice alone.
+  if (view !== "guide") {
+    if (guideImmersive()) document.body.classList.remove("guide-immersive");
+    guideOpenedFull = false;
+  } else if (!guideOpenedFull) {
+    guideOpenedFull = true;
+    document.body.classList.add("guide-immersive");
+  }
   if (view === "guide") nodes = renderGuide();
   else if (view === "recordings") nodes = renderRecordings();
   else if (view === "livewatchlist") nodes = renderLiveWatchlist();
@@ -10833,8 +10843,8 @@ const liveProfile = () => state.profile === LIVE_PROFILE;
 const LIVE_CARDS = [
   // **One switch per card family.** The home draws the Guide, then Recordings and the
   // sports Highlights (one family), then the Watchlist, then the two Upcoming cards. The
-  // Guide card is always the guide table — Settings → Source → Guide and Categories still
-  // chooses the *screen*'s layout (list or grid), not the card's.
+  // Guide card is a card — the six-channel wall, opening the Guide screen — and Settings →
+  // Source → Guide and Categories chooses that *screen*'s layout (table or list).
   ["live-guide", "Guide"],
   ["live-recordings", "Recordings / Highlights"],
   ["live-upcoming", "Upcoming (Live TV & Sports)"],
@@ -11073,6 +11083,10 @@ function nowNext(channel, guide) {
  * fullscreen is still asked for on top of it, and Escape — or the button again — returns.
  */
 const guideImmersive = () => document.body.classList.contains("guide-immersive");
+/** **The guide has opened itself full-window once.** Leaving the guide forgets it, so coming
+ *  back fills the screen again — while the Exit button's own choice is not undone by the
+ *  redraw that follows it. */
+let guideOpenedFull = false;
 
 /** Is the top bar hidden because the guide is using the whole window? */
 function toggleGuideImmersive() {
@@ -11339,11 +11353,10 @@ function liveCard({ id, title, sub, rows = [], action, posters = [], grid = null
       "div",
       {
         class: `icon-wrap${filled ? " art-filled" : ""}${wrap ? ` ${wrap}` : ""}`,
-        // **A card whose frame is a whole screen is a door into it.** The Guide card's frame
-        // is the TiviMate table, and its rows are channel buttons — so the frame itself took
-        // no press and the only way in was the small name underneath, which read as "the
-        // guide card does not open". A press anywhere the table does not already answer
-        // opens the full guide.
+        // **A card whose frame draws the screen's own content is a door into it.** The one
+        // card that arrives here is the live **Upcoming** card: its frame is the pair of
+        // stills, which take no press of their own, so a press anywhere on the frame (outside
+        // the title under it) opens the screen the card is about.
         ...(grid && action
           ? { onclick: (event) => { if (!event.target.closest("button")) action(); } }
           : {}),
@@ -11366,9 +11379,8 @@ function liveCard({ id, title, sub, rows = [], action, posters = [], grid = null
     el(
       "span",
       { class: "icon-meta" },
-      // **A card whose frame is its own content still needs its way in.** With the
-      // guide table in the frame the title is the button that opens the full guide;
-      // the table's own rows open their channel.
+      // **A card whose frame is its own content still needs its way in.** With the stills
+      // in the frame, the title is the button that opens the screen the card is about.
       grid
         ? el("button", { class: "icon-name icon-name-link focusable", type: "button", text: title, onclick: action })
         : el("span", { class: "icon-name", text: title }),
@@ -11378,126 +11390,21 @@ function liveCard({ id, title, sub, rows = [], action, posters = [], grid = null
 }
 
 /**
- * **The real guide, not a preview of one.**
+ * **The Guide card is a card.**
  *
- * The TiviMate-shaped grid the Guide screen draws — a time ruler with a now-marker,
- * a channel column with logos, and a programme block per slot on the track — built
- * once here and used in two places: the Guide card's own frame, and the full screen.
- * A card that drew four "now playing" lines and then made you open another screen to
- * see a guide was a preview of the thing you asked for.
+ * It drew the whole TiviMate table in its own frame — the category strip, the channel panel
+ * and three hours of schedule on a full-width band twice the height of every card beside it —
+ * which is a *screen* wearing a card's name. The table belongs to the Guide screen, which is
+ * where "inside the guide" is and which now fills the window the moment it opens (see
+ * `renderGuide`); the card is the home's own way into it, and it draws the same six-channel
+ * wall every other live card draws.
+ *
+ * **It still reads the guide itself**, so its line can say whether an EPG has arrived rather
+ * than waiting on a screen nobody has opened.
  */
-function guideGrid(channels, { hours = 3 } = {}) {
-  const guide = state.live.guide;
-  const hasEpg = Boolean(guide && guide.epg);
-  const start = Date.now();
-  const span = hours * 3600_000;
-  const ticks = Array.from({ length: hours }, (_, i) => start + i * 3600_000);
-  const rows = channels.map((channel, i) => {
-    const programs = hasEpg ? (guide.programmes[channel.epgId || channel.id] || []) : [];
-    const blocks = programs
-      .filter((p) => p.stop > start && p.start < start + span)
-      .map((p) => {
-        const from = Math.max(p.start, start);
-        const to = Math.min(p.stop, start + span);
-        return el(
-          "div",
-          { class: "guide-block", style: `left:${((from - start) / span) * 100}%;width:${Math.max(((to - from) / span) * 100, 2)}%` },
-          el("span", { class: "guide-block-title", text: p.title }),
-          el("span", { class: "guide-block-time", text: `${clockOf(p.start)} – ${clockOf(p.stop)}` }),
-        );
-      });
-    return el(
-      "div",
-      { class: "guide-row" },
-      el(
-        "div",
-        { class: "guide-cell" },
-        el(
-          "button",
-          { class: "guide-channel focusable", type: "button", title: `Play ${channel.name}`, onclick: () => openChannelPlayer(channel.id) },
-          el("span", { class: "guide-num", text: String(i + 1) }),
-          channel.logo
-            ? el("img", { class: "guide-logo", src: channel.logo, alt: "", loading: "lazy" })
-            : el("span", { class: "guide-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
-          el("span", { class: "guide-name", text: channel.name }, (() => {
-            const res = channelResolution(channel.name);
-            return res ? el("span", { class: "guide-res", text: res }) : null;
-          })()),
-        ),
-        guidePinButton(channel),
-      ),
-      el(
-        "div",
-        { class: `guide-track${hasEpg ? "" : " bare"}` },
-        hasEpg ? blocks : el("span", { class: "guide-nodata", text: "No programme data" }),
-      ),
-    );
-  });
-  const marker = ((Date.now() - start) / span) * 100;
-  return el(
-    "div",
-    { class: `guide${hours <= 3 ? " guide-in-card" : ""}` },
-    el(
-      "div",
-      { class: "guide-head" },
-      el("span", { class: "guide-corner", text: "Channel" }),
-      el(
-        "div",
-        { class: "guide-times" },
-        ...ticks.map((h) => el("span", { class: "guide-time", text: clockOf(h) })),
-        el("span", { class: "guide-now", style: `left:${marker}%`, "aria-hidden": "true" }),
-      ),
-    ),
-    el("div", { class: "guide-body" }, ...(rows.length ? rows : [el("p", { class: "empty", text: state.live.loading ? "reading the lineup…" : "No channels in this country yet." })])),
-  );
-}
-
-/** The Guide card — the first card of the profile, and its way into the grid. */
 function guideCard(mode = "livetv") {
-  // **The card's frame is the guide itself** — the same TiviMate table the Guide
-  // screen draws, six channels across three hours, with the now-marker and each
-  // channel's own programme blocks. It used to be four "now playing" lines, which
-  // made the card a preview of a guide you had to open somewhere else.
-  // **The card reads the guide itself.** Only the Guide *screen* used to ask for the
-  // programme data, so a table drawn on the card had no schedule to draw — every row
-  // said "No programme data" until you opened the screen that fetched it.
   if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
-  // **The card is the guide's screen in miniature, the way TiviMate draws one**: the
-  // categories across the top, the channel you are on in the panel at the top left — its mark
-  // and what it is playing now — and the schedule beside it. The strip filters the table
-  // without leaving the home screen, and `All` puts every category back.
   const all = liveChannelsShown(mode);
-  const groups = [...new Set((state.live.all || []).flatMap((c) => c.groups || []).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const cat = state.live.guideCategory || "";
-  const inCat = cat ? all.filter((c) => (c.groups || []).includes(cat)) : all;
-  const channels = (inCat.length ? inCat : all).slice(0, 6);
-  const preview = channels[0] || all[0] || null;
-  const previewNow = preview ? nowNext(preview, state.live.guide).now : null;
-  const cardCats = el("div", { class: "cat-strip guide-card-cats" },
-    el("button", {
-      class: `chip focusable${cat ? "" : " active"}`,
-      type: "button",
-      text: "All",
-      onclick: () => { state.live.guideCategory = ""; render(); },
-    }),
-    ...groups.slice(0, 14).map((group) =>
-      el("button", {
-        class: `chip focusable${cat === group ? " active" : ""}`,
-        type: "button",
-        text: group,
-        onclick: () => { state.live.guideCategory = state.live.guideCategory === group ? "" : group; render(); },
-      }),
-    ),
-  );
-  // The preview is the panel the strip feeds: the channel the table starts on, and what it is
-  // playing now (its own still when the guide has one).
-  const cardPreview = el("div", { class: "guide-preview" },
-    preview?.logo
-      ? el("img", { class: "guide-preview-logo", src: preview.logo, alt: "", loading: "lazy" })
-      : el("span", { class: "guide-preview-initials", text: initialsOf(preview?.name || "TV") }),
-    el("span", { class: "guide-preview-name", text: preview?.name || "No channel yet" }),
-    el("span", { class: "guide-preview-now", text: previewNow ? `Now playing · ${previewNow.title}` : "No programme data" }),
-  );
   const updated = state.live.updated ? new Date(state.live.updated).toLocaleTimeString() : "";
   return liveCard({
     id: "open-guide",
@@ -11508,18 +11415,7 @@ function guideCard(mode = "livetv") {
       updated ? `updated ${updated}` : "",
       state.live.guide && state.live.guide.epg === false ? "no EPG yet" : "",
     ].filter(Boolean).join(" · "),
-    // The card is taller than the poster cards: a strip, a preview panel and a table cannot
-    // live inside a 32:9 band.
-    wrap: "guide-wrap-frame",
-    grid: el("div", { class: "guide-wrap" },
-      cardCats,
-      cardPreview,
-      // **The card is always the table.** It followed the Guide-and-Categories setting and
-      // drew the channel wall in the grid mode, so a viewer who wanted a guide got a wall of
-      // logos with counts — the one thing a guide is not. The table is what the card is for;
-      // the list view of the Guide *screen* is still there for anyone who prefers it.
-      el("div", { class: "guide-table" }, guideGrid(channels, { hours: 3 })),
-    ),
+    posters: all.slice(0, 6).map((channel) => ({ logo: channel.logo, name: channel.name })),
     action: () => go("#/guide"),
   });
 }

@@ -251,12 +251,6 @@
           "name": "Rakuten Viki",
           "as": "Rakuten Viki",
           "movieCount": 435
-        },
-        {
-          "id": 151,
-          "name": "BritBox",
-          "as": "BritBox",
-          "movieCount": 58
         }
       ],
       "tv": [
@@ -331,12 +325,6 @@
           "name": "Rakuten Viki",
           "as": "Rakuten Viki",
           "tvCount": 1589
-        },
-        {
-          "id": 151,
-          "name": "BritBox",
-          "as": "BritBox",
-          "tvCount": 401
         }
       ]
     },
@@ -593,6 +581,12 @@
           "movieCount": 490
         },
         {
+          "id": 151,
+          "name": "BritBox",
+          "as": "BritBox",
+          "tvCount": 401
+        },
+        {
           "id": 41,
           "name": "ITVX",
           "as": "ITVX",
@@ -623,6 +617,12 @@
           "name": "BBC iPlayer",
           "as": "BBC iPlayer",
           "tvCount": 904
+        },
+        {
+          "id": 151,
+          "name": "BritBox",
+          "as": "BritBox",
+          "tvCount": 401
         },
         {
           "id": 41,

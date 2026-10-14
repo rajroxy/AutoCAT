@@ -322,7 +322,7 @@ export const PLATFORMS = VERIFIED.platforms
 export const DECADES = ALL_DECADES;
 
 /** Up to `LOCAL_LIMIT` local OTT services per region, verified to return titles. */
-export const LOCAL_LIMIT = 13;
+export const LOCAL_LIMIT = 12;
 const localFor = (region, type) => (VERIFIED.regions[region]?.[type] ?? []).slice(0, LOCAL_LIMIT);
 
 /**
@@ -506,6 +506,42 @@ const POPULAR_REGIONAL_KEYS = new Set([...POPULAR_REGIONAL].map(popKey));
 export const isPopularRegional = (name) => POPULAR_REGIONAL_KEYS.has(popKey(name));
 
 /**
+ * **The services the Shows card does not publish.**
+ *
+ * The three documentary streamers are verified in Japan and are real rows on the films card.
+ * The customer asked them off the **shows** side, where their catalogues are not what anyone
+ * opens a Regional OTT card for — and off it means off it: the row is dropped for the series
+ * row type in the region's own list **and** on the continent rows, which are the same data
+ * read wider (see `regionalOtt` and `regionalOttByContinent`).
+ */
+const SHOW_ROW_OFF = new Set(["DOCSVILLE", "MUBI", "Curiosity Stream"]);
+const offTheShowsCard = (type, name) => type === "tv" && SHOW_ROW_OFF.has(String(name || "").trim());
+
+/**
+ * **Where a row sits when the customer names its neighbour.**
+ *
+ * A card is built in the order the regions were verified in, and the two worldwide services
+ * are appended after every one of them — so Crunchyroll, the anime catalogue, whose rows are
+ * read beside Japan's, drew at the very bottom of the card. It now sits immediately after
+ * FOD, on both Regional OTT cards (the plain one and its Top 10 twin, whose labels carry the
+ * ` | Top 10` suffix this strips). A row whose anchor is missing keeps the place it had.
+ */
+const ROW_AFTER = { Crunchyroll: "FOD" };
+const rowLabel = (row) => String(row?.name || "").replace(/ \| Top 10$/, "");
+function placeRowsAfter(rows, after = ROW_AFTER) {
+  let out = rows;
+  for (const [name, anchor] of Object.entries(after)) {
+    const row = out.find((r) => rowLabel(r) === name);
+    const rest = out.filter((r) => rowLabel(r) !== name);
+    const at = rest.findIndex((r) => rowLabel(r) === anchor);
+    if (!row || at < 0) continue;
+    rest.splice(at + 1, 0, row);
+    out = rest;
+  }
+  return out;
+}
+
+/**
  * **How many regional services one continent puts on the Continental card.**
  *
  * Six is the point where the row list stays a list: the card is a door into *where* titles
@@ -562,6 +598,7 @@ function regionalOttByContinent(kind = "all") {
           if (taken >= CONTINENTAL_OTT_LIMIT) break;
           // Crunchyroll and Viki are on every region's Regional OTT card already.
           if (WORLDWIDE.some((w) => w.id === svc.id)) continue;
+          if (offTheShowsCard(type, svc.name)) continue;
           if (!isPopularRegional(svc.name) || seen.has(svc.id) || used.has(svc.id)) continue;
           seen.add(svc.id);
           used.add(svc.id);
@@ -741,20 +778,24 @@ function regionalOtt(kind) {
     // region its row is read in; the name is only the name.
     const byName = new Map();
     for (const row of perCountry) if (!byName.has(row.svc.name)) byName.set(row.svc.name, row);
-    const rows = [...byName.values()].map(({ svc, region }) => {
-      const label = ROW_LABEL[svc.name] || svc.name;
-      return kind === "top10"
-        ? provider(`${label} | Top 10`, svc.id, region, TOP10)
-        : provider(label, svc.id, region);
-    });
+    const rows = [...byName.values()]
+      // **Not on the Shows card** — see `offTheShowsCard`.
+      .filter(({ svc }) => !offTheShowsCard(type, svc.name))
+      .map(({ svc, region }) => {
+        const label = ROW_LABEL[svc.name] || svc.name;
+        return kind === "top10"
+          ? provider(`${label} | Top 10`, svc.id, region, TOP10)
+          : provider(label, svc.id, region);
+      });
     // The worldwide pair (Crunchyroll, Viki) belong to every region, so they are added
-    // once at the end rather than once per country.
+    // once at the end rather than once per country — and Crunchyroll is then put back
+    // beside FOD, the row whose country it is read with (see `placeRowsAfter`).
     for (const svc of WORLDWIDE) {
       rows.push(kind === "top10"
         ? provider(`${svc.name} | Top 10`, svc.id, null, TOP10)
         : provider(svc.name, svc.id, null));
     }
-    return rows;
+    return placeRowsAfter(rows);
   };
   return { movie: build("movie", "movie"), show: build("tv", "tv") };
 }
