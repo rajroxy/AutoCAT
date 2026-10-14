@@ -172,9 +172,9 @@ drawn on the cover:
 | Card | Catalogs (movies / shows) |
 |---|---|
 | Watchlist | `Plan to Watch` · `Watching` · `Watched` (both) — served from your pins, not from TMDB |
-| Discover Plus | `Acclaimed` · `Picks` · `Hidden Gems` · `Cult Classics` · `Landmarks` · `Fresh`, each **Top 25** (both) — every row a sort plus the vote floor that makes it mean something |
+| Discover Plus | films: `Critically Acclaimed` · `Award Winners` · `Staff Picks` · `Box Office Hits` · `Hidden Gems` · `Cult Classics` · `All-Time Landmarks` · `Record Breakers` — shows: `Critically Acclaimed` · `Award Winners` · `Staff Picks` · `Breakout Series` · `Limited Series` · `Hidden Gems` · `Cult Classics` · `All-Time Landmarks`, each **Top 25** — every row a sort plus the vote floor that makes it mean something |
 | On the Board | Now Playing / Airing Today · Airing This Week · On the Air |
-| Discover | Latest · Newest · Oldest · Trending · Popular · Least popular · Top Rated (both) |
+| Discover | films: `Festival Favorites` · `Independent Standouts` · `Best Sequels` · `Genre Definers` · `Technical Achievements` · `Adaptation Standouts` · `Underrated Performances` · `Box Office Flops` — shows: `Anthology Series` · `Genre Definers` · `Character Arcs` · `Ensemble Casts` · `Memorable Finales` · `Spin-Offs` · `Industry Firsts` · `Record Breakers`, uncapped |
 | Popular by ◆ Genre | `Popular in <Genre>` — movie genres / TV genres |
 | Genres | `<Genre>` — the movie genres / TV genres, and nothing else (Anime and Asian Drama are keywords, not genres) |
 | Popular by ◆ Decade | `Popular in <decade>s` (both) |
