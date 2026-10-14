@@ -825,6 +825,12 @@ function withRegionalServices(defs, code) {
   const out = [...defs];
   for (const [cardKey] of CARDS) {
     for (const row of own.get(cardKey) || []) {
+      // **Only a name people would recognise is added to the card.** TMDB's answer for a country
+      // carries art-house catalogues, one-broadcaster apps and box companions beside the real
+      // services — a Korean list holds DOCSVILLE, Bloodstream and CaixaForum+ — and those are
+      // not what a "Regional OTT" card is. A country row the household list knows is what this
+      // pass is for: SonyLIV in India, Tencent Video in Hong Kong, Kocowa in the United States.
+      if (!isPopularRegional(String(row.name || "").replace(/ \| Top 10$/, ""))) continue;
       const key = `${cardKey}:${row.entry.providerId}`;
       if (published.has(key)) continue;
       published.add(key);

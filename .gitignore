@@ -84,3 +84,4 @@ addon/user-preferences.scope
 addon/settings.split.*
 .tmp/
 serve.log
+.patch/

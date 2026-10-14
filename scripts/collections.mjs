@@ -322,7 +322,7 @@ export const PLATFORMS = VERIFIED.platforms
 export const DECADES = ALL_DECADES;
 
 /** Up to `LOCAL_LIMIT` local OTT services per region, verified to return titles. */
-export const LOCAL_LIMIT = 8;
+export const LOCAL_LIMIT = 12;
 const localFor = (region, type) => (VERIFIED.regions[region]?.[type] ?? []).slice(0, LOCAL_LIMIT);
 
 /**
@@ -451,7 +451,7 @@ const POPULAR_REGIONAL = new Set([
   "Shahid VIP", "OSN+", "STARZPLAY", "MBC+", "TOD", "Jawwy TV", "stc tv",
   "yes+", "Partner", "Cellcom tv", "Hot", "WATCH IT", "Yango Play", "Weyyak",
   // —— Africa
-  "Showmax", "DStv Stream", "SABC+", "IROKOTV", "eVOD", "Buni TV",
+  "Showmax", "DStv Stream", "SABC+", "IROKOTV",
   // —— the Americas
   "Globoplay", "Telecine", "Claro tv+", "Vivo Play", "PlayPlus", "Looke", "Flow", "DGO",
   "CINE.AR Play", "VIX", "ViX Premium", "Claro video", "Cin\u00e9polis KLIC", "Univer Video",
@@ -466,18 +466,20 @@ const POPULAR_REGIONAL = new Set([
   // Japanese catalogues, the Greater-China and SEA platforms, the broadcasters' own players in
   // Britain and Europe — and each was missing, which is why the card could show fourteen rows
   // and none of them the service the viewer was looking for.
-  "Peacock", "Peacock Premium", "Peacock Standard", "Pluto TV", "Tubi", "Tubi TV", "Starz",
-  "Showtime", "AMC+", "AMC Plus", "MGM+", "MGM Plus", "Fubo", "FuboTV", "Philo", "Shudder",
-  "HIDIVE", "Kocowa", "Rakuten Viki", "SonyLIV", "JioCinema", "Voot", "ALTBalaji",
-  "Lionsgate Play", "Eros Now", "ManoramaMAX", "Chaupal", "Sun NXT", "Watcha", "Laftel",
-  "AbemaTV", "TVer", "FOD", "DMM TV", "WOWOW", "TELASA", "Iflix", "GoPlay", "RCTI+",
-  "Mola TV", "Vivamax", "iWantTFC", "Tonton", "StarHub TV+", "Hami Video", "KKTV",
-  "myVideo", "friDay", "LINE TV", "Now E", "Hmvod", "FPT Play", "VieON", "Galaxy Play",
-  "7plus", "10 play", "ABC iview", "Channel 5", "My5", "All 4", "STV Player", "RTE Player",
-  "Virgin Media Play", "TG4", "Arte", "France TV", "OCS", "Sky Go", "WOW", "Mitele", "3Cat",
-  "RTVE Play", "TIMvision", "Kijk", "SVT Play", "C More", "DR TV", "Canal+ Online",
-  "TVP VOD", "BluTV", "Puhutv", "Ivi", "Premier", "OSN", "HOT VOD", "Partner TV",
-  "Kan 11", "DStv Now", "iwonder", "Star+", "Blim",
+  // **The household names, and only those.** A regional OTT card is what someone in that part
+  // of the world would name if asked; the small national catalogues, the single-broadcaster
+  // apps and the box companions are left to the data, not published as rows. (puhutv, Mitele,
+  // 3Cat, Kijk, Vivamax, Blim, Tonton, Mola TV, RCTI+, Hami Video and the rest of the long tail
+  // were in this list for one pass and are out again: nobody names them, and a card of them was
+  // the complaint.)
+  "Peacock", "Peacock Premium", "Pluto TV", "Tubi", "Tubi TV", "Starz", "AMC+", "AMC Plus",
+  "MGM+", "MGM Plus", "FuboTV", "Shudder", "HIDIVE", "Kocowa", "Rakuten Viki", "SonyLIV",
+  "JioCinema", "Voot", "Lionsgate Play", "Eros Now", "Sun NXT", "Watcha", "AbemaTV", "TVer",
+  "FOD", "DMM TV", "WOWOW", "Iflix", "Mewatch", "StarHub TV+", "7plus", "10 play",
+  "ABC iview", "Channel 5", "My5", "All 4", "STV Player", "RTE Player", "Virgin Media Play",
+  "TG4", "Arte", "France TV", "OCS", "Sky Go", "WOW", "RTVE Play", "TIMvision", "SVT Play",
+  "C More", "DR TV", "Canal+ Online", "TVP VOD", "BluTV", "Ivi", "OSN", "HOT VOD",
+  "Partner TV", "DStv Now", "Star+",
 ]);
 
 /**
