@@ -391,7 +391,7 @@ export const REGIONAL_SERVICES = (type) => {
   for (const entry of Object.values(VERIFIED.regions)) {
     for (const svc of entry[type] || []) {
       if (!byId.has(svc.id)) {
-        byId.set(svc.id, { id: svc.id, name: svc.name, region: String(entry.code || "").toUpperCase() });
+        byId.set(svc.id, { id: svc.id, name: ROW_LABEL[svc.name] || svc.name, region: String(entry.code || "").toUpperCase() });
       }
     }
   }
@@ -425,40 +425,44 @@ export const REGIONAL_SERVICES = (type) => {
  */
 const POPULAR_REGIONAL = new Set([
   // —— the Pacific
-  "9Now", "Stan", "BINGE", "SBS On Demand", "TVNZ+", "ThreeNow", "Neon", "Foxtel Now",
-  "Kayo Sports", "Optus Sport", "Sky Sport Now", "Maori+", "M\u0101ori+",
+  "9Now", "Stan", "BINGE", "SBS On Demand", "ABC iview", "7plus", "10 play", "TVNZ+", "ThreeNow",
+  "Neon", "Foxtel Now", "Kayo Sports", "Optus Sport", "Sky Sport Now",
   // —— Britain and Ireland
-  "BBC iPlayer", "ITVX", "Channel 4", "BritBox",
+  "BBC iPlayer", "ITVX", "Channel 4", "My5", "All 4", "Channel 5", "BritBox", "STV Player",
+  "RTE Player", "Virgin Media Play", "NOW",
   // —— South Asia
-  "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt", "Sony Liv", "Hoichoi",
+  "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt", "Sun NXT", "Sony Liv", "SonyLIV",
+  "Hoichoi", "JioCinema", "Eros Now", "Lionsgate Play",
   // —— Korea and Japan
-  "TVING", "wavve", "Coupang Play", "U-NEXT", "Hulu", "ABEMA", "Lemino", "d Anime Store",
+  "TVING", "wavve", "Watcha", "Coupang Play", "U-NEXT", "Hulu", "ABEMA", "AbemaTV",
+  "Lemino", "TVer", "FOD", "WOWOW", "DMM TV", "d Anime Store",
   // —— Greater China and South-East Asia
   "iQIYI", "WeTV", "Viu", "Vidio", "Catchplay", "Mewatch", "Tencent Video", "Youku",
   "Mango TV", "Bilibili", "myTV SUPER", "TrueID", "sooka", "Astro GO", "Vision+",
   // —— continental Europe. The broadcasters' own services first, then the pay platforms,
   // then the markets that have their own catalogue in one country only.
   "ZDF", "ARD Mediathek", "RTL+", "Joyn", "ORF ON", "Sky", "Canal+", "M6+", "Molotov",
-  "Movistar Plus+", "Atresplayer", "Filmin", "rtve", "Mediaset Infinity", "NOW", "RaiPlay",
-  "Videoland", "NLZIET", "NPO Start", "Viaplay", "TV4 Play", "NRK TV", "TV 2 Play",
-  "Yle Areena", "TVP", "Player", "Polsat Box Go", "Voyo", "SkyShowtime",
+  "Movistar Plus+", "Atresplayer", "Filmin", "rtve", "RTVE Play", "Mediaset Infinity",
+  "RaiPlay", "Rai Play", "Videoland", "NPO Start", "Viaplay", "TV4 Play", "SVT Play",
+  "C More", "NRK TV", "TV 2 Play", "DR TV", "Yle Areena", "TVP", "TVP VOD", "Player",
+  "Polsat Box Go", "Voyo", "SkyShowtime", "France TV", "OCS",
   // —— Türkiye and Russia
-  "Exxen", "Gain", "tabii", "Kinopoisk", "Okko", "Wink", "START",
+  "Exxen", "Gain", "tabii", "BluTV", "Kinopoisk", "Okko", "Wink", "START", "Ivi",
+  "Premier",
   // —— the Middle East. **The region's own platforms, and only those.** The worldwide
   // services (Netflix, Prime Video, HBO Max, Apple TV+) were on this list once and did not
   // belong on it: they have their own card (see `GLOBAL_OTT`), and a Regional OTT row for
   // one of them says the region has a service of its own that it does not.
   "Shahid VIP", "OSN+", "STARZPLAY", "MBC+", "TOD", "Jawwy TV", "stc tv",
-  "yes+", "Partner", "Cellcom tv", "Hot", "WATCH IT", "Yango Play", "Weyyak",
+  "yes+", "Partner", "Hot", "WATCH IT", "Yango Play", "Weyyak",
   // —— Africa
   "Showmax", "DStv Stream", "SABC+", "IROKOTV",
   // —— the Americas
-  "Globoplay", "Telecine", "Claro tv+", "Vivo Play", "PlayPlus", "Looke", "Flow", "DGO",
-  "CINE.AR Play", "VIX", "ViX Premium", "Claro video", "Cin\u00e9polis KLIC", "Univer Video",
+  "Globoplay", "Telecine", "Claro tv+", "Vivo Play", "PlayPlus", "Flow", "DGO",
+  "VIX", "ViX Premium", "Claro video", "Cin\u00e9polis KLIC", "Star+",
   // **Not Paramount Plus.** It is one of the six platforms the Global OTT card owns, and the
   // same rule that keeps Netflix, Prime Video and HBO Max off this card keeps it off too.
-  "Crave", "CBC Gem", "ICI TOU.TV EXTRA", "STACKTV", "Club Illico",
-  "RiverTV", "TSN+", "Sportsnet+",
+  "Crave", "CBC Gem", "ICI TOU.TV EXTRA",
   // —— **the household names the list was missing.** The card is built by *asking TMDB* which
   // services a country really carries, and this list is what decides which of them the card's
   // Popular prefix is made of. The names below are the ones people actually name in their
@@ -473,13 +477,12 @@ const POPULAR_REGIONAL = new Set([
   // were in this list for one pass and are out again: nobody names them, and a card of them was
   // the complaint.)
   "Peacock", "Peacock Premium", "Pluto TV", "Tubi", "Tubi TV", "Starz", "AMC+", "AMC Plus",
-  "MGM+", "MGM Plus", "FuboTV", "Shudder", "HIDIVE", "Kocowa", "Rakuten Viki", "SonyLIV",
+  "MGM+", "MGM Plus", "FuboTV", "fuboTV", "Shudder", "Kocowa", "Rakuten Viki",
   "JioCinema", "Voot", "Lionsgate Play", "Eros Now", "Sun NXT", "Watcha", "AbemaTV", "TVer",
-  "FOD", "DMM TV", "WOWOW", "Iflix", "Mewatch", "StarHub TV+", "7plus", "10 play",
+  "7plus", "10 play",
   "ABC iview", "Channel 5", "My5", "All 4", "STV Player", "RTE Player", "Virgin Media Play",
-  "TG4", "Arte", "France TV", "OCS", "Sky Go", "WOW", "RTVE Play", "TIMvision", "SVT Play",
-  "C More", "DR TV", "Canal+ Online", "TVP VOD", "BluTV", "Ivi", "OSN", "HOT VOD",
-  "Partner TV", "DStv Now", "Star+",
+  "Arte", "Sky Go", "WOW", "TIMvision", "Canal+ Online", "OSN", "HOT VOD",
+  "Partner TV", "DStv Now",
 ]);
 
 /**
@@ -734,11 +737,12 @@ function regionalOtt(kind) {
     // region its row is read in; the name is only the name.
     const byName = new Map();
     for (const row of perCountry) if (!byName.has(row.svc.name)) byName.set(row.svc.name, row);
-    const rows = [...byName.values()].map(({ svc, region }) =>
-      kind === "top10"
-        ? provider(`${svc.name} | Top 10`, svc.id, region, TOP10)
-        : provider(svc.name, svc.id, region),
-    );
+    const rows = [...byName.values()].map(({ svc, region }) => {
+      const label = ROW_LABEL[svc.name] || svc.name;
+      return kind === "top10"
+        ? provider(`${label} | Top 10`, svc.id, region, TOP10)
+        : provider(label, svc.id, region);
+    });
     // The worldwide pair (Crunchyroll, Viki) belong to every region, so they are added
     // once at the end rather than once per country.
     for (const svc of WORLDWIDE) {
@@ -750,6 +754,16 @@ function regionalOtt(kind) {
   };
   return { movie: build("movie", "movie"), show: build("tv", "tv") };
 }
+
+/**
+ * **A row's label when TMDB's name is not the name the viewer knows.**
+ *
+ * `WeTV` is Tencent Video's own service: TMDB carries it under the international brand
+ * and has no `Tencent Video` provider at all (its provider list for China is empty), so
+ * the row says both names. The **id** is what the row is read with — never the label —
+ * so a name is only ever a name.
+ */
+const ROW_LABEL = { WeTV: "WeTV (Tencent Video)" };
 
 const TOP10 = 10;
 // **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide
