@@ -5759,7 +5759,13 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    avatar inverts — the page's near-black circle with the Fill for the mark — which is what it
    was before this pass repainted it: a gradient disc with dark ink on it read as the plate
    showing through, and it turned the mark **black**. The disc is the ink; the mark is colour. */
-.profile-tile.active .avatar { background: var(--ink, #0b0b0b); color: var(--fill); }
+/* **The avatar looks the same on every tile.** The active tile inverted it — a near-black
+   disc with an accent mark while every other tile kept the accent disc with a dark mark — so
+   the same person's avatar was black on one tile and accent on the next (the owner's "kabhi
+   black, kabhi same fill colour"). What says *which one you are on* is the tile: its own
+   background wash and border already do that, and the avatar is not a state. The disc and the
+   mark keep the one treatment `.avatar` gives them. */
+.profile-tile.active .avatar { background: linear-gradient(160deg, var(--fill), var(--fill-deep)); color: #14110a; }
 
 /* ============================================================================
    **The Fill fills; the Ring rings.**

@@ -3040,7 +3040,11 @@ function choosePerson(id) {
  * pictures stay put while the app runs, and a new launch draws again — the requested
  * "all cards change on app start".
  */
-const LAUNCH_SEED = Math.floor(Math.random() * 1e9);
+// **A refresh deals the artwork again too.** The seed says which slice of a card's titles its
+// posters are drawn from; it was `const`, so a refresh re-read the rows and drew the *same*
+// window out of them — the card's posters looked untouched (the reported "posters card pe wo
+// bhi to refresh hona chahiye na"). It is re-rolled on a refresh now (see `refreshNow`).
+let LAUNCH_SEED = Math.floor(Math.random() * 1e9);
 
 /**
  * Up to `count` images from a card's first visible catalog.
@@ -3887,6 +3891,10 @@ async function refreshNow() {
   // one-draw-per-launch cache. Without this the artwork was cached for the whole session
   // and a refresh re-read the rows underneath a strip of the pictures that were already
   // there, which is why "refresh" never changed a card's posters.
+  // **The artwork is dealt again, not re-read under the same pictures.** A new seed moves every
+  // card's draw window (see `LAUNCH_SEED`) — without it a refresh re-read the rows and drew the
+  // same posters out of them, which is why the cards looked like nothing had happened.
+  LAUNCH_SEED = Math.floor(Math.random() * 1e9);
   clearTileWindows();
   contentDrawn.clear();
   // The sample rows on an Explore page are a draw of their own, so a refresh deals them
@@ -4165,6 +4173,9 @@ const micMark = () =>
  */
 function voicePad() {
   if (state.speak?.browse === false) return null;
+  // **No glyph.** The pad carried a drawn microphone beside the word; the owner asked for the
+  // icon off it, and the label is the button — the same weight as the Movies / Shows switch
+  // beside it, which draws nothing either.
   return el(
     "button",
     {
@@ -4181,7 +4192,6 @@ function voicePad() {
       // microphone lives inside the box now (beside Ask), so this is one door to it.
       onclick: () => openAssistant(null),
     },
-    micMark(),
     el("span", { text: "Ask AI" }),
   );
 }
@@ -4436,7 +4446,12 @@ function renderExplore(key, id) {
   // `addon/catalogs.mjs`). The ◆ Top 10 rows keep their cap; the order is how those ten are
   // picked. Only a row that *is* its own order (your own lists, the banner's rows) is left
   // without it.
-  const sortTools = (sortable || ott || isOttOrderCard(card)) && !stateful ? el("div", { class: "cat-tools" }, ottSortControl()) : null;
+  // **Not on a Top 10.** `ott` still means "this card publishes a capped list" (which is why it
+  // draws no sample row), but it is **no longer** a reason to draw the order control: asking
+  // "oldest first" of a Top 10 asks for the ten oldest, which is not what a Top 10 is. The
+  // owner caught it standing on the Global and Domestic Top 10 pages after the first pass took
+  // it off the Specialist Top 10 only — the control follows `isOttOrderCard`, and nothing else.
+  const sortTools = (sortable || isOttOrderCard(card)) && !stateful ? el("div", { class: "cat-tools" }, ottSortControl()) : null;
   const tools = ott
     ? null
     : sampled

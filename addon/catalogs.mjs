@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, isSpecialistService, rowFillsAPage, REGIONAL_SERVICES, brandOf } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, isSpecialistService, offTheDomesticCard, rowFillsAPage, REGIONAL_SERVICES, brandOf } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -706,6 +706,14 @@ const SPECIALIST_CARDS = [
 ];
 
 /**
+ * **Theatre is a shows shelf, not a film shelf.** BroadwayHD, StagePlayer+ and Marquee TV are
+ * filmed *stage* productions — the owner asked for BroadwayHD off the films side by name, and
+ * the same is true of its two siblings: their catalogues are performances, and a Films row of
+ * three recordings is not a shelf. They keep their rows on the Shows card.
+ */
+const STAGE_ONLY = /broadwayhd|stageplayer|stage player|marquee tv/i;
+
+/**
  * **How many titles a Specialist row has to answer with to be a row at all.**
  *
  * The Domestic cards cull at twenty-five, measured by `scripts/probe-regional.mjs` — but they
@@ -893,6 +901,7 @@ function withSpecialistServices(defs, code) {
     const found = specialistServices(code, type);
     if (!found) continue;
     for (const svc of found.rows) {
+      if (type === "movie" && STAGE_ONLY.test(svc.name)) continue;
       for (const [cardKey, rowName, take] of SPECIALIST_CARDS) {
         // **The type and the card are part of the row's identity.** One provider is a Films
         // row *and* a Series row, and one service is a plain row *and* a Top 10 — keying the
@@ -1156,6 +1165,9 @@ function withRegionalServices(defs, code) {
       // not what a "Regional OTT" card is. A country row the household list knows is what this
       // pass is for: SonyLIV in India, Tencent Video in Hong Kong, Kocowa in the United States.
       if (!isPopularRegional(String(row.name || "").replace(/ \| Top 10$/, ""))) continue;
+      // **The Specialist card owns its brands.** They are on it now (read in the country that
+      // carries each one), so the live top-up does not add them to the Domestic card as well.
+      if (offTheDomesticCard(String(row.name || "").replace(/ \| Top 10$/, ""))) continue;
       // **And it has to be a row that can fill a page.** The card culls these rows in
       // `scripts/collections.mjs` (`rowFillsAPage`), and this pass adds the country's own rows
       // straight back — so a row culled there has to be refused here too, or iQIYI came back to

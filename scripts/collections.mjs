@@ -851,8 +851,10 @@ const SPECIALIST_SERVICES = new Set([
   // the card and costs one filter comparison.
   // —— horror
   "Shudder", "Screambox",
-  // —— art-house and classic cinema
+  // —— art-house, classic and cult cinema (the owner's later additions included)
   "Criterion Channel", "The Criterion Channel", "MUBI", "OVID.tv", "Ovid",
+  "RetroCrush", "AsianCrush", "Hi-YAH!", "Hi-YAH", "Midnight Pulp", "Film Movement Plus",
+  "Film Movement", "Chai Flicks", "Shout! Factory TV", "Shout Factory TV", "Cineverse",
   "NFB", "NFB/ONF", "ONF", "Fandor", "Kanopy", "DocAlliance", "GuideDoc", "Dekkoo",
   "Cultpix", "True Story",
   // —— documentary
@@ -862,7 +864,7 @@ const SPECIALIST_SERVICES = new Set([
   "Gaia", "DocPlay", "Beamafilm",
   // —— anime and Asian drama
   "Crunchyroll", "HIDIVE", "HiDive", "KOCOWA+", "Kocowa", "Rakuten Viki", "Viki",
-  "GagaOOLala", "OnDemandKorea", "Laftel", "WATCHA",
+  "GagaOOLala", "OnDemandKorea", "OnDemandChina", "Laftel", "WATCHA", "Eros Now", "iQIYI",
   // —— British and international drama
   "Acorn TV", "BritBox", "MHz Choice", "BritBox Amazon Channel",
   // —— Black television and film
@@ -883,6 +885,18 @@ const SPECIALIST_KEYS = new Set([...SPECIALIST_SERVICES].map(popKey));
 
 /** Is this a service the Specialist card publishes? (@see `withSpecialistServices` in addon/catalogs.mjs) */
 export const isSpecialistService = (name) => SPECIALIST_KEYS.has(popKey(name));
+
+/**
+ * **A service on the Specialist card is not a row on the Domestic card.**
+ *
+ * The owner asked for it in one line — *"if they are specialist, take them off Domestic"* — and
+ * the two cards were carrying the same brands (Shudder, Criterion, Curiosity Stream, DOCSVILLE,
+ * Magellan TV, Discovery+, Crunchyroll, Viki, BritBox, Acorn…): the same row twice, on a card
+ * about *your country's* services and on the card about the niche catalogues. One service, one
+ * card; the Specialist card is where they live now, and it reads each of them in the country
+ * that actually carries it.
+ */
+export const offTheDomesticCard = (name) => isSpecialistService(name);
 
 /**
  * **A row that cannot fill a page is not a row.**
@@ -1079,6 +1093,7 @@ function regionalOttByContinent(kind = "all") {
           // Crunchyroll and Viki are on every region's Regional OTT card already.
           if (WORLDWIDE.some((w) => w.id === svc.id)) continue;
           if (offTheShowsCard(type, svc.name)) continue;
+          if (offTheDomesticCard(svc.name)) continue;
           if (!rowFillsAPage(svc.id, svc.region || code, type)) continue;
           const brand = popKey(brandOf(svc.name)) || String(svc.id);
           if (!isPopularRegional(svc.name) || seen.has(svc.id) || used.has(svc.id)) continue;
@@ -1274,7 +1289,7 @@ function regionalOtt(kind) {
       // **The row's own region, not the data's.** `region` here is the one the row is read in
       // (the first country it was verified in, or `ROW_REGION`'s override), which is what the
       // counts in `regional-counts.json` are keyed by.
-      .filter(({ svc, region }) => !offTheShowsCard(type, svc.name) && rowFillsAPage(svc.id, region, type))
+      .filter(({ svc, region }) => !offTheShowsCard(type, svc.name) && !offTheDomesticCard(svc.name) && rowFillsAPage(svc.id, region, type))
       .map(({ svc, region }) => {
         const label = brandOf(svc.name);
         return kind === "top10"
@@ -1293,6 +1308,9 @@ function regionalOtt(kind) {
     for (const svc of WORLDWIDE) {
       if (!rowFillsAPage(svc.id, null, type)) continue;
       const label = brandOf(svc.name);
+      // The two worldwide services are both on the Specialist roster now (the owner's list has
+      // Crunchyroll and Rakuten Viki in it), so they are not published here as well.
+      if (offTheDomesticCard(label)) continue;
       if (publishedBrands.has(popKey(label))) continue;
       publishedBrands.add(popKey(label));
       rows.push(kind === "top10"
