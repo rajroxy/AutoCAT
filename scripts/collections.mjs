@@ -455,7 +455,9 @@ const POPULAR_REGIONAL = new Set([
   // —— the Americas
   "Globoplay", "Telecine", "Claro tv+", "Vivo Play", "PlayPlus", "Looke", "Flow", "DGO",
   "CINE.AR Play", "VIX", "ViX Premium", "Claro video", "Cin\u00e9polis KLIC", "Univer Video",
-  "Paramount Plus", "Crave", "CBC Gem", "ICI TOU.TV EXTRA", "STACKTV", "Club Illico",
+  // **Not Paramount Plus.** It is one of the six platforms the Global OTT card owns, and the
+  // same rule that keeps Netflix, Prime Video and HBO Max off this card keeps it off too.
+  "Crave", "CBC Gem", "ICI TOU.TV EXTRA", "STACKTV", "Club Illico",
   "RiverTV", "TSN+", "Sportsnet+",
   // —— **the household names the list was missing.** The card is built by *asking TMDB* which
   // services a country really carries, and this list is what decides which of them the card's
@@ -501,7 +503,26 @@ export const isPopularRegional = (name) => POPULAR_REGIONAL_KEYS.has(popKey(name
  * come from, and a continent that published every one of its services would bury its own
  * continent row under twenty brands.
  */
-const CONTINENTAL_OTT_LIMIT = 6;
+const CONTINENTAL_OTT_LIMIT = 12;
+
+/**
+ * **One service, one row.**
+ *
+ * Each Regional card is built from two reads of the same fact — every region's own services
+ * (`regionalOtt`) and each continent's household names (`regionalOttByContinent`) — and the
+ * same service is usually in both, so the card carried Hulu beside Hulu and TVING beside TVING.
+ * The first row wins: a region's own listing keeps its place, and a continent's row stands only
+ * where it is the card's only row for that service.
+ */
+const oneRowPerService = (rows) => {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const key = String(row.providerId ?? row.name);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 /**
  * **Popular Regional OTT, continent by continent.**
@@ -1076,8 +1097,8 @@ const buildCollections = (code = "") => {
       const here = regionalOtt("top10");
       const wider = regionalOttByContinent("top10");
       return {
-        movie: [...top10Periods(), ...here.movie, ...wider.movie],
-        show: [...top10Periods(), ...here.show, ...wider.show],
+        movie: [...top10Periods(), ...oneRowPerService([...here.movie, ...wider.movie])],
+        show: [...top10Periods(), ...oneRowPerService([...here.show, ...wider.show])],
       };
     })(),
   },
@@ -1095,8 +1116,8 @@ const buildCollections = (code = "") => {
       const here = regionalOtt("all");
       const wider = regionalOttByContinent("all");
       return {
-        movie: [...here.movie, ...wider.movie],
-        show: [...here.show, ...wider.show],
+        movie: oneRowPerService([...here.movie, ...wider.movie]),
+        show: oneRowPerService([...here.show, ...wider.show]),
       };
     })(),
   },

@@ -771,14 +771,14 @@ const recentForYouSeeds = new Map();
 const FOR_YOU_SEED_MEMORY = FOR_YOU_ROWS_PER_TYPE * 2;
 
 /**
- * **The Regional OTT card lists *this country's* popular services.**
+ * **The Regional OTT cards hold *every* region's services — one country only tops them up.**
  *
- * The rows are read from TMDB's answer for the country the app is set to (see
- * `regionalServicesFor`), so what the card holds is what a person in that country can
- * actually subscribe to — in TMDB's own popularity order — instead of a curated list of
- * service names gathered from regions this project happened to verify. The static rows
- * (`regionalOtt` in `scripts/collections.mjs`) are what the card falls back to while that
- * answer is on its way, so the card is never *emptier* on a first load than on the next.
+ * The card's body is the regional OTT data itself (`regionalOtt` in `scripts/collections.mjs`),
+ * one row per service, plus the household names of each continent
+ * (`regionalOttByContinent`). TMDB's answer for the country the app is set to (see
+ * `regionalServicesFor`) is the **last** thing done to it, and only for a service the card
+ * does not already carry: the country setting is where you are, not what the card is about, and
+ * leading with it turned an all-continent card into one country's list.
  */
 function withRegionalServices(defs, code) {
   const movie = regionalServicesFor(code, "movie");
@@ -796,13 +796,11 @@ function withRegionalServices(defs, code) {
     ["regional-ott-top-10", (svc) => `${svc.name} | Top 10`, 10],
   ];
   const own = new Map(CARDS.map(([cardKey]) => [cardKey, []]));
-  const ownIds = new Set();
   for (const [cardKey, rowName, take] of CARDS) {
     for (const [type, rows] of [["movie", movie], ["series", series]]) {
       if (!rows) continue;
       for (const svc of rows) {
         const name = rowName(svc);
-        ownIds.add(String(svc.id));
         own.get(cardKey).push({
           id: `${CATALOG_ID_PREFIX}${cardKey}--${slug(svc.name)}-${String(code).toLowerCase()}`,
           type,
@@ -813,28 +811,26 @@ function withRegionalServices(defs, code) {
       }
     }
   }
-  // **Your own country's services lead the card.** The static rows this replaced sat where
-  // they were and the country's list was appended after them, so a US card opened on U-NEXT,
-  // TVING and BBC iPlayer — the continents' rows — and the services a viewer in the country
-  // actually subscribes to were somewhere below the fold. Each card gets its own list at the
-  // place its regional rows began, and the continent rows follow it, minus any service the
-  // country's own list already carries (a continent row for Hulu beside Hulu is one service
-  // published twice in one card).
-  const placed = new Set();
-  const out = [];
-  for (const d of defs) {
-    const card = String(d.key || "");
-    if (!card.startsWith("regional-ott")) {
-      out.push(d);
-      continue;
+  // **The cards as published, and the country's list only where it adds something.** Every
+  // region's services and the continents' rows keep the place the cards gave them; the country
+  // the app is set to follows at the end, and a service the card already carries is not
+  // published twice (the app being set to the US is no reason for a second Hulu beside the row
+  // the regional data already put there). The check is per card, because the plain card and the
+  // Top 10 card are meant to carry the same services.
+  const published = new Set(
+    defs
+      .filter((d) => String(d.key || "").startsWith("regional-ott"))
+      .map((d) => `${d.key}:${d.entry?.providerId ?? ""}`),
+  );
+  const out = [...defs];
+  for (const [cardKey] of CARDS) {
+    for (const row of own.get(cardKey) || []) {
+      const key = `${cardKey}:${row.entry.providerId}`;
+      if (published.has(key)) continue;
+      published.add(key);
+      out.push(row);
     }
-    if (!placed.has(card)) {
-      placed.add(card);
-      out.push(...(own.get(card) || []));
-    }
-    if (d.entry?.wider && !ownIds.has(String(d.entry.providerId))) out.push(d);
   }
-  for (const [cardKey] of CARDS) if (!placed.has(cardKey)) out.push(...(own.get(cardKey) || []));
   return out;
 }
 
