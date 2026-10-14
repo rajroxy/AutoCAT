@@ -177,9 +177,9 @@ body {
      colouring the avatar with the avatar box's colour"). The disc is a neutral dark glass with a
      silver mark now: the same picture on every screen and on every tile, and it can never be read
      as a state the tile is already telling you. */
-  background: radial-gradient(circle at 50% 20%, #3d434f, #181b21 78%);
-  color: #f2f5fa;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.13), 0 3px 12px rgba(0, 0, 0, 0.5);
+  background: radial-gradient(circle at 50% 20%, #3a3229, #17150f 78%);
+  color: var(--fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(var(--fill-rgb), 0.34), 0 3px 12px rgba(0, 0, 0, 0.5);
   font-weight: 900;
   font-size: 13px;
 }
@@ -5815,6 +5815,17 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    black, kabhi same fill colour"). What says *which one you are on* is the tile: its own
    background wash and border already do that, and the avatar is not a state. The disc and the
    mark keep the one treatment `.avatar` gives them. */
+/* **A ring is for the keyboard, and for nothing else.** The app's rings are drawn from
+   `--ring`/`--ring-shadow`; with a pointer there is nothing to see them for — a click, a tap or
+   a programmatic focus left the chosen pill, the Home tab and the first card each wearing a ring
+   at rest, which is the "big selection ring" the owner kept asking about. The two variables go
+   transparent the moment the pointer is used (see `markPointer` in `app.js`), so every ring in
+   the app goes with them, and a key press puts them back. */
+body:not(.kb) { --ring: transparent; --ring-shadow: none; }
+body:not(.kb) :focus-visible { box-shadow: none; }
+/* A chip row the model is still writing: the written ones stay, and they fade while it thinks. */
+.chip-group-row.chips-loading { opacity: 0.55; }
+
 /* **The avatar is not the state, so the chosen tile does not repaint it.** The rule that used
    to stand here kept putting the plate's fill into the disc and the mark's ink back to
    near-black on the tile you are on — the "sometimes black, sometimes the same fill colour" the

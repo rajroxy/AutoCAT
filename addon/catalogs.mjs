@@ -1244,9 +1244,14 @@ export function catalogDefs(code = activeCountry()) {
             name: `More Like ${seed.name}`,
           });
         };
+        // **Your own titles you have already been shown come last, after the pool.** Taking them
+        // straight after the fresh ones put the *same* titles back on the card as soon as a short
+        // list had been used once — the owner's "Dune is in my Library, so it is in the four again
+        // and again". The fresh ones lead, the random pool tops the card up to four, and only a
+        // card that still has room after that repeats one of yours.
         const ownFresh = own.filter(({ seed }) => !remembered.has(seed.id));
         const ownSeen = own.filter(({ seed }) => remembered.has(seed.id));
-        for (const { seed } of [...ownFresh, ...ownSeen]) {
+        for (const { seed } of ownFresh) {
           if (mine.length >= FOR_YOU_ROWS_PER_TYPE) break;
           if (!used.has(seed.id)) take(seed);
         }
@@ -1259,6 +1264,10 @@ export function catalogDefs(code = activeCountry()) {
           if (used.has(pick.seed.id)) continue;
           if (remembered.has(pick.seed.id)) { held.push(pick); continue; }
           take(pick.seed);
+        }
+        for (const { seed } of ownSeen) {
+          if (mine.length >= FOR_YOU_ROWS_PER_TYPE) break;
+          if (!used.has(seed.id)) take(seed);
         }
         for (const pick of held) {
           if (mine.length >= FOR_YOU_ROWS_PER_TYPE) break;

@@ -1563,7 +1563,9 @@ const CARD_ORDER = [
   // read two ways — every genre, and every genre since 1950 — so the narrower one
   // comes first and the plain list follows it, instead of being separated by the
   // decades cards.
-  "genre-from-decades",
+  // **"Genre from ◆ Decades" is off Home**, as asked: the card and its rows stay defined under
+  // `genre-from-decades`, and nothing draws it. Reading the same genre list two ways was the
+  // argument for putting it in front of Genres — the owner's answer is that one of them is enough.
   "genres",
   "popular-by-decade",
   "top-rated-by-decade",
@@ -1639,7 +1641,7 @@ const buildCollections = (code = "") => {
     // **The six verdicts, at twenty-five a row.** The card is named for the questions only it
     // asks — what is acclaimed, what a pick is, what the gems are — so those are the rows it
     // holds; the plain **Discover** card beside it asks the seven orders.
-    catalogs: discoverPlusRows(TOP25),
+    catalogs: discoverPlusRows(),
   },
   {
     key: "on-the-board",
@@ -1761,6 +1763,7 @@ const buildCollections = (code = "") => {
   },
   {
     key: "genre-from-decades",
+    hidden: true,
     lines: ["Genre from", "Decades"],
     scene: "genres-in-or-from-decades",
     // Both rows. TV genres are a different set (no "Science Fiction", but

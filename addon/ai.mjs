@@ -550,6 +550,52 @@ export async function askAbout(question, context = {}, opts = {}) {
 }
 
 /**
+ * **The suggestions the Ask AI box wears, written for this open.**
+ *
+ * The box's chips were a fixed list in `app.js`; the owner asked for them to be **random and
+ * written by the AI itself**, in place of the written ones. This asks the same provider (and the
+ * same model chain) for six short suggestions — questions about the title on a title page,
+ * things to watch on Home — one per line, and hands back only the lines. Any failure is an empty
+ * list, which the box reads as "keep what is written".
+ */
+const TAGS_SYSTEM = `You write the suggestion buttons for a streaming app's Ask AI box. Reply with six short suggestions, one per line, no numbering, no bullet marks, no markdown, no explanation. Each suggestion is at most five words and is something the person could tap: a question about the title, or a request for something to watch tonight. Never repeat a suggestion.`;
+
+export async function askTags(context = {}, opts = {}) {
+  const provider = opts.provider || aiProviderName();
+  const cfg = AI_PROVIDERS[provider];
+  if (!cfg) return { ok: false, tags: [] };
+  const key = opts.key ?? aiKey(provider);
+  if (!key) return { ok: false, tags: [] };
+  const about = [
+    context.name && `Title: ${context.name}`,
+    context.year && `Year: ${context.year}`,
+    context.type && `Type: ${context.type === "series" ? "series" : "film"}`,
+    context.overview && `Synopsis: ${String(context.overview).slice(0, 300)}`,
+  ].filter(Boolean).join("\n");
+  const prompt = about
+    ? `${about}\n\nWrite six suggestions someone could tap about this title.`
+    : "Nothing is chosen yet. Write six suggestions someone could tap tonight — things to watch, and questions that get them a pick.";
+  const model = opts.model || aiModel(provider);
+  for (const candidate of await candidateOrder(cfg, key, model)) {
+    try {
+      const raw = await complete(cfg, key, candidate, prompt, { system: TAGS_SYSTEM, maxTokens: 220 });
+      const tags = String(raw || "")
+        .split("\n")
+        .map((line) => line.replace(/^\s*[-*\d.)\]]+\s*/, "").trim())
+        .filter((line) => line && line.length <= 60 && !/^suggestions?[:\s]/i.test(line))
+        .slice(0, 8);
+      if (tags.length >= 3) {
+        WORKING.set(cfg.label, candidate);
+        return { ok: true, provider, model: candidate, tags };
+      }
+    } catch {
+      /* the next model, or the box keeps its written tags */
+    }
+  }
+  return { ok: false, tags: [] };
+}
+
+/**
  * The provider's current model list — what the Settings screen's "Load models"
  * shows, and what the model box is meant to be filled from.
  *

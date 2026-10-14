@@ -32,7 +32,7 @@ import {
 } from "../scripts/collections.mjs";
 import { get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
 import { cleanScope, rescope, withScope } from "./scope.mjs";
-import { askAI, askAbout, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
+import { askAI, askAbout, askTags, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
 import {
   STATES,
   STATE_LABEL,
@@ -2585,6 +2585,17 @@ async function serveAddon(req, res, pathname, origin) {
       json(res, 200, await askAbout(String(body.question || ""), body.context || {}));
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });
+    }
+    return true;
+  }
+
+  // **The box's suggestions, written for the open** (see `askTags`).
+  if (pathname === "/ai/tags" && req.method === "POST") {
+    try {
+      const body = await readBody(req);
+      json(res, 200, await askTags(body.context || {}));
+    } catch (err) {
+      json(res, 200, { ok: false, tags: [], text: String(err?.message || err) });
     }
     return true;
   }

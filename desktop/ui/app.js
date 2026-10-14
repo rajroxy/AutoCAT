@@ -3876,6 +3876,8 @@ function stopSpotlight() {
  * view, and never over an open title — it cannot interrupt what you are doing.
  */
 const REFRESH_CHOICES = [
+  // **Disabled leads the list**, as asked — the switch that turns the clock off is the first one.
+  [0, "Disabled"],
   [30, "Every 30 minutes"],
   [60, "Every 60 minutes"],
   // **Disabled, not Manual.** The pane's own *Refresh now* button is gone with it: the app
@@ -7049,29 +7051,38 @@ async function openAssistant(meta, opts = {}) {
   //   **Watch it with something** (the companion title and what to put on afterwards). There is
   //   no *Surprise me* here: the page you are reading is the subject, and a random title is not
   //   an answer about it.
+  // **The tags are grouped, and one group is written for the open.**
+  // *Give me something* is the **actions** — presses that go somewhere (a surprise, one of your
+  // Library rows, one of the things you are watching). The other group is **questions**, and the
+  // owner asked for those to come from the model itself, a fresh set every time the box opens,
+  // with the written ones standing by as the fallback (see `loadAITags` below).
   const chips = generic
     ? [
         ["Give me something", [
           ["Surprise me", () => { close(); surpriseMe(); }],
           ["Something from my Library", () => { close(); openRandomFrom(["custom"], "My Library"); }],
           ["Something I am watching", () => { close(); openRandomFrom(["watchlist"], "What I am watching"); }],
-        ]],
+        ], { ai: false }],
         ["Ask for a pick", [
-          ["A pair for tonight", () => askWith("Name one title to pair with whatever I watch tonight, and say why in one line.")],
+          ["A pair for tonight", () => askWith("Name two titles that go together as a pair for tonight, and say why in one line each.")],
+          ["A film and a series", () => askWith("Name one film and one series worth starting tonight, and say which to start first, in two lines.")],
           ["Three for tonight", () => askWith("Give me three titles worth watching tonight, one line on each.")],
           ["Something funny, under two hours", () => askWith("Name one funny film under two hours, and say why in one line.")],
-          ["One film and one series", () => askWith("Name one film and one series worth starting, and say which to start first, in two lines.")],
-          ["Something short and quiet", () => askWith("Name one quiet, short film for a late evening, and say why in one line.")],
-        ]],
+          ["Short and quiet", () => askWith("Name one quiet, short film for a late evening, and say why in one line.")],
+          ["Something to fall asleep to", () => askWith("Name one calm, slow film or series to fall asleep to, and say why in one line.")],
+          ["Just one, and be quick", () => askWith("Name one title for tonight in a single line, no explanation.")],
+        ], { ai: true }],
       ]
     : [
         ["About this title", (ASK_QUESTIONS[meta?.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie)
           .filter((q) => q !== "What should I watch after this?")
-          .map((q) => [q, () => askWith(q)])],
+          .map((q) => [q, () => askWith(q)]), { ai: true }],
         ["Watch it with something", [
-          [`Pair it with something`, () => askWith(`Name one title to watch in a pair with ${name || "this one"}, and say why in one line.`)],
+          // **A pair is two titles.** The owner's note: *"A pair for tonight — the AI did not
+          // understand it wants two titles as a pair"*. It asks for two, said plainly.
+          ["Two titles that pair", () => askWith(`Name two titles that go together as a pair with ${name || "this one"} tonight, and say why in one line each.`)],
           ["What to watch after this", () => askWith("What should I watch after this, and why in one line?")],
-        ]],
+        ], { ai: false }],
       ];
   const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": generic ? "Ask Assistant" : `Assistant · ${name || "this title"}` },
     el("div", { class: "assistant-card" },
@@ -7095,9 +7106,9 @@ async function openAssistant(meta, opts = {}) {
       // own shortcuts. The row wraps: a suggestion line that hides behind a scroll is a
       // suggestion nobody reads.
       el("div", { class: "assistant-suggestions" },
-        ...chips.map(([group, items]) => el("div", { class: "chip-group" },
+        ...chips.map(([group, items, flags]) => el("div", { class: "chip-group" },
           el("p", { class: "chip-group-head", text: group }),
-          el("div", { class: "chip-group-row" },
+          el("div", { class: "chip-group-row", "data-ai": flags?.ai ? "1" : null },
             ...items.map(([label, run]) => el("button", { class: `chip focusable${label === "Surprise me" ? " surprise-chip" : ""}`, type: "button", text: label, onclick: run })),
           ),
         )),
@@ -7152,6 +7163,41 @@ async function openAssistant(meta, opts = {}) {
   document.body.append(overlay);
   keepSharp(overlay);
   question.focus();
+  // **The questions are written for this open.** One call, one row of chips: the model is asked
+  // for a fresh set of short suggestions — about the title on a title page, about tonight on Home
+  // — and the written ones above are what stands until it answers (and if it never does). The
+  // **actions** are never replaced: a label the model invents cannot open a title page.
+  async function loadAITags() {
+    const row = overlay.querySelector('.chip-group-row[data-ai="1"]');
+    if (!row) return;
+    row.classList.add("chips-loading");
+    try {
+      const res = await post("/ai/tags", {
+        context: generic
+          ? {}
+          : {
+              name,
+              year: meta.releaseInfo || meta.year || "",
+              type: meta.type === "series" ? "series" : "movie",
+              overview: meta.description || "",
+            },
+      });
+      const tags = (res?.tags || []).map((t) => String(t || "").replace(/^[-*\d.\s]+/, "").trim()).filter((t) => t && t.length <= 60).slice(0, 8);
+      if (tags.length < 3) return;
+      row.replaceChildren(...tags.map((label) => el("button", {
+        class: "chip focusable",
+        type: "button",
+        text: label,
+        title: "Ask this",
+        onclick: () => askWith(label),
+      })));
+    } catch {
+      /* the written suggestions stay */
+    } finally {
+      row.classList.remove("chips-loading");
+    }
+  }
+  loadAITags();
   // **A door that opens with a question already asked.** *Watch Along* opens this box on the
   // pair question, so the button is a shortcut rather than a second screen.
   if (opts.question) askWith(opts.question);
@@ -7222,68 +7268,87 @@ function pinButtons(item) {
 }
 
 /**
- * **Add to Library — one press, one choice.**
+ * **Add to Library — the button walks your rows, and *Add to Library* is the first one.**
  *
- * The owner's note was that this control had become *complex and confusing*: pressing it put the
- * button into a **walk** — your rows scrolled through the label itself on the wheel or the arrow
- * keys, and a second press applied the one it was showing. Nothing said that, and a plain scroll
- * over the button moved the choice, so the label could end up on a row you never picked.
+ * The owner said exactly this: *"scroll over Add to Library and the Library rows show one by one,
+ * and after the last row the Add to Library label comes back — as if it were row number one"*.
+ * So the walk is back, with the resting state **inside** it: stop 0 is `Add to Library` (nothing
+ * chosen), stops 1..n are your Library rows, and the wheel (or left/right) wraps round from the
+ * last row to stop 0. A press applies whatever the walk is showing: a row adds the title there
+ * (again takes it out), `Add to Library` adds it to your first row, and applying closes the walk
+ * so the button says where the title is.
  *
- * What it is now is what it looks like: **one press adds the title** (and the label says where it
- * went, with the same press taking it out again). When your Library holds **more than one row**
- * the press opens those rows as a short list of buttons under it — one press per row, a tick on
- * the row the title is already in — because with several rows the *choice* is the thing to show,
- * and a list is easier to read than a label being scrolled. With a single row nothing unfolds at
- * all: press, done.
+ * The wheel only moves the walk **once the button has been pressed** — scrolling the page past it
+ * must not leave the label on a row nobody chose (the earlier report) — and a redraw remembers
+ * where the walk was, so a refresh landing mid-scroll does not reset it.
  */
+let libraryWalk = { key: "", at: 0 };
+
 function libraryButton(item) {
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
+  // Stop 0 is the resting label; the rows follow it.
+  const stops = [{ id: "", name: "Add to Library" }, ...rows];
+  const walkKey = `${watchKey(item)}::${rows.map((row) => row.id).join("|")}`;
+  let at = libraryWalk.key === walkKey ? libraryWalk.at : -1; // -1 = not picked up
+  const setAt = (value) => { libraryWalk = { key: walkKey, at: value }; at = value; };
   const label = el("span", { class: "library-label" });
-  const list = el("div", { class: "library-rows", hidden: true });
   const btn = el("button", {
     class: "btn focusable",
     type: "button",
     id: "library-add",
     "aria-expanded": "false",
   }, label);
+  const insideRow = () => rows.find((row) => inCustomRow(item, row.id));
   const paint = () => {
-    const row = rows.find((r) => inCustomRow(item, r.id));
-    label.textContent = row ? `In ${row.name} \u2713` : "Add to Library";
-    btn.classList.toggle("active", Boolean(row));
-    btn.title = row
-      ? `${row.name} — press to take it out`
-      : rows.length > 1
-        ? "Press to pick one of your Library rows"
-        : `Press to add it to ${rows[0].name}`;
+    const stop = at >= 0 ? stops[at] : null;
+    const held = insideRow();
+    if (stop) {
+      if (stop.id) label.textContent = inCustomRow(item, stop.id) ? `${stop.name} \u2713` : stop.name;
+      else label.textContent = held ? `In ${held.name} \u2713` : "Add to Library";
+    } else {
+      label.textContent = held ? `In ${held.name} \u2713` : "Add to Library";
+    }
+    btn.classList.toggle("armed", at >= 0);
+    btn.classList.toggle("active", Boolean(held));
+    btn.setAttribute("aria-expanded", at >= 0 ? "true" : "false");
+    btn.title = at >= 0
+      ? "Scroll or use left/right to walk your rows, then press to apply"
+      : held
+        ? `${held.name} — press to walk, press again to take it out`
+        : "Press, then scroll or use left/right to walk your rows, and press to add it";
   };
-  const apply = (rowId) => {
-    toggleCustomRow(item, rowId);
-    list.hidden = true;
-    btn.setAttribute("aria-expanded", "false");
+  const step = (by) => {
+    // Wrapping both ways, so the resting label is always one step past the last row.
+    const next = at < 0 ? (by > 0 ? 0 : stops.length - 1) : (at + by + stops.length) % stops.length;
+    setAt(next);
     paint();
   };
-  const openRows = () => {
-    list.replaceChildren(...rows.map((row) =>
-      el("button", {
-        class: `chip focusable${inCustomRow(item, row.id) ? " active" : ""}`,
-        type: "button",
-        text: inCustomRow(item, row.id) ? `${row.name} \u2713` : row.name,
-        onclick: (event) => { event.stopPropagation(); apply(row.id); },
-      }),
-    ));
-    list.hidden = false;
-    btn.setAttribute("aria-expanded", "true");
+  const apply = () => {
+    const stop = stops[at < 0 ? 0 : at];
+    if (!stop) return;
+    // The resting stop adds to the first row (or takes the title out of the one it is in).
+    toggleCustomRow(item, stop.id || rows[0].id);
+    setAt(-1);
+    paint();
   };
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    // One row: the press *is* the answer. Several rows: the press shows them, and a press on a
-    // row puts the title there (or takes it out of the one it is in).
-    if (rows.length === 1) { apply(rows[0].id); return; }
-    if (list.hidden) openRows();
-    else { list.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+    if (at < 0) { setAt(0); paint(); return; }
+    apply();
   });
+  btn.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); step(1); }
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); step(-1); }
+  });
+  btn.addEventListener("wheel", (event) => {
+    // The wheel belongs to the button once it has been picked up; until then it is the page's.
+    if (at < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    step(event.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
   paint();
-  return el("div", { class: "library-pop" }, btn, list);
+  return el("div", { class: "library-pop" }, btn);
 }
 
 /** One person's card — a face, a name and what they did. Opens their credits. */
@@ -14721,6 +14786,17 @@ async function boot() {
   // for itself. It runs after the first paint so nothing waits on it.
   checkNotifications().catch(() => { /* a notification is never worth an error */ });
 }
+
+// **A ring is for the keyboard.** The app's focus rings are drawn from `--ring`, and the moment
+// anything is clicked, tapped or focused by code, the page is in "pointer" mode: the two ring
+// variables go transparent (see `body:not(.kb)` in `style.css`) and nothing wears a ring at rest.
+// The first key press puts them back, so keyboard and remote navigation still shows where you are.
+const markPointer = () => document.body.classList.remove("kb");
+const markKeyboard = () => document.body.classList.add("kb");
+document.addEventListener("pointerdown", markPointer, true);
+document.addEventListener("keydown", markKeyboard, true);
+// A touch is a pointer; a scroll on a touch screen must not leave the rings lit either.
+document.addEventListener("touchstart", markPointer, { capture: true, passive: true });
 
 // Safety net: a boot that cannot reach the server must not leave the splash up
 // for ever, so the screen goes away on its own after a few seconds either way.
