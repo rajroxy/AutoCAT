@@ -117,6 +117,13 @@ const OTT_SORTS = {
   }),
   popular: () => ({ sort_by: "popularity.desc", "vote_count.gte": 10 }),
   top_rated: () => ({ sort_by: "vote_average.desc", "vote_count.gte": 200 }),
+  // **The other end of the two date and popularity orders**, asked for by name: *Oldest*
+  // is the back of the release-date order (with a small vote floor, so the row is titles
+  // rather than undated entries) and *Least popular* is the back of the popularity order
+  // with a real audience behind each one, which is what makes it a shelf of deep cuts
+  // instead of a row of nothing.
+  oldest: (media) => ({ sort_by: `${dateField(media)}.asc`, "vote_count.gte": 5 }),
+  least_popular: () => ({ sort_by: "popularity.asc", "vote_count.gte": 50 }),
 };
 
 /** Does this value name one of the five orders? Anything else is ignored. */
@@ -1037,39 +1044,46 @@ export function catalogDefs(code = activeCountry()) {
         // Every row is still a *title* (never a genre), and the standing roster below
         // only appears when even the pool is short. See `findCatalog` for how the ids
         // keep resolving across rolls.
-        const pool = [
-          ...recommendSeeds(type).map((seed) => ({ seed })),
-          ...forYouPool[type].seeds.map((seed) => ({ seed })),
-        ];
+        // **Your own titles lead.** Every row on this card is named after a title
+        // (`More Like …`), so the titles **you** are on are the ones it is for: while the
+        // watchlist holds any for this row type they are dealt **first** — watched first,
+        // then what you are on, then what you planned (see `recommendSeeds`). The random
+        // any-country pool is only what **tops the card up** once your own are spent, so
+        // the card keeps its promise to your list without going back to being the same
+        // popular shelf in every country — and with an empty watchlist nothing changes at
+        // all: the pool is the whole deal, as it was.
+        const own = recommendSeeds(type).map((seed) => ({ seed }));
+        const pool = forYouPool[type].seeds.map((seed) => ({ seed }));
         const memKey = `${c.key}:${type}`;
         const remembered = new Set(recentForYouSeeds.get(memKey) || []);
-        const held = [];
         const used = new Set();
-        const deal = (replay) => {
-          while (mine.length < FOR_YOU_ROWS_PER_TYPE && pool.length) {
-            const [pick] = pool.splice(Math.floor(Math.random() * pool.length), 1);
-            if (used.has(pick.seed.id)) continue;
-            if (!replay && remembered.has(pick.seed.id)) {
-              held.push(pick);
-              continue;
-            }
-            used.add(pick.seed.id);
-            mine.push({
-              id: `${CATALOG_ID_PREFIX}${c.key}--${type}--${pick.seed.id}`,
-              type,
-              key: c.key,
-              entry: { kind: "recommend", seed: pick.seed },
-              name: `More Like ${pick.seed.name}`,
-            });
-          }
+        const take = (seed) => {
+          used.add(seed.id);
+          mine.push({
+            id: `${CATALOG_ID_PREFIX}${c.key}--${type}--${seed.id}`,
+            type,
+            key: c.key,
+            entry: { kind: "recommend", seed },
+            name: `More Like ${seed.name}`,
+          });
         };
-        deal(false);
-        // Small pool, or everything remembered: replay the held seeds rather than
-        // leaving the card short. A title can only repeat here when there was
-        // nothing fresh left to deal.
-        if (mine.length < FOR_YOU_ROWS_PER_TYPE && held.length) {
-          pool.push(...held);
-          deal(true);
+        for (const { seed } of own) {
+          if (mine.length >= FOR_YOU_ROWS_PER_TYPE) break;
+          if (!used.has(seed.id)) take(seed);
+        }
+        // The top-up is drawn **at random**, and the last two rolls' seeds are held back
+        // so two opens in a row are not the same rows (see `recentForYouSeeds`). The held
+        // seeds are replayed only when the fresh pool runs out.
+        const held = [];
+        while (mine.length < FOR_YOU_ROWS_PER_TYPE && pool.length) {
+          const [pick] = pool.splice(Math.floor(Math.random() * pool.length), 1);
+          if (used.has(pick.seed.id)) continue;
+          if (remembered.has(pick.seed.id)) { held.push(pick); continue; }
+          take(pick.seed);
+        }
+        for (const pick of held) {
+          if (mine.length >= FOR_YOU_ROWS_PER_TYPE) break;
+          if (!used.has(pick.seed.id)) take(pick.seed);
         }
         recentForYouSeeds.set(
           memKey,

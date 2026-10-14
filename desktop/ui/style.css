@@ -1711,7 +1711,10 @@ textarea:focus-visible {
 .search-switch-row.search-under { justify-content: flex-end; margin: -12px 0 24px; }
 /* The funnel is an icon, not a word: the panel names itself when it opens. It keeps the play
    button's plate, at the bar's own height. */
-.search-wrap .search-filter-btn { width: 46px; height: 46px; padding: 0; justify-content: center; border-radius: 11px; }
+/* **A hair up.** The bar's own box is a little taller than the field it holds, so a
+   funnel of the bar's height sat low against the text; the nudge puts the two on the
+   same line without changing either box. */
+.search-wrap .search-filter-btn { width: 46px; height: 46px; padding: 0; justify-content: center; border-radius: 11px; margin-top: -4px; }
 .search-wrap .search-filter-btn svg { width: 16px; height: 16px; }
 /* **The filter panel's arrows wear a plate you can see on it.** They are `var(--panel)`
    elsewhere — the page's own card colour — and inside the panel, whose box *is* `var(--panel)`,
@@ -3861,7 +3864,22 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
 
 /* A row whose posters are the way in says so on hover, without wearing the accent
    the way a heading link does. */
+/* **An empty row still keeps a row.** A row with nothing in it drew one line of text
+   where a shelf of posters stood, so the card collapsed to its heading — the ask was to
+   leave the space of a row whether or not anything is in it. The height is the poster
+   row's own (`--poster-w`, the same sum `.placeholder` uses), and the note sits in the
+   middle of it. */
 .strip-note { margin: 0; padding: 10px 2px; font-size: 14px; font-weight: 600; color: var(--text); }
+/* **An empty row still keeps the height of a row.** A row that came back with nothing held
+   one line of text where a shelf of posters stood — and a watchlist row says nothing at all
+   (see `emptyRowText`), so the row collapsed to nothing and the card lost its floor with it.
+   The floor is the poster row's own box (`--poster-w`, the sum `.placeholder` uses), and a
+   note that *is* drawn sits in the middle of it. A filled strip is taller than this, so the
+   floor changes nothing there. */
+.strip { min-height: calc(var(--poster-w) * 1.5 + 60px); }
+.strip > .strip-note,
+.strip > .empty { align-self: center; }
+.strip > .empty.strip-end { align-self: center; }
 .strip-clickable { cursor: pointer; }
 /* The cue is the same accent ring everything else uses — it was a grey 1px **outline**,
    which is the box-around-things this app does not draw. */
@@ -5356,14 +5374,19 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
    `sticky`: scrolling on to the cast, the rating or the productions does not take the controls
    with it. `top` clears the top bar, which is sticky at `z-index: 20` itself, and the row's own
    plate keeps what it passes from reading through it. */
+/* **A row of buttons, not a strip.** The row was given a plate — a panel background in
+   14px corners with its own padding — so it read as a band drawn across the page rather
+   than as the title's own controls: as asked, the strip is gone and what is left is the
+   row. It is still `sticky`, so **Add to Library** and **Play** stay on screen while the
+   page is read, and with no plate and no padding a wrapped row can never be clipped by
+   one either. */
 .title-actions-bar {
   position: sticky;
   top: 78px;
   z-index: 12;
   margin: 0 0 22px;
-  padding: 8px 10px;
-  border-radius: 14px;
-  background: var(--panel);
+  padding: 0;
+  background: none;
 }
 
 /* **The plate you rate from is a ratings plate.** `Your rating` is drawn as the fourth
@@ -5861,3 +5884,37 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    section exists only to say so: the fills are the Fill, the rings are the Ring, and the two
    are the names the Appearance pane gives them.
    ============================================================================ */
+
+/* ============================================================================
+   **The last word: the owner's own list.**
+   ----------------------------------------------------------------------------
+   Each rule is the statement that wins over the ones above it.
+   ============================================================================ */
+
+/* **A card on Home rings under the cursor.** The card carried an *inset* ring in the hover
+   colour, and it was painted under the poster wall that fills the card — which is why
+   pointing at a card showed nothing at all. The ring is drawn as an overlay on the card's own
+   box now, in the **Ring** colour with the page's hair outside it, exactly the way a poster
+   and a plate are marked, and it is drawn *inside* the frame so the card's `overflow: hidden`
+   can never clip it. */
+.icon-box:hover { box-shadow: none; }
+.icon-box:hover::after,
+.icon-box:focus-within::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
+    inset 0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring, var(--fill));
+}
+
+/* **The order dropdown lines up with the grid it orders.** It sat at the page's right edge,
+   which is the **alphabet rail's** column, so it floated between the rail and the posters
+   and read as if it belonged to neither. It keeps its own row under the rule and now stops
+   where the grid stops: the rail's own width (34px) plus the gap between them (14px). */
+.section.explore > .cat-tools {
+  margin-left: auto;
+  margin-right: 48px;
+  margin-bottom: 18px;
+}

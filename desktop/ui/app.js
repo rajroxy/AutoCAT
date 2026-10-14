@@ -398,8 +398,10 @@ const PINNED = /\| Top 10|^Upcoming$|Airing Today|On the Air|Now Playing|^Latest
 const OTT_SORTS = [
   ["latest", "Latest"],
   ["newest", "Newest"],
+  ["oldest", "Oldest"],
   ["trending", "Trending"],
   ["popular", "Popular"],
+  ["least_popular", "Least popular"],
   ["top_rated", "Top rated"],
 ];
 
