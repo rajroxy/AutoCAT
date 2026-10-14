@@ -445,7 +445,7 @@ const POPULAR_REGIONAL = new Set([
   "Movistar Plus+", "Atresplayer", "Filmin", "rtve", "RTVE Play", "Mediaset Infinity",
   "RaiPlay", "Rai Play", "Videoland", "NPO Start", "Viaplay", "TV4 Play", "SVT Play",
   "C More", "NRK TV", "TV 2 Play", "DR TV", "Yle Areena", "TVP", "TVP VOD", "Player",
-  "Polsat Box Go", "Voyo", "SkyShowtime", "France TV", "OCS",
+  "Polsat Box Go", "SkyShowtime", "France TV", "OCS",
   // —— Türkiye and Russia
   "Exxen", "Gain", "tabii", "BluTV", "Kinopoisk", "Okko", "Wink", "START", "Ivi",
   "Premier",
@@ -481,7 +481,7 @@ const POPULAR_REGIONAL = new Set([
   // **The documentary and art-house streamers.** TMDB carries each of these as a regional
   // service and the report names them as regional OTT, so they are on the card like the
   // rest — verified in a region that really returns titles (see the Japan roster).
-  "Curiosity Stream", "DOCSVILLE", "Magellan TV", "MUBI",
+  "Curiosity Stream", "DOCSVILLE", "MUBI", "Discovery+",
   "JioCinema", "Voot", "Lionsgate Play", "Eros Now", "Sun NXT", "Watcha", "AbemaTV", "TVer",
   "7plus", "10 play",
   "ABC iview", "Channel 5", "My5", "All 4", "STV Player", "RTE Player", "Virgin Media Play",
@@ -754,20 +754,6 @@ function regionalOtt(kind) {
         ? provider(`${svc.name} | Top 10`, svc.id, null, TOP10)
         : provider(svc.name, svc.id, null));
     }
-    // **The two Chinese platforms that have no provider id** (see `CN_PLATFORMS`): a
-    // company row is the only way to publish them, and only where TMDB really holds a
-    // catalogue — Mango TV's films are three titles, so it is a Shows row and not a Films one.
-    for (const [label, studio] of CN_PLATFORMS) {
-      // A Films row needs a film catalogue of its own: the addon falls back to the studio's
-      // series when a platform has no film company, so the row is only published where that
-      // fallback would answer with something (Mango TV's films are three titles — it is a
-      // Shows row and not a Films one).
-      const has = type === "tv" ? studio.tv || studio.company : studio.company;
-      if (!has) continue;
-      rows.push(kind === "top10"
-        ? original(`${label} | Top 10`, studio, TOP10)
-        : original(label, studio, 30));
-    }
     return rows;
   };
   return { movie: build("movie", "movie"), show: build("tv", "tv") };
@@ -782,26 +768,6 @@ function regionalOtt(kind) {
  * so a name is only ever a name.
  */
 const ROW_LABEL = { WeTV: "WeTV (Tencent Video)" };
-
-/**
- * **The Chinese platforms, which TMDB has no provider id for at all.**
- *
- * TMDB's provider list for China is empty and it knows neither `Youku`, `Mango TV` nor
- * `Bilibili` as a *service* — so no provider row can be built for them however the roster
- * is written. Both platforms do exist as **companies**, and a company row (`original`)
- * reads the catalogue TMDB does hold: Youku returns 47 films and 265 series, Mango TV 130
- * series. A name with no catalogue of its own is left out rather than published as a row
- * that opens nothing — Bilibili's only company entry returns three titles, so it is not here.
- *
- * The `take` is a cap, not a promise: a row says what the catalogue has.
- */
-const CN_PLATFORMS = [
-  // The shape the addon reads: `company` for its films, `tv` for its series (see the
-  // `original` case in addon/catalogs.mjs). A number here would have been a row that
-  // answered nothing — which is how it was caught.
-  ["Youku", { company: { id: 48460 }, tv: { id: 48460 } }],
-  ["Mango TV", { tv: { id: 139947 } }],
-];
 
 const TOP10 = 10;
 // **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide

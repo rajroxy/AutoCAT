@@ -5628,3 +5628,39 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
 .guide-list-name { flex: none; width: 220px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .guide-list-now { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .guide-list-at { flex: none; color: var(--faint); font-size: 12px; }
+
+/* ============================================================================
+   **A ring is for what is chosen — and never for what already wears the mark.**
+   ----------------------------------------------------------------------------
+   The **Upcoming card** is a window and not a door, so it draws no ring under the cursor:
+   it was taking the outline every other card takes, which read as "this one opens".
+   The **Speak pad** is a solid accent plate, and a selection-coloured ring on a plate that
+   is only *there* reads as a selection — the plate answers the cursor with a touch more
+   light now, the way Play's does. A **chosen** plate keeps its fill and gains no ring.
+   ============================================================================ */
+.icon-box.card-spotlight:is(:hover, :focus-visible, :has(:focus-visible)) { box-shadow: none; }
+.btn.primary.voice-pad:is(:hover, :focus-visible, :has(:focus-visible)) {
+  box-shadow: none;
+  filter: brightness(1.08);
+}
+
+/* ============================================================================
+   **Profiles and Modes: the chosen card fills, and the cursor rings it.**
+   ----------------------------------------------------------------------------
+   The other way round from the last pass — as asked. The profile or mode you are on wears
+   the selection colour as a **fill** at rest (the same wash every chosen control in the app
+   wears), and pointing at it draws the selection colour as a **ring** instead of changing
+   that fill. Written last so the four-weight .profile-grid rules above cannot take the
+   ring or the fill back.
+   ============================================================================ */
+.profile-tile.active,
+.profile-grid .profile-tile.active {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-image: none;
+  box-shadow: none;
+}
+.profile-tile.active:is(:hover, :focus-visible),
+.profile-grid .profile-tile.active:is(:hover, :focus-visible) {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+}

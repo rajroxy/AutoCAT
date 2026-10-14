@@ -181,6 +181,12 @@
       "code": "US",
       "movie": [
         {
+          "id": 520,
+          "name": "Discovery+",
+          "as": "Discovery+",
+          "movieCount": 27
+        },
+        {
           "id": 15,
           "name": "Hulu",
           "as": "Hulu",
@@ -254,6 +260,12 @@
         }
       ],
       "tv": [
+        {
+          "id": 520,
+          "name": "Discovery+",
+          "as": "Discovery+",
+          "tvCount": 271
+        },
         {
           "id": 15,
           "name": "Hulu",
