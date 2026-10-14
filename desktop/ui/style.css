@@ -5416,11 +5416,17 @@ button.rating.my-rating {
   background-color: var(--panel);
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
 }
-.profile-tile.active,
+/* At rest the chosen card is its fill and nothing else — no box drawn round a choice you
+   have already made. Under the cursor, or on the keyboard, it answers the same way every
+   other tile does, so the ring never disappears where the keyboard needs it. */
+.profile-tile.active {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.18);
+  box-shadow: none;
+}
 .profile-tile.active:hover,
 .profile-tile.active:focus-visible {
   background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.18);
-  box-shadow: none;
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
 }
 
 
