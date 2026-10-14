@@ -213,6 +213,25 @@ scenes["genres"] = (x, y, w, h) => {
     <line x1="${n(x + gap * 0.5)}" y1="${n(mid)}" x2="${n(x + w - gap * 0.5)}" y2="${n(mid)}" stroke="url(#ivoryS)" stroke-width="2" opacity="0.45"/>`;
 };
 
+/* 04b — Seasons: one season drawn as the run of its episodes, the one you are on lit. */
+scenes["seasons"] = (x, y, w, h) => {
+  const base = y + h * 0.7;
+  const N = 9;
+  const x0 = x + w * 0.13;
+  const step = (w * 0.74) / (N - 1);
+  const marks = Array.from({ length: N }, (_, i) => {
+    const cx = x0 + step * i;
+    const hot = i === 4;
+    const bh = h * (hot ? 0.32 : 0.18);
+    const bw = step * 0.36;
+    return `<rect x="${n(cx - bw / 2)}" y="${n(base - bh)}" width="${n(bw)}" height="${n(bh)}" rx="${n(bw / 2)}" fill="url(#barG)" opacity="${hot ? 1 : 0.72}"/>`;
+  }).join("\n    ");
+  return `<circle cx="${n(x + w * 0.5)}" cy="${n(base - h * 0.24)}" r="${n(h * 0.52)}" fill="url(#glow)"/>
+    ${marks}
+    <circle cx="${n(x0 + step * 4)}" cy="${n(base - h * 0.32 - 16)}" r="6" fill="${ACCENT}"/>
+    <line x1="${n(x0 - step * 0.5)}" y1="${n(base)}" x2="${n(x0 + step * (N - 1) + step * 0.5)}" y2="${n(base)}" stroke="url(#ivoryS)" stroke-width="2" opacity="0.5"/>`;
+};
+
 /* 05 — Popular by Decade: a rising trend across decade ticks. */
 scenes["popular-by-decade"] = (x, y, w, h) => {
   const x0 = x + w * 0.12;

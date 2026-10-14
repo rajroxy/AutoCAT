@@ -182,7 +182,10 @@ body {
      app's plate is one thing everywhere: the accent gradient in 160°, with ink on it (the Home
      tab, the chosen pill, the Speak pad). The avatar is that plate, at 28px or 84px, and the mark
      on it is the ink. Same rule on every tile, which is the part that was ever wrong. */
-  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
+  /* **One flat colour, not a gradient.** The disc was the accent drawn in a 160 degree
+     gradient, which reads as a small coloured ball rather than as the app's fill; the mark on
+     it is the ink. This is the disc the profiles wore before the gradient pass. */
+  background: var(--fill);
   color: #14110a;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
   font-weight: 900;
@@ -1721,7 +1724,11 @@ textarea:focus-visible {
 .search-head { display: flex; align-items: center; gap: 12px; }
 .search-head .search-bar { flex: 1 1 auto; min-width: 0; min-height: 46px; padding: 5px 9px 5px 16px; }
 .search-head .search-bar .search-input { font-size: 14px; padding: 8px 0; }
-.search-switch-row.search-under { justify-content: flex-end; margin: -12px 0 24px; }
+/* **The switch gets its own line above the results.** It was pulled up by -12px, so it sat on
+   the first row of the wall and the owner saw it "overlay on search results". It also goes away
+   altogether while a search is on screen (see `syncSwitch` in app.js). */
+.search-switch-row.search-under { justify-content: flex-end; margin: 0 0 20px; }
+.search-switch-row.search-under[hidden] { display: none; }
 /* The funnel is an icon, not a word: the panel names itself when it opens. It keeps the play
    button's plate, at the bar's own height. */
 /* **A hair up.** The bar's own box is a little taller than the field it holds, so a
@@ -3890,15 +3897,30 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
 .sort-dropdown { flex: none; width: 170px; min-width: 0; margin-left: auto; }
 .section-head .sort-dropdown { align-self: center; }
 .dropdown-menu { min-width: 0; }
+/* **The picker is one of the app's own fields.** It was painted at 0.16 with a browner fill
+   than every other control and carried a CSS triangle for a caret -- the one place in the app
+   that still looked like the browser's own drop-down, which is the "why does the dropdown not
+   match my app style" it kept being asked about. It wears the field fill now (the same 0.07 the
+   text inputs use, 0.11 under the cursor and 0.13 open, which is the focus fill), and the caret
+   is the same drawn chevron the old `<select>` styling used, as a mask so it takes the app's
+   colour instead of a grey somebody typed into an SVG. */
 .dropdown-btn {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; font: inherit; font-size: 14px; color: var(--text); text-align: left;
-  background: rgba(255, 255, 255, 0.16); border: 0; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07); border: 0; border-radius: 10px;
   padding: 10px 14px; cursor: pointer;
 }
 .dropdown-btn:hover { background: rgba(255, 255, 255, 0.11); }
-.dropdown.open .dropdown-btn { background: rgba(255, 255, 255, 0.15); }
-.dropdown-caret { flex: none; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--muted); }
+.dropdown.open .dropdown-btn { background: rgba(255, 255, 255, 0.13); }
+.dropdown-caret {
+  flex: none; width: 12px; height: 8px; border: 0;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / contain;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / contain;
+  opacity: 0.75;
+}
+.dropdown-btn:hover .dropdown-caret,
+.dropdown.open .dropdown-caret { opacity: 1; }
 /* **A label turns the picker into a named button.** Left as the pickers are, the two on
    a title page would read as "English" and "1080p" with nothing saying what they choose,
    so the label takes the left and the value the right.
@@ -5460,22 +5482,29 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
    with a hairline at its foot — so it reads as the floor the controls stand on and never as a band
    drawn across the page. */
 .title-actions-bar {
-  position: sticky;
-  top: 78px;
-  z-index: 12;
+  /* **The row is not pinned to the top of the window.** It was `sticky`, so it rode down the
+     page over the cast and the productions -- the owner's "page neeche karne ke baad bhi top pe
+     dikhta hai". The row belongs to the banner it sits under, so it scrolls away with it. */
+  position: static;
   margin: 0 0 22px;
   /* **The row's own box, not a line under it.** It is the app's panel in its own corners with
      its own padding — the horizontal box the row wore before it was stripped — so Play and Add
      to Library are one object sitting on the page, and what scrolls under them is covered. */
   /* **No outline, and a shorter box.** The hairline read as a border drawn around the
      controls instead of the plate they stand on, so it is gone. The strip was also taller
-     than what it holds -- 12px above and below a 22px button -- so 7px keeps the corners and
-     the cover under the sticky row in a strip that actually reads shorter. */
+     than what it holds -- 12px above and below a 22px button -- so 7px keeps the cover in a
+     strip that actually reads shorter. */
+  /* **The box is the buttons' own roundness, and the banner's surface.** The plate had 14px
+     corners around 999px pills, so the box and the controls inside it spoke two shapes; it is
+     a pill too now. It was also a flat grey panel beside a banner drawn in `--panel` with the
+     fill's glow in one corner, which is the "colour and style do not match the banner" -- it
+     wears the banner's own surface here. */
   padding: 7px 12px;
-  border-radius: 14px;
+  border-radius: 999px;
   border: 0;
-  background: var(--panel-2);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+  background:
+    radial-gradient(120% 140% at 88% 20%, rgba(var(--fill-rgb), 0.14), transparent 60%),
+    var(--panel);
 }
 
 /* **The plate you rate from is a ratings plate.** `Your rating` is drawn as the fourth

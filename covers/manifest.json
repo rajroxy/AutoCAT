@@ -18,7 +18,7 @@
   {
     "collection": "discover-top-10",
     "title": "Discover Plus",
-    "subtitle": "Latest · Newest · Trending · Popular · Top Rated",
+    "subtitle": "Critically Acclaimed · Award Winners · Staff Picks · Box Office Hits · Hidden Gems · Cult Classics · All-Time Landmarks · Record Breakers",
     "row": "movie",
     "svg": "covers/movies/discover-top-10.svg",
     "png": "covers/movies/discover-top-10.png"
@@ -26,10 +26,18 @@
   {
     "collection": "discover",
     "title": "Discover",
-    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks",
+    "subtitle": "Festival Favorites · Independent Standouts · Best Sequels · Genre Definers · Technical Achievements · Adaptation Standouts · Underrated Performances · Box Office Flops",
     "row": "movie",
     "svg": "covers/movies/discover.svg",
     "png": "covers/movies/discover.png"
+  },
+  {
+    "collection": "seasons",
+    "title": "Seasons",
+    "subtitle": "",
+    "row": "movie",
+    "svg": "covers/movies/seasons.svg",
+    "png": "covers/movies/seasons.png"
   },
   {
     "collection": "popular-by-genre",
@@ -46,14 +54,6 @@
     "row": "movie",
     "svg": "covers/movies/top-rated-by-genre.svg",
     "png": "covers/movies/top-rated-by-genre.png"
-  },
-  {
-    "collection": "genre-from-decades",
-    "title": "Genre from Decades",
-    "subtitle": "Action | 1950 → Present · Adventure | 1950 → Present · Animation | 1950 → Present · Comedy | 1950 → Present · Crime | 1950 → Present · Documentary | 1950 → Present · Drama | 1950 → Present · Family | 1950 → Present · Fantasy | 1950 → Present · History | 1950 → Present · Horror | 1950 → Present · Music | 1950 → Present · Mystery | 1950 → Present · Romance | 1950 → Present · Science Fiction | 1950 → Present · Thriller | 1950 → Present · War | 1950 → Present · Western | 1950 → Present",
-    "row": "movie",
-    "svg": "covers/movies/genre-from-decades.svg",
-    "png": "covers/movies/genre-from-decades.png"
   },
   {
     "collection": "genres",
@@ -176,6 +176,14 @@
     "png": "covers/movies/specialist-top-10.png"
   },
   {
+    "collection": "specialist",
+    "title": "Specialist",
+    "subtitle": "",
+    "row": "movie",
+    "svg": "covers/movies/specialist.svg",
+    "png": "covers/movies/specialist.png"
+  },
+  {
     "collection": "updates",
     "title": "Updates",
     "subtitle": "Arriving Soon · Leaving Soon",
@@ -208,6 +216,14 @@
     "png": "covers/movies/custom.png"
   },
   {
+    "collection": "genre-from-decades",
+    "title": "Genre from Decades",
+    "subtitle": "Action | 1950 → Present · Adventure | 1950 → Present · Animation | 1950 → Present · Comedy | 1950 → Present · Crime | 1950 → Present · Documentary | 1950 → Present · Drama | 1950 → Present · Family | 1950 → Present · Fantasy | 1950 → Present · History | 1950 → Present · Horror | 1950 → Present · Music | 1950 → Present · Mystery | 1950 → Present · Romance | 1950 → Present · Science Fiction | 1950 → Present · Thriller | 1950 → Present · War | 1950 → Present · Western | 1950 → Present",
+    "row": "movie",
+    "svg": "covers/movies/genre-from-decades.svg",
+    "png": "covers/movies/genre-from-decades.png"
+  },
+  {
     "collection": "on-the-board",
     "title": "On the Board",
     "subtitle": "Airing Today · On the Air",
@@ -226,7 +242,7 @@
   {
     "collection": "discover-top-10",
     "title": "Discover Plus",
-    "subtitle": "Latest · Newest · Trending · Popular · Top Rated",
+    "subtitle": "Critically Acclaimed · Award Winners · Staff Picks · Breakout Series · Limited Series · Hidden Gems · Cult Classics · All-Time Landmarks",
     "row": "show",
     "svg": "covers/shows/discover-top-10.svg",
     "png": "covers/shows/discover-top-10.png"
@@ -234,10 +250,18 @@
   {
     "collection": "discover",
     "title": "Discover",
-    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks",
+    "subtitle": "Anthology Series · Genre Definers · Character Arcs · Ensemble Casts · Memorable Finales · Spin-Offs · Industry Firsts · Record Breakers",
     "row": "show",
     "svg": "covers/shows/discover.svg",
     "png": "covers/shows/discover.png"
+  },
+  {
+    "collection": "seasons",
+    "title": "Seasons",
+    "subtitle": "Premiering Soon · New This Month · Back on Air · Every Season Out",
+    "row": "show",
+    "svg": "covers/shows/seasons.svg",
+    "png": "covers/shows/seasons.png"
   },
   {
     "collection": "popular-by-genre",
@@ -254,14 +278,6 @@
     "row": "show",
     "svg": "covers/shows/top-rated-by-genre.svg",
     "png": "covers/shows/top-rated-by-genre.png"
-  },
-  {
-    "collection": "genre-from-decades",
-    "title": "Genre from Decades",
-    "subtitle": "Action & Adventure | 1950 → Present · Animation | 1950 → Present · Comedy | 1950 → Present · Crime | 1950 → Present · Documentary | 1950 → Present · Drama | 1950 → Present · Family | 1950 → Present · Kids | 1950 → Present · Mystery | 1950 → Present · News | 1950 → Present · Reality | 1950 → Present · Sci-Fi & Fantasy | 1950 → Present · Soap | 1950 → Present · Talk | 1950 → Present · War & Politics | 1950 → Present · Western | 1950 → Present",
-    "row": "show",
-    "svg": "covers/shows/genre-from-decades.svg",
-    "png": "covers/shows/genre-from-decades.png"
   },
   {
     "collection": "genres",
@@ -384,6 +400,14 @@
     "png": "covers/shows/specialist-top-10.png"
   },
   {
+    "collection": "specialist",
+    "title": "Specialist",
+    "subtitle": "",
+    "row": "show",
+    "svg": "covers/shows/specialist.svg",
+    "png": "covers/shows/specialist.png"
+  },
+  {
     "collection": "updates",
     "title": "Updates",
     "subtitle": "Arriving Soon · Leaving Soon",
@@ -414,5 +438,13 @@
     "row": "show",
     "svg": "covers/shows/custom.svg",
     "png": "covers/shows/custom.png"
+  },
+  {
+    "collection": "genre-from-decades",
+    "title": "Genre from Decades",
+    "subtitle": "Action & Adventure | 1950 → Present · Animation | 1950 → Present · Comedy | 1950 → Present · Crime | 1950 → Present · Documentary | 1950 → Present · Drama | 1950 → Present · Family | 1950 → Present · Kids | 1950 → Present · Mystery | 1950 → Present · News | 1950 → Present · Reality | 1950 → Present · Sci-Fi & Fantasy | 1950 → Present · Soap | 1950 → Present · Talk | 1950 → Present · War & Politics | 1950 → Present · Western | 1950 → Present",
+    "row": "show",
+    "svg": "covers/shows/genre-from-decades.svg",
+    "png": "covers/shows/genre-from-decades.png"
   }
 ]

@@ -1470,6 +1470,34 @@ const decadeGenres = (type, list) =>
  * keyword is too sparse to fill a row (awards, ensemble casts, finales) the row is the shape of
  * title the name describes — the best reviewed of the widely seen — and says so.
  */
+/**
+ * **The Seasons card: what is starting, what is back, and what is finished.**
+ *
+ * A show is not one date the way a film is — it is a first season, then a new one every year
+ * or two — so "what is out" is not the question this card asks. Its three rows ask it as a
+ * viewer does: what is arriving, what has come back on the air, and what has every one of its
+ * seasons out already. Every row is the series side only (see the card's own note), and every
+ * one of them is a date window read from **today**, so the card says something different next
+ * month without anything being edited.
+ */
+const seasonsRows = () => [
+  // What starts soonest is first: `date.asc` with a `future` window is the row's own shorthand
+  // for "from today to N days out", on whichever date field the media type uses (see
+  // `catalogSpecs`).
+  curated("Premiering Soon", { sort_by: "date.asc", future: 45, "vote_count.gte": 0 }, 120),
+  // What has just started. A month back is the window a viewer means by "new", and popularity
+  // is the order because nobody knows the name of a show from three weeks ago yet.
+  curated("New This Month", { sort_by: "popularity.desc", within: 31, "vote_count.gte": 0 }, 120),
+  // **A show that is on the air is a show that has come back.** TMDB's own `on_the_air` is
+  // "episodes airing in the next seven days", which is exactly a returning season or a new run
+  // of episodes — the one thing about a show a film's date cannot say.
+  preset("Back on Air", "on_the_air", 120),
+  // **Every season out.** A show that has ended has all of itself to watch, which is the question
+  // you ask right before starting one; the vote floor is what keeps the list to shows people
+  // finished.
+  curated("Every Season Out", { with_status: "3", sort_by: "vote_average.desc", "vote_count.gte": 300 }, 120),
+];
+
 const discoverRows = () => ({
   // -- Discover, films: what a festival, a craft and a flop look like -----------------------
   movie: [
@@ -1557,6 +1585,10 @@ const CARD_ORDER = [
   "for-you",
   "discover-top-10",
   "discover",
+  // **Seasons sits with the browsing cards.** It is a date card like Discover — what is
+  // arriving, what is back — so it follows the two that ask the same question about the whole
+  // catalogue, and it is only drawn on the Shows tab (see the card's own note).
+  "seasons",
   "popular-by-genre",
   "top-rated-by-genre",
   // **Genres in or from decades sits in front of Genres.** The two are the same list
@@ -1699,6 +1731,15 @@ const buildCollections = (code = "") => {
       movie: UPCOMING_ROWS("movie"),
       show: UPCOMING_ROWS("show"),
     },
+  },
+  {
+    key: "seasons",
+    lines: ["Seasons"],
+    scene: "seasons",
+    // **A shows-only card.** Every row is about a season, and a film does not have one, so the
+    // movie side publishes nothing at all — the app draws a card only where it has rows
+    // (`cardsForRow` in app.js), which means this one is simply not on the Movies tab.
+    catalogs: { show: seasonsRows() },
   },
   {
     key: "discover",

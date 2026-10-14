@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Seasons — movies collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <title>Seasons — movies collection cover</title>
+  <defs>
+    <linearGradient id="titleFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D7DCE6"/>
+    </linearGradient>
+    <linearGradient id="feather" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0B0C10" stop-opacity="1"/>
+      <stop offset="0.6" stop-color="#0B0C10" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#0B0C10" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="panelShade" x1="0" y1="0" x2="1" y2="0.5">
+      <stop offset="0" stop-color="rgba(6,7,10,0)"/>
+      <stop offset="1" stop-color="rgba(6,7,10,0.42)"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.42" cy="0.5" r="0.85">
+      <stop offset="0.55" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="1" stop-color="rgba(0,0,0,0.45)"/>
+    </radialGradient>
+    <clipPath id="cardClip">
+      <rect x="970" y="60" width="890" height="960" rx="30"/>
+    </clipPath>
+
+    <linearGradient id="ivoryS" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#9AA2B4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#C8A96A" stop-opacity="0.26"/>
+      <stop offset="0.55" stop-color="#C8A96A" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#C8A96A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="beamG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="barG" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#3A3F4D"/><stop offset="0.6" stop-color="#C9CEDB"/><stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="colG" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#4A5060" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#E8ECF4"/>
+    </linearGradient>
+    <radialGradient id="disc" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#C8A96A" stop-opacity="0.12"/>
+    </radialGradient>
+    <style>
+      .glow { animation: glowPulse 11s ease-in-out infinite; }
+      @keyframes glowPulse { 0%,100% { opacity: 0.68; } 50% { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { .glow { animation: none; } }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1920" height="1080" fill="#08090C"/>
+
+  <rect x="970" y="60" width="890" height="960" rx="30" fill="#0B0C10"/>
+  <g clip-path="url(#cardClip)">
+    <g>
+      <circle cx="1415" cy="501.6" r="499.2" fill="url(#glow)" class="glow"/>
+    <rect x="1070.9" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <rect x="1153.2" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <rect x="1235.5" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <rect x="1317.9" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <rect x="1400.2" y="424.8" width="29.6" height="307.2" rx="14.8" fill="url(#barG)" opacity="1"/>
+    <rect x="1482.5" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <rect x="1564.8" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <rect x="1647.2" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <rect x="1729.5" y="559.2" width="29.6" height="172.8" rx="14.8" fill="url(#barG)" opacity="0.72"/>
+    <circle cx="1415" cy="408.8" r="6" fill="#C8A96A"/>
+    <line x1="1044.5" y1="732" x2="1785.5" y2="732" stroke="url(#ivoryS)" stroke-width="2" opacity="0.5"/>
+    </g>
+    <rect x="970" y="60" width="890" height="960" fill="url(#panelShade)"/>
+    <rect x="970" y="60" width="373.8" height="960" fill="url(#feather)"/>
+  </g>
+  <rect x="970.75" y="60.75" width="888.5" height="958.5" rx="30" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1.5"/>
+  <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
+
+  <g>
+    <text x="140" y="599.5" font-family="Inter" font-size="129" font-weight="800" letter-spacing="-4.52" fill="url(#titleFill)">Seasons</text>
+  </g>
+
+  <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+</svg>

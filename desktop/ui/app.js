@@ -4549,6 +4549,7 @@ function renderExplore(key, id) {
     if (pages >= MAX_PAGES) {
       done = true;
       observer.disconnect();
+      stopScroll();
       sentinel.replaceChildren(
         el("p", { class: "view-hint inline", text: `Showing the first ${MAX_PAGES} pages of this catalog.` }),
       );
@@ -4573,6 +4574,7 @@ function renderExplore(key, id) {
       if (!metas.length) {
         done = true;
         observer.disconnect();
+        stopScroll();
         sentinel.replaceChildren(
           el("p", {
             class: "view-hint inline",
@@ -4583,6 +4585,7 @@ function renderExplore(key, id) {
     } catch (err) {
       done = true;
       observer.disconnect();
+      stopScroll();
       sentinel.replaceChildren(el("p", { class: "empty", text: `Could not load — ${err.message}` }));
     }
     busy = false;
@@ -4599,6 +4602,20 @@ function renderExplore(key, id) {
       });
     }
   }, { rootMargin: "600px" });
+
+  /* **A wheel-scroll asks for the next page too.** The sentinel alone is a trigger that only
+     fires while it is in view: a fast wheel, a jump to the foot of the page or a window whose
+     height never lets the sentinel intersect left the row standing at whatever it had already
+     loaded -- the owner's "screen pe End of catalog / the row stops at a couple of hundred".
+     The distance to the foot of the page is the same trigger `fillStrip` uses for a row, and it
+     asks for the next window whenever the last one has run out and the reader is near the end. */
+  const nearFoot = () => document.documentElement.scrollHeight - window.innerHeight - window.scrollY < 900;
+  const onScroll = () => {
+    if (done || busy || !nearFoot()) return;
+    loadMore();
+  };
+  const stopScroll = () => window.removeEventListener("scroll", onScroll);
+  window.addEventListener("scroll", onScroll, { passive: true });
 
   // ONE random sample on top, then a horizontal rule, then the normal endlessly
   // scrolling catalog — for a catalog that can be sampled at all.
@@ -5028,6 +5045,7 @@ function renderSearch() {
     // **The press is what asks for the wall.** It is shown before the screen is re-read, so
     // the results replace the list in the same beat rather than after a blank frame.
     titles.hidden = false;
+    syncSwitch();
     go(`#/search?${p.toString()}`);
   };
 
@@ -5131,6 +5149,7 @@ function renderSearch() {
       // **A submitted search owns the screen again** — the wall is what it was asked for
       // (see `refresh`, which hides it while only the list is up).
       titles.hidden = false;
+      syncSwitch();
       lastText = trimmed;
       searchStart = 0;
       searchSeen.clear();
@@ -5188,6 +5207,8 @@ function renderSearch() {
 
   const refresh = (value) => {
     clearTimeout(timer);
+    // Typing is a search in progress, so the switch is out of the way from the first keystroke.
+    syncSwitch();
     // **Typing suggests; the wall waits for the press.** The list under the bar is what a
     // keystroke draws — the catalog wall filled in behind it as you typed, so the titles the
     // list was offering were already on the page and *More results for …* had nothing left
@@ -5303,6 +5324,15 @@ function renderSearch() {
   // and the panel is tall enough to carry the screen on its own. Opening it hides the
   // switch; closing it brings the switch back.
   const switchRow = el("div", { class: "search-switch-row search-under", id: "search-switch-row" }, rowSwitch("search"));
+  // **The switch belongs to the bar, so it is gone while the bar is searching.** It is the
+  // screen's own Movies / Shows pill, and the owner's report was that it "shows even overlay on
+  // search results": a search draws its results under the bar, and the pill was sitting on the
+  // first row of them. It stays for an empty screen — that is where picking the type before you
+  // type is worth something — and it goes as soon as there is a query, a wall, or the filter
+  // panel, which carries the Type row the search then answers to.
+  const syncSwitch = () => {
+    switchRow.hidden = !panel.hidden || String(input.value || "").trim() !== "" || !titles.hidden;
+  };
 
   const filterBtn = el(
     "button",
@@ -5315,7 +5345,7 @@ function renderSearch() {
       "aria-expanded": String(!panel.hidden),
       onclick: () => {
         panel.hidden = !panel.hidden;
-        switchRow.hidden = !panel.hidden;
+        syncSwitch();
         filterBtn.setAttribute("aria-expanded", String(!panel.hidden));
       },
     },
