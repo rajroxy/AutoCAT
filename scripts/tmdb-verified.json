@@ -457,6 +457,30 @@
           "name": "FOD",
           "as": "FOD",
           "movieCount": 9999
+        },
+        {
+          "id": 190,
+          "name": "Curiosity Stream",
+          "as": "Curiosity Stream",
+          "movieCount": 87
+        },
+        {
+          "id": 475,
+          "name": "DOCSVILLE",
+          "as": "DOCSVILLE",
+          "movieCount": 104
+        },
+        {
+          "id": 551,
+          "name": "Magellan TV",
+          "as": "Magellan TV",
+          "movieCount": 269
+        },
+        {
+          "id": 11,
+          "name": "MUBI",
+          "as": "MUBI",
+          "movieCount": 317
         }
       ],
       "tv": [
@@ -488,6 +512,30 @@
           "id": 1884,
           "name": "ABEMA",
           "as": "ABEMA",
+          "tvCount": 2
+        },
+        {
+          "id": 190,
+          "name": "Curiosity Stream",
+          "as": "Curiosity Stream",
+          "tvCount": 78
+        },
+        {
+          "id": 475,
+          "name": "DOCSVILLE",
+          "as": "DOCSVILLE",
+          "tvCount": 2
+        },
+        {
+          "id": 551,
+          "name": "Magellan TV",
+          "as": "Magellan TV",
+          "tvCount": 102
+        },
+        {
+          "id": 11,
+          "name": "MUBI",
+          "as": "MUBI",
           "tvCount": 2
         }
       ]
