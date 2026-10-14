@@ -3878,7 +3878,10 @@ function stopSpotlight() {
 const REFRESH_CHOICES = [
   [30, "Every 30 minutes"],
   [60, "Every 60 minutes"],
-  [0, "Manual"],
+  // **Disabled, not Manual.** The pane's own *Refresh now* button is gone with it: the app
+  // re-reads the screen when it says it will, and a switch that means "never" should say so
+  // rather than name a button that no longer exists.
+  [0, "Disabled"],
 ];
 
 let refreshTimer = null;
@@ -6560,8 +6563,8 @@ async function renderTitle(type, id) {
             class: "btn focusable",
             type: "button",
             id: "title-assistant",
-            text: "Ask Assistant",
-            title: "Ask about this title",
+            text: "Ask AI",
+            title: "Ask AI about this title",
             onclick: () => openAssistant({ ...meta, description: meta.description || (data.tagline || "") }),
           }),
           ...pinButtons(meta),
@@ -7034,22 +7037,41 @@ async function openAssistant(meta, opts = {}) {
   // actually do tonight. These are five: a pick (by hand), a **companion title named** for
   // tonight's watch, three titles with a line each, something short and funny, and a straight
   // either/or. Each one asks the assistant for a *name*, never for an essay.
+  // **The tags are grouped, and some of them *do* something.**
+  // A flat wrap of fifteen chips reads as one long list of questions; the owner asked for
+  // categories and for **actions** — the *Surprise me* kind, which opens a title page instead
+  // of asking a model for a sentence. So the box draws a heading per group:
+  //
+  //   *Home* — **Give me something** (actions: a surprise, one of your own Library rows, one of
+  //   the things you are watching), **Ask for a pick** (the questions that ask the assistant to
+  //   *name* something, one line each).
+  //   *A title* — **About this title** (the questions a page cannot answer from metadata) and
+  //   **Watch it with something** (the companion title and what to put on afterwards). There is
+  //   no *Surprise me* here: the page you are reading is the subject, and a random title is not
+  //   an answer about it.
   const chips = generic
     ? [
-        ["Surprise me", () => { close(); surpriseMe(); }],
-        ["Name a title to watch in a pair tonight", () => askWith("Name one title to pair with whatever I watch tonight, and say why in one line.")],
-        ["Three for tonight — one line each", () => askWith("Give me three titles worth watching tonight, one line on each.")],
-        ["Something funny under two hours", () => askWith("Name one funny film under two hours, and say why in one line.")],
-        ["One film and one series — which first?", () => askWith("Name one film and one series worth starting, and say which to start first, in two lines.")],
+        ["Give me something", [
+          ["Surprise me", () => { close(); surpriseMe(); }],
+          ["Something from my Library", () => { close(); openRandomFrom(["custom"], "My Library"); }],
+          ["Something I am watching", () => { close(); openRandomFrom(["watchlist"], "What I am watching"); }],
+        ]],
+        ["Ask for a pick", [
+          ["A pair for tonight", () => askWith("Name one title to pair with whatever I watch tonight, and say why in one line.")],
+          ["Three for tonight", () => askWith("Give me three titles worth watching tonight, one line on each.")],
+          ["Something funny, under two hours", () => askWith("Name one funny film under two hours, and say why in one line.")],
+          ["One film and one series", () => askWith("Name one film and one series worth starting, and say which to start first, in two lines.")],
+          ["Something short and quiet", () => askWith("Name one quiet, short film for a late evening, and say why in one line.")],
+        ]],
       ]
     : [
-        ...(ASK_QUESTIONS[meta?.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie).map((q) => [q, () => askWith(q)]),
-        // **Two orders, and no stack.** *Surprise me* is not a question — it **acts**, opening a
-        // random title from the row you are on (see `surpriseMe`). The pair tag asks for **a
-        // title to watch this one with** — a name, said plainly — which is what the owner meant
-        // by "pair"; the five-title stack is gone.
-        ["Surprise me", () => { close(); surpriseMe(); }],
-        [`Name one title to pair with ${name || "this"}`, () => askWith(`Name one title to watch in a pair with ${name || "this one"}, and say why in one line.`)],
+        ["About this title", (ASK_QUESTIONS[meta?.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie)
+          .filter((q) => q !== "What should I watch after this?")
+          .map((q) => [q, () => askWith(q)])],
+        ["Watch it with something", [
+          [`Pair it with something`, () => askWith(`Name one title to watch in a pair with ${name || "this one"}, and say why in one line.`)],
+          ["What to watch after this", () => askWith("What should I watch after this, and why in one line?")],
+        ]],
       ];
   const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": generic ? "Ask Assistant" : `Assistant · ${name || "this title"}` },
     el("div", { class: "assistant-card" },
@@ -7073,7 +7095,12 @@ async function openAssistant(meta, opts = {}) {
       // own shortcuts. The row wraps: a suggestion line that hides behind a scroll is a
       // suggestion nobody reads.
       el("div", { class: "assistant-suggestions" },
-        ...chips.map(([label, run]) => el("button", { class: `chip focusable${label === "Surprise me" ? " surprise-chip" : ""}`, type: "button", text: label, onclick: run })),
+        ...chips.map(([group, items]) => el("div", { class: "chip-group" },
+          el("p", { class: "chip-group-head", text: group }),
+          el("div", { class: "chip-group-row" },
+            ...items.map(([label, run]) => el("button", { class: `chip focusable${label === "Surprise me" ? " surprise-chip" : ""}`, type: "button", text: label, onclick: run })),
+          ),
+        )),
       ),
       stateLine,
       answer,
@@ -7195,97 +7222,68 @@ function pinButtons(item) {
 }
 
 /**
- * **Add to Library — the button, and your rows underneath it.**
+ * **Add to Library — one press, one choice.**
  *
- * At rest the button says where the title is — *Add to Library* while it is in none of your
- * rows, *In <row>* while it is in one. Press it (a click, or OK on a remote) and **the
- * button itself becomes the walk**: its label turns into your Library's row names one at a
- * time, moved with the wheel, the arrows, or a remote's left/right, and a second press puts
- * the title in the row it is showing. Picking the row it is already in takes it out, and
- * applying closes the walk so the button says where the title is again.
+ * The owner's note was that this control had become *complex and confusing*: pressing it put the
+ * button into a **walk** — your rows scrolled through the label itself on the wheel or the arrow
+ * keys, and a second press applied the one it was showing. Nothing said that, and a plain scroll
+ * over the button moved the choice, so the label could end up on a row you never picked.
  *
- * No menu unfolds under it and nothing floats: there is no second surface to position and
- * nothing to dismiss. The walk is the same one the rating plate uses, which is why both
- * controls read the same way under the cursor.
+ * What it is now is what it looks like: **one press adds the title** (and the label says where it
+ * went, with the same press taking it out again). When your Library holds **more than one row**
+ * the press opens those rows as a short list of buttons under it — one press per row, a tick on
+ * the row the title is already in — because with several rows the *choice* is the thing to show,
+ * and a list is easier to read than a label being scrolled. With a single row nothing unfolds at
+ * all: press, done.
  */
-/* **The row the walk is on outlives the button.** A redraw while the wheel is turning (a
-   refresh landing, a pin changing) rebuilt the button and put the label back to *Add to
-   Library* mid-scroll — the reported "the Add to Library option remains when you scroll to a
-   row". The picked row is remembered per title and per row list, so a redraw shows the row
-   you were on instead of erasing the walk. */
-let libraryWalk = { key: "", armed: -1 };
-
 function libraryButton(item) {
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
-  const anyInside = rows.some((row) => inCustomRow(item, row.id));
-  // **The rows are walked, not listed.** Pressing Add to Library used to unfold every row
-  // label at once — a second line of chips under the row of buttons, for a choice that is
-  // one value. The button *is* the picker: press it, and the wheel (or left/right, or a
-  // remote's OK then left/right) walks the Library's row labels inside the button itself;
-  // press again to put the title in the row it is showing. Same walk as the rating box.
-  const currentRow = rows.find((row) => inCustomRow(item, row.id));
-  const walkKey = `${watchKey(item)}::${rows.map((row) => row.id).join("|")}`;
-  let armed = libraryWalk.key === walkKey ? libraryWalk.armed : -1;
-  const setArmed = (value) => { libraryWalk = { key: walkKey, armed: value }; armed = value; };
-  const label = el("span", { class: "library-label", text: anyInside ? `In ${currentRow?.name || customLabel()}` : "Add to Library" });
+  const label = el("span", { class: "library-label" });
+  const list = el("div", { class: "library-rows", hidden: true });
   const btn = el("button", {
-    class: `btn focusable${anyInside ? " active" : ""}`,
+    class: "btn focusable",
     type: "button",
     id: "library-add",
     "aria-expanded": "false",
-    title: anyInside
-      ? "In your Library — press, then scroll or use left/right to walk the rows, and press to move it"
-      : "Press, then scroll or use left/right to walk your Library rows, and press to add it",
   }, label);
   const paint = () => {
-    const row = rows[armed];
-    if (row) {
-      const inside = inCustomRow(item, row.id);
-      label.textContent = inside ? `${row.name} \u2713` : row.name;
-    } else {
-      label.textContent = anyInside ? `In ${currentRow?.name || customLabel()}` : "Add to Library";
-    }
-    btn.classList.toggle("armed", armed >= 0);
-    btn.setAttribute("aria-expanded", armed >= 0 ? "true" : "false");
+    const row = rows.find((r) => inCustomRow(item, r.id));
+    label.textContent = row ? `In ${row.name} \u2713` : "Add to Library";
+    btn.classList.toggle("active", Boolean(row));
+    btn.title = row
+      ? `${row.name} — press to take it out`
+      : rows.length > 1
+        ? "Press to pick one of your Library rows"
+        : `Press to add it to ${rows[0].name}`;
   };
-  const step = (by) => {
-    // Wrapping around, so a long list of rows is never a dead end in either direction.
-    if (by > 0) setArmed(armed < 0 ? 0 : (armed + 1) % rows.length);
-    else setArmed(armed < 0 ? rows.length - 1 : (armed - 1 + rows.length) % rows.length);
+  const apply = (rowId) => {
+    toggleCustomRow(item, rowId);
+    list.hidden = true;
+    btn.setAttribute("aria-expanded", "false");
     paint();
   };
-  const start = () => {
-    setArmed(Math.max(0, rows.findIndex((row) => inCustomRow(item, row.id))));
-    paint();
+  const openRows = () => {
+    list.replaceChildren(...rows.map((row) =>
+      el("button", {
+        class: `chip focusable${inCustomRow(item, row.id) ? " active" : ""}`,
+        type: "button",
+        text: inCustomRow(item, row.id) ? `${row.name} \u2713` : row.name,
+        onclick: (event) => { event.stopPropagation(); apply(row.id); },
+      }),
+    ));
+    list.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
   };
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    // The first press picks the button up at the row the title is already in (or the
-    // first row); the second one adds it there and redraws, which puts the label back.
-    if (armed < 0) start();
-    else {
-      // Applying closes the walk, so the button says where the title is again.
-      toggleCustomRow(item, rows[armed].id);
-      setArmed(-1);
-    }
+    // One row: the press *is* the answer. Several rows: the press shows them, and a press on a
+    // row puts the title there (or takes it out of the one it is in).
+    if (rows.length === 1) { apply(rows[0].id); return; }
+    if (list.hidden) openRows();
+    else { list.hidden = true; btn.setAttribute("aria-expanded", "false"); }
   });
-  btn.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); step(1); }
-    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); step(-1); }
-  });
-  btn.addEventListener("wheel", (event) => {
-    // **The wheel belongs to the button only once it has been picked up.** It walked the rows on
-    // *every* wheel event over the button, so merely scrolling the page past it armed the walk
-    // and left the label reading a Library row's name — the reported "I scroll and the library
-    // row shows, and Add to Library never comes back". A press picks the button up (`armed >= 0`);
-    // until then the wheel is the page's and the label stays where it is.
-    if (armed < 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    step(event.deltaY > 0 ? 1 : -1);
-  }, { passive: false });
   paint();
-  return el("div", { class: "library-pop" }, btn);
+  return el("div", { class: "library-pop" }, btn, list);
 }
 
 /** One person's card — a face, a name and what they did. Opens their credits. */
@@ -8697,6 +8695,40 @@ async function surpriseMe() {
 }
 
 /**
+ * **One of your own titles, at random.** The other half of *Surprise me*: where that one draws
+ * from the app's rows, this draws from **yours** — the Library rows, or the Watchlist — and
+ * opens the title page of whatever it lands on. It is the *action* the Ask AI box offers beside
+ * the questions: a press that goes somewhere, rather than a sentence that comes back.
+ */
+async function openRandomFrom(kinds, label) {
+  const pool = [];
+  for (const card of state.collections || []) {
+    if (card.hidden) continue;
+    for (const cat of orderedCatalogs(card)) {
+      if (catalogVisible(cat) && kinds.includes(cat.kind)) pool.push(cat);
+    }
+  }
+  if (!pool.length) {
+    notify(label, "There is nothing on those rows yet — add a title to your list first.");
+    return;
+  }
+  for (let tries = 0; tries < 4 && pool.length; tries += 1) {
+    const [cat] = pool.splice(Math.floor(Math.random() * pool.length), 1);
+    try {
+      const { metas = [] } = await fetchCatalog(cat, 0);
+      if (!metas.length) continue;
+      const pick = metas[Math.floor(Math.random() * metas.length)];
+      notify(label, String(pick.name || ""));
+      go(`#/t/${pick.type === "series" ? "series" : "movie"}/${String(pick.id || "").replace(/^tmdb:/, "")}`);
+      return;
+    } catch {
+      /* the next row */
+    }
+  }
+  notify(label, "Nothing came back from those rows just now — one more go?");
+}
+
+/**
  * The Ask box. With a provider and a key it asks the model to turn the sentence
  * into a search query; without one — or if the provider is unreachable — the
  * typed words are searched as-is, so the box still works with no AI configured.
@@ -9539,15 +9571,12 @@ function paneContent() {
     }),
     groupHead("Refresh catalogs & metadata"),
     ...REFRESH_CHOICES.map(([minutes, label]) =>
-      radioRow(Number(state.refresh) === minutes, "refresh", label, minutes === 0 ? "Nothing is re-read until you press Refresh now." : `Catalogs and metadata are re-read every ${minutes} minutes.`, () => {
+      radioRow(Number(state.refresh) === minutes, "refresh", label, minutes === 0 ? "Nothing is re-read on its own: the rows stay as they were until the app is restarted." : `Catalogs and metadata are re-read every ${minutes} minutes.`, () => {
         state.refresh = minutes;
         writeJSON(KEY.refresh, minutes);
         pushSettings({ refresh: { minutes } });
         render();
       }),
-    ),
-    el("div", { class: "provider" },
-      el("button", { class: "btn primary focusable", type: "button", text: "Refresh now", onclick: () => refreshNow() }),
     ),
     // **Watched sits under the refresh clock — after it, as asked.** It is the last thing on
     // this pane: what the rows contain, how often they are re-read, and then the one row that

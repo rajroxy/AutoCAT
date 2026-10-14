@@ -1222,7 +1222,14 @@ export function catalogDefs(code = activeCountry()) {
         // the card keeps its promise to your list without going back to being the same
         // popular shelf in every country — and with an empty watchlist nothing changes at
         // all: the pool is the whole deal, as it was.
-        const own = recommendSeeds(type).map((seed) => ({ seed }));
+        // **Your own titles are dealt in a random order.** They were taken in
+        // `recommendSeeds`' own order (watched first, then what you are on, then what you
+        // planned), so a list holding four or more gave the *same* four `More Like …` rows on
+        // every single roll — the owner's "it should be random, not the same every time". The
+        // rows are still your titles and nothing else while you have enough of them; **which**
+        // of them the card opens on is what the shuffle decides, and the seeds the last roll
+        // used are held back so two opens in a row do not repeat (see `recentForYouSeeds`).
+        const own = shuffled(recommendSeeds(type).map((seed) => ({ seed })));
         const pool = forYouPool[type].seeds.map((seed) => ({ seed }));
         const memKey = `${c.key}:${type}`;
         const remembered = new Set(recentForYouSeeds.get(memKey) || []);
@@ -1237,7 +1244,9 @@ export function catalogDefs(code = activeCountry()) {
             name: `More Like ${seed.name}`,
           });
         };
-        for (const { seed } of own) {
+        const ownFresh = own.filter(({ seed }) => !remembered.has(seed.id));
+        const ownSeen = own.filter(({ seed }) => remembered.has(seed.id));
+        for (const { seed } of [...ownFresh, ...ownSeen]) {
           if (mine.length >= FOR_YOU_ROWS_PER_TYPE) break;
           if (!used.has(seed.id)) take(seed);
         }

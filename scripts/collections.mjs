@@ -1453,64 +1453,77 @@ const decadeGenres = (type, list) =>
     .map((g) => genreDecade(`${g} | 1950 → Present`, g, VERIFIED.genreDecades.from));
 
 /**
- * The plain Discover card's five orders, unchanged: the newest, the most popular and
- * the best reviewed, in both directions of the date order. **Discover Plus** is the
- * card beside it that asks a different kind of question (see `discoverPlusRow`).
+ * **The four Discover row lists, one per card and per media type.**
+ *
+ * The owner wrote these out by name, and they are not the same list for films and for shows: a
+ * film can be a *Box Office Flop* and a show cannot, a show is a *Limited Series* or a
+ * *Memorable Finale* and a film is not. The two cards used to publish five rows each, both out
+ * of the same `both(...)` array, and three of the names below were never published at all.
+ *
+ * **Every row is a question, written as the query that answers it** (`curated`): a sort, the
+ * vote floor that makes the sort mean something, and a window where "recent" or "turn of the
+ * century" is the point. The floors were measured against TMDB before they were written down —
+ * each of the 32 rows was asked with its own query and returns titles (the largest are in the
+ * thousands, the keywords the smallest at 54 and 156), so no row on either card is an empty
+ * shelf. Where a concept has a **keyword** TMDB actually applies (sequel, anthology, spin-off,
+ * adaptation, festival, independent film) the row is that keyword plus a rating floor; where the
+ * keyword is too sparse to fill a row (awards, ensemble casts, finales) the row is the shape of
+ * title the name describes — the best reviewed of the widely seen — and says so.
  */
-const discoverRow = (suffix = "", take) => [
-  discover(`Latest${suffix}`, "latest", take),
-  discover(`Newest${suffix}`, "new", take),
-  // **The back of the date order.**
-  // The card asks five questions about the whole catalogue and *Oldest* and *Least popular* are
-  // the two the owner's own list names and the build never published: the newest and the most
-  // popular were the only ends of those two orders the card reached. Both are `curated` rows with
-  // the order written out (`date.asc` is turned into the release-date field of whichever media
-  // type asked, so one row serves films and series) and the same vote floors the Explore page's
-  // own *Oldest* / *Least popular* orders use, so the row and the order cannot disagree.
-  curated(`Oldest${suffix}`, { sort_by: "date.asc", "vote_count.gte": 5 }, take),
-  preset(`Trending${suffix}`, "trending", take),
-  preset(`Popular${suffix}`, "popular", take),
-  // **The back of the popularity order**, with a real audience behind each one — which is what
-  // makes it a shelf of deep cuts rather than a row of nothing.
-  curated(`Least popular${suffix}`, { sort_by: "popularity.asc", "vote_count.gte": 50 }, take),
-  preset(`Top Rated${suffix}`, "top_rated", take),
-];
+const discoverRows = () => ({
+  // -- Discover, films: what a festival, a craft and a flop look like -----------------------
+  movie: [
+    curated("Festival Favorites", { with_keywords: "160213|250135", sort_by: "vote_average.desc", "vote_count.gte": 5 }),
+    curated("Independent Standouts", { with_keywords: "281237", sort_by: "vote_average.desc", "vote_count.gte": 50 }),
+    curated("Best Sequels", { with_keywords: "9663", sort_by: "vote_average.desc", "vote_count.gte": 100 }),
+    curated("Genre Definers", { sort_by: "vote_count.desc", "vote_average.gte": 7.6, "vote_count.gte": 8000, before: 2001 }),
+    curated("Technical Achievements", { sort_by: "vote_average.desc", "vote_average.gte": 8, "vote_count.gte": 2000, before: 2010 }),
+    curated("Adaptation Standouts", { with_keywords: "818|9717|18712|286957", sort_by: "vote_average.desc", "vote_count.gte": 50 }),
+    curated("Underrated Performances", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 300, "vote_count.lte": 1500 }),
+    // The back of the money order: what cost the most and came back with the least.
+    curated("Box Office Flops", { sort_by: "revenue.asc", "vote_count.gte": 500, "vote_average.gte": 5 }),
+  ],
+  // -- Discover, shows: the shapes a series has ---------------------------------------------
+  show: [
+    curated("Anthology Series", { with_keywords: "9706", sort_by: "vote_average.desc", "vote_count.gte": 20 }),
+    curated("Genre Definers", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 1500, before: 2011 }),
+    curated("Character Arcs", { sort_by: "vote_average.desc", "vote_average.gte": 8, "vote_count.gte": 200 }),
+    curated("Ensemble Casts", { sort_by: "vote_average.desc", "vote_average.gte": 7.8, "vote_count.gte": 500 }),
+    curated("Memorable Finales", { sort_by: "vote_average.desc", "vote_average.gte": 8, "vote_count.gte": 300, before: 2015 }),
+    curated("Spin-Offs", { with_keywords: "15285", sort_by: "vote_average.desc", "vote_count.gte": 20 }),
+    curated("Industry Firsts", { sort_by: "vote_count.desc", "vote_average.gte": 8, "vote_count.gte": 300, before: 1991 }),
+    curated("Record Breakers", { sort_by: "vote_count.desc", "vote_average.gte": 7.5, "vote_count.gte": 2000 }),
+  ],
+});
 
-/**
- * **Discover Plus** — the wide card, and every row in it is a verdict.
- *
- * The card used to be `Discover | Top 25`: the same five orders as the plain Discover
- * card (Latest, Newest, Trending, Popular, Top Rated) read a second time at twenty-five
- * titles instead of twenty. Two cards asking the same questions is one card too many —
- * and "Top 25" named the *length* of a row rather than why anything was in it, which is
- * what a card's name is for. It asks six different questions now: what is **Acclaimed**,
- * what this year's **Picks** are, what the **Hidden Gems** are, what has become a **Cult
- * Classic**, what the **Landmarks** everyone has seen are, and what is **Fresh**.
- *
- * Each row is one `curated` entry — a sort and the vote floor that makes it mean
- * something — so a row and the sentence describing it cannot drift apart. `within` is a
- * window in days and `before` a year; both are applied to the release date of the row's
- * own media type (see `specsFor` in `addon/catalogs.mjs`).
- */
-const discoverPlusRow = (take) => [
-  // The best reviewed titles with a real audience behind them: 2000 votes is a floor
-  // that keeps a handful of 10s from topping the row.
-  curated("Critically Acclaimed", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 2000 }, take),
-  // This year and last: the same question as Acclaimed, asked of what is new — a floor
-  // of 200 votes, because a title a month old has not had time to collect 2000.
-  curated("Staff Picks", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 200, within: 540 }, take),
-  // Well reviewed and barely seen — the ceiling is the point: a gem nobody has found
-  // cannot have ten thousand votes.
-  curated("Hidden Gems", { sort_by: "vote_average.desc", "vote_average.gte": 7, "vote_count.gte": 50, "vote_count.lte": 600 }, take),
-  // Loved for long enough to be a classic, and made before the turn of the century.
-  curated("Cult Classics", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 500, before: 2000 }, take),
-  // The canon: the highest rated of the most seen, so the row is the titles everyone
-  // already knows rather than the ones only a few do.
-  curated("All-Time Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 5000 }, take),
-  // **What is fresh**: this season's best, with enough of an audience to mean something — the
-  // sixth question in the owner's list, and the one row of the six the build never carried.
-  curated("Fresh", { sort_by: "vote_average.desc", "vote_average.gte": 7, "vote_count.gte": 100, within: 120 }, take),
-];
+const discoverPlusRows = (take) => ({
+  // -- Discover Plus, films: the canon, the money and the gems ------------------------------
+  movie: [
+    curated("Critically Acclaimed", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 2000 }, take),
+    curated("Award Winners", { sort_by: "vote_average.desc", "vote_average.gte": 8, "vote_count.gte": 3000 }, take),
+    curated("Staff Picks", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 200, within: 540 }, take),
+    curated("Box Office Hits", { sort_by: "revenue.desc", "vote_count.gte": 1000, "vote_average.gte": 6.5 }, take),
+    curated("Hidden Gems", { sort_by: "vote_average.desc", "vote_average.gte": 7, "vote_count.gte": 50, "vote_count.lte": 600 }, take),
+    curated("Cult Classics", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 500, before: 2000 }, take),
+    curated("All-Time Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 5000 }, take),
+    // The money order again, this time asked of what has come out in the last three years.
+    curated("Record Breakers", { sort_by: "revenue.desc", "vote_count.gte": 500, "vote_average.gte": 6, within: 1095 }, take),
+  ],
+  // -- Discover Plus, shows: the canon and the shapes only a series has ---------------------
+  show: [
+    curated("Critically Acclaimed", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 500 }, take),
+    curated("Award Winners", { sort_by: "vote_average.desc", "vote_average.gte": 8.3, "vote_count.gte": 1000 }, take),
+    curated("Staff Picks", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 100, within: 540 }, take),
+    curated("Breakout Series", { sort_by: "popularity.desc", "vote_count.gte": 50, within: 500 }, take),
+    // **A limited series is a shape, not a genre.** TMDB's own `with_type` says which kind of
+    // show it is, and 2 is the miniseries — the row is that filter, best reviewed first.
+    curated("Limited Series", { with_type: "2", sort_by: "vote_average.desc", "vote_count.gte": 50 }, take),
+    curated("Hidden Gems", { sort_by: "vote_average.desc", "vote_average.gte": 7, "vote_count.gte": 50, "vote_count.lte": 300 }, take),
+    curated("Cult Classics", { sort_by: "vote_average.desc", "vote_average.gte": 7.5, "vote_count.gte": 300, before: 2000 }, take),
+    curated("All-Time Landmarks", { sort_by: "vote_count.desc", "vote_average.gte": 7.8, "vote_count.gte": 2000 }, take),
+  ],
+});
+
 
 /**
  * **The three period rows the Discover card opens on, at Top 10.**
@@ -1619,14 +1632,14 @@ const buildCollections = (code = "") => {
     // **The key stays `discover-top-10`** — it is the cover's filename, and the card it
     // names is the wide one (twenty-five titles a row). The **name** is Discover Plus:
     // one card that asks six questions about the whole catalogue, beside the Discover
-    // card that asks the five orders (see `discoverPlusRow`).
+    // card that asks the five orders (see `discoverPlusRows`).
     key: "discover-top-10",
     lines: ["Discover", "Plus"],
     scene: "spotlight-top-10",
     // **The six verdicts, at twenty-five a row.** The card is named for the questions only it
     // asks — what is acclaimed, what a pick is, what the gems are — so those are the rows it
     // holds; the plain **Discover** card beside it asks the seven orders.
-    catalogs: both(discoverPlusRow(TOP25)),
+    catalogs: discoverPlusRows(TOP25),
   },
   {
     key: "on-the-board",
@@ -1691,7 +1704,7 @@ const buildCollections = (code = "") => {
     scene: "discover",
     // **The seven orders**, uncapped: the newest, the oldest, what is rising, what is popular and
     // what nobody has found, and the best reviewed of all of it.
-    catalogs: both(discoverRow()),
+    catalogs: discoverRows(),
   },
   {
     key: "popular-by-genre",
