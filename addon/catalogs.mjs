@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, rowFillsAPage } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -831,6 +831,11 @@ function withRegionalServices(defs, code) {
       // not what a "Regional OTT" card is. A country row the household list knows is what this
       // pass is for: SonyLIV in India, Tencent Video in Hong Kong, Kocowa in the United States.
       if (!isPopularRegional(String(row.name || "").replace(/ \| Top 10$/, ""))) continue;
+      // **And it has to be a row that can fill a page.** The card culls these rows in
+      // `scripts/collections.mjs` (`rowFillsAPage`), and this pass adds the country's own rows
+      // straight back — so a row culled there has to be refused here too, or iQIYI came back to
+      // the films card read in a different region with the same eleven titles.
+      if (!rowFillsAPage(row.entry.providerId, row.entry.region, row.type === "movie" ? "movie" : "tv")) continue;
       const key = `${cardKey}:${row.entry.providerId}`;
       if (published.has(key)) continue;
       published.add(key);

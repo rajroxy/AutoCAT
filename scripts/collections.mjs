@@ -403,7 +403,7 @@ export const REGIONAL_SERVICES = (type) => {
   // was a route into the same near-empty list, under a brand name. The two worldwide
   // services carry no region and are kept (`codeHasContent` keeps an unknown code too,
   // so a region the country table does not list is not silently deleted).
-  const kept = list.filter((svc) => codeHasContent(svc.region) && isPopularRegional(svc.name));
+  const kept = list.filter((svc) => codeHasContent(svc.region) && isPopularRegional(svc.name) && rowFillsAPage(svc.id, svc.region, type));
   const keptIds = new Set(kept.map((s) => s.id));
   return [...kept, ...WORLDWIDE.filter((s) => !seen.has(s.id) && !keptIds.has(s.id))];
 };
@@ -504,6 +504,82 @@ const POPULAR_REGIONAL_KEYS = new Set([...POPULAR_REGIONAL].map(popKey));
 
 /** Is this a service the Regional OTT card publishes? (@see `regionalServicesFor` in addon/catalogs.mjs) */
 export const isPopularRegional = (name) => POPULAR_REGIONAL_KEYS.has(popKey(name));
+
+/**
+ * **A row that cannot fill a page is not a row.**
+ *
+ * The floor under a Regional OTT row, in the region the row is read in. The customer asked
+ * twice for it: *"mediaset infinity and exxen and IROKOTV not showing content in shows"* and
+ * then *"remove those regional ott which has very few catalog from movie and shows regional
+ * card"* — and the second ask names the shape of the fix. TMDB holds a great many regional
+ * services that answer six titles, one title or none at all, and a row of six under a brand
+ * name is a row that opens onto nothing.
+ *
+ * The counts are **measured, not guessed**: `scripts/probe-regional.mjs` asks TMDB the same
+ * question the live catalog asks (the row's own region, flatrate, 10+ votes) for every row the
+ * cards publish, and writes `regional-counts.json`. **25** is where the measurements break:
+ * across all 188 measured (row, type) pairs the sequence runs 0, 8, 11, 13, 13, 13, 16, 17, 20,
+ * 21, 24 — then **27** — and nothing in between, so 25 is the widest possible cut. Discovery+,
+ * the thinnest row that stays, answers 27 films in the United States.
+ *
+ * A row with **no measurement** is kept (`miss` and a probe that failed on a slot both mean
+ * "not asked", and an unasked question is not a no — the same rule the region provider lists
+ * follow). A row is judged **per row type**: MUBI keeps its 264 films and loses its 0 series,
+ * iQIYI keeps 56 series and loses its 11 films.
+ */
+const REGIONAL_COUNTS = (() => {
+  try {
+    return require("./regional-counts.json").counts || {};
+  } catch {
+    // No measurements on disk: nothing is culled, which is the state this card was in before.
+    return {};
+  }
+})();
+const COUNT_FALLBACK_REGION = "US";
+export const MIN_REGIONAL_TITLES = 25;
+
+/**
+ * **A service is one row, so one measurement answers for it.**
+ *
+ * The counts are keyed `provider@region` — the region the row is read in — and a service is
+ * measured once (the probe walks one row per service). The card can still reach the same
+ * service from a second source: the continent rows (`regionalOttByContinent`) carry the country
+ * code of the list that contributed them, which is how iQIYI came back after its region row was
+ * culled — read in Morocco by the continent pass, judged by nothing, and drawn with its six
+ * films. So the lookup falls back to the provider's own measurement wherever it was taken: the
+ * row is the service, and the service is thin or it is not.
+ */
+const REGIONAL_COUNTS_BY_ID = (() => {
+  const byId = new Map();
+  for (const [slot, held] of Object.entries(REGIONAL_COUNTS)) {
+    const id = slot.split("@")[0];
+    if (id && !byId.has(id)) byId.set(id, held);
+  }
+  return byId;
+})();
+
+/** What TMDB answered for one provider, or `null` when it was never asked. */
+export const regionalTitles = (providerId, region, type) => {
+  const id = String(providerId);
+  const held = REGIONAL_COUNTS[`${id}@${String(region || COUNT_FALLBACK_REGION).toUpperCase()}`]
+    || REGIONAL_COUNTS_BY_ID.get(id);
+  if (!held) return null;
+  const n = Number(type === "tv" ? held.tv : held.movie);
+  // `-1` is a probe that failed, not a row that answered nothing.
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+/**
+ * Is this row big enough to publish, on this row type?
+ *
+ * Exported because the live catalog build (`withRegionalServices`) tops the cards up from
+ * TMDB's own list for the region in Settings, and a row culled here would otherwise be added
+ * straight back by that pass.
+ */
+export const rowFillsAPage = (providerId, region, type) => {
+  const n = regionalTitles(providerId, region, type);
+  return n === null || n >= MIN_REGIONAL_TITLES;
+};
 
 /**
  * **The services the Shows card does not publish.**
@@ -620,6 +696,7 @@ function regionalOttByContinent(kind = "all") {
           // Crunchyroll and Viki are on every region's Regional OTT card already.
           if (WORLDWIDE.some((w) => w.id === svc.id)) continue;
           if (offTheShowsCard(type, svc.name)) continue;
+          if (!rowFillsAPage(svc.id, svc.region || code, type)) continue;
           if (!isPopularRegional(svc.name) || seen.has(svc.id) || used.has(svc.id)) continue;
           seen.add(svc.id);
           used.add(svc.id);
@@ -800,8 +877,12 @@ function regionalOtt(kind) {
     const byName = new Map();
     for (const row of perCountry) if (!byName.has(row.svc.name)) byName.set(row.svc.name, row);
     const rows = [...byName.values()]
-      // **Not on the Shows card** — see `offTheShowsCard`.
-      .filter(({ svc }) => !offTheShowsCard(type, svc.name))
+      // **Not on the Shows card** — see `offTheShowsCard` — and **not a row that answers
+      // nothing** — see `rowFillsAPage`.
+      // **The row's own region, not the data's.** `region` here is the one the row is read in
+      // (the first country it was verified in, or `ROW_REGION`'s override), which is what the
+      // counts in `regional-counts.json` are keyed by.
+      .filter(({ svc, region }) => !offTheShowsCard(type, svc.name) && rowFillsAPage(svc.id, region, type))
       .map(({ svc, region }) => {
         const label = ROW_LABEL[svc.name] || svc.name;
         return kind === "top10"
@@ -812,6 +893,7 @@ function regionalOtt(kind) {
     // once at the end rather than once per country — and Crunchyroll is then put back
     // beside FOD, the row whose country it is read with (see `placeRowsAfter`).
     for (const svc of WORLDWIDE) {
+      if (!rowFillsAPage(svc.id, null, type)) continue;
       rows.push(kind === "top10"
         ? provider(`${svc.name} | Top 10`, svc.id, null, TOP10)
         : provider(svc.name, svc.id, null));
@@ -820,6 +902,44 @@ function regionalOtt(kind) {
   };
   return { movie: build("movie", "movie"), show: build("tv", "tv") };
 }
+
+/**
+ * **Every row the two Regional cards would publish if nothing were culled.**
+ *
+ * This is the probe's roster (`scripts/probe-regional.mjs`), and it is deliberately blind to
+ * the rules below it — the cull, the Shows-card list and the per-country caps. A roster that
+ * followed the cull would lose a row's measurement the moment the row was culled, the next
+ * build would find no measurement for it and publish it again, and the card would flip a row
+ * in and out on every probe. The roster is the *union* of the two sources the cards draw from
+ * (each country's own list, and the continents' wider read), one entry per service, carrying
+ * the region that service's row is read in.
+ */
+export const regionalRoster = (media = "movie") => {
+  const seen = new Set();
+  const out = [];
+  const push = (svc, code) => {
+    if (seen.has(svc.id)) return;
+    seen.add(svc.id);
+    out.push({
+      name: svc.name,
+      id: svc.id,
+      region: String(ROW_REGION[svc.name] || svc.region || code).toUpperCase(),
+    });
+  };
+  // **`media`, the data's own list name** (`movie` | `tv`), because that is what
+  // `localFor` reads — the same argument `regionalOtt`'s builder takes.
+  for (const [name, code] of COUNTRIES) {
+    if (!countryHasContent(name, media)) continue;
+    for (const svc of localFor(name, media)) if (isPopularRegional(svc.name)) push(svc, code);
+  }
+  for (const [, codes] of continentsWithContent()) {
+    for (const code of codes) {
+      for (const svc of localServices(code, media)) if (isPopularRegional(svc.name)) push(svc, code);
+    }
+  }
+  for (const svc of WORLDWIDE) push(svc, COUNT_FALLBACK_REGION);
+  return out;
+};
 
 /**
  * **A row's label when TMDB's name is not the name the viewer knows.**

@@ -5646,3 +5646,109 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
 .profile-tile.active .profile-tile-name { color: #14110a; }
 .profile-tile.active .profile-tile-sub { color: rgba(20, 17, 10, 0.72); }
 .profile-tile.active .avatar { background: var(--ink, #0b0b0b); color: var(--select, var(--accent)); }
+
+/* ============================================================================
+   **The ring is for what you are on; a control answers with a fill.**
+   ----------------------------------------------------------------------------
+   The app drew the highlight ring around everything `.focusable` — a button, a chip, a tab, a
+   menu row, a filter, a calendar cell — so pointing at a word put a 3px box around it, and the
+   *selection* colour was spent on controls as a wash. The customer's rule, in their words:
+   **"remove ring from buttons. only selection color ring shows on cards, catalog row titles,
+   cast/crew/network production, etc."**
+   So: content — a card, a poster, a catalog row's title, a cast or crew face, a network or
+   production company — wears the selection ring, on the cursor and on the keyboard. A control
+   never rings: it answers the cursor with a plain lighten, and the keyboard with a stronger one,
+   so focus is never carried by a ring.
+   ============================================================================ */
+.focusable:hover, .focusable:focus-visible, .focusable:has(:focus-visible) { box-shadow: none; }
+:is(.icon-box, .poster, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card,
+  .result, .cat-name, .row-head-link, .guide-list-row, .guide-row, .episode-item,
+  .stream):is(:hover, :focus-visible, :has(:focus-visible)) {
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+}
+/* **A face rings its picture** — the card is a button with a name on it, and it is the picture
+   that is the thing you are on. */
+.person:hover .person-face,
+.person:focus-visible .person-face,
+.person:has(:focus-visible) .person-face {
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+}
+/* **A catalog row's title wears the ring, not the accent ink.** It used to answer the cursor by
+   turning the accent colour; the mark the rest of the content wears is the ring. */
+.cat-name:not(.static):hover, .cat-name:not(.static):focus-visible { color: #fff; }
+.cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
+
+/* **A control's answer is a lighten, and never the highlight colour.** One rule for every
+   control in the app, so no pane keeps a coloured wash of its own. */
+:is(.btn, .settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .chip-more, .row-btn,
+  .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
+  .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
+  .rec-btn, .tag):is(:hover, :focus-visible, :has(:focus-visible)) {
+  background-color: rgba(255, 255, 255, 0.13);
+}
+:is(.btn, .settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .chip-more, .row-btn,
+  .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
+  .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
+  .rec-btn, .tag):is(:focus-visible, :has(:focus-visible)) {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================================================
+   **No control wears the highlight colour as a fill.**
+   ----------------------------------------------------------------------------
+   As asked: Play, Speak, the Movies / Shows pill, the Home tab, the calendar's today, the
+   Filters button on the search bar, the chosen tag and the chosen chip. Each was a solid accent
+   plate (or a selection-coloured one) with ink on it. They are plain plates now — the same pale
+   fill every other button and pill in the app uses — and **what is chosen still reads**: the
+   chosen half of the switch is a darker plate on its track, and a chosen chip, tag or filter is
+   a brighter one. The state is the fill; the colour is spent on the content's ring.
+   ============================================================================ */
+:is(.btn.primary, .btn.primary.voice-pad, .voice-pad) {
+  background: rgba(255, 255, 255, 0.07);
+  background-image: none;
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+/* **And they do not ring under the cursor.** Play, Ask Assistant and Speak were the three plates
+   that answered the pointer with the double outline — the rule is still there, thirty lines up,
+   and a rule that only re-paints a button leaves the outline it never mentioned standing. The
+   lighten every other control gives is the whole answer. */
+:is(.btn.primary, .btn.primary.voice-pad, .voice-pad):is(:hover, :focus-visible, :has(:focus-visible)) {
+  background-color: rgba(255, 255, 255, 0.13);
+  background-image: none;
+  color: var(--text);
+  box-shadow: none;
+}
+/* The chosen half of a switch: a plate darker than its track, in the app's own neutral. */
+.row-btn.active, .row-btn.active:hover, .row-btn.active:focus-visible,
+.tab[aria-selected="true"], .tab[aria-selected="true"]:hover, .tab[aria-selected="true"]:focus-visible {
+  background: var(--panel, #181818);
+  background-image: none;
+  color: #fff;
+  font-weight: 800;
+}
+/* Today, and the Filters button. */
+.cal-cell.today { background: rgba(255, 255, 255, 0.16); color: #fff; box-shadow: none; }
+.search-filter-btn, .search-filter-btn:hover, .search-filter-btn:focus-visible,
+.search-filter-btn.on, .search-filter-btn.on:hover, .search-filter-btn.on:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.search-filter-btn.on { background: rgba(255, 255, 255, 0.16); color: #fff; }
+/* The chosen chip, tag and filter: a brighter neutral, and no selection ring. */
+.chip.active, .chip.active:hover, .chip.active:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  box-shadow: none;
+}
+.tag.on, .tag.on:hover, .tag.on:focus-visible,
+.filter-chip.active, .filter-chip.active:hover, .filter-chip.active:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  box-shadow: none;
+}
+/* A pin is a state the app already marks with its plate; the ring around the plate goes, like
+   every other ring on a button. */
+.btn.pin.active, .btn.pin.active:hover, .btn.pin.active:focus-visible,
+.btn.pin.custom.active, .btn.pin.custom.active:hover { box-shadow: none; }
