@@ -18,6 +18,10 @@
       if (theme.base) root.style.setProperty("--fill", theme.base);
       if (theme.rgb) root.style.setProperty("--fill-rgb", theme.rgb);
       if (theme.deep) root.style.setProperty("--fill-deep", theme.deep);
+      // The Hover colour, painted before the first frame like the Fill beside it.
+      if (theme.hover) root.style.setProperty("--hover", theme.hover);
+      if (theme.hoverRgb) root.style.setProperty("--hover-rgb", theme.hoverRgb);
+      if (theme.hoverDeep) root.style.setProperty("--hover-deep", theme.hoverDeep);
       // The Ring, painted before the first frame like the Fill beside it.
       if (theme.select) root.style.setProperty("--ring", theme.select);
       if (theme.selectRgb) root.style.setProperty("--ring-rgb", theme.selectRgb);

@@ -63,6 +63,8 @@ const SETTING_KEYS = {
   // The colour a *selection* wears — the chosen row, the checked box — on top of the
   // highlight colour the app is tinted with (see `applyTheme`).
   select: "autocat.select",
+  // **The Hover colour** — the wash a control shows under the cursor (Settings → Accent).
+  hover: "autocat.hover",
   motion: "autocat.motion",
   font: "autocat.font",
   // **Which row each screen is reading.** Home, Search, the Calendar and the Calendar's plans
@@ -860,7 +862,7 @@ const SETTINGS_GROUPS = [
       // the network last. "Interaction" reads as **Effects**.
       ["signin", "Account"],
       ["profile", "Profile"],
-      ["appearance", "Fill & ring"],
+      ["appearance", "Accent"],
       ["layout", "Layout"],
       ["animation", "Motion"],
       ["interaction", "Effects"],
@@ -911,7 +913,7 @@ const LIVE_SETTINGS_GROUPS = [
       // the other profile, so the two do not read as two different apps.
       ["signin", "Account"],
       ["profile", "Profile"],
-      ["appearance", "Fill & ring"],
+      ["appearance", "Accent"],
       ["layout", "Layout"],
       ["animation", "Motion"],
       ["interaction", "Effects"],
@@ -1063,6 +1065,9 @@ const state = {
   // highlight" card on the board; that card is gone, so an install that has never picked one
   // takes the fill it is already wearing — the same colour, made explicit.
   select: storedAccent(KEY.select) || storedAccent(KEY.accent),
+  // **The Hover colour follows the Fill until it is set.** Empty means "same as the Fill", so
+  // the cursor's own colour is a setting nobody has to touch to get the app's own look.
+  hover: storedAccent(KEY.hover) || "",
   // Kept from an older build: the ring was once a choice between an outline and a wash.
   selStyle: localStorage.getItem(KEY.selStyle) === "ring" ? "ring" : "fill",
   // **Two choices, not three.** "Follow system" was the third and it is gone from the
@@ -9229,6 +9234,13 @@ function applyTheme() {
   root.style.setProperty("--fill", base);
   root.style.setProperty("--fill-rgb", rgb);
   root.style.setProperty("--fill-deep", deep);
+  // **The Hover colour**, which is the Fill unless someone chose their own: it is the *wash*
+  // under the cursor, on every control in the app — a button, a chip, a menu row, the day you
+  // point at — so the mark the cursor makes can read in a colour of its own.
+  const hov = state.hover ? accentOf(state.hover) : null;
+  root.style.setProperty("--hover", hov ? hov[3] : base);
+  root.style.setProperty("--hover-rgb", hov ? hov[2] : rgb);
+  root.style.setProperty("--hover-deep", hov ? hov[4] : deep);
   // **The Ring**, which is the Fill unless someone chose their own: it is the outline a card, a
   // catalog row's title, a cast or crew face, a network or a production company wears, so the
   // outline around your content can be a different colour from the fill on your buttons.
@@ -9246,6 +9258,9 @@ function applyTheme() {
   try {
     localStorage.setItem(KEY.theme, JSON.stringify({
       base, rgb, deep,
+      hover: hov ? hov[3] : base,
+      hoverRgb: hov ? hov[2] : rgb,
+      hoverDeep: hov ? hov[4] : deep,
       select: sel ? sel[3] : base,
       selectRgb: sel ? sel[2] : rgb,
       selectDeep: sel ? sel[4] : deep,
@@ -9256,7 +9271,8 @@ function applyTheme() {
   }
 }
 
-/** Settings → Appearance: the accent colour, and how much the app moves. */
+/** Settings → **Accent**: the three colours the app marks with — the Fill, the Hover and the
+ *  Ring — and how much the app moves. */
 function paneAppearance() {
   // **One card per colour, like the banner's own frame.** The banner puts its artwork
   // inside a card of its own — a panel with a radius, the picture as the thing inside it —
@@ -9264,10 +9280,37 @@ function paneAppearance() {
   // colour as the artwork** (the same base → deep gradient the app's fill is built from),
   // with the colour's name under it. The chosen one wears the colour it *is*; a row of bare
   // circles could only tell you the colour of the dot.
-  // **The Ring is the Fill's twin.** Same board, same cards, one difference: the **Fill**
-  // paints every control in the app — a button, a chip, a tab, a menu row, the day you picked —
-  // while the **Ring** is drawn around content: a card, a catalog row's title, a cast or crew
-  // face, a network, a production company. The two start together.
+  // **Three colours, three jobs, one board each.** The **Fill** paints every control in the
+  // app — a button, a chip, a tab, a menu row, the day you picked; the **Ring** is drawn around
+  // content — a card, a catalog row's title, a cast or crew face, a network, a production
+  // company; and the **Hover** is the wash a control shows *under the cursor*, so the mark the
+  // cursor makes can be a colour of its own. All three start together, and each board carries
+  // the same colours, so a choice is never limited by which board it is on.
+  const hoverGrid = () => {
+    const on = state.hover || state.accent;
+    return el("div", { class: "accent-grid" },
+      ...ACCENTS.map(([id, label, , base, deep]) =>
+        el("button", {
+          class: `accent-card focusable${on === id ? " active" : ""}`,
+          type: "button",
+          id: `hover-${id}`,
+          title: label,
+          "aria-label": `${label} — hover colour`,
+          "aria-pressed": String(on === id),
+          style: `--swatch: ${base}; --swatch-deep: ${deep}`,
+          onclick: () => {
+            state.hover = id;
+            localStorage.setItem(KEY.hover, state.hover);
+            applyTheme();
+            render();
+          },
+        },
+          el("span", { class: "accent-card-art", "aria-hidden": "true" }),
+          el("span", { class: "accent-card-name", text: label }),
+        ),
+      ),
+    );
+  };
   const selectionGrid = () => {
     // **Every colour, and four the Fill's board does not carry.** No "Match highlight" card:
     // that card was the *absence* of a choice, which is why the board could never show it as one.
@@ -9297,8 +9340,8 @@ function paneAppearance() {
     );
   };
   return [
-    // **The Fill's board**, then the Ring's — the same two boards, under the names the two
-    // colours go by everywhere else in the app.
+    // **The three boards** — the Fill's, the Ring's and the Hover's — under the names the three
+    // colours go by everywhere else in the app, each with the same list of colours on it.
     groupHead("Fill"),
     el("div", { class: "provider" },
       el("div", { class: "accent-grid" },
@@ -9324,6 +9367,8 @@ function paneAppearance() {
         ),
       ),
     ),
+    groupHead("Hover"),
+    el("div", { class: "provider" }, hoverGrid()),
     groupHead("Ring"),
     el("div", { class: "provider" }, selectionGrid()),
     // **No glow switch.** The Fill is the fill, full stop: an optional halo around it was a

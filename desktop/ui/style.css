@@ -65,6 +65,12 @@
   --ring: var(--fill);
   --ring-rgb: var(--fill-rgb);
   --ring-deep: var(--fill-deep);
+  /* **The Hover colour, which starts as the Fill.** It is the wash a control shows under the
+     cursor — every button, chip, tab, menu row and calendar day answers with it — and
+     Settings → Accent → Hover sets it on its own. */
+  --hover: var(--fill);
+  --hover-rgb: var(--fill-rgb);
+  --hover-deep: var(--fill-deep);
   --poster-w: 172px;
   --radius: 14px;
 }
@@ -240,7 +246,7 @@ body {
 .profile-tile:hover, .profile-tile:focus-visible {
   transform: translateY(-3px);
   border-color: transparent;
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 
@@ -386,7 +392,7 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.icon-btn:hover { border-color: rgba(var(--fill-rgb), 0.55); }
+.icon-btn:hover { border-color: rgba(var(--hover-rgb), 0.55); }
 .glyph { font-size: 14px; line-height: 1; display: inline-flex; align-items: center; }
 /* Drawn glyphs are *strokes*, not filled shapes. Without this the chevrons came out
    as a dark filled blob on a dark background — which is why the tag control looked
@@ -449,7 +455,7 @@ body {
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-.icon-box:hover { transform: translateY(-3px); border-color: rgba(var(--fill-rgb), 0.45); }
+.icon-box:hover { transform: translateY(-3px); border-color: rgba(var(--hover-rgb), 0.45); }
 
 /* **The spotlight card.** One card is published with `spotlight` (Upcoming). It is
    **two cards long** — `span 2` — so it sits in the row between your Watchlist and your
@@ -641,7 +647,7 @@ body {
 
 .chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--fill-rgb), 0.13); color: #e8dfc8; border: 0; font-family: inherit; }
 button.chip { cursor: pointer; }
-button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
+button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 
 .cat-row { margin-bottom: 28px; }
 
@@ -687,7 +693,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
   white-space: nowrap;
 }
 
-.btn:hover { border-color: rgba(var(--fill-rgb), 0.55); }
+.btn:hover { border-color: rgba(var(--hover-rgb), 0.55); }
 
 .btn.primary {
   background: linear-gradient(160deg, var(--fill), var(--fill-deep));
@@ -829,7 +835,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
    like the thing you had chosen. Only the field lights the bar now. */
 .search-bar:has(.search-input:focus) {
   background: var(--panel);
-  border-color: rgba(var(--fill-rgb), 0.75);
+  border-color: rgba(var(--hover-rgb), 0.75);
   box-shadow: 0 0 0 3px var(--ring, var(--fill));
 }
 /* The magnifier: same 24px stroke glyph the rest of the controls draw. */
@@ -941,7 +947,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
 }
 .search-suggest[hidden] { display: none; }
 .suggest-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
-.suggest-item:hover, .suggest-item:focus-visible { background: rgba(var(--fill-rgb), 0.14); outline: none; }
+.suggest-item:hover, .suggest-item:focus-visible { background: rgba(var(--hover-rgb), 0.14); outline: none; }
 .suggest-kind { flex: none; width: 78px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
 .suggest-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -988,7 +994,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.chip-more:hover { color: #fff; border-color: rgba(var(--fill-rgb), 0.55); background: rgba(var(--fill-rgb), 0.12); }
+.chip-more:hover { color: #fff; border-color: rgba(var(--hover-rgb), 0.55); background: rgba(var(--hover-rgb), 0.12); }
 .chip-more .glyph svg { width: 13px; height: 13px; transition: transform 0.18s ease; }
 .chip-more.up .glyph svg { transform: rotate(180deg); }
 .filter-row .chip-more { margin-top: 2px; }
@@ -1025,7 +1031,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
   padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius); background: var(--panel); color: inherit; cursor: pointer;
 }
-.result:hover { border-color: rgba(var(--fill-rgb), 0.5); }
+.result:hover { border-color: rgba(var(--hover-rgb), 0.5); }
 .result-name { font-size: 14px; font-weight: 700; }
 .result-sub { font-size: 12px; color: var(--muted); }
 
@@ -1086,7 +1092,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
   color: var(--muted);
   cursor: pointer;
 }
-.model-chip:hover { color: var(--text); border-color: rgba(var(--fill-rgb), 0.5); }
+.model-chip:hover { color: var(--text); border-color: rgba(var(--hover-rgb), 0.5); }
 .model-chip.suggested { border-color: rgba(var(--fill-rgb), 0.45); color: #e8dfc8; }
 
 /* A named group inside a settings pane, with its own rule under it. */
@@ -1381,7 +1387,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
   background: rgba(255, 255, 255, 0.18);
   border-radius: 999px;
 }
-.settings-nav::-webkit-scrollbar-thumb:hover { background: rgba(var(--fill-rgb), 0.55); }
+.settings-nav::-webkit-scrollbar-thumb:hover { background: rgba(var(--hover-rgb), 0.55); }
 .settings-group-box { display: flex; flex-direction: column; gap: 8px; }
 /* **One column.** The doors to the sections used to sit two to a row; they are a single
    column now, so the board reads top to bottom in the order the settings belong in. */
@@ -1533,7 +1539,7 @@ button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
   cursor: pointer;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.toast:hover { border-color: rgba(var(--fill-rgb), 0.6); }
+.toast:hover { border-color: rgba(var(--hover-rgb), 0.6); }
 .toast.out { opacity: 0; transform: translateY(6px); }
 .toast-title { margin: 0; font-size: 13.5px; font-weight: 800; color: var(--fill); }
 .toast-body { margin: 3px 0 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.86); }
@@ -1689,7 +1695,7 @@ textarea:focus-visible {
 .explore-head .cat-tools { margin-left: auto; }
 .cat-menu { position: absolute; z-index: 30; margin-top: 44px; max-height: 320px; overflow: auto; min-width: 260px; padding: 6px; border: 1px solid rgba(255, 255, 255, 0.20); border-radius: var(--radius); background: var(--panel-2); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); }
 .menu-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 9px; cursor: pointer; }
-.menu-item:hover, .menu-item.active { background: rgba(var(--fill-rgb), 0.14); }
+.menu-item:hover, .menu-item.active { background: rgba(var(--hover-rgb), 0.14); }
 .sentinel { min-height: 60px; padding: 20px 0; text-align: center; }
 
 /* The sample rows read like the catalog rows below them — no label of their own
@@ -1745,7 +1751,7 @@ textarea:focus-visible {
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
-.channel-card:hover, .channel-card:focus-visible { transform: translateY(-3px); border-color: rgba(var(--fill-rgb), 0.5); }
+.channel-card:hover, .channel-card:focus-visible { transform: translateY(-3px); border-color: rgba(var(--hover-rgb), 0.5); }
 .channel-art {
   display: flex;
   align-items: center;
@@ -1773,7 +1779,7 @@ textarea:focus-visible {
 .guide-row { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
 .guide-row:last-child { border-bottom: 0; }
 .guide-channel { flex: none; width: 220px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0; border-right: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
-.guide-channel:hover { background: rgba(var(--fill-rgb), 0.08); }
+.guide-channel:hover { background: rgba(var(--hover-rgb), 0.08); }
 .guide-num { flex: none; width: 22px; font-size: 11px; color: var(--faint); }
 .guide-logo { flex: none; width: 28px; height: 28px; object-fit: contain; }
 .guide-logo.fallback { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(var(--fill-rgb), 0.16); font-weight: 800; }
@@ -1826,7 +1832,7 @@ textarea:focus-visible {
   border-radius: 12px; background: var(--panel); color: inherit; font: inherit; cursor: pointer;
 }
 .cal-cell.blank { border: 0; background: transparent; cursor: default; }
-.cal-cell:hover { border-color: rgba(var(--fill-rgb), 0.5); }
+.cal-cell:hover { border-color: rgba(var(--hover-rgb), 0.5); }
 .cal-cell.today { background: var(--fill); color: #0b0b0b; border-color: transparent; }
 /* **The day you opened is a fill, like every other control.** Today and the chosen day are
    two states of the same control, so both wear the **Fill**: today at full strength with ink
@@ -1860,7 +1866,7 @@ textarea:focus-visible {
   border-radius: 12px; background: var(--panel); color: inherit; font: inherit;
   text-align: left; cursor: pointer;
 }
-.cal-live-row:hover { border-color: rgba(var(--fill-rgb), 0.5); }
+.cal-live-row:hover { border-color: rgba(var(--hover-rgb), 0.5); }
 .cal-live-time { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 .cal-live-logo { width: 34px; height: 24px; object-fit: contain; border-radius: 5px; background: var(--panel-2); }
 .cal-live-logo.fallback { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--fill); }
@@ -1977,7 +1983,7 @@ textarea:focus-visible {
 }
 .chip-clamped .chip-track > * { scroll-snap-align: start; }
 .chip-clamped .chip-track::-webkit-scrollbar { width: 0; height: 0; }
-.chip-clamped .chip-track:focus-visible { outline: 2px solid rgba(var(--fill-rgb), 0.6); outline-offset: 4px; border-radius: 10px; }
+.chip-clamped .chip-track:focus-visible { outline: 2px solid rgba(var(--hover-rgb), 0.6); outline-offset: 4px; border-radius: 10px; }
 /* **The arrows sit at the right edge.** They are a full-width strip that pushes its
    two buttons to the right, so a clamped line (the search filters, a card's tag
    line) keeps its arrows on the right where the eye already is. */
@@ -2009,8 +2015,8 @@ textarea:focus-visible {
    wearing the 3px ring — a box drawn around a 22px square that says "there are more tags
    this way", twice as loud as the tags it scrolls. The tint is the answer, and the press
    flips it to the solid plate so a click lands with one. */
-.chip-arrow:hover:not(:disabled) { background: rgba(var(--fill-rgb), var(--mark-fill, 0.22)); color: #fff; box-shadow: none; }
-.chip-arrow:focus-visible { outline: none; box-shadow: none; background: rgba(var(--fill-rgb), var(--mark-fill, 0.22)); }
+.chip-arrow:hover:not(:disabled) { background: rgba(var(--hover-rgb), var(--mark-fill, 0.22)); color: #fff; box-shadow: none; }
+.chip-arrow:focus-visible { outline: none; box-shadow: none; background: rgba(var(--hover-rgb), var(--mark-fill, 0.22)); }
 .chip-arrow:active:not(:disabled) { background: var(--fill); color: #0b0b0b; box-shadow: none; transform: none; }
 /* An arrow at its own end of the list has nowhere to go, and says so. */
 .chip-arrow.at-end, .chip-arrow:disabled { opacity: 0.32; cursor: default; }
@@ -2069,12 +2075,12 @@ textarea:focus-visible {
   text-align: center;
   cursor: pointer;
 }
-.alpha:hover:not(:disabled) { background: rgba(var(--fill-rgb), 0.2); color: #fff; }
-.alpha:focus-visible { outline: 2px solid rgba(var(--fill-rgb), 0.6); outline-offset: 1px; }
+.alpha:hover:not(:disabled) { background: rgba(var(--hover-rgb), 0.2); color: #fff; }
+.alpha:focus-visible { outline: 2px solid rgba(var(--hover-rgb), 0.6); outline-offset: 1px; }
 .alpha.off { opacity: 0.3; }
 /* A letter that is not loaded yet is dimmed, never dead: picking it pages the row
    in until that letter's titles arrive. */
-.alpha.off:hover { background: rgba(var(--fill-rgb), 0.14); }
+.alpha.off:hover { background: rgba(var(--hover-rgb), 0.14); }
 /* A short window gets a shorter column rather than a cut-off one: 26 letters at
    18px plus the plate is ~507px, which fits anywhere above a small laptop. */
 @media (max-height: 640px) {
@@ -2510,7 +2516,7 @@ body { background: var(--ink); }
 /* The month grid: flat blocks on the page instead of twenty-eight hairlines, with
    the accent marking today and the day you picked. */
 .cal-cell { border: 0; background: var(--panel-2); }
-.cal-cell:hover { background: rgba(var(--fill-rgb), 0.16); }
+.cal-cell:hover { background: rgba(var(--hover-rgb), 0.16); }
 /* **Today is filled, like Home and Play.** A 2px ring drawn *inside* the cell read as a box
    around a number rather than as the day the app is on; the chosen day and today wear the
    highlight at full strength, with ink on it. */
@@ -2637,7 +2643,7 @@ button.hero-art {
 .icon-box:hover {
   transform: none;
   background: var(--panel-2);
-  box-shadow: inset 0 0 0 2px rgba(var(--fill-rgb), 0.45);
+  box-shadow: inset 0 0 0 2px rgba(var(--hover-rgb), 0.45);
 }
 
 /* **A divider has no cell in the grid.** `collectionGrid` drops a `v-divider` before
@@ -2915,9 +2921,9 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   transition: background var(--quick) var(--ease), color var(--quick) var(--ease);
 }
 .view-mark-art { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.view-mark:hover, .view-mark:focus-visible { background: rgba(var(--fill-rgb), 0.18); color: #fff; box-shadow: none; }
+.view-mark:hover, .view-mark:focus-visible { background: rgba(var(--hover-rgb), 0.18); color: #fff; box-shadow: none; }
 .view-mark.active { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
-.view-mark.active:hover, .view-mark.active:focus-visible { background: rgba(var(--fill-rgb), 0.26); box-shadow: none; }
+.view-mark.active:hover, .view-mark.active:focus-visible { background: rgba(var(--hover-rgb), 0.26); box-shadow: none; }
 
 /* **The grid.** The same episodes as the list, as cards: the still, its number, its
    name and how long it runs. It fills the row instead of running a column, which is
@@ -3441,7 +3447,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   backdrop-filter: blur(6px);
 }
 .player-center[hidden] { display: none; }
-.player-center:hover, .player-center:focus-visible { background: rgba(var(--fill-rgb), 0.75); }
+.player-center:hover, .player-center:focus-visible { background: rgba(var(--hover-rgb), 0.75); }
 /* The loading screen's own state: a small ring, the title, and nothing else. */
 .player-spinner {
   width: 34px;
@@ -3816,7 +3822,7 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
   font: inherit; font-size: 14px; text-align: left; color: var(--text);
   background: transparent; border: 0; border-radius: 8px; padding: 9px 10px; cursor: pointer;
 }
-.dropdown-item:hover, .dropdown-item:focus-visible { background: rgba(var(--fill-rgb), 0.18); }
+.dropdown-item:hover, .dropdown-item:focus-visible { background: rgba(var(--hover-rgb), 0.18); }
 
 /* A row whose posters are the way in says so on hover, without wearing the accent
    the way a heading link does. */
@@ -3856,7 +3862,7 @@ select.text-input,
 }
 select option:checked,
 select option:hover {
-  background: rgba(var(--fill-rgb), 0.38) !important;
+  background: rgba(var(--hover-rgb), 0.38) !important;
   color: #fff !important;
 }
 
@@ -3892,7 +3898,7 @@ select option:hover {
 }
 
 .rec-btn:hover {
-  background: rgba(var(--fill-rgb), 0.24);
+  background: rgba(var(--hover-rgb), 0.24);
 }
 
 /* IPTV extras */
@@ -4016,7 +4022,7 @@ select option:hover {
   transform: none;
   outline: none;
   box-shadow: none;
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
 }
 
 /* **The keyboard lands on the card, not on the picture inside it.** The arrow keys step
@@ -4068,7 +4074,7 @@ select option:hover {
 .option:has(input:checked), .vis-option:has(input:checked),
 .menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"] {
   box-shadow: none;
-  background: rgba(var(--fill-rgb), 0.2);
+  background: rgba(var(--hover-rgb), 0.2);
   color: #fff;
 }
 /* The day you picked is *filled* with the highlight; today is *ringed* by it — a hairline
@@ -4129,7 +4135,7 @@ select option:hover {
 .chip:not(.active):hover, .chip:not(.active):focus-visible,
 .model-chip:not(.suggested):hover, .chip-more:hover,
 .filter-chip:not(.active):hover {
-  background: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   color: #fff;
 }
 /* **Filters is furniture, like Play and the Movies / Shows pill.** It is the bar's own solid
@@ -4146,7 +4152,7 @@ select option:hover {
    *choose* between — a genre, a catalog tag, a filter — and they were being tinted from the
    accent while the chosen row beside them used the selection colour, so the app had two
    "this is on" colours in one line of the same screen. */
-button.chip:not(.active):hover { background: rgba(var(--fill-rgb), 0.24); color: #fff; }
+button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color: #fff; }
 
 /* **Menus.** The row under the cursor inside an open menu is a tinted plate; the button
    that opens it wears the ring like everything else. */
@@ -4155,7 +4161,7 @@ button.chip:not(.active):hover { background: rgba(var(--fill-rgb), 0.24); color:
 .menu-item:hover, .menu-item:focus-visible,
 .suggest-item:hover, .suggest-item:focus-visible {
   box-shadow: none;
-  background: rgba(var(--fill-rgb), 0.2);
+  background: rgba(var(--hover-rgb), 0.2);
   color: #fff;
 }
 
@@ -4279,7 +4285,7 @@ button.chip:not(.active):hover { background: rgba(var(--fill-rgb), 0.24); color:
   line-height: 1;
   cursor: pointer;
 }
-.trailer-btn:hover, .trailer-btn:focus-visible { background: rgba(var(--fill-rgb), 0.28); color: #fff; }
+.trailer-btn:hover, .trailer-btn:focus-visible { background: rgba(var(--hover-rgb), 0.28); color: #fff; }
 .trailer-seek {
   flex: 1;
   min-width: 0;
@@ -4914,7 +4920,7 @@ button.chip:not(.active):hover { background: rgba(var(--fill-rgb), 0.24); color:
   .profile-tile, .rec-btn, .chip-more):is(:hover, :focus-visible, :has(:focus-visible)) {
   /* `background-color`, not `background`: a plate that is a gradient (the Home tab, the Play
      button, the chosen Movies / Shows pill) keeps its gradient and takes this under it. */
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 /* The chosen things — a ticked row, the open menu, the tile you are on — wear the same
@@ -5015,7 +5021,7 @@ button.chip:not(.active):hover { background: rgba(var(--fill-rgb), 0.24); color:
 .cal-cell.selected,
 .cal-cell.selected:hover,
 .cal-cell.selected:focus-visible {
-  background-color: rgba(var(--fill-rgb), 0.22);
+  background-color: rgba(var(--hover-rgb), 0.22);
   background-image: none;
   color: #fff;
   box-shadow: none;
@@ -5038,7 +5044,7 @@ button.chip:not(.active):hover { background: rgba(var(--fill-rgb), 0.24); color:
    is the thing you came to do. It answers the cursor with the ring and a light fill of its
    own; Play and Speak stay plates. */
 #title-assistant:is(:hover, :focus-visible, :has(:focus-visible)) {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   background-image: none;
   box-shadow: none;
 }
@@ -5194,7 +5200,7 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
 .chip-arrow:active:not(:disabled),
 .vis-btn:hover,
 .vis-btn:focus-visible {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   color: #fff;
   box-shadow: none;
   outline: none;
@@ -5226,7 +5232,7 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
 .my-rating-box.armed,
 .my-rating-box.armed:hover,
 .my-rating-box.armed:focus-visible {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 
@@ -5237,7 +5243,7 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
 .library-pop .btn.armed,
 .library-pop .btn.armed:hover,
 .library-pop .btn.armed:focus-visible {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 .library-pop .btn { display: inline-flex; align-items: center; gap: 8px; }
@@ -5485,11 +5491,11 @@ button.rating.my-rating {
    this wash, which is the same box-around-a-card the tiles are meant to be free of. The
    keyboard keeps the app's focus ring, so focus is never carried by a wash alone. */
 .profile-tile:not(.active):hover {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 .profile-tile:not(.active):focus-visible {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   box-shadow: var(--ring-shadow);
 }
 /* **Chosen: the selection colour as a fill — the plate Home and Speak wear.** The card you
@@ -5511,7 +5517,7 @@ button.rating.my-rating {
    crossed it. Both are said again here, at the weight it takes to hold them. */
 .profile-grid .profile-tile:not(.active):hover,
 .profile-grid .profile-tile:not(.active):focus-visible {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 .profile-grid .profile-tile:not(.active):focus-visible { box-shadow: var(--ring-shadow); }
@@ -5598,7 +5604,7 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
   cursor: pointer;
 }
 .guide-list-row:hover,
-.guide-list-row:focus-visible { background: rgba(var(--fill-rgb), var(--mark-fill, 0.22)); }
+.guide-list-row:focus-visible { background: rgba(var(--hover-rgb), var(--mark-fill, 0.22)); }
 .guide-list-logo { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: var(--panel-2); overflow: hidden; }
 .guide-list-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .guide-list-name { flex: none; width: 220px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -5698,7 +5704,7 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
   .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
   .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
   .rec-btn, .tag):is(:hover, :focus-visible, :has(:focus-visible)) {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
 }
 /* **The keyboard's fill is a shade deeper than the cursor's**, and no outline comes with it.
    A control that is *already* filled — a ticked row, an open menu, the tile you are on — wears
@@ -5708,7 +5714,7 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
   .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
   .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
   .rec-btn, .tag):is(:focus-visible, :has(:focus-visible)) {
-  background-color: rgba(var(--fill-rgb), var(--mark-fill-strong, 0.34));
+  background-color: rgba(var(--hover-rgb), var(--mark-fill-strong, 0.34));
   outline: none;
 }
 /* **And the plates brighten.** Play, the Movies / Shows pill, the Home tab, today, the Filters
@@ -5756,7 +5762,7 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    poster's own hover, which is what pointing at it looks like from the reader's side. */
 .cal-item:hover .cal-tag,
 .cal-item:focus-within .cal-tag {
-  background: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  background: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
   color: #fff;
 }
 

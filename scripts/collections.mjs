@@ -110,6 +110,76 @@ export const CONTINENTS = {
 export const MIN_COUNTRY_TITLES = 50;
 
 /**
+ * **The Asian countries, by ISO code, and why their regional rows are not published.**
+ *
+ * As asked: *"remove asian country regional ott as viki, kocowa and crunchyroll has all."*
+ * The three pan-Asian catalogues are Crunchyroll, Rakuten Viki and Kocowa: Crunchyroll and
+ * Viki are carried by **every** region's Regional OTT card (`WORLDWIDE` below), and Kocowa
+ * is the third. Between them they are the anime and the Asian-drama catalogue, so a
+ * country-by-country row for an Asian service names the same titles a second time — under a
+ * brand the viewer reaches from the three anyway.
+ *
+ * A row is judged by **where its titles are**, not by the name on it: the country the service
+ * was verified in. That is what lets a service verified outside Asia (iQIYI in Morocco, read
+ * in the United States) keep the place it has, while the rows that exist only for an Asian
+ * region come off.
+ */
+export const ASIA_CODES = new Set(CONTINENTS.Asia);
+
+/** Is this row's home an Asian country? (`code` first, then the service's own region.) */
+export const fromAsia = (...codes) =>
+  codes.some((c) => ASIA_CODES.has(String(c || "").toUpperCase()));
+
+/**
+ * **The art-house trio is not an Asian catalogue.** MUBI, DOCSVILLE and Curiosity Stream are
+ * verified in **Japan**, and the reason the Asian rows come off — Crunchyroll, Viki and Kocowa
+ * carry the Asian titles between them — has nothing to do with them: they are a documentary
+ * and world-cinema service that happens to resolve in Japan, and none of the three carries
+ * them. Judging a row by *what it is* and not only by where it was verified keeps the one row
+ * that is not an Asian row.
+ */
+const NOT_ASIAN = new Set(["MUBI", "DOCSVILLE", "Curiosity Stream"]);
+
+/**
+ * **The Asian services, by name.**
+ *
+ * The region rule alone was not enough: a row is built from the *first* country a service is
+ * verified in, and the pan-regional Asian platforms — Zee5, aha, Sun Nxt, WeTV, iQIYI — are
+ * listed for sixty-odd countries, so each of them survived on the technicality of having been
+ * verified somewhere outside Asia first. The card knows what these services *are*: they are the
+ * names its own regional list files under *South Asia*, *Korea and Japan* and *Greater China and
+ * South-East Asia*, so they are Asian rows wherever they were first seen.
+ *
+ * Three deliberate exceptions:
+ *
+ *   - **Hulu**, which sits in the Korea-and-Japan group on that list but whose row is the
+ *     **United States'** Hulu (verified there, read there) — it is not an Asian catalogue;
+ *   - the **pan-Asian three** themselves (Crunchyroll, Rakuten Viki, Kocowa), which are the
+ *     rows that take Asia's place on the card;
+ *   - the **art-house trio** (see `NOT_ASIAN`).
+ */
+const ASIAN_SERVICES = new Set([
+  // —— Korea and Japan
+  "TVING", "wavve", "Watcha", "Coupang Play", "U-NEXT", "ABEMA", "AbemaTV", "Lemino", "TVer",
+  "FOD", "WOWOW", "DMM TV", "d Anime Store",
+  // —— Greater China and South-East Asia
+  "iQIYI", "WeTV", "Tencent Video", "Youku", "Mango TV", "Bilibili", "myTV SUPER", "Viu",
+  "Vidio", "Catchplay", "Mewatch", "TrueID", "sooka", "Astro GO", "Vision+",
+  // —— South Asia
+  "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt", "Sun NXT", "Sony Liv", "SonyLIV",
+  "Hoichoi", "JioCinema", "Eros Now", "Lionsgate Play",
+].map((n) => String(n).toLowerCase().replace(/[^a-z0-9+]/g, "")));
+
+const asianKey = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9+]/g, "");
+
+/** Is this service an Asian row — one the three pan-Asian catalogues already hold? */
+export const asianRow = (code, name) => {
+  const key = asianKey(name);
+  if (NOT_ASIAN.has(String(name || "").trim())) return false;
+  return fromAsia(code) || ASIAN_SERVICES.has(key);
+};
+
+/**
  * **Published nowhere: the places the user asked out.**
  *
  * Three sets, sitting in the one function every surface reads — so a name here
@@ -395,7 +465,14 @@ export const REGIONAL_SERVICES = (type) => {
       }
     }
   }
-  const list = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const list = [...byId.values()]
+    // **The Asian rows are off the card** (see `ASIA_CODES`): the three pan-Asian catalogues —
+    // Crunchyroll and Viki, which every card carries, and Kocowa — already hold what these rows
+    // would open. Judged here as well as in the card's own list, because this is the list the
+    // live build tops the card up from: a row culled in one place and added back in the other
+    // would come straight back the moment a card was opened.
+    .filter((svc) => !asianRow(svc.region, svc.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
   const seen = new Set(list.map((s) => s.id));
   // **A regional row stays only while its country is on the Countries card.** The two
   // cards are the same fact read twice — "where titles come from" — so a service from a
@@ -625,6 +702,19 @@ const ROW_AFTER = {
   Kocowa: "Rakuten Viki",
 };
 const rowLabel = (row) => String(row?.name || "").replace(/ \| Top 10$/, "");
+
+/**
+ * **The three pan-Asian catalogues lead the card.** Crunchyroll, Rakuten Viki and Kocowa are
+ * what the Regional OTT card says about Asia now that the country rows are off it, so they come
+ * first — in the order the customer named them — instead of sitting wherever their placement
+ * anchor left them (`Crunchyroll`'s anchor was `FOD`, a row the Asian cut takes with it, which
+ * had quietly pushed it to the bottom of the list).
+ */
+const ASIAN_HEAD = ["Rakuten Viki", "Kocowa", "Crunchyroll"];
+const asianFirst = (rows) => [
+  ...ASIAN_HEAD.flatMap((name) => rows.filter((r) => rowLabel(r) === name)),
+  ...rows.filter((r) => !ASIAN_HEAD.includes(rowLabel(r))),
+];
 function placeRowsAfter(rows, after = ROW_AFTER) {
   let out = rows;
   for (const [name, anchor] of Object.entries(after)) {
@@ -687,6 +777,11 @@ function regionalOttByContinent(kind = "all") {
     // A service is published once, in the continent its first verified country sits in.
     const used = new Set();
     for (const [name, codes] of continentsWithContent()) {
+      // **Asia is not a group any more.** Its household names are the three pan-Asian
+      // catalogues, and those are on every card already — so the continent that used to fill
+      // the head of this list with `TVING`, `U-NEXT`, `Viu` and the rest publishes nothing
+      // here (see `ASIA_CODES`).
+      if (name === "Asia") continue;
       const seen = new Set();
       let taken = 0;
       for (const code of codes) {
@@ -695,6 +790,8 @@ function regionalOttByContinent(kind = "all") {
           if (taken >= CONTINENTAL_OTT_LIMIT) break;
           // Crunchyroll and Viki are on every region's Regional OTT card already.
           if (WORLDWIDE.some((w) => w.id === svc.id)) continue;
+          // …and no Asian row is a row (see `ASIA_CODES`), the art-house trio aside.
+          if (asianRow(svc.region || code, svc.name)) continue;
           if (offTheShowsCard(type, svc.name)) continue;
           if (!rowFillsAPage(svc.id, svc.region || code, type)) continue;
           if (!isPopularRegional(svc.name) || seen.has(svc.id) || used.has(svc.id)) continue;
@@ -856,6 +953,9 @@ function regionalOtt(kind) {
       const local = localFor(name, type).filter((svc) => isPopularRegional(svc.name));
       if (!local.length) continue;
       for (const svc of local) {
+        // **No Asian rows** — the three pan-Asian catalogues have it (see `ASIA_CODES`),
+        // the art-house trio aside.
+        if (asianRow(svc.region || code, svc.name)) continue;
         // The same service can be listed for two countries (a pan-regional platform);
         // the region is part of the row's identity, so each one is its own row, and a
         // true duplicate of the same service *in the same region* is dropped.
@@ -898,7 +998,7 @@ function regionalOtt(kind) {
         ? provider(`${svc.name} | Top 10`, svc.id, null, TOP10)
         : provider(svc.name, svc.id, null));
     }
-    return placeRowsAfter(rows);
+    return asianFirst(placeRowsAfter(rows));
   };
   return { movie: build("movie", "movie"), show: build("tv", "tv") };
 }

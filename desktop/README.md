@@ -150,12 +150,15 @@ how many of its rows are on. The same master switch is drawn in **Settings → A
 - the **Fill** (`--fill-rgb` / `--fill-deep`) is painted on **every control** — a button, the
   Movies / Shows pill, the tabs, a chip, a tag, a filter, a calendar day, a profile tile — so
   what you are on is a colour on a surface you press; and
+- the **Hover** (`--hover`) is the *wash* a control shows **under the cursor** — the same
+  surfaces, filled while you point at them — so the mark the cursor makes can read in a colour
+  of its own; and
 - the **Ring** (`--ring`) is drawn *around* **content** — a card, a poster, a catalog row's
   title, a cast or crew face, a network, a production company — so what you are on in the
   catalogue is an outline, and its artwork is never painted over.
 
-Both boards carry the same colours and the Ring starts as the Fill, so one pick re-tints the
-app and a second pick can set the outline apart. (**Motion** is the other half of this pane:
+All three boards carry the same colours, and the Hover and the Ring both start as the Fill, so
+one pick re-tints the app and another can set the cursor or the outline apart. (**Motion** is the other half of this pane:
 *Follow system* / *Always animate* / *No animation*, covering the screen transition, hover lifts
 and the row highlight.) (*Follow
 system* / *Always animate* / *No animation*, covering the screen transition, hover

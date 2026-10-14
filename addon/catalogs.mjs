@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, rowFillsAPage } from "../scripts/collections.mjs";
+import { asianRow, collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, rowFillsAPage } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -625,7 +625,15 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
     .filter((p) => !GLOBAL_PROVIDER_IDS.has(p.id))
     .filter((p) => !GLOBAL_BRAND.test(p.name))
     .filter((p) => !STORE_LIKE.test(p.name))
-    .filter((p) => !CHANNEL_TIER.test(p.name));
+    .filter((p) => !CHANNEL_TIER.test(p.name))
+    // **The Asian rows are off the card** (see `ASIA_CODES` in `scripts/collections.mjs`).
+    // Crunchyroll, Rakuten Viki and Kocowa carry the Asian titles on every card already, so a
+    // country-by-country row for an Asian service says the same thing twice — and this list,
+    // TMDB's answer for the region in Settings, is where the country's own rows come from, so
+    // the cut has to be here as well as on the card's own list or the rows come straight back.
+    // Judged by the **service**, not by the region: this list is one region's, and the
+    // pan-regional Asian platforms are listed for sixty-odd countries.
+    .filter((p) => !asianRow("", p.name));
   if (!here.length) return null;
   // **The country's own list, in TMDB's order for that country.**
   //
