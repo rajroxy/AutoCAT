@@ -572,9 +572,14 @@ export async function askTags(context = {}, opts = {}) {
     context.type && `Type: ${context.type === "series" ? "series" : "film"}`,
     context.overview && `Synopsis: ${String(context.overview).slice(0, 300)}`,
   ].filter(Boolean).join("\n");
+  // **The row the person is browsing.** The box is opened on either the Movies or the Shows side
+  // of the app, and a suggestion about a series on the films side is a suggestion for the wrong
+  // screen — the owner asked for the tags to be written "according to the tab I am on".
+  const browsing = context.row === "series" ? "shows" : context.row === "movie" ? "films" : "";
+  const tab = browsing ? ` The person is browsing ${browsing} right now: every suggestion must be about ${browsing}.` : "";
   const prompt = about
-    ? `${about}\n\nWrite six suggestions someone could tap about this title.`
-    : "Nothing is chosen yet. Write six suggestions someone could tap tonight — things to watch, and questions that get them a pick.";
+    ? `${about}\n\nWrite six suggestions someone could tap about this title.${tab}`
+    : `Nothing is chosen yet. Write six suggestions someone could tap tonight — things to watch, and questions that get them a pick.${tab}`;
   const model = opts.model || aiModel(provider);
   for (const candidate of await candidateOrder(cfg, key, model)) {
     try {

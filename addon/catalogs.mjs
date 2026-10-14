@@ -1299,7 +1299,11 @@ export function catalogDefs(code = activeCountry()) {
             name: `More Like ${roster[i][0]}`,
           });
         }
-        rows.push(...mine);
+        // **Which row carries which title is part of the deal.** Your own titles lead — they are
+        // taken first — so the one you are watching landed on **row 1** on every roll, which is the
+        // owner's "Dune is on the first one, again and again". The four rows are shuffled before
+        // they are published, so your title is on one of them at random.
+        rows.push(...shuffled(mine));
       }
       return rows;
     }),

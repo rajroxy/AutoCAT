@@ -177,9 +177,14 @@ body {
      colouring the avatar with the avatar box's colour"). The disc is a neutral dark glass with a
      silver mark now: the same picture on every screen and on every tile, and it can never be read
      as a state the tile is already telling you. */
-  background: radial-gradient(circle at 50% 20%, #3a3229, #17150f 78%);
-  color: var(--fill);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(var(--fill-rgb), 0.34), 0 3px 12px rgba(0, 0, 0, 0.5);
+  /* **The avatar wears the app's own plate.** Two passes went the other way — a neutral grey disc,
+     then a warm one — and the owner's answer to both was that it does not look like this app. The
+     app's plate is one thing everywhere: the accent gradient in 160°, with ink on it (the Home
+     tab, the chosen pill, the Speak pad). The avatar is that plate, at 28px or 84px, and the mark
+     on it is the ink. Same rule on every tile, which is the part that was ever wrong. */
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
+  color: #14110a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
   font-weight: 900;
   font-size: 13px;
 }
@@ -3500,6 +3505,24 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .library-rows { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
 .library-pop { display: flex; flex-direction: column; align-items: flex-start; }
 
+/* **A name in an answer is a door.** The matched title leads its line as a button in the app's
+   own type, so it reads as the sentence it is part of and still opens the title's page. */
+.answer-line { margin: 0 0 6px; }
+.answer-line:last-child { margin-bottom: 0; }
+.answer-title {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 800;
+  color: var(--fill);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.answer-title:hover, .answer-title:focus-visible { color: var(--text); }
+
 .assistant-answer {
   margin: 0;
   min-height: 88px;
@@ -5815,14 +5838,6 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    black, kabhi same fill colour"). What says *which one you are on* is the tile: its own
    background wash and border already do that, and the avatar is not a state. The disc and the
    mark keep the one treatment `.avatar` gives them. */
-/* **A ring is for the keyboard, and for nothing else.** The app's rings are drawn from
-   `--ring`/`--ring-shadow`; with a pointer there is nothing to see them for — a click, a tap or
-   a programmatic focus left the chosen pill, the Home tab and the first card each wearing a ring
-   at rest, which is the "big selection ring" the owner kept asking about. The two variables go
-   transparent the moment the pointer is used (see `markPointer` in `app.js`), so every ring in
-   the app goes with them, and a key press puts them back. */
-body:not(.kb) { --ring: transparent; --ring-shadow: none; }
-body:not(.kb) :focus-visible { box-shadow: none; }
 /* A chip row the model is still writing: the written ones stay, and they fade while it thinks. */
 .chip-group-row.chips-loading { opacity: 0.55; }
 

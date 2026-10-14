@@ -7124,6 +7124,84 @@ async function openAssistant(meta, opts = {}) {
     question.value = q;
     await ask();
   }
+  /**
+   * **The names the answer comes back with are doors.**
+   *
+   * An answer names titles — one a line on the recommendation side ("The Matrix (1999) — …"), and
+   * by name in the middle of a sentence on the title side ("… you should watch The Matrix, which
+   * …"). A name you cannot press is a name you have to remember and then go and look up, so every
+   * name an answer carries is looked up against the app's own search and drawn as a button that
+   * opens that title's page. Three shapes count as a name: the head of a line up to its year, dash
+   * or colon; anything in quotes; and whatever a sentence hangs off the verbs it uses to point at
+   * a film — *watch*, *see*, *start*, *pair with*, *alongside*, *follow it with*. A name that
+   * matches nothing stays ordinary text, and nothing here ever changes the words of the answer.
+   */
+  const NAME_VERBS = /(?:watch|see|try|start|put on|pair(?:s|ed)? (?:it )?with|alongside|double[- ]?bill with|follow(?:ed)? (?:it|this) with|in the vein of|similar to)\s+([A-Z][^.,;:!?—–]{2,60})/g;
+  function answerCandidates(line) {
+    const found = [];
+    const push = (raw, at) => {
+      const name = String(raw || "")
+        .replace(/^["'“”]+|["'“”]+$/g, "")
+        .replace(/\s+(?:which|and|but|because|that|is|was|to|for)\b.*$/i, "")
+        .trim();
+      if (name.length < 2 || name.length > 70) return;
+      found.push({ name, at });
+    };
+    // The head of the line, up to its year, dash or colon.
+    const head = line.match(/^(.{2,70}?)(?:\s*\(\d{4}\))?\s*(?:—|–|-|:)\s/);
+    if (head) push(head[1], 0);
+    // Anything in quotes.
+    for (const q of line.matchAll(/[“"']([^”"']{2,70})[”"']/g)) push(q[1], q.index + 1);
+    // Whatever the sentence's verbs point at.
+    for (const v of line.matchAll(NAME_VERBS)) push(v[1], v.index + v[0].indexOf(v[1]));
+    // Longest first, and no two that overlap.
+    return found
+      .sort((a, b) => b.name.length - a.name.length)
+      .filter((c, i, all) =>
+        all.findIndex((o) => o.name.toLowerCase() === c.name.toLowerCase()) === i &&
+        !all.some((o) => o !== c && o.at < c.at + c.name.length && c.at < o.at + o.name.length));
+  }
+  async function renderAnswer(text) {
+    answer.replaceChildren();
+    const lines = String(text || "").split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    // One lookup per distinct name, twelve at most across the whole answer.
+    const candidates = [];
+    for (const line of lines) for (const c of answerCandidates(line)) if (candidates.length < 12) candidates.push(c);
+    const looked = new Map();
+    await Promise.all(candidates.map(async (c) => {
+      const key = c.name.toLowerCase();
+      if (looked.has(key)) return;
+      looked.set(key, null);
+      try {
+        const found = await get(`/search.json?q=${encodeURIComponent(c.name)}&type=${apiType()}`);
+        const pick = (found?.metas || [])[0];
+        if (pick) looked.set(key, pick);
+      } catch {
+        /* the name stays ordinary text */
+      }
+    }));
+    const linkFor = (name) => looked.get(name.toLowerCase()) || null;
+    lines.forEach((line) => {
+      const hits = answerCandidates(line).filter((c) => linkFor(c.name)).sort((a, b) => a.at - b.at);
+      const bits = [];
+      let cursor = 0;
+      for (const hit of hits) {
+        if (hit.at < cursor) continue;
+        if (hit.at > cursor) bits.push(el("span", { text: line.slice(cursor, hit.at) }));
+        const pick = linkFor(hit.name);
+        bits.push(el("button", {
+          class: "answer-title focusable",
+          type: "button",
+          text: line.slice(hit.at, hit.at + hit.name.length),
+          title: `Open ${pick.name}`,
+          onclick: () => { close(); go(`#/t/${pick.type === "series" ? "series" : "movie"}/${String(pick.id || "").replace(/^tmdb:/, "")}`); },
+        }));
+        cursor = hit.at + hit.name.length;
+      }
+      if (cursor < line.length) bits.push(el("span", { text: line.slice(cursor) }));
+      answer.append(el("p", { class: "answer-line" }, ...bits));
+    });
+  }
   const ask = async () => {
     const q = question.value.trim();
     if (!q) return;
@@ -7149,7 +7227,7 @@ async function openAssistant(meta, opts = {}) {
       // fixed model to look up, and an answer you cannot attribute is an answer you cannot
       // trust or reproduce.
       const who = res?.model ? `${res.model}${res.provider ? ` · ${state.ai?.providers?.[res.provider]?.label || res.provider}` : ""}` : "";
-      if (res?.ok) { answer.textContent = res.text; stateLine.textContent = who ? `Answered by ${who}` : ""; }
+      if (res?.ok) { renderAnswer(res.text); stateLine.textContent = who ? `Answered by ${who}` : ""; }
       else stateLine.textContent = res?.text || "No answer came back.";
     } catch (err) {
       stateLine.textContent = `Could not read the answer — ${err.message}`;
@@ -7173,14 +7251,19 @@ async function openAssistant(meta, opts = {}) {
     row.classList.add("chips-loading");
     try {
       const res = await post("/ai/tags", {
-        context: generic
-          ? {}
-          : {
-              name,
-              year: meta.releaseInfo || meta.year || "",
-              type: meta.type === "series" ? "series" : "movie",
-              overview: meta.description || "",
-            },
+        context: {
+          // **The tab you are on.** A box opened on the Movies side must not suggest a series —
+          // and the same for Shows (see `askTags` on the server).
+          row: state.row === "series" ? "series" : "movie",
+          ...(generic
+            ? {}
+            : {
+                name,
+                year: meta.releaseInfo || meta.year || "",
+                type: meta.type === "series" ? "series" : "movie",
+                overview: meta.description || "",
+              }),
+        },
       });
       const tags = (res?.tags || []).map((t) => String(t || "").replace(/^[-*\d.\s]+/, "").trim()).filter((t) => t && t.length <= 60).slice(0, 8);
       if (tags.length < 3) return;
@@ -7318,8 +7401,12 @@ function libraryButton(item) {
         : "Press, then scroll or use left/right to walk your rows, and press to add it";
   };
   const step = (by) => {
-    // Wrapping both ways, so the resting label is always one step past the last row.
-    const next = at < 0 ? (by > 0 ? 0 : stops.length - 1) : (at + by + stops.length) % stops.length;
+    // **The first step lands on the first row, and the last step wraps to `Add to Library`.**
+    // Wrapping both ways is what makes the resting label one of the walk's own stops, so a scroll
+    // that cycles all the way round cannot leave the button on a row nobody chose.
+    const next = at < 0
+      ? (by > 0 ? Math.min(1, stops.length - 1) : stops.length - 1)
+      : (at + by + stops.length) % stops.length;
     setAt(next);
     paint();
   };
@@ -7341,8 +7428,9 @@ function libraryButton(item) {
     else if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); step(-1); }
   });
   btn.addEventListener("wheel", (event) => {
-    // The wheel belongs to the button once it has been picked up; until then it is the page's.
-    if (at < 0) return;
+    // **The wheel walks the rows straight away.** It needed a press first, which the owner met as
+    // "scrolling does not work on Add to Library"; the walk is what says what a press will do, and
+    // the resting label is one of its stops, so a scroll can now change nothing but the label.
     event.preventDefault();
     event.stopPropagation();
     step(event.deltaY > 0 ? 1 : -1);
@@ -14786,17 +14874,6 @@ async function boot() {
   // for itself. It runs after the first paint so nothing waits on it.
   checkNotifications().catch(() => { /* a notification is never worth an error */ });
 }
-
-// **A ring is for the keyboard.** The app's focus rings are drawn from `--ring`, and the moment
-// anything is clicked, tapped or focused by code, the page is in "pointer" mode: the two ring
-// variables go transparent (see `body:not(.kb)` in `style.css`) and nothing wears a ring at rest.
-// The first key press puts them back, so keyboard and remote navigation still shows where you are.
-const markPointer = () => document.body.classList.remove("kb");
-const markKeyboard = () => document.body.classList.add("kb");
-document.addEventListener("pointerdown", markPointer, true);
-document.addEventListener("keydown", markKeyboard, true);
-// A touch is a pointer; a scroll on a touch screen must not leave the rings lit either.
-document.addEventListener("touchstart", markPointer, { capture: true, passive: true });
 
 // Safety net: a boot that cannot reach the server must not leave the splash up
 // for ever, so the screen goes away on its own after a few seconds either way.
