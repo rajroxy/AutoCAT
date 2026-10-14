@@ -69,6 +69,11 @@ export function hasKey() {
  * changed nothing on screen: the rows were still the rows read before the switch. The
  * settings route calls this whenever enrichment, posters or providers change, and the
  * next request rebuilds from TMDB with the new answer.
+ *
+ * **The app's own refresh calls it too.** Pressing Home or the chosen Movies / Shows plate
+ * re-reads every row on the screen; without the drop the addon answered those re-reads out
+ * of this map, so the catalogs and the card posters came back identical and the press looked
+ * like it had done nothing (see `/refresh.json`).
  */
 export function clearTmdbCache() {
   cache.clear();

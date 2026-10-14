@@ -62,7 +62,7 @@ import {
   remove as customRemove,
   metasFor as customMetas,
 } from "./customrows.mjs";
-import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, primeSpecialistCounts, isOttSort } from "./catalogs.mjs";
+import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, primeSpecialistCounts, clearCaches, isOttSort } from "./catalogs.mjs";
 import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
 import { pushRating, pushWatch } from "./trackers.mjs";
@@ -2835,6 +2835,20 @@ async function serveAddon(req, res, pathname, origin) {
   // app could still be drawing last release's Time chips ("2015-2011", "2010-2000")
   // long after every year had its own — the reported "you didn't do every year
   // individual" was the browser showing a stored copy.
+  if (pathname === "/refresh.json") {
+    // **The app's own refresh, server-side.** Pressing Home or the chosen Movies / Shows plate
+    // re-reads every row on the screen; without this the addon answered those re-reads out of
+    // its own TMDB cache, so the catalogs and the card posters came back identical and the
+    // press looked like it had done nothing. Both caches go — the addon's TMDB answers (`clearTmdbCache` in `tmdb.mjs`) and the
+    // lists this module keeps (see `clearCaches` in `catalogs.mjs`) — and the next request
+    // reads TMDB again.
+    setKey(tmdbKey());
+    clearTmdbCache();
+    clearCaches();
+    json(res, 200, { ok: true });
+    return true;
+  }
+
   if (pathname === "/search/filters.json") {
     json(res, 200, { filters: SEARCH_FILTERS }, 0);
     return true;

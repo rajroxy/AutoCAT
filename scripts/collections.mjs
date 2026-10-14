@@ -1463,6 +1463,7 @@ const CARD_ORDER = [
   // further in — the services a viewer picks *on purpose* rather than the ones their country
   // happens to lead with — so it follows the card it comes off.
   "specialist-top-10",
+  "specialist",
   // **Updates closes the OTT block.** What is arriving and what is on its way out, read from
   // today's date every time the card is opened (see the card's own note below).
   "updates",
@@ -1731,6 +1732,19 @@ const buildCollections = (code = "") => {
     key: "specialist-top-10",
     lines: ["Specialist", "| Top 10"],
     scene: "regional-ott-top-10",
+    titleOnly: true,
+    catalogs: both([]),
+  },
+  // **And the plain card the Top 10 one is the shelf of.** The two are one list read two
+  // ways — the ten and the whole service — exactly as the Domestic and International cards
+  // are built, and **this half was missing**: `withSpecialistServices` published a plain
+  // `<service>` row for every specialist service beside the `<service> | Top 10` one, and
+  // with no card carrying the `specialist` key those rows were published into nothing. The
+  // owner asked for "the normal Specialist card" because the app showed only the Top 10s.
+  {
+    key: "specialist",
+    lines: ["Specialist"],
+    scene: "regional-ott",
     titleOnly: true,
     catalogs: both([]),
   },

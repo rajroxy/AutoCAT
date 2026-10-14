@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, isSpecialistService, rowFillsAPage } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, isSpecialistService, rowFillsAPage, REGIONAL_SERVICES } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -108,6 +108,10 @@ function worldRecent(media, take, days) {
  * carries a high vote floor: an average over 200 votes, or a handful of 10s tops the list.
  */
 const OTT_SORTS = {
+  // **`latest` is kept but no longer offered.** The dropdown's own list (see `OTT_SORTS` in
+  // the app) dropped it: *Newest* already asks the date order, and *Latest* was the same
+  // question with a vote floor on it. A row that was ordered by it in an older build keeps
+  // resolving here rather than falling back to the default order without saying so.
   latest: (media) => ({ sort_by: `${dateField(media)}.desc`, "vote_count.gte": 5 }),
   newest: (media) => ({ sort_by: `${dateField(media)}.desc`, "vote_count.gte": 0 }),
   trending: (media) => ({
@@ -685,6 +689,17 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
 const SPECIALIST_ROW_LIMIT = 12;
 
 /**
+ * **The two Specialist cards, and the row each one publishes.** The plain card carries the
+ * whole service (`<Service>`) and the Top 10 card the service's own ten
+ * (`<Service> | Top 10`) — the same pair the Domestic card is built as, because it is the
+ * same kind of list: one row per service, read in your region.
+ */
+const SPECIALIST_CARDS = [
+  ["specialist-top-10", (name) => `${name} | Top 10`, 10],
+  ["specialist", (name) => name, 0],
+];
+
+/**
  * **How many titles a Specialist row has to answer with to be a row at all.**
  *
  * The Domestic cards cull at twenty-five, measured by `scripts/probe-regional.mjs` — but they
@@ -701,6 +716,36 @@ const MIN_SPECIALIST_TITLES = 5;
 const SPECIALIST_COUNTS_TTL = 12 * 60 * 60 * 1000;
 const specialistCounts = new Map();
 
+/**
+ * **The Specialist brands the project has verified anywhere.**
+ *
+ * The live region lists are TMDB's answer for one country, and for the countries where a
+ * niche catalogue is not sold they name none of it: Korea's movie list is 38 services, and
+ * three of the owner's brands are in it (Curiosity Stream, DOCSVILLE, Magellan TV). The
+ * owner's reply to that was "I gave so many and there are so few rows" — so the card also
+ * reads the **verified roster**, the regional services `tmdb-verified.json` holds for every
+ * country, and a brand that is real somewhere becomes a row read in the country that
+ * carries it (Shudder in the US, Discovery+ in the US) instead of no row at all.
+ *
+ * Each entry carries its **own read region**, which is what the count in `specialistCounts`
+ * is keyed by — a US row asked for the Korean catalogue is the empty row this card was
+ * fixed to stop publishing.
+ */
+const SPECIALIST_ROSTER = (() => {
+  const out = { movie: [], tv: [] };
+  for (const media of ["movie", "tv"]) {
+    for (const svc of REGIONAL_SERVICES(media)) {
+      if (!isSpecialistService(svc.name)) continue;
+      out[media].push({
+        id: String(svc.id),
+        name: svc.name,
+        region: String(svc.region || GLOBAL_OTT_REGION).toUpperCase(),
+      });
+    }
+  }
+  return out;
+})();
+
 function specialistServices(code, type, { cull = true } = {}) {
   const wanted = String(code || "US").toUpperCase() || "US";
   const own = regionProviders.get(`${type}:${wanted}`);
@@ -709,22 +754,44 @@ function specialistServices(code, type, { cull = true } = {}) {
   // The region the rows are read in is the region the list came from — a US fallback is read
   // in the US, so its rows are asked for the US catalogue rather than the wrong one.
   const region = own ? wanted : GLOBAL_OTT_REGION;
-  const rows = held.named
-    .filter((p) => !GLOBAL_PROVIDER_IDS.has(p.id))
-    .filter((p) => !GLOBAL_BRAND.test(p.name))
-    .filter((p) => !STOREFRONT.test(p.name))
-    .filter((p) => !CHANNEL_TIER.test(p.name))
-    .filter((p) => isSpecialistService(p.name))
+
+  // **Where each row comes from, in the order it is offered.** Your own region's list first
+  // (the services you can actually subscribe to come first and are not pushed out by the
+  // wider passes), then the United States' live list — the one list that names the brands
+  // that have no row where you are — and then the verified roster above.
+  const candidates = [];
+  const seenIds = new Set();
+  const seenKeys = new Set();
+  const offer = (p, readIn) => {
+    const id = String(p.id);
+    // `slug` is this module's own fold of a name (it is what the catalog ids are built
+    // from): "Discovery +" and "Discovery+" are one brand, and one row.
+    const key = slug(p.name) || id;
+    if (seenIds.has(id) || seenKeys.has(key)) return;
+    if (GLOBAL_PROVIDER_IDS.has(id)) return;
+    if (GLOBAL_BRAND.test(p.name) || STOREFRONT.test(p.name) || CHANNEL_TIER.test(p.name)) return;
+    if (!isSpecialistService(p.name)) return;
+    seenIds.add(id);
+    seenKeys.add(key);
+    candidates.push({ id, name: p.name, region: readIn });
+  };
+  for (const p of held.named) offer(p, region);
+  if (region !== GLOBAL_OTT_REGION) {
+    for (const p of regionProviders.get(`${type}:${GLOBAL_OTT_REGION}`)?.named || []) offer(p, GLOBAL_OTT_REGION);
+  }
+  for (const svc of SPECIALIST_ROSTER[type] || []) offer(svc, svc.region);
+
+  const rows = candidates
     .filter((p) => {
       // **The measurement is a filter, not a deletion.** The priming pass enumerates the
       // list *unmeasured* (`cull: false`), so a service that was too thin in one season is
       // still measured the next time and comes back the moment its catalogue can fill a row.
       if (!cull) return true;
-      const measured = specialistCounts.get(`${type}:${p.id}@${region}`);
+      const measured = specialistCounts.get(`${type}:${p.id}@${p.region}`);
       return !measured || measured.n >= MIN_SPECIALIST_TITLES;
     })
     .slice(0, SPECIALIST_ROW_LIMIT);
-  return rows.length ? { region, rows } : null;
+  return rows.length ? { region: rows[0].region, rows } : null;
 }
 
 /**
@@ -782,28 +849,50 @@ export async function primeSpecialistCounts(code = activeCountry()) {
 function withSpecialistServices(defs, code) {
   const out = [...defs];
   const published = new Set();
-  for (const [type, media] of [["movie", "movie"], ["series", "tv"]]) {
+  for (const [type] of [["movie"], ["series"]]) {
     const found = specialistServices(code, type);
     if (!found) continue;
     for (const svc of found.rows) {
-      // **The type is part of the row's identity.** One provider is a Films row *and* a
-      // Series row, and keying the guard on the id alone published the Films row and then
-      // dropped every Series row behind it — the card came back with eleven film rows and
-      // no series at all.
-      const rowKey = `${type}:${svc.id}`;
-      if (published.has(rowKey)) continue;
-      published.add(rowKey);
-      const name = `${svc.name} | Top 10`;
-      out.push({
-        id: `${CATALOG_ID_PREFIX}specialist-top-10--${slug(svc.name)}-${String(found.region).toLowerCase()}`,
-        type,
-        key: "specialist-top-10",
-        entry: { kind: "provider", providerId: svc.id, region: found.region, name, take: 10 },
-        name,
-      });
+      for (const [cardKey, rowName, take] of SPECIALIST_CARDS) {
+        // **The type and the card are part of the row's identity.** One provider is a Films
+        // row *and* a Series row, and one service is a plain row *and* a Top 10 — keying the
+        // guard on the id alone published the first and dropped the rest behind it.
+        const rowKey = `${cardKey}:${type}:${svc.id}`;
+        if (published.has(rowKey)) continue;
+        published.add(rowKey);
+        const name = rowName(svc.name);
+        out.push({
+          id: `${CATALOG_ID_PREFIX}${cardKey}--${slug(svc.name)}-${String(found.region).toLowerCase()}`,
+          type,
+          key: cardKey,
+          entry: {
+            kind: "provider",
+            providerId: svc.id,
+            region: found.region,
+            name,
+            ...(take ? { take } : {}),
+          },
+          name,
+        });
+      }
     }
   }
   return out;
+}
+
+/**
+ * **Forget every cached answer the addon holds for a refresh.** The TMDB cache is dropped by
+ * `clearCache` in `tmdb.mjs`; what is left is what this module keeps — the region provider
+ * lists, the For You pool and the Specialist row measurements — so a manual refresh really
+ * re-reads the world instead of the addon's memory of it.
+ */
+export function clearCaches() {
+  regionProviders.clear();
+  specialistCounts.clear();
+  for (const slot of [forYouPool.movie, forYouPool.series]) {
+    slot.seeds = [];
+    slot.at = 0;
+  }
 }
 
 /**

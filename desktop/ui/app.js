@@ -178,13 +178,11 @@ const settingsUnified = () => {
  * yet takes that one over rather than dropping a live profile into VOD.
  */
 const activeMode = () => {
+  // **There is one mode now.** The live profile is gone (see `PROFILES`), so a stored copy of
+  // it — scoped or not — lands on VOD rather than coming back into an app that no longer has
+  // a door to it, and there is nothing left to look for.
   try {
-    const raw = localStorage.getItem(MODE_STORE);
-    if (raw) return raw === LIVE_PROFILE ? LIVE_PROFILE : "VOD";
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(`${MODE_STORE}@`) && localStorage.getItem(key) === LIVE_PROFILE) return LIVE_PROFILE;
-    }
+    localStorage.removeItem(MODE_STORE);
   } catch {
     /* nothing stored */
   }
@@ -396,11 +394,15 @@ const PINNED = /\| Top 10|^Upcoming$|Airing Today|On the Air|Now Playing|^Latest
  * it can never change a genre or a country list, and the choice is remembered.
  */
 const OTT_SORTS = [
-  ["latest", "Latest"],
-  ["newest", "Newest"],
+  // **Oldest leads the date pair, and Newest follows it.** The list reads youngest→oldest the
+  // way a shelf is read, and **Latest is gone**: *Newest* is the same date order the row
+  // already used, and *Latest* was that order with a vote floor on it — two names for one
+  // question. *Popular* is **Most popular**, because beside *Least popular* the pair has to
+  // say which end each one is.
   ["oldest", "Oldest"],
+  ["newest", "Newest"],
   ["trending", "Trending"],
-  ["popular", "Popular"],
+  ["popular", "Most popular"],
   ["least_popular", "Least popular"],
   ["top_rated", "Top rated"],
 ];
@@ -428,6 +430,24 @@ const SORTABLE_KINDS = new Set(["genre", "genre-decade", "decade", "continent", 
  * are just a wall of their own titles.
  */
 const isOttTop10Card = (card) => /^(global|regional)-ott-top-10$/.test(String(card?.key || ""));
+
+/**
+ * **The cards whose rows are streaming services.**
+ *
+ * International (`global-ott`), Domestic (`regional-ott`) and Specialist — and each one's
+ * ◆ Top 10 twin — publish one row per service, and a service's whole catalogue is a *pool*
+ * like a genre's or a country's: "oldest first", "most popular", "least popular" are fair
+ * questions to ask of it, and the server answers them the same way it answers a genre's
+ * (see `OTT_SORTS` in `addon/catalogs.mjs`). The owner asked why those cards had no order
+ * dropdown while a country row did. *Latest* is gone from the list and *Popular* reads
+ * **Most popular**, so the pair beside *Least popular* says which end each one is.
+ *
+ * This is **not** the same question as `isOttTop10Card` above: that one says a card publishes
+ * a *capped* list, which is why it draws no sample row. A plain OTT card keeps its Shuffle
+ * *and* gets the order.
+ */
+const OTT_ORDER_CARDS = /^(global-ott|regional-ott|specialist)(-top-10)?$/;
+const isOttOrderCard = (card) => OTT_ORDER_CARDS.test(String(card?.key || ""));
 
 /** The order the screen being drawn asks for — empty on every other screen. */
 let activeOttSort = "";
@@ -483,11 +503,19 @@ const DEFAULT_PEOPLE = PEOPLE;
 // before the rename, and an installed copy still has one of those in localStorage.
 // So the old spellings are still read and read *as* the new name; only the new
 // name is ever written.
+// **The live mode is removed.** IPTV — *Live TV & Sports* — was the second mode; the app is
+// one mode now: films and series. `LIVE_PROFILE` survives only as the *old name* a stored
+// setting or a settings file may still carry, and every spelling of it resolves to VOD, so an
+// installed copy that was left in it lands on the one mode there is rather than on a screen
+// that no longer has a tile.
 const LIVE_PROFILE = "IPTV";
-const PROFILES = ["VOD", LIVE_PROFILE];
-const LEGACY_PROFILES = { "Movies & Shows": PROFILES[0], "Live TV & Sports": LIVE_PROFILE };
+const PROFILES = ["VOD"];
+const LEGACY_PROFILES = { "Movies & Shows": "VOD", "Live TV & Sports": "VOD", [LIVE_PROFILE]: "VOD" };
 /** The current name for whatever a stored setting says — legacy or unknown → the first. */
-const profileName = (name) => LEGACY_PROFILES[name] || (PROFILES.includes(name) ? name : PROFILES[0]);
+const profileName = (name) => {
+  const mapped = LEGACY_PROFILES[name] || name;
+  return PROFILES.includes(mapped) ? mapped : PROFILES[0];
+};
 
 // How much of a playlist Live TV & Sports draws: rows for a playlist's biggest
 // categories, a cap on the channels inside one row, and the guide's own window.
@@ -1055,7 +1083,14 @@ const state = {
   language: localStorage.getItem(KEY.language) || "en-US",
   country: localStorage.getItem(KEY.country) || "US",
   // The order the OTT cards' rows are drawn in — that dropdown, and nothing else.
-  ottSort: localStorage.getItem(KEY.ottSort) || "popular",
+  // **A retired order is not a choice.** *Latest* was in the list once; a stored copy of it
+  // would leave the picker with nothing selected and have the rows served in an order the
+  // dropdown no longer offers, so the value is checked against the list it is drawn from
+  // (`OTT_SORTS`, above).
+  ottSort: (() => {
+    const held = localStorage.getItem(KEY.ottSort) || "";
+    return OTT_SORTS.some(([id]) => id === held) ? held : "popular";
+  })(),
   // Which provider supplies the content inside a row: "tmdb" (default) or
   // "tvdb". Row membership is always TMDB's — this picks whose titles, artwork
   // and translations every catalog shows.
@@ -2951,9 +2986,9 @@ function renderModes() {
     el(
       "section",
       { class: "profiles" },
-      // These are **modes**, not accounts: VOD (films and series) and IPTV (live
-      // channels and sport) are two ways to use the app, and the screen reads as a
-      // mode picker.
+      // These are **modes**, not accounts. There is **one mode now** — VOD, films and
+      // series — since the live profile was removed; the screen still reads as a mode
+      // picker because that is what it is, and it will hold the next one the same way.
       el("p", { class: "hero-kicker", text: "Modes" }),
       el("h1", { class: "view-title", text: "What do you want to watch?" }),
       el("p", {
@@ -3892,6 +3927,13 @@ function refreshNow() {
   // again too (see `shuffledSamples`) — a refresh that left the same twelve on top was a
   // refresh that only half happened.
   shuffledSamples.clear();
+  // **And the server forgets its copies.** The bump above makes every request a new URL for
+  // the *browser*; the addon keeps its own TMDB answers for the whole Settings → Refresh
+  // window, so a press inside that window re-read the same rows and drew the same posters —
+  // the reported "refresh does not refresh the catalog or the card posters". This drops them
+  // (fire-and-forget: the screen is re-read either way, and a server that is not there yet
+  // must not hold the press up).
+  post("/refresh.json", {}).catch(() => {});
   // A refresh re-reads whatever the current screen is made of — including the
   // channel list and the guide, which are catalogs too.
   if (liveProfile()) {
@@ -4154,7 +4196,10 @@ function voicePad() {
       id: "voice-pad",
       title: "Speak up — say what you want to watch",
       "aria-label": "Speak up — say what you want to watch",
-      onclick: () => startVoice(null),
+      // **The pad opens the box, and the box listens.** It used to start the listener
+      // directly, which meant no tags, no answer on screen and nothing to type into; the
+      // microphone lives inside the box now (beside Ask), so this is one door to it.
+      onclick: () => openAssistant(null),
     },
     micMark(),
     el("span", { text: "Speak" }),
@@ -4404,10 +4449,14 @@ function renderExplore(key, id) {
   // drawn after its **Shuffle**. The choice rides on every request this page makes, so the row
   // is really re-read from the server instead of re-sorted on screen.
   const sortable = SORTABLE_KINDS.has(String(cat.kind));
-  // **The order rides under the Shuffle row.** The dropdown re-reads the same sample the
-  // Shuffle row draws, so it is drawn *after* it (`sortTools`, below) instead of up in the
-  // header — where it stood in front of the thing it belongs to.
-  const sortTools = !ott && sortable ? el("div", { class: "cat-tools" }, ottSortControl()) : null;
+  // **Every row that can be read in an order gets the dropdown** — the OTT rows included.
+  // They were the one family without it: a service's whole catalogue is a pool like a genre or
+  // a country, and "what is on Netflix, oldest first" is as fair a question as "what is the
+  // oldest Action film" — the server answers both the same way (see `OTT_SORTS` in
+  // `addon/catalogs.mjs`). The ◆ Top 10 rows keep their cap; the order is how those ten are
+  // picked. Only a row that *is* its own order (your own lists, the banner's rows) is left
+  // without it.
+  const sortTools = (sortable || ott || isOttOrderCard(card)) && !stateful ? el("div", { class: "cat-tools" }, ottSortControl()) : null;
   const tools = ott
     ? null
     : sampled
@@ -6475,6 +6524,18 @@ async function renderTitle(type, id) {
             onclick: () => openAssistant({ ...meta, description: meta.description || (data.tagline || "") }),
           }),
           ...pinButtons(meta),
+          // **Watch Along sits at the right end of the row.** The owner asked for it beside
+          // Play: it is the same question Play answers — *what do I put on* — read as a
+          // companion question ("what do I put on *with* this"), so it opens the Assistant on
+          // the pair question rather than starting a second, empty screen.
+          el("button", {
+            class: "btn focusable watch-along-btn",
+            type: "button",
+            id: "title-watch-along",
+            text: "Watch Along",
+            title: "Find one title to watch alongside this",
+            onclick: () => openAssistant(meta, { question: `What should I watch in a pair with ${meta.name || "this one"}? Name one title to pair it with, and why, in two lines.` }),
+          }),
   );
   const node = el(
     "article",
@@ -6890,10 +6951,17 @@ const listQuery = (type) => `?type=${encodeURIComponent(type)}${state.safe ? "" 
  * thing you read, not a thing you reach for beside Play. Esc, the backdrop and the Close
  * button all put it away, and nothing navigates.
  */
-async function openAssistant(meta) {
+async function openAssistant(meta, opts = {}) {
+  // **One box, two doors.** *Ask Assistant* on a title page asks about that title; the Speak
+  // pad on Home opens the **same box** with no title to ask about — the owner asked for it in
+  // those words ("same as the ask-assistant box on the detail page"), with the surprise /
+  // pair / stack tags in it and the voice button beside Ask rather than a separate listener
+  // that only listened.
+  const generic = !meta;
+  const name = meta?.name || "";
   const question = el("input", {
     class: "text-input focusable", type: "text", id: "assistant-question",
-    placeholder: `Ask about ${meta.name || "this title"}…`,
+    placeholder: generic ? "Ask for something to watch…" : `Ask about ${name || "this title"}…`,
   });
   const answer = el("p", { class: "assistant-answer", text: "" });
   const stateLine = el("p", { class: "player-note", text: "" });
@@ -6910,40 +6978,50 @@ async function openAssistant(meta) {
     e.stopPropagation();
     close();
   };
-  const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": `Assistant · ${meta.name || "this title"}` },
-    el("div", { class: "assistant-card" },
-      el("p", { class: "assistant-kicker", text: "Assistant" }),
-      el("h2", { class: "assistant-title", text: meta.name || "this title" }),
-      el("p", { class: "option-desc", text: meta.type === "series"
-        ? "Ask what it is about, whether it is worth starting, or how long it takes to get going. The answer comes from the AI provider set in Settings → Assistant."
-        : "Ask what it is about, whether it is worth your evening, or what to watch after it. The answer comes from the AI provider set in Settings → Assistant." }),
-      el("div", { class: "assistant-form" }, question,
-        // **The box listens, like the app's other boxes.** Settings → Assistant turns it off,
-        // and with it off there is no button rather than a button that does nothing.
-        state.speak?.ask === false
-          ? null
-          : el("button", { class: "btn focusable", type: "button", id: "assistant-voice", text: "🎙 Voice", title: "Say your question", onclick: () => voiceInto(question, ask) }),
-        el("button", { class: "btn primary focusable", type: "button", id: "assistant-ask", text: "Ask" }),
-      ),
-      // **Two questions worth pressing**, so the panel is not an empty box on the first
-      // open: the two things a title page cannot tell you from its own metadata.
-      el("div", { class: "assistant-suggestions" },
-        // **Questions worth pressing.** "What is it about?" and "Will I like it?" were the
-        // two the page could answer from its own metadata; these are the ones it cannot.
-        // **The list is longer than the box**: every chip asks something the metadata on
-        // the page does not answer, and the row wraps — a suggestion line that hides
-        // behind a scroll is a suggestion nobody reads.
-        ...(ASK_QUESTIONS[meta.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie).map((q) =>
-          el("button", { class: "chip focusable", type: "button", text: q, onclick: () => { question.value = q; ask(); } }),
-        ),
+  // **The tags, as `[label, run]`.** On a title they are questions *about that title*; on Home
+  // they are the same orders with nothing to hold on to — in the owner's own words: "surprise
+  // me", "what I watch in pair — why?", "what I watch in a stack of five — why?".
+  const chips = generic
+    ? [
+        ["Surprise me", () => { close(); surpriseMe(); }],
+        ["What should I watch in a pair — and why?", () => askWith("Give me one title to pair with whatever I watch next, and say why, in two lines.")],
+        ["What should I watch in a stack of 5 — and why?", () => askWith("Give me a stack of five titles to watch, and one line each on why they belong together.")],
+        ["What is worth watching tonight?", () => askWith("What is worth watching tonight? Name three titles, one line on each.")],
+      ]
+    : [
+        ...(ASK_QUESTIONS[meta?.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie).map((q) => [q, () => askWith(q)]),
         // **Three the owner asked for by name.** *Surprise me* is not a question — it is an
         // order, so it **acts**: a random title from the row you are on, opened (see
         // `surpriseMe`). The other two are questions about *this* title, asked of the same
         // assistant the chips beside them use, and each one says how it wants the answer
         // shaped — a pair, or a stack of five, with the why attached.
-        el("button", { class: "chip focusable surprise-chip", type: "button", text: "Surprise me", title: "Open a random title from the row you are on", onclick: () => { close(); surpriseMe(); } }),
-        el("button", { class: "chip focusable", type: "button", text: `Watch in a pair with ${meta.name || "this"}?`, onclick: () => { question.value = `What should I watch in a pair with ${meta.name || "this one"}? Name one title to pair it with, and why, in two lines.`; ask(); } }),
-        el("button", { class: "chip focusable", type: "button", text: "Watch in a stack of 5?", onclick: () => { question.value = `Give me a stack of five titles to watch around ${meta.name || "this one"}, and one line each on why they belong with it.`; ask(); } }),
+        ["Surprise me", () => { close(); surpriseMe(); }],
+        [`Watch in a pair with ${name || "this"}?`, () => askWith(`What should I watch in a pair with ${name || "this one"}? Name one title to pair it with, and why, in two lines.`)],
+        ["Watch in a stack of 5?", () => askWith(`Give me a stack of five titles to watch around ${name || "this one"}, and one line each on why they belong with it.`)],
+      ];
+  const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": generic ? "Ask Assistant" : `Assistant · ${name || "this title"}` },
+    el("div", { class: "assistant-card" },
+      el("p", { class: "assistant-kicker", text: generic ? "Ask Assistant" : "Assistant" }),
+      el("h2", { class: "assistant-title", text: generic ? "What are you in the mood for?" : name || "this title" }),
+      el("p", { class: "option-desc", text: generic
+        ? "Say it or type it — a mood, a half-remembered title, or one of the tags below. The answer comes from the AI provider set in Settings → Assistant."
+        : meta.type === "series"
+          ? "Ask what it is about, whether it is worth starting, or how long it takes to get going. The answer comes from the AI provider set in Settings → Assistant."
+          : "Ask what it is about, whether it is worth your evening, or what to watch after it. The answer comes from the AI provider set in Settings → Assistant." }),
+      el("div", { class: "assistant-form" }, question,
+        el("button", { class: "btn primary focusable", type: "button", id: "assistant-ask", text: "Ask" }),
+        // **The box listens, like the app's other boxes** — and the microphone sits to the
+        // **right of Ask**, where the owner asked for it. Settings → Assistant turns it off,
+        // and with it off there is no button rather than a button that does nothing.
+        state.speak?.ask === false
+          ? null
+          : el("button", { class: "btn focusable", type: "button", id: "assistant-voice", text: "🎙 Voice", title: "Say your question", onclick: () => voiceInto(question, ask) }),
+      ),
+      // **The tags are the two things a page cannot tell you** — plus, on Home, the owner's
+      // own shortcuts. The row wraps: a suggestion line that hides behind a scroll is a
+      // suggestion nobody reads.
+      el("div", { class: "assistant-suggestions" },
+        ...chips.map(([label, run]) => el("button", { class: `chip focusable${label === "Surprise me" ? " surprise-chip" : ""}`, type: "button", text: label, onclick: run })),
       ),
       stateLine,
       answer,
@@ -6952,20 +7030,30 @@ async function openAssistant(meta) {
       ),
     ),
   );
+  async function askWith(q) {
+    question.value = q;
+    await ask();
+  }
   const ask = async () => {
     const q = question.value.trim();
     if (!q) return;
+    // **"Surprise me" is an order, not a question.** Typed or said into this box it opens a
+    // random title from the row you are on (`aiIntent` does the same for the Speak pad's own
+    // listener), so no provider is asked for a sentence about it.
+    if (/\bsurprise me\b/i.test(q) && q.length <= 24) { close(); surpriseMe(); return; }
     answer.textContent = "";
     stateLine.textContent = "Asking…";
     try {
       const res = await post("/ai/about", {
         question: q,
-        context: {
-          name: meta.name || "",
-          year: meta.releaseInfo || meta.year || "",
-          type: meta.type === "series" ? "series" : "movie",
-          overview: meta.description || "",
-        },
+        context: generic
+          ? {}
+          : {
+              name,
+              year: meta.releaseInfo || meta.year || "",
+              type: meta.type === "series" ? "series" : "movie",
+              overview: meta.description || "",
+            },
       });
       // **The model that answered is named**, under the answer box: with Auto there is no
       // fixed model to look up, and an answer you cannot attribute is an answer you cannot
@@ -6985,6 +7073,9 @@ async function openAssistant(meta) {
   document.body.append(overlay);
   keepSharp(overlay);
   question.focus();
+  // **A door that opens with a question already asked.** *Watch Along* opens this box on the
+  // pair question, so the button is a shortcut rather than a second screen.
+  if (opts.question) askWith(opts.question);
 }
 
 /**
@@ -10801,7 +10892,7 @@ async function render() {
   const sortCatalog = view === "explore" && sortCard
     ? rowOf(sortCard).catalogs.find((c) => String(c.id) === String(id))
     : null;
-  activeOttSort = isOttTop10Card(sortCard) || SORTABLE_KINDS.has(String(sortCatalog?.kind))
+  activeOttSort = isOttTop10Card(sortCard) || isOttOrderCard(sortCard) || SORTABLE_KINDS.has(String(sortCatalog?.kind))
     ? state.ottSort
     : "";
   renderProfile();
