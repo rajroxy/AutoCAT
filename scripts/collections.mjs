@@ -513,8 +513,22 @@ export const isPopularRegional = (name) => POPULAR_REGIONAL_KEYS.has(popKey(name
  * opens a Regional OTT card for — and off it means off it: the row is dropped for the series
  * row type in the region's own list **and** on the continent rows, which are the same data
  * read wider (see `regionalOtt` and `regionalOttByContinent`).
+ *
+ * **Seven rows, and each one was measured.** Sun Nxt, aha and Hoichoi were asked off by name.
+ * Mediaset Infinity, Exxen and IROKOTV were reported as "not showing content" on the shows
+ * side, and TMDB says that is the truth of it: asked with the row's own region and its own
+ * monetisation (flatrate, 10+ votes), Mediaset Infinity answers **6** series in Italy, Exxen
+ * **1** in Türkiye and IROKOTV **0** in Nigeria, while the shows card's rows run into the
+ * hundreds. A row that cannot fill a page is not a row; each of the three keeps its place on
+ * the **films** card, where the same probe answers 117, 0 and 97 titles. (Exxen's films row is
+ * empty too — it is kept for now because it was not the row that was reported; say the word
+ * and it goes off both cards.)
  */
-const SHOW_ROW_OFF = new Set(["DOCSVILLE", "MUBI", "Curiosity Stream"]);
+const SHOW_ROW_OFF = new Set([
+  "DOCSVILLE", "MUBI", "Curiosity Stream",
+  "Sun Nxt", "Sun NXT", "aha", "Hoichoi",
+  "Mediaset Infinity", "Exxen", "IROKOTV",
+]);
 const offTheShowsCard = (type, name) => type === "tv" && SHOW_ROW_OFF.has(String(name || "").trim());
 
 /**
@@ -526,7 +540,14 @@ const offTheShowsCard = (type, name) => type === "tv" && SHOW_ROW_OFF.has(String
  * FOD, on both Regional OTT cards (the plain one and its Top 10 twin, whose labels carry the
  * ` | Top 10` suffix this strips). A row whose anchor is missing keeps the place it had.
  */
-const ROW_AFTER = { Crunchyroll: "FOD" };
+const ROW_AFTER = {
+  Crunchyroll: "FOD",
+  // **Viki before Kocowa**, as asked: the anchor is the row it follows, so Kocowa is placed
+  // immediately after Rakuten Viki and the pair reads `Rakuten Viki | Kocowa` on both regional
+  // cards (TMDB's own name for the row is `Rakuten Viki`; the ` | Top 10` suffix is stripped
+  // before the match, so the twin card moves with it).
+  Kocowa: "Rakuten Viki",
+};
 const rowLabel = (row) => String(row?.name || "").replace(/ \| Top 10$/, "");
 function placeRowsAfter(rows, after = ROW_AFTER) {
   let out = rows;
@@ -764,7 +785,7 @@ function regionalOtt(kind) {
         // **The region is an ISO code TMDB understands**, never the country's name —
         // `watch_region` takes the code, and a row carrying "JAPAN" would answer
         // nothing.
-        const region = String(svc.region || code).toUpperCase();
+        const region = String(ROW_REGION[svc.name] || svc.region || code).toUpperCase();
         const key = `${svc.id}:${region}`;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -809,6 +830,29 @@ function regionalOtt(kind) {
  * so a name is only ever a name.
  */
 const ROW_LABEL = { WeTV: "WeTV (Tencent Video)" };
+
+/**
+ * **Where a row is read, when that is not where it was verified.**
+ *
+ * The region a regional row is asked for is the region it was verified in (`svc.region`),
+ * which is the right answer until TMDB moves a service's catalogue. Two of them moved, and
+ * the customer found both:
+ *
+ *   - **BritBox answers nothing in Britain.** Asked in GB (flatrate, 10+ votes) TMDB returns
+ *     **0** films and **0** series for it — the row opened an empty page, which is the
+ *     "BritBox catalog is empty" report. The same provider id answers **41 films and 321
+ *     series** in the United States (41 / 314 in Canada), so the row is read there. Its
+ *     *place* is untouched: the position comes from the data's own order — Britain's list,
+ *     right after BBC iPlayer — and this map only decides the region the query carries.
+ *   - **iQIYI's biggest catalogue is the United States'.** Verified in Morocco, where it
+ *     answers 6 films and 34 series; the US answers 11 films and 56 series — more than Hong
+ *     Kong's 7 / 36, and Thailand, Malaysia, Indonesia and the Philippines answer nothing at
+ *     all. It is read in the US, and its row keeps Morocco's place on the card.
+ *
+ * A name in here is only ever a row whose *query* moves; the label, the position and the
+ * provider id are the ones the data already had.
+ */
+const ROW_REGION = { BritBox: "US", iQIYI: "US" };
 
 const TOP10 = 10;
 // **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide

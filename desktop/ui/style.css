@@ -5485,15 +5485,17 @@ button.rating.my-rating {
   background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
   box-shadow: var(--hl);
 }
-/* **Chosen: the selection colour as a ring.** The card you are on wears the mark the chosen
-   calendar day wears — an outline in the selection colour — at rest and under the cursor
+/* **Chosen: the selection colour as a fill — the plate Home and Speak wear.** The card you
+   are on is a solid plate in the selection colour with ink on it, exactly like the Home tab
+   and the chosen Movies / Shows pill (see `.row-btn.active`), at rest and under the cursor
    alike, so pointing at it does not make the chosen profile look like an unchosen one. */
 .profile-tile.active,
 .profile-tile.active:hover,
 .profile-tile.active:focus-visible {
-  background-color: var(--panel);
-  background-image: none;
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  background-color: var(--select, var(--accent));
+  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  color: #14110a;
+  box-shadow: none;
 }
 /* **The same two answers where the grid outweighs them.** The Profiles and Modes pages draw
    their tiles inside `.profile-grid`, and that prefix carries a **fourth** weight: one rule
@@ -5509,9 +5511,10 @@ button.rating.my-rating {
 .profile-grid .profile-tile.active,
 .profile-grid .profile-tile.active:hover,
 .profile-grid .profile-tile.active:focus-visible {
-  background-color: var(--panel);
-  background-image: none;
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  background-color: var(--select, var(--accent));
+  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  color: #14110a;
+  box-shadow: none;
 }
 
 /* ============================================================================
@@ -5605,33 +5608,41 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    the Upcoming card — a window, not a door — draws none.
    ============================================================================ */
 .icon-box.card-spotlight:is(:hover, :focus-visible, :has(:focus-visible)) { box-shadow: none; }
-/* **The Movies / Shows pill keeps its ring.** It is a solid plate with dark text on it, and
-   the ring around it is how the app says which half of the home you are on — the same ring
-   the chosen pin wears, drawn with a hair of the page between the two so it reads as an
-   outline around the plate rather than as a slightly different edge. */
+/* **The Movies / Shows pill is a plate, and nothing else.** It wore a 4px ring at rest — a box
+   drawn around the half of the home you had already chosen, on a button nobody was pointing
+   at. The solid plate with ink on it is the statement, exactly as it is on the Home tab
+   (`.tab[aria-selected="true"]`, which has always drawn no ring). */
 .row-btn.active,
 .row-btn.active:hover,
 .row-btn.active:focus-visible {
-  box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
+  box-shadow: none;
 }
 
 /* ============================================================================
-   **Profiles and Modes: the chosen card fills, and the cursor rings it.**
+   **Profiles and Modes wear the same chosen plate as Movies / Shows.**
    ----------------------------------------------------------------------------
-   The other way round from the last pass — as asked. The profile or mode you are on wears
-   the selection colour as a **fill** at rest (the same wash every chosen control in the app
-   wears), and pointing at it draws the selection colour as a **ring** instead of changing
-   that fill. Written last so the four-weight .profile-grid rules above cannot take the
-   ring or the fill back.
+   As asked: the profile or mode you are on is the app's own highlight — a solid plate in the
+   selection colour with ink on it, the plate the Home tab, the Speak pad and the chosen
+   Movies / Shows pill wear — and not a wash. Pointing at the plate changes nothing; the fill
+   is the answer, as it is on Home. Written last, so the four-weight .profile-grid rules above
+   cannot put the wash or the ring back.
    ============================================================================ */
 .profile-tile.active,
 .profile-grid .profile-tile.active {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
-  background-image: none;
+  background-color: var(--select, var(--accent));
+  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  color: #14110a;
   box-shadow: none;
 }
 .profile-tile.active:is(:hover, :focus-visible),
 .profile-grid .profile-tile.active:is(:hover, :focus-visible) {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  background-color: var(--select, var(--accent));
+  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  box-shadow: none;
 }
+/* **Ink on the plate, and a disc that can be seen on it.** The name and the line under it
+   take the plate's ink — the wash's muted grey disappears on a solid fill — and the avatar
+   inverts: the page's own near-black disc, with the selection colour for the mark. */
+.profile-tile.active .profile-tile-name { color: #14110a; }
+.profile-tile.active .profile-tile-sub { color: rgba(20, 17, 10, 0.72); }
+.profile-tile.active .avatar { background: var(--ink, #0b0b0b); color: var(--select, var(--accent)); }

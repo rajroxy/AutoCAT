@@ -9160,6 +9160,21 @@ function paneContent() {
     radioRow(!state.safe, "safe", "NSFW", "Include adult titles where TMDB supports it.", () => {
       state.safe = false; writeJSON(KEY.safe, false); pushSettings({ safe: false }); render();
     }),
+    groupHead("Refresh catalogs & metadata"),
+    ...REFRESH_CHOICES.map(([minutes, label]) =>
+      radioRow(Number(state.refresh) === minutes, "refresh", label, minutes === 0 ? "Nothing is re-read until you press Refresh now." : `Catalogs and metadata are re-read every ${minutes} minutes.`, () => {
+        state.refresh = minutes;
+        writeJSON(KEY.refresh, minutes);
+        pushSettings({ refresh: { minutes } });
+        render();
+      }),
+    ),
+    el("div", { class: "provider" },
+      el("button", { class: "btn primary focusable", type: "button", text: "Refresh now", onclick: () => refreshNow() }),
+    ),
+    // **Watched sits under the refresh clock — after it, as asked.** It is the last thing on
+    // this pane: what the rows contain, how often they are re-read, and then the one row that
+    // is a page of its own.
     // **A row that is a page.** Watched used to sit on the Watchlist card between what you
     // are on and what is queued; it is a list you go *to*, so it opens here — the same
     // endless grid a catalog gets on its own page (`#/x/watchlist/watched`).
@@ -9180,18 +9195,6 @@ function paneContent() {
         title: "Every title marked Watched, newest first",
         onclick: () => watched && go(`#/x/watchlist/${encodeURIComponent(watched.id)}`),
       }),
-    ),
-    groupHead("Refresh catalogs & metadata"),
-    ...REFRESH_CHOICES.map(([minutes, label]) =>
-      radioRow(Number(state.refresh) === minutes, "refresh", label, minutes === 0 ? "Nothing is re-read until you press Refresh now." : `Catalogs and metadata are re-read every ${minutes} minutes.`, () => {
-        state.refresh = minutes;
-        writeJSON(KEY.refresh, minutes);
-        pushSettings({ refresh: { minutes } });
-        render();
-      }),
-    ),
-    el("div", { class: "provider" },
-      el("button", { class: "btn primary focusable", type: "button", text: "Refresh now", onclick: () => refreshNow() }),
     ),
   ];
 }
@@ -9752,17 +9755,21 @@ function sourceSection(title, hint, types, list) {
       render();
     },
   });
-  // **The form and the rows are one box.** They were two loose blocks under the pane's
-  // heading — a field, a button, then a list of cards floating on the page — while every
-  // other account pane (Debrid, Trackers, Subtitles) keeps its controls inside the app's own
-  // inner panel. The `provider` box is that panel, and this is where the URL field, the Add
-  // button and every add-on row live now.
+  // **Two plates, the way the Account pane keeps them.** The URL field and its Add button are
+  // a box of their own, and the add-ons already installed are another — the shape `signInCard`
+  // uses, where one plate holds the form and the next holds the list, with the rule and the
+  // name between them. One box around both put the form *inside* the list: a field, a button,
+  // then the rows it adds, reading as one more row of that list.
   return [
     el("p", { class: "option-desc", text: hint }),
+    el("div", { class: "provider source-add" }, el("div", { class: "source-form" }, picker ? picker.node : null, urlInput, add)),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    // **The plate is named by the section it belongs to** (`Stremio add-ons`), like `Accounts`
+    // names the account list in the pane beside this one.
+    groupHead(title),
     el(
       "div",
       { class: "provider" },
-      el("div", { class: "source-form" }, picker ? picker.node : null, urlInput, add),
       list.length
         ? el("div", { class: "sources" }, ...list.map((s, pos) => sourceRow(s, state.sources.indexOf(s), list, pos)))
         : el("p", { class: "option-desc", text: "None added yet." }),
