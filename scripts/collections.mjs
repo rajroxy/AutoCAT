@@ -322,7 +322,7 @@ export const PLATFORMS = VERIFIED.platforms
 export const DECADES = ALL_DECADES;
 
 /** Up to `LOCAL_LIMIT` local OTT services per region, verified to return titles. */
-export const LOCAL_LIMIT = 12;
+export const LOCAL_LIMIT = 13;
 const localFor = (region, type) => (VERIFIED.regions[region]?.[type] ?? []).slice(0, LOCAL_LIMIT);
 
 /**
@@ -429,7 +429,7 @@ const POPULAR_REGIONAL = new Set([
   "Neon", "Foxtel Now", "Kayo Sports", "Optus Sport", "Sky Sport Now",
   // —— Britain and Ireland
   "BBC iPlayer", "ITVX", "Channel 4", "My5", "All 4", "Channel 5", "BritBox", "STV Player",
-  "RTE Player", "Virgin Media Play", "NOW",
+  "Virgin Media Play", "NOW",
   // —— South Asia
   "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt", "Sun NXT", "Sony Liv", "SonyLIV",
   "Hoichoi", "JioCinema", "Eros Now", "Lionsgate Play",
@@ -447,7 +447,7 @@ const POPULAR_REGIONAL = new Set([
   "C More", "NRK TV", "TV 2 Play", "DR TV", "Yle Areena", "TVP", "TVP VOD", "Player",
   "Polsat Box Go", "SkyShowtime", "France TV", "OCS",
   // —— Türkiye and Russia
-  "Exxen", "Gain", "tabii", "BluTV", "Kinopoisk", "Okko", "Wink", "START", "Ivi",
+  "Exxen", "Gain", "BluTV", "Kinopoisk", "Okko", "Wink", "START", "Ivi",
   "Premier",
   // —— the Middle East. **The region's own platforms, and only those.** The worldwide
   // services (Netflix, Prime Video, HBO Max, Apple TV+) were on this list once and did not

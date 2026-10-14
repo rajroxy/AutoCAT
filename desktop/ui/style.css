@@ -5634,14 +5634,19 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    ----------------------------------------------------------------------------
    The **Upcoming card** is a window and not a door, so it draws no ring under the cursor:
    it was taking the outline every other card takes, which read as "this one opens".
-   The **Speak pad** is a solid accent plate, and a selection-coloured ring on a plate that
-   is only *there* reads as a selection — the plate answers the cursor with a touch more
-   light now, the way Play's does. A **chosen** plate keeps its fill and gains no ring.
+   The **Speak pad** and the **Movies / Shows pill** keep their rings: a solid accent plate
+   is the app's way of saying which one you are on, and the ring says it a second time. Only
+   the Upcoming card — a window, not a door — draws none.
    ============================================================================ */
 .icon-box.card-spotlight:is(:hover, :focus-visible, :has(:focus-visible)) { box-shadow: none; }
-.btn.primary.voice-pad:is(:hover, :focus-visible, :has(:focus-visible)) {
-  box-shadow: none;
-  filter: brightness(1.08);
+/* **The Movies / Shows pill keeps its ring.** It is a solid plate with dark text on it, and
+   the ring around it is how the app says which half of the home you are on — the same ring
+   the chosen pin wears, drawn with a hair of the page between the two so it reads as an
+   outline around the plate rather than as a slightly different edge. */
+.row-btn.active,
+.row-btn.active:hover,
+.row-btn.active:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
 }
 
 /* ============================================================================

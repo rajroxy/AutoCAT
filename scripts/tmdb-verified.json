@@ -181,12 +181,6 @@
       "code": "US",
       "movie": [
         {
-          "id": 520,
-          "name": "Discovery+",
-          "as": "Discovery+",
-          "movieCount": 27
-        },
-        {
           "id": 15,
           "name": "Hulu",
           "as": "Hulu",
@@ -241,6 +235,12 @@
           "movieCount": 735
         },
         {
+          "id": 520,
+          "name": "Discovery+",
+          "as": "Discovery+",
+          "movieCount": 27
+        },
+        {
           "id": 464,
           "name": "Kocowa",
           "as": "Kocowa",
@@ -260,12 +260,6 @@
         }
       ],
       "tv": [
-        {
-          "id": 520,
-          "name": "Discovery+",
-          "as": "Discovery+",
-          "tvCount": 271
-        },
         {
           "id": 15,
           "name": "Hulu",
@@ -319,6 +313,12 @@
           "name": "Shudder",
           "as": "Shudder",
           "tvCount": 41
+        },
+        {
+          "id": 520,
+          "name": "Discovery+",
+          "as": "Discovery+",
+          "tvCount": 271
         },
         {
           "id": 464,
@@ -483,12 +483,6 @@
           "movieCount": 104
         },
         {
-          "id": 551,
-          "name": "Magellan TV",
-          "as": "Magellan TV",
-          "movieCount": 269
-        },
-        {
           "id": 11,
           "name": "MUBI",
           "as": "MUBI",
@@ -521,12 +515,6 @@
           "tvCount": 3547
         },
         {
-          "id": 1884,
-          "name": "ABEMA",
-          "as": "ABEMA",
-          "tvCount": 2
-        },
-        {
           "id": 190,
           "name": "Curiosity Stream",
           "as": "Curiosity Stream",
@@ -537,12 +525,6 @@
           "name": "DOCSVILLE",
           "as": "DOCSVILLE",
           "tvCount": 2
-        },
-        {
-          "id": 551,
-          "name": "Magellan TV",
-          "as": "Magellan TV",
-          "tvCount": 102
         },
         {
           "id": 11,
@@ -945,26 +927,13 @@
     },
     "Turkey": {
       "code": "TR",
-      "movie": [
-        {
-          "id": 2235,
-          "name": "tabii",
-          "as": "tabii",
-          "movieCount": 5
-        }
-      ],
+      "movie": [],
       "tv": [
         {
           "id": 1791,
           "name": "Exxen",
           "as": "Exxen",
           "tvCount": 1
-        },
-        {
-          "id": 2235,
-          "name": "tabii",
-          "as": "tabii",
-          "tvCount": 3
         }
       ]
     },
@@ -982,12 +951,6 @@
           "name": "BINGE",
           "as": "BINGE",
           "movieCount": 788
-        },
-        {
-          "id": 378,
-          "name": "9Now",
-          "as": "9Now",
-          "movieCount": 7
         },
         {
           "id": 246,
@@ -1297,22 +1260,8 @@
     },
     "Ireland": {
       "code": "IE",
-      "movie": [
-        {
-          "id": 2694,
-          "name": "RTE Player",
-          "as": "RTE Player",
-          "movieCount": 2
-        }
-      ],
-      "tv": [
-        {
-          "id": 2694,
-          "name": "RTE Player",
-          "as": "RTE Player",
-          "tvCount": 3
-        }
-      ]
+      "movie": [],
+      "tv": []
     },
     "Portugal": {
       "code": "PT",
