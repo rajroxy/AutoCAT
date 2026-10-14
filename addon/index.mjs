@@ -62,7 +62,7 @@ import {
   remove as customRemove,
   metasFor as customMetas,
 } from "./customrows.mjs";
-import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, primeSpecialistCounts, clearCaches, isOttSort } from "./catalogs.mjs";
+import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, primeSpecialistCounts, clearCaches, isOttSort, providerListsReady } from "./catalogs.mjs";
 import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
 import { pushRating, pushWatch } from "./trackers.mjs";
@@ -2845,6 +2845,12 @@ async function serveAddon(req, res, pathname, origin) {
     setKey(tmdbKey());
     clearTmdbCache();
     clearCaches();
+    // **Put the region lists straight back.** Clearing them left the regional and specialist
+    // rows with nothing to be built from, so the refresh's own re-read asked for rows that
+    // answered 404 until some other screen happened to prime them again. The drop is what the
+    // refresh wants — the *next* answer has to come from TMDB — and this is the re-read.
+    await primeRegionProviders().catch(() => {});
+    await primeSpecialistCounts().catch(() => {});
     json(res, 200, { ok: true });
     return true;
   }
@@ -2885,6 +2891,13 @@ async function serveAddon(req, res, pathname, origin) {
   // Keep the TMDB client on the key configured in Settings (falls back to env).
   setKey(tmdbKey());
 
+  // **A row that was never built is not a row that does not exist.** The regional and
+  // specialist rows come from the live region lists; when those are not in hand — a cold
+  // start, or the moment after a refresh dropped them — the row cannot be built and the app
+  // gets a 404 for something it drew a second ago. Ask once, then resolve.
+  if (pathname.startsWith("/catalog/") && !providerListsReady()) {
+    await primeRegionProviders().catch(() => {});
+  }
   const parsed = parseCatalogPath(pathname);
   if (!parsed) return pathname.startsWith("/catalog/") ? (json(res, 404, { metas: [] }), true) : false;
   // A retired or unknown catalog id is a 404, not a crash: the id is matched by

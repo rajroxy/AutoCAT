@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, isSpecialistService, rowFillsAPage, REGIONAL_SERVICES } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, isSpecialistService, rowFillsAPage, REGIONAL_SERVICES, brandOf } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -686,7 +686,13 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
  * Returns `null` while that region's list has not arrived — an unasked question is not a
  * "no", and the card keeps whatever it already has rather than emptying itself.
  */
-const SPECIALIST_ROW_LIMIT = 12;
+// **Twenty, not twelve.** Twelve was a plain Top 10's number, and with the owner's wider
+// roster — your own region's niche services first, then the brands your country does not
+// carry (Shudder and The Criterion Channel are US rows) — twelve cut the very names the card
+// was asked for: the owner listed Shudder, Screambox, Criterion, Hallmark+, Discovery+ by
+// name and none of them fitted behind the ten KR rows. A Specialist card is a *roster*, and
+// twenty rows is where a roster still reads as one.
+const SPECIALIST_ROW_LIMIT = 20;
 
 /**
  * **The two Specialist cards, and the row each one publishes.** The plain card carries the
@@ -731,6 +737,24 @@ const specialistCounts = new Map();
  * is keyed by — a US row asked for the Korean catalogue is the empty row this card was
  * fixed to stop publishing.
  */
+/**
+ * **The brands the card is for, in the owner's own order.** These are the eight names from
+ * their specialist message; a brand on this list that TMDB carries *anywhere* is published
+ * before the rest of the roster (see the ranking in `specialistServices`). A name TMDB does
+ * not carry at all — Screambox and Hallmark+ are in none of its provider lists — simply never
+ * matches and costs nothing.
+ */
+const SPECIALIST_PRIORITY = [
+  "shudder",
+  "screambox",
+  "criterion-channel",
+  "curiosity-stream",
+  "docsville",
+  "hallmark",
+  "magellan",
+  "discovery",
+];
+
 const SPECIALIST_ROSTER = (() => {
   const out = { movie: [], tv: [] };
   for (const media of ["movie", "tv"]) {
@@ -781,6 +805,19 @@ function specialistServices(code, type, { cull = true } = {}) {
   }
   for (const svc of SPECIALIST_ROSTER[type] || []) offer(svc, svc.region);
 
+  // **The owner's own order for the roster.** They named the brands the Specialist card is
+  // for — Shudder, Screambox, The Criterion Channel, Curiosity Stream, Docsville, Hallmark+,
+  // Magellan TV, Discovery+ — and with a twenty-row ceiling the ones that live in a *wider*
+  // region were falling behind twenty regional rows. Rank first, publish second: a named brand
+  // that exists anywhere comes before the rest of the roster, and the rest keeps the order it
+  // was offered in (the sort is stable).
+  const rank = (p) => {
+    const folded = slug(p.name);
+    const i = SPECIALIST_PRIORITY.findIndex((key) => folded.includes(key));
+    return i < 0 ? SPECIALIST_PRIORITY.length : i;
+  };
+  candidates.sort((a, b) => rank(a) - rank(b));
+
   const rows = candidates
     .filter((p) => {
       // **The measurement is a filter, not a deletion.** The priming pass enumerates the
@@ -808,7 +845,10 @@ export async function primeSpecialistCounts(code = activeCountry()) {
     const found = specialistServices(code, type, { cull: false });
     if (!found) continue;
     for (const svc of found.rows) {
-      const slotKey = `${type}:${svc.id}@${found.region}`;
+      // **Measured in the row's own region**, the same slot the filter reads back
+      // (`specialistServices`), so a wider row is not culled by a Korean measurement.
+      const rowRegion = String(svc.region || found.region).toUpperCase();
+      const slotKey = `${type}:${svc.id}@${rowRegion}`;
       const held = specialistCounts.get(slotKey);
       if (held && Date.now() - held.at < SPECIALIST_COUNTS_TTL) continue;
       jobs.push(
@@ -820,7 +860,7 @@ export async function primeSpecialistCounts(code = activeCountry()) {
             // will never show, and Dekkoo's single Korean series came back as five.
             const res = await get(`/discover/${tmdbPath(media)}`, {
               with_watch_providers: svc.id,
-              watch_region: found.region,
+              watch_region: rowRegion,
               with_watch_monetization_types: "flatrate",
               sort_by: "popularity.desc",
               "vote_count.gte": 10,
@@ -861,14 +901,19 @@ function withSpecialistServices(defs, code) {
         if (published.has(rowKey)) continue;
         published.add(rowKey);
         const name = rowName(svc.name);
+        // **The row is read where the service actually is.** A wider row (Shudder, read in the
+        // US) carries its own region; stamping every row with the first one's region asked the
+        // US catalogue for the Korean one, which is how a published row came back empty. The id
+        // carries that region too, because the id is what the app asks for by name.
+        const region = String(svc.region || found.region).toUpperCase();
         out.push({
-          id: `${CATALOG_ID_PREFIX}${cardKey}--${slug(svc.name)}-${String(found.region).toLowerCase()}`,
+          id: `${CATALOG_ID_PREFIX}${cardKey}--${slug(svc.name)}-${region.toLowerCase()}`,
           type,
           key: cardKey,
           entry: {
             kind: "provider",
             providerId: svc.id,
-            region: found.region,
+            region,
             name,
             ...(take ? { take } : {}),
           },
@@ -886,6 +931,22 @@ function withSpecialistServices(defs, code) {
  * lists, the For You pool and the Specialist row measurements — so a manual refresh really
  * re-reads the world instead of the addon's memory of it.
  */
+/**
+ * **Are the region provider lists in hand?**
+ *
+ * The regional and specialist rows are *built from* the live region lists — one fetch per
+ * region and row type (`primeRegionProviders`), kept for six hours. Every other route primes
+ * them lazily, but the catalog route never did: right after a restart, and **right after a
+ * refresh drops them**, `withRegionalServices` and `withSpecialistServices` had nothing to
+ * build rows from, so a row the app had just drawn answered **404** — the reported
+ * "the Specialist card's catalog does not fetch". The route asks this first and primes when
+ * the answer is no (see the catalog branch in `addon/index.mjs`).
+ */
+export const providerListsReady = (code = activeCountry()) => {
+  const region = String(code || "US").toUpperCase() || "US";
+  return ["movie", "series"].some((type) => regionProviders.has(`${type}:${region}`));
+};
+
 export function clearCaches() {
   regionProviders.clear();
   specialistCounts.clear();
@@ -1075,10 +1136,16 @@ function withRegionalServices(defs, code) {
   // published twice (the app being set to the US is no reason for a second Hulu beside the row
   // the regional data already put there). The check is per card, because the plain card and the
   // Top 10 card are meant to carry the same services.
+  // **Two ways the same service hides.** By provider id (TMDB numbers a platform twice for
+  // two regions) *and* by brand name: `Rakuten Viki` and `Viki` are two provider ids for one
+  // service, which is how the card came back with a duplicate pair the owner named (`Viki`
+  // beside `Rakuten Viki`, `WeTV` beside `WeTV (Tencent Video)`). The brand fold
+  // (`brandOf` in `scripts/collections.mjs`) is what makes them one key.
+  const brandKey = (cardKey, name) => `${cardKey}:brand:${slug(brandOf(String(name || "").replace(/ \| Top 10$/, "")))}`;
   const published = new Set(
     defs
       .filter((d) => String(d.key || "").startsWith("regional-ott"))
-      .map((d) => `${d.key}:${d.entry?.providerId ?? ""}`),
+      .flatMap((d) => [`${d.key}:${d.entry?.providerId ?? ""}`, brandKey(d.key, d.name)]),
   );
   const out = [...defs];
   for (const [cardKey] of CARDS) {
@@ -1095,8 +1162,10 @@ function withRegionalServices(defs, code) {
       // the films card read in a different region with the same eleven titles.
       if (!rowFillsAPage(row.entry.providerId, row.entry.region, row.type === "movie" ? "movie" : "tv")) continue;
       const key = `${cardKey}:${row.entry.providerId}`;
-      if (published.has(key)) continue;
+      const brand = brandKey(cardKey, row.name);
+      if (published.has(key) || published.has(brand)) continue;
       published.add(key);
+      published.add(brand);
       out.push(row);
     }
   }

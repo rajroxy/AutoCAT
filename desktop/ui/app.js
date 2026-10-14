@@ -446,8 +446,13 @@ const isOttTop10Card = (card) => /^(global|regional)-ott-top-10$/.test(String(ca
  * a *capped* list, which is why it draws no sample row. A plain OTT card keeps its Shuffle
  * *and* gets the order.
  */
-const OTT_ORDER_CARDS = /^(global-ott|regional-ott|specialist)(-top-10)?$/;
+const OTT_ORDER_CARDS = /^(global-ott|regional-ott|specialist)$/;
 const isOttOrderCard = (card) => OTT_ORDER_CARDS.test(String(card?.key || ""));
+// **The ◆ Top 10 twins do not get it.** Their whole point is the ten the *service* ranks
+// first; asking "oldest first" of a Top 10 asks for the ten oldest — a list nobody called a
+// Top 10. The owner asked for the control on the plain International / Domestic / Specialist
+// cards and **not** on the Top 10s, so the pattern above has no `-top-10` in it and neither
+// does the screen that decides whether the request carries an order (see `activeOttSort`).
 
 /** The order the screen being drawn asks for — empty on every other screen. */
 let activeOttSort = "";
@@ -2336,7 +2341,9 @@ function parseHash() {
   if (hash.startsWith("categories/")) return { view: "category", group: decodeURIComponent(hash.slice(11)) };
   if (hash === "categories") return { view: "categories" };
   if (hash === "profiles") return { view: "profiles" };
-  if (hash === "modes") return { view: "modes" };
+  // **The Modes screen is gone with the second mode.** `#/modes` — bookmarks, an old tab, a
+  // legacy hash — lands on Home, which is the only mode there is.
+  if (hash === "modes") return { view: "home" };
   if (hash === "signin") return { view: "signin" };
   if (hash === "calendar") return { view: "calendar" };
   if (hash === "search") return { view: "search" };
@@ -2980,49 +2987,6 @@ function personSlot(person, active) {
  * It used to be the first screen and the only picker. It is the second one now, so it
  * also carries the one way back: the profile it was entered as, and the way to change it.
  */
-function renderModes() {
-  const watcher = currentPerson().name;
-  return [
-    el(
-      "section",
-      { class: "profiles" },
-      // These are **modes**, not accounts. There is **one mode now** — VOD, films and
-      // series — since the live profile was removed; the screen still reads as a mode
-      // picker because that is what it is, and it will hold the next one the same way.
-      el("p", { class: "hero-kicker", text: "Modes" }),
-      el("h1", { class: "view-title", text: "What do you want to watch?" }),
-      el("p", {
-        class: "view-hint",
-        text: `Watching as ${watcher}. ${settingsUnified() ? "One set of settings is shared by both modes." : "Each mode keeps its own settings."}`,
-      }),
-      el(
-        "div",
-        { class: "profile-grid" },
-        ...PROFILES.map((name) =>
-          el(
-            "button",
-            {
-              class: `profile-tile focusable${name === state.profile ? " active" : ""}`,
-              type: "button",
-              "aria-current": name === state.profile ? "true" : false,
-              onclick: () => chooseProfile(name),
-            },
-            el("span", { class: "avatar", "aria-hidden": "true" }, avatarNode(name)),
-            el("span", { class: "profile-tile-name", text: name }),
-            el("span", { class: "profile-tile-sub", text: name === state.profile ? "current mode" : "switch to this mode" }),
-          ),
-        ),
-      ),
-      el("button", {
-        class: "btn subtle focusable",
-        type: "button",
-        id: "switch-profile",
-        text: `Switch profile — you are ${watcher}`,
-        onclick: () => go("#/profiles"),
-      }),
-    ),
-  ];
-}
 
 /* ------------------------------------------------------------ the profiles */
 
@@ -3055,12 +3019,14 @@ function choosePerson(id) {
   // (see `KEY`), and the page in front of you was built from the *last* person's copy —
   // so entering as somebody else starts the app again with them on. Same person, same
   // settings: that press just moves on to the mode screen.
+  // **Choosing a person lands on Home.** It used to ask "how do you want to watch?" first,
+  // which was the Modes screen, and there is one mode now.
   if (changing) {
-    if (parseHash().view === "profiles") location.hash = "#/modes";
+    if (parseHash().view === "profiles") location.hash = "#/";
     location.reload();
     return;
   }
-  if (parseHash().view === "profiles") go("#/modes");
+  if (parseHash().view === "profiles") go("#/");
   else render();
 }
 
@@ -3914,7 +3880,7 @@ let refreshTimer = null;
  * browser cache as well as for the addon — without it the rows would be answered
  * from the copy the page already has and nothing would look refreshed.
  */
-function refreshNow() {
+async function refreshNow() {
   state.gen = Date.now();
   // A refresh is a **new deal**: the cards drew their posters from the rows as they were,
   // and the rows are being read again — so the windows go with them, and so does the
@@ -3927,13 +3893,24 @@ function refreshNow() {
   // again too (see `shuffledSamples`) — a refresh that left the same twelve on top was a
   // refresh that only half happened.
   shuffledSamples.clear();
-  // **And the server forgets its copies.** The bump above makes every request a new URL for
-  // the *browser*; the addon keeps its own TMDB answers for the whole Settings → Refresh
-  // window, so a press inside that window re-read the same rows and drew the same posters —
-  // the reported "refresh does not refresh the catalog or the card posters". This drops them
-  // (fire-and-forget: the screen is re-read either way, and a server that is not there yet
-  // must not hold the press up).
-  post("/refresh.json", {}).catch(() => {});
+  // **And the server forgets its copies — before the screen is read again.** The bump above
+  // makes every request a new URL for the *browser*; the addon keeps its own TMDB answers (and
+  // its region, For You and Specialist lists) for the whole Settings → Refresh window, so a
+  // press inside that window re-read the same rows and drew the same posters — the reported
+  // "ghanta refresh karta hai: the catalogs and the card posters do not change".
+  //
+  // This used to be fire-and-forget, which is exactly why it did nothing: `render()` ran at
+  // once, the row requests raced the drop and were answered **out of the cache being cleared**.
+  // It is awaited now — the screen is re-read *after* the server has forgotten, so the rows
+  // come from TMDB. A server that is not there is still not allowed to hold the press up, and
+  // the drop re-primes what the regional and Specialist rows are built from (see
+  // `/refresh.json`), so the re-read cannot 404 either.
+  try {
+    await post("/refresh.json", {});
+    notify("Refreshed", "Every row was read again from TMDB");
+  } catch {
+    /* the screen is re-read either way */
+  }
   // A refresh re-reads whatever the current screen is made of — including the
   // channel list and the guide, which are catalogs too.
   if (liveProfile()) {
@@ -4194,15 +4171,18 @@ function voicePad() {
       class: "btn primary voice-pad focusable",
       type: "button",
       id: "voice-pad",
-      title: "Speak up — say what you want to watch",
-      "aria-label": "Speak up — say what you want to watch",
+      // **The label says what pressing it does.** It was *Speak* — a word for one of the two
+      // things the box takes (you can type into it, and it answers) — and the owner asked for
+      // a better one. *Ask AI* is the app's own name for this box everywhere else.
+      title: "Ask AI — say or type what you want to watch",
+      "aria-label": "Ask AI — say or type what you want to watch",
       // **The pad opens the box, and the box listens.** It used to start the listener
       // directly, which meant no tags, no answer on screen and nothing to type into; the
       // microphone lives inside the box now (beside Ask), so this is one door to it.
       onclick: () => openAssistant(null),
     },
     micMark(),
-    el("span", { text: "Speak" }),
+    el("span", { text: "Ask AI" }),
   );
 }
 
@@ -6981,23 +6961,28 @@ async function openAssistant(meta, opts = {}) {
   // **The tags, as `[label, run]`.** On a title they are questions *about that title*; on Home
   // they are the same orders with nothing to hold on to — in the owner's own words: "surprise
   // me", "what I watch in pair — why?", "what I watch in a stack of five — why?".
+  // **Every tag is an order you could act on.** The first pass had a *pair* and a *stack of
+  // five*; the owner's note was that the pair tag should come back with *a title to watch it
+  // with*, that the stack of five should go, and that the rest should be things you can
+  // actually do tonight. These are five: a pick (by hand), a **companion title named** for
+  // tonight's watch, three titles with a line each, something short and funny, and a straight
+  // either/or. Each one asks the assistant for a *name*, never for an essay.
   const chips = generic
     ? [
         ["Surprise me", () => { close(); surpriseMe(); }],
-        ["What should I watch in a pair — and why?", () => askWith("Give me one title to pair with whatever I watch next, and say why, in two lines.")],
-        ["What should I watch in a stack of 5 — and why?", () => askWith("Give me a stack of five titles to watch, and one line each on why they belong together.")],
-        ["What is worth watching tonight?", () => askWith("What is worth watching tonight? Name three titles, one line on each.")],
+        ["Name a title to watch in a pair tonight", () => askWith("Name one title to pair with whatever I watch tonight, and say why in one line.")],
+        ["Three for tonight — one line each", () => askWith("Give me three titles worth watching tonight, one line on each.")],
+        ["Something funny under two hours", () => askWith("Name one funny film under two hours, and say why in one line.")],
+        ["One film and one series — which first?", () => askWith("Name one film and one series worth starting, and say which to start first, in two lines.")],
       ]
     : [
         ...(ASK_QUESTIONS[meta?.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie).map((q) => [q, () => askWith(q)]),
-        // **Three the owner asked for by name.** *Surprise me* is not a question — it is an
-        // order, so it **acts**: a random title from the row you are on, opened (see
-        // `surpriseMe`). The other two are questions about *this* title, asked of the same
-        // assistant the chips beside them use, and each one says how it wants the answer
-        // shaped — a pair, or a stack of five, with the why attached.
+        // **Two orders, and no stack.** *Surprise me* is not a question — it **acts**, opening a
+        // random title from the row you are on (see `surpriseMe`). The pair tag asks for **a
+        // title to watch this one with** — a name, said plainly — which is what the owner meant
+        // by "pair"; the five-title stack is gone.
         ["Surprise me", () => { close(); surpriseMe(); }],
-        [`Watch in a pair with ${name || "this"}?`, () => askWith(`What should I watch in a pair with ${name || "this one"}? Name one title to pair it with, and why, in two lines.`)],
-        ["Watch in a stack of 5?", () => askWith(`Give me a stack of five titles to watch around ${name || "this one"}, and one line each on why they belong with it.`)],
+        [`Name one title to pair with ${name || "this"}`, () => askWith(`Name one title to watch in a pair with ${name || "this one"}, and say why in one line.`)],
       ];
   const overlay = el("div", { class: "assistant-overlay", role: "dialog", "aria-modal": "true", "aria-label": generic ? "Ask Assistant" : `Assistant · ${name || "this title"}` },
     el("div", { class: "assistant-card" },
@@ -10892,7 +10877,7 @@ async function render() {
   const sortCatalog = view === "explore" && sortCard
     ? rowOf(sortCard).catalogs.find((c) => String(c.id) === String(id))
     : null;
-  activeOttSort = isOttTop10Card(sortCard) || isOttOrderCard(sortCard) || SORTABLE_KINDS.has(String(sortCatalog?.kind))
+  activeOttSort = isOttOrderCard(sortCard) || SORTABLE_KINDS.has(String(sortCatalog?.kind))
     ? state.ottSort
     : "";
   renderProfile();
@@ -10926,7 +10911,6 @@ async function render() {
   else if (view === "list") nodes = await renderList(kind, id, type, extra);
   else if (view === "signin") nodes = renderSignin();
   else if (view === "profiles") nodes = renderPeople();
-  else if (view === "modes") nodes = renderModes();
   else if (view === "card") nodes = await renderCard(key);
   else if (view === "explore") nodes = renderExplore(key, id);
   else if (view === "sources") nodes = renderSources(id, name);

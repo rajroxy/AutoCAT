@@ -406,7 +406,7 @@ export const REGIONAL_SERVICES = (type) => {
   for (const entry of Object.values(VERIFIED.regions)) {
     for (const svc of entry[type] || []) {
       if (!byId.has(svc.id)) {
-        byId.set(svc.id, { id: svc.id, name: ROW_LABEL[svc.name] || svc.name, region: String(entry.code || "").toUpperCase() });
+        byId.set(svc.id, { id: svc.id, name: brandOf(svc.name), region: String(entry.code || "").toUpperCase() });
       }
     }
   }
@@ -838,17 +838,44 @@ export const isPopularRegional = (name) => POPULAR_REGIONAL_KEYS.has(popKey(name
  * carry never gets a row.
  */
 const SPECIALIST_SERVICES = new Set([
-  // —— **the list the owner named**, and that list is the card: one Top 10 row per service,
-  // as TMDB lists it where you are. The spellings differ between brands (`DOCSVILLE` for
-  // Docsville, `Magellan TV` for MagellanTV, `Discovery+` for Discovery Plus), so both
-  // spellings of each are here — `popKey` folds the punctuation, not the words.
+  // —— **the owner's specialist list, all of it.** The first pass carried only the eight
+  // names from one message and the owner's reply was "did you forget others I sent?" — the
+  // list they sent has twenty-six brands, and it is the card. This is the whole roster: the
+  // art-house, documentary, horror, anime and niche catalogues, added with the spellings TMDB
+  // uses as well as the owner's (`DOCSVILLE`/`Docsville`, `Magellan TV`/`MagellanTV`,
+  // `Rakuten Viki`/`Viki`) because `popKey` folds the punctuation, not the words.
+  //
+  // **A name here is a claim, not a row.** A row is published only where TMDB actually lists
+  // the service (your region's list, the United States' list, or the verified roster — see
+  // `specialistServices` in `addon/catalogs.mjs`), so a brand nobody carries adds nothing to
+  // the card and costs one filter comparison.
+  // —— horror
   "Shudder", "Screambox",
-  "Criterion Channel", "The Criterion Channel",
+  // —— art-house and classic cinema
+  "Criterion Channel", "The Criterion Channel", "MUBI", "OVID.tv", "Ovid",
+  "NFB", "NFB/ONF", "ONF", "Fandor", "Kanopy", "DocAlliance", "GuideDoc", "Dekkoo",
+  "Cultpix", "True Story",
+  // —— documentary
   "Curiosity Stream", "CuriosityStream",
   "DOCSVILLE", "Docsville",
-  "Hallmark+", "Hallmark Movies Now", "Hallmark Channel",
   "MagellanTV", "Magellan TV",
+  "Gaia", "DocPlay", "Beamafilm",
+  // —— anime and Asian drama
+  "Crunchyroll", "HIDIVE", "HiDive", "KOCOWA+", "Kocowa", "Rakuten Viki", "Viki",
+  "GagaOOLala", "OnDemandKorea", "Laftel", "WATCHA",
+  // —— British and international drama
+  "Acorn TV", "BritBox", "MHz Choice", "BritBox Amazon Channel",
+  // —— Black television and film
+  "ALLBLK", "BET+", "BET Plus",
+  // —— romance and family
+  "Hallmark+", "Hallmark Movies Now", "Hallmark Channel",
+  // —— comedy and improv
+  "Dropout",
+  // —— learning
+  "MasterClass", "Nebula", "CuriosityStream TV",
   "Discovery+", "Discovery Plus",
+  // —— theatre and the performing arts
+  "BroadwayHD", "StagePlayer+", "Stage Player", "Marquee TV",
 ]);
 
 /** The same list, as keys — see `popKey`. */
@@ -1036,10 +1063,14 @@ const oneRowPerService = (rows) => {
 function regionalOttByContinent(kind = "all") {
   const build = (type) => {
     const rows = [];
-    // A service is published once, in the continent its first verified country sits in.
+    // A service is published once, in the continent its first verified country sits in —
+    // **by brand, not by id**: `Viki` and `Rakuten Viki` are two ids for one service, and
+    // keying on the id alone published both (the duplicate pair the owner named).
     const used = new Set();
+    const usedBrands = new Set();
     for (const [name, codes] of continentsWithContent()) {
       const seen = new Set();
+      const seenBrands = new Set();
       let taken = 0;
       for (const code of codes) {
         if (taken >= CONTINENTAL_OTT_LIMIT) break;
@@ -1049,15 +1080,19 @@ function regionalOttByContinent(kind = "all") {
           if (WORLDWIDE.some((w) => w.id === svc.id)) continue;
           if (offTheShowsCard(type, svc.name)) continue;
           if (!rowFillsAPage(svc.id, svc.region || code, type)) continue;
+          const brand = popKey(brandOf(svc.name)) || String(svc.id);
           if (!isPopularRegional(svc.name) || seen.has(svc.id) || used.has(svc.id)) continue;
+          if (seenBrands.has(brand) || usedBrands.has(brand)) continue;
           seen.add(svc.id);
           used.add(svc.id);
+          seenBrands.add(brand);
+          usedBrands.add(brand);
           // **`wider: true` is the row's passport past the region filter.** The live
           // catalog build replaces every `regional-ott` row with the *region's* own
           // services (see `withRegionalServices`); a continent row is not one of those and
           // is kept by its flag rather than being swept away with the static list.
           rows.push({
-            name: kind === "top10" ? `${svc.name} | Top 10` : svc.name,
+            name: kind === "top10" ? `${brandOf(svc.name)} | Top 10` : brandOf(svc.name),
             kind: "provider",
             providerId: svc.id,
             region: String(svc.region || code).toUpperCase(),
@@ -1226,8 +1261,13 @@ function regionalOtt(kind) {
     // `Max · CA`) — the same service under several names, and the code was a piece of the
     // query leaking into the label. The first country a service is verified in is the
     // region its row is read in; the name is only the name.
+    // **One row per brand**, not per spelling: the fold above is what makes `Viki` and
+    // `Rakuten Viki` the same row (the owner's duplicate report).
     const byName = new Map();
-    for (const row of perCountry) if (!byName.has(row.svc.name)) byName.set(row.svc.name, row);
+    for (const row of perCountry) {
+      const key = popKey(brandOf(row.svc.name)) || row.svc.id;
+      if (!byName.has(key)) byName.set(key, row);
+    }
     const rows = [...byName.values()]
       // **Not on the Shows card** — see `offTheShowsCard` — and **not a row that answers
       // nothing** — see `rowFillsAPage`.
@@ -1236,7 +1276,7 @@ function regionalOtt(kind) {
       // counts in `regional-counts.json` are keyed by.
       .filter(({ svc, region }) => !offTheShowsCard(type, svc.name) && rowFillsAPage(svc.id, region, type))
       .map(({ svc, region }) => {
-        const label = ROW_LABEL[svc.name] || svc.name;
+        const label = brandOf(svc.name);
         return kind === "top10"
           ? provider(`${label} | Top 10`, svc.id, region, TOP10)
           : provider(label, svc.id, region);
@@ -1244,11 +1284,20 @@ function regionalOtt(kind) {
     // The worldwide pair (Crunchyroll, Viki) belong to every region, so they are added
     // once at the end rather than once per country — and Crunchyroll is then put back
     // beside FOD, the row whose country it is read with (see `placeRowsAfter`).
+    // **The worldwide pair is added once — unless the card already carries it.** Crunchyroll
+    // and Viki belong to every region, so they were appended region-less; but TMDB also lists
+    // Viki *in* several regions' data under its full name, and the card was publishing both
+    // (`Viki` and `Rakuten Viki` — the duplicate pair the owner named). A brand the region pass
+    // has already published is not published again, whatever spelling it arrives under.
+    const publishedBrands = new Set(rows.map((r) => popKey(brandOf(r.name))));
     for (const svc of WORLDWIDE) {
       if (!rowFillsAPage(svc.id, null, type)) continue;
+      const label = brandOf(svc.name);
+      if (publishedBrands.has(popKey(label))) continue;
+      publishedBrands.add(popKey(label));
       rows.push(kind === "top10"
-        ? provider(`${svc.name} | Top 10`, svc.id, null, TOP10)
-        : provider(svc.name, svc.id, null));
+        ? provider(`${label} | Top 10`, svc.id, null, TOP10)
+        : provider(label, svc.id, null));
     }
     return placeRowsAfter(rows);
   };
@@ -1302,6 +1351,31 @@ export const regionalRoster = (media = "movie") => {
  * so a name is only ever a name.
  */
 const ROW_LABEL = { WeTV: "WeTV (Tencent Video)" };
+
+/**
+ * **One brand, one row — however many spellings TMDB keeps.**
+ *
+ * The Regional card came back with a **duplicate pair** and the owner named it: `Viki` beside
+ * `Rakuten Viki`, and `WeTV` beside `WeTV (Tencent Video)`. They are one service each, listed
+ * under two names in two regions' data, and the existing dedupe could not see it because it
+ * folds *punctuation*, not *words* — `popKey("Viki")` and `popKey("Rakuten Viki")` are
+ * different keys. This map is the missing fold: the key is the folded name, the value is the
+ * one label the row wears, and it is applied before the dedupe so the second spelling never
+ * becomes a row.
+ *
+ * It only lists what the data actually repeats; a new pair belongs here the same way.
+ */
+const BRAND_FOLD = new Map([
+  ["rakutenviki", "Rakuten Viki"],
+  ["viki", "Rakuten Viki"],
+  ["wetv", "WeTV (Tencent Video)"],
+  ["wetvtencentvideo", "WeTV (Tencent Video)"],
+  ["tencentvideo", "WeTV (Tencent Video)"],
+  ["iqiyi", "iQIYI"],
+]);
+
+/** The row's own label: the folded brand name, or the name it came with. */
+export const brandOf = (name) => BRAND_FOLD.get(popKey(name)) || ROW_LABEL[name] || name;
 
 /**
  * **Where a row is read, when that is not where it was verified.**
