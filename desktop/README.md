@@ -212,6 +212,17 @@ the card collapsed to its heading. The strip has a floor of one poster row now
 (`.strip { min-height }`, the same `--poster-w` sum the placeholders use), and a filled row
 is taller than the floor, so nothing moves on a row with titles in it.
 
+**The Assistant box listens, and it carries the three tags the owner named.** *Surprise me*
+is an order rather than a question, so it **acts** — a random row out of the catalogs this
+profile shows, a random title out of that row's first window, opened on its own page (your
+own Watchlist and Library are skipped: those titles are not a surprise, you put them there).
+The other two chips ask about *this* title and say how the answer should be shaped — a pair
+with it, or a stack of five around it, each with its why. **The box has a microphone**
+(`voiceInto`, the same recogniser the Ask box uses) whenever Settings → Assistant's *Speak
+up in the Ask AI box* is on. The **words** matter too: anything the app is listening to that
+says **`surprise me`** — the voice pad, the Ask box, the settings row — runs the same
+surprise through `aiIntent`, and needs no AI provider at all.
+
 **The title's controls are a row, not a strip.** Play, Ask Assistant, Plan to Watch and Add
 to Library sit under the banner in a row of their own — with **no plate behind them**, no
 padding and no corners: the panel drawn there read as a band across the page rather than as

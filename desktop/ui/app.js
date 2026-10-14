@@ -6918,6 +6918,11 @@ async function openAssistant(meta) {
         ? "Ask what it is about, whether it is worth starting, or how long it takes to get going. The answer comes from the AI provider set in Settings → Assistant."
         : "Ask what it is about, whether it is worth your evening, or what to watch after it. The answer comes from the AI provider set in Settings → Assistant." }),
       el("div", { class: "assistant-form" }, question,
+        // **The box listens, like the app's other boxes.** Settings → Assistant turns it off,
+        // and with it off there is no button rather than a button that does nothing.
+        state.speak?.ask === false
+          ? null
+          : el("button", { class: "btn focusable", type: "button", id: "assistant-voice", text: "🎙 Voice", title: "Say your question", onclick: () => voiceInto(question, ask) }),
         el("button", { class: "btn primary focusable", type: "button", id: "assistant-ask", text: "Ask" }),
       ),
       // **Two questions worth pressing**, so the panel is not an empty box on the first
@@ -6931,6 +6936,14 @@ async function openAssistant(meta) {
         ...(ASK_QUESTIONS[meta.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie).map((q) =>
           el("button", { class: "chip focusable", type: "button", text: q, onclick: () => { question.value = q; ask(); } }),
         ),
+        // **Three the owner asked for by name.** *Surprise me* is not a question — it is an
+        // order, so it **acts**: a random title from the row you are on, opened (see
+        // `surpriseMe`). The other two are questions about *this* title, asked of the same
+        // assistant the chips beside them use, and each one says how it wants the answer
+        // shaped — a pair, or a stack of five, with the why attached.
+        el("button", { class: "chip focusable surprise-chip", type: "button", text: "Surprise me", title: "Open a random title from the row you are on", onclick: () => { close(); surpriseMe(); } }),
+        el("button", { class: "chip focusable", type: "button", text: `Watch in a pair with ${meta.name || "this"}?`, onclick: () => { question.value = `What should I watch in a pair with ${meta.name || "this one"}? Name one title to pair it with, and why, in two lines.`; ask(); } }),
+        el("button", { class: "chip focusable", type: "button", text: "Watch in a stack of 5?", onclick: () => { question.value = `Give me a stack of five titles to watch around ${meta.name || "this one"}, and one line each on why they belong with it.`; ask(); } }),
       ),
       stateLine,
       answer,
@@ -8466,6 +8479,77 @@ function startVoice(input) {
 }
 
 /**
+ * **Voice, into any box.** The same recogniser the Ask box uses, pointed at one field: what
+ * you say lands in the input and the press you would have made is made for you, so a box is
+ * usable without a keyboard. Settings → Assistant is the switch, and the caller draws no
+ * button when it is off.
+ */
+function voiceInto(input, then) {
+  if (!input) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    notify("Voice", "Voice isn't available in this build — type instead.");
+    return;
+  }
+  const rec = new SR();
+  rec.lang = "en-US";
+  rec.interimResults = false;
+  rec.onresult = (e) => {
+    const said = e.results?.[0]?.[0]?.transcript ?? "";
+    if (!said) return;
+    input.value = said;
+    then?.();
+  };
+  rec.onerror = () => notify("Voice", "Couldn't hear that — type instead.");
+  try {
+    rec.start();
+  } catch {
+    const text = prompt("What do you want to ask?");
+    if (text) { input.value = text; then?.(); }
+  }
+}
+
+/**
+ * **Surprise me.** One random title from the row you are on — Movies or Shows, whichever the
+ * app is set to — opened on its own page.
+ *
+ * It is drawn from the **catalogs the screen is actually made of** (`state.collections`, the
+ * rows this profile shows), not from one hand-picked row: a random row is picked, its first
+ * window is read, and a random title out of that window wins. A row that comes back empty is
+ * simply not the row — five are tried before the app admits it found nothing, because a
+ * catalog can be empty for reasons that have nothing to do with the surprise.
+ */
+async function surpriseMe() {
+  const row = state.row === "series" ? "series" : "movie";
+  const pool = [];
+  for (const card of state.collections) {
+    if (card.hidden) continue;
+    for (const cat of orderedCatalogs(card)) {
+      if (!catalogVisible(cat)) continue;
+      // Your own lists are not a surprise — you put those titles there yourself.
+      if (cat.kind === "watchlist" || cat.kind === "custom") continue;
+      pool.push(cat);
+    }
+  }
+  if (!pool.length) return;
+  for (let tries = 0; tries < 5 && pool.length; tries += 1) {
+    const [cat] = pool.splice(Math.floor(Math.random() * pool.length), 1);
+    try {
+      const { metas = [] } = await fetchCatalog(cat, 0);
+      const picks = metas.filter((m) => (m.type === "movie" ? "movie" : "series") === row);
+      if (!picks.length) continue;
+      const pick = picks[Math.floor(Math.random() * picks.length)];
+      notify("Surprise me", String(pick.name || ""));
+      go(`#/t/${pick.type === "series" ? "series" : "movie"}/${String(pick.id || "").replace(/^tmdb:/, "")}`);
+      return;
+    } catch {
+      /* the next row */
+    }
+  }
+  notify("Surprise me", "Nothing came back from the rows just now — one more go?");
+}
+
+/**
  * The Ask box. With a provider and a key it asks the model to turn the sentence
  * into a search query; without one — or if the provider is unreachable — the
  * typed words are searched as-is, so the box still works with no AI configured.
@@ -8473,6 +8557,14 @@ function startVoice(input) {
 async function aiIntent(text, picked) {
   const q = String(text || "").trim();
   if (!q) return;
+  // **"Surprise me" is an order, not a search.** Said into the voice pad, the Ask box or the
+  // settings row, it means *pick something for me* — so it acts before any provider is asked
+  // for a query, and it needs no AI at all. A sentence that only *contains* it ("surprise me
+  // with a comedy") is still a search, which is what the length test is for.
+  if (/\bsurprise me\b/i.test(q) && q.length <= 24) {
+    surpriseMe();
+    return;
+  }
   // "Pick for me" narrows the search to one row: the assistant is asked for a
   // film, and the answer must not come back as a series (or the reverse).
   const side = picked ?? (state.ai?.pickRow === "movie" || state.ai?.pickRow === "series" ? state.ai.pickRow : "");
