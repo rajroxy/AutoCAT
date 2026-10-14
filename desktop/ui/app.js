@@ -498,7 +498,7 @@ const LAYOUTS = [
 /**
  * The accent the whole app is painted in.
  *
- * `rgb` is what every translucent tint is built from (`rgba(var(--accent-rgb), …)`), so
+ * `rgb` is what every translucent tint is built from (`rgba(var(--fill-rgb), …)`), so
  * changing one pick re-tints buttons, chips, borders and highlights together instead of
  * leaving half the UI in the old colour.
  */
@@ -860,7 +860,7 @@ const SETTINGS_GROUPS = [
       // the network last. "Interaction" reads as **Effects**.
       ["signin", "Account"],
       ["profile", "Profile"],
-      ["appearance", "Accent"],
+      ["appearance", "Fill & ring"],
       ["layout", "Layout"],
       ["animation", "Motion"],
       ["interaction", "Effects"],
@@ -911,7 +911,7 @@ const LIVE_SETTINGS_GROUPS = [
       // the other profile, so the two do not read as two different apps.
       ["signin", "Account"],
       ["profile", "Profile"],
-      ["appearance", "Accent"],
+      ["appearance", "Fill & ring"],
       ["layout", "Layout"],
       ["animation", "Motion"],
       ["interaction", "Effects"],
@@ -1055,14 +1055,15 @@ const state = {
   settingsSection: localStorage.getItem(KEY.section) || "profile",
   // The Library row currently being renamed, if any — see `paneCustomRows`.
   customRowEdit: "",
+  // **The Fill**: every control in the app is painted with it (Settings → Appearance → Fill).
   accent: storedAccent(KEY.accent) || "copper",
-  // **The selection colour follows the highlight until it is set.** Empty means "same as the
-  // accent", so nothing changes for anyone who never opens this setting.
-  // **The selection colour is a choice of its own.** It used to fall back to the highlight
-  // through a "Match highlight" card on the board; that card is gone, so an install that has
-  // never picked one takes the highlight it is already wearing — the same colour, made explicit.
+  // **The Ring follows the Fill until it is set.** Empty means "same as the fill", so nothing
+  // changes for anyone who never opens this setting.
+  // **The Ring is a choice of its own.** It used to fall back to the fill through a "Match
+  // highlight" card on the board; that card is gone, so an install that has never picked one
+  // takes the fill it is already wearing — the same colour, made explicit.
   select: storedAccent(KEY.select) || storedAccent(KEY.accent),
-  // The selection colour as a ring around the choice, or as the fill of it.
+  // Kept from an older build: the ring was once a choice between an outline and a wash.
   selStyle: localStorage.getItem(KEY.selStyle) === "ring" ? "ring" : "fill",
   // **Two choices, not three.** "Follow system" was the third and it is gone from the
   // pane, so a machine that still has it stored resolves to Always animate — which is
@@ -9211,28 +9212,30 @@ function applyTheme() {
   // **The typeface is one custom property.** Written here with the accent, and written
   // into the boot record below, so the first paint is already in the chosen face.
   root.style.setProperty("--font", FONT_STACKS[state.font] || FONT_STACK);
-  // **Two answers, one setting.** A control — a button, an icon, a menu row, a dropdown —
-  // is *filled* with the colour; a thing — a card, a catalog title, a face — is *ringed* by
-  // it. There is no choice to make: a control is a surface you press and a card is a thing
-  // you are on, so the two do not want the same mark. `mark` switches the whole treatment
-  // off (see `--mark-fill` / `--mark-ring`).
-  const marks = [0.22, 2];
+  // **Two colours, two answers, one setting.** A **control** — a button, a chip, a tab, a menu
+  // row, a calendar cell, a profile tile — is *filled* with the **Fill**; a **thing** — a card,
+  // a catalog title, a face, a network, a production company — is *ringed* by the **Ring**.
+  // There is no overlap: a control is a surface you press and a card is a thing you are on, and
+  // the mark that suits one is the wrong mark for the other. `mark` switches the whole treatment
+  // off (see `--mark-fill` / `--mark-fill-strong` / `--mark-ring`).
+  const marks = [0.22, 0.34, 2];
   root.classList.toggle("mark-off", state.mark === false);
   root.style.setProperty("--mark-fill", state.mark === false ? "0" : String(marks[0]));
-  root.style.setProperty("--mark-ring", state.mark === false ? "0px" : `${marks[1]}px`);
+  root.style.setProperty("--mark-fill-strong", state.mark === false ? "0" : String(marks[1]));
+  root.style.setProperty("--mark-ring", state.mark === false ? "0px" : `${marks[2]}px`);
   // The pop's reach, and the blur's — both settings, both written as one property each so
   // the stylesheet never has to know which one is chosen.
   root.style.setProperty("--pop-lift", "3px");
-  root.style.setProperty("--accent", base);
-  root.style.setProperty("--accent-rgb", rgb);
-  root.style.setProperty("--accent-deep", deep);
-  // **The selection colour**, which is the accent unless someone chose their own: the chosen
-  // row, the checked box and the active pill read it, so the tint and the selection can be
-  // two different colours.
+  root.style.setProperty("--fill", base);
+  root.style.setProperty("--fill-rgb", rgb);
+  root.style.setProperty("--fill-deep", deep);
+  // **The Ring**, which is the Fill unless someone chose their own: it is the outline a card, a
+  // catalog row's title, a cast or crew face, a network or a production company wears, so the
+  // outline around your content can be a different colour from the fill on your buttons.
   const sel = state.select ? accentOf(state.select) : null;
-  root.style.setProperty("--select", sel ? sel[3] : base);
-  root.style.setProperty("--select-rgb", sel ? sel[2] : rgb);
-  root.style.setProperty("--select-deep", sel ? sel[4] : deep);
+  root.style.setProperty("--ring", sel ? sel[3] : base);
+  root.style.setProperty("--ring-rgb", sel ? sel[2] : rgb);
+  root.style.setProperty("--ring-deep", sel ? sel[4] : deep);
   root.classList.toggle("motion-off", state.motion === "off");
   root.classList.toggle("pop-on", state.pop !== false);
   root.style.setProperty("--quick", (SPEEDS.find(([id]) => id === state.speed) || SPEEDS[2])[3]);
@@ -9257,16 +9260,16 @@ function applyTheme() {
 function paneAppearance() {
   // **One card per colour, like the banner's own frame.** The banner puts its artwork
   // inside a card of its own — a panel with a radius, the picture as the thing inside it —
-  // and the accent picker is that same idea: every colour is a card carrying **its own
-  // colour as the artwork** (the same base → deep gradient the app's accent is built from),
-  // with the colour's name under it. The chosen one wears the accent ring the rest of the
-  // app uses; a row of bare circles could only tell you the colour of the dot.
-  // **The selection colour is the accent's twin.** Same board, same cards, one difference:
-  // these paint what a *choice* wears — the row you picked, the box you ticked, the pill that
-  // is on — while the highlight colour tints the app around them. "Match highlight" is the
-  // default and keeps the two together.
+  // and the colour picker is that same idea: every colour is a card carrying **its own
+  // colour as the artwork** (the same base → deep gradient the app's fill is built from),
+  // with the colour's name under it. The chosen one wears the colour it *is*; a row of bare
+  // circles could only tell you the colour of the dot.
+  // **The Ring is the Fill's twin.** Same board, same cards, one difference: the **Fill**
+  // paints every control in the app — a button, a chip, a tab, a menu row, the day you picked —
+  // while the **Ring** is drawn around content: a card, a catalog row's title, a cast or crew
+  // face, a network, a production company. The two start together.
   const selectionGrid = () => {
-    // **Every colour, and four the highlight board does not carry.** No "Match highlight" card:
+    // **Every colour, and four the Fill's board does not carry.** No "Match highlight" card:
     // that card was the *absence* of a choice, which is why the board could never show it as one.
     const choices = SELECT_ACCENTS.map(([id, label, , base, deep]) => [id, label, base, deep]);
     const on = state.select || state.accent;
@@ -9277,7 +9280,7 @@ function paneAppearance() {
           type: "button",
           id: `select-${id}`,
           title: label,
-          "aria-label": `${label} — selection colour`,
+          "aria-label": `${label} — ring colour`,
           "aria-pressed": String(on === id),
           style: `--swatch: ${base}; --swatch-deep: ${deep}`,
           onclick: () => {
@@ -9294,7 +9297,9 @@ function paneAppearance() {
     );
   };
   return [
-    groupHead("Highlight colour"),
+    // **The Fill's board**, then the Ring's — the same two boards, under the names the two
+    // colours go by everywhere else in the app.
+    groupHead("Fill"),
     el("div", { class: "provider" },
       el("div", { class: "accent-grid" },
         ...ACCENTS.map(([id, label, , base, deep]) =>
@@ -9303,7 +9308,7 @@ function paneAppearance() {
             type: "button",
             id: `accent-${id}`,
             title: label,
-            "aria-label": label,
+            "aria-label": `${label} — fill colour`,
             "aria-pressed": String(state.accent === id),
             style: `--swatch: ${base}; --swatch-deep: ${deep}`,
             onclick: () => {
@@ -9319,11 +9324,11 @@ function paneAppearance() {
         ),
       ),
     ),
-    groupHead("Selection colour"),
+    groupHead("Ring"),
     el("div", { class: "provider" }, selectionGrid()),
-    // **No glow switch.** The highlight is the ring, full stop: an optional halo around
-    // it was a second look for the same information, and it never read the way it was
-    // meant to on a full-width row.
+    // **No glow switch.** The Fill is the fill, full stop: an optional halo around it was a
+    // second look for the same information, and it never read the way it was meant to on a
+    // full-width row.
     // The line under the row. It says what the setting *does* rather than naming the
     // pane it is on — the section name is the tile on the left, and does not need
     // saying twice.
@@ -9548,8 +9553,8 @@ function paneAnimation() {
  *
  * - **Popup** — what you point at lifts under the cursor.
  * - **Fills & rings** — a **control** (a button, an icon, a menu row, a dropdown) is *filled*
- *   with the selection colour, and a **thing** (a card, a catalog title, a face) is *ringed*
- *   by it.
+ *   with the **Fill** colour, and a **thing** (a card, a catalog title, a face, a company) is
+ *   *ringed* by the **Ring**.
  * - **Blur** — the page behind a popup, and the page around the card you are on, is put out
  *   of focus.
  *
@@ -9572,7 +9577,7 @@ function paneInteraction() {
     toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => set("pop", e.target.checked)),
     // ------------------------------------------------------- Fills & rings
     groupHead("Fills & rings"),
-    toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the selection colour; a card or a catalog title you are on is ringed by it.", (e) => set("mark", e.target.checked)),
+    toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the Fill colour; a card, a catalog title, a face or a company you are on is ringed by the Ring.", (e) => set("mark", e.target.checked)),
   ];
 }
 

@@ -37,9 +37,10 @@
 
 :root {
   color-scheme: dark;
-  /* **The one highlight.** The ring is always drawn; the halo is the switch in
-     Settings → Accent. One variable, so every surface in the app lights the same way. */
-  --hl: 0 0 0 3px var(--accent);
+  /* **The one ring.** The keyboard's ring and every other outline the app draws are the
+     **Ring** colour (Settings → Appearance → Ring). One variable, so every surface lights
+     the same way. */
+  --ring-shadow: 0 0 0 3px var(--ring);
   /* A near-neutral black rather than a blue-black: the surfaces are one flat
      colour each, so the posters and the covers carry the colour in the app. */
   --ink: #0b0b0b;
@@ -54,9 +55,16 @@
   /* The app's own accent: **copper**, the first colour on Settings → Accent's board.
      The boot script in index.html overwrites all three before the first paint, so this
      is only what a page with no stored accent wears. */
-  --accent: #cc825c;
-  --accent-rgb: 204, 130, 92;
-  --accent-deep: var(--accent-deep);
+  --fill: #cc825c;
+  --fill-rgb: 204, 130, 92;
+  --fill-deep: #a35f3c;
+  /* **The Ring, which starts as the Fill.** It is the outline content wears — a card, a
+     catalog row's title, a cast or crew face, a network, a production company — and
+     Settings → Appearance → Ring sets it on its own. Written here as well, so the first
+     paint (before `applyTheme` runs, or if it never does) still draws a ring. */
+  --ring: var(--fill);
+  --ring-rgb: var(--fill-rgb);
+  --ring-deep: var(--fill-deep);
   --poster-w: 172px;
   --radius: 14px;
 }
@@ -67,7 +75,7 @@
    The horizontal and vertical lines — the one in the player's control bar, the ones
    between settings rows and detail lines, the top bar's own edge — were drawn in white
    at 5–8%, which read as a faint grey scratch whatever colour the app was wearing. They
-   are tinted from `--accent-rgb` now, so the whole app's ruling changes with the accent
+   are tinted from `--fill-rgb` now, so the whole app's ruling changes with the accent
    the way the chips and buttons already do. Panels keep their neutral hairline: a
    border around a box is a box's edge, not a rule across the page. */
 /* **A rule is a rule, not the accent.** The lines were tinted from the accent so the whole
@@ -157,7 +165,7 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   font-weight: 900;
   font-size: 13px;
@@ -171,7 +179,7 @@ body {
   gap: 14px;
   padding: 16px 18px;
   margin-bottom: 16px;
-  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  border: 1px solid rgba(var(--fill-rgb), 0.28);
   border-radius: var(--radius);
   background: var(--panel-2);
 }
@@ -232,13 +240,13 @@ body {
 .profile-tile:hover, .profile-tile:focus-visible {
   transform: translateY(-3px);
   border-color: transparent;
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 
 .profile-tile.active {
   border-color: transparent;
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 
@@ -270,7 +278,7 @@ body {
   border-radius: 999px;
   font-size: 14px;
   font-weight: 700;
-  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   border: 0;
 }
@@ -308,7 +316,7 @@ body {
   cursor: pointer;
 }
 
-.tab[aria-selected="true"] { background: rgba(var(--accent-rgb), 0.16); color: #fff; }
+.tab[aria-selected="true"] { background: rgba(var(--fill-rgb), 0.16); color: #fff; }
 
 /* Inside a card the bar's label is **the name of the screen**, not one tab of
    several: it reads a touch larger and heavier than Home does, and it is not a
@@ -378,7 +386,7 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.icon-btn:hover { border-color: rgba(var(--accent-rgb), 0.55); }
+.icon-btn:hover { border-color: rgba(var(--fill-rgb), 0.55); }
 .glyph { font-size: 14px; line-height: 1; display: inline-flex; align-items: center; }
 /* Drawn glyphs are *strokes*, not filled shapes. Without this the chevrons came out
    as a dark filled blob on a dark background — which is why the tag control looked
@@ -412,7 +420,7 @@ body {
 .icons.rows::-webkit-scrollbar { height: 0; display: none; }
 
 /* Briefly marks the row a catalog chip jumped to. */
-.cat-row.row-flash > .cat-head .cat-name { color: var(--accent); }
+.cat-row.row-flash > .cat-head .cat-name { color: var(--fill); }
 /* **The flash is rounded like everything else.** It is a 3px ring drawn *outside* the row
    (see the keyframes), and a row has square corners — so jumping to a row from a tag painted
    a square box around it, which is the box that showed up under the tags. The radius the ring
@@ -422,8 +430,8 @@ body {
    poster rather than a row label. */
 .poster.row-flash { animation: row-flash 1.2s ease-out; border-radius: 12px; }
 @keyframes row-flash {
-  0% { background: rgba(var(--accent-rgb), 0.16); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.5); }
-  100% { background: transparent; box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0); }
+  0% { background: rgba(var(--fill-rgb), 0.16); box-shadow: 0 0 0 3px rgba(var(--fill-rgb), 0.5); }
+  100% { background: transparent; box-shadow: 0 0 0 3px rgba(var(--fill-rgb), 0); }
 }
 
 .icons.rows .icon-box { flex: none; width: 300px; }
@@ -441,7 +449,7 @@ body {
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-.icon-box:hover { transform: translateY(-3px); border-color: rgba(var(--accent-rgb), 0.45); }
+.icon-box:hover { transform: translateY(-3px); border-color: rgba(var(--fill-rgb), 0.45); }
 
 /* **The spotlight card.** One card is published with `spotlight` (Upcoming). It is
    **two cards long** — `span 2` — so it sits in the row between your Watchlist and your
@@ -631,9 +639,9 @@ body {
   .section-art { width: 100%; }
 }
 
-.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--select-rgb, var(--accent-rgb)), 0.13); color: #e8dfc8; border: 0; font-family: inherit; }
+.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--fill-rgb), 0.13); color: #e8dfc8; border: 0; font-family: inherit; }
 button.chip { cursor: pointer; }
-button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26); color: #fff; }
+button.chip:hover { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
 
 .cat-row { margin-bottom: 28px; }
 
@@ -655,7 +663,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   padding: 4px 2px;
   cursor: pointer;
 }
-.cat-name:hover { color: var(--accent); }
+.cat-name:hover { color: var(--fill); }
 .cat-name.static { cursor: default; }
 .cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
 
@@ -679,10 +687,10 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   white-space: nowrap;
 }
 
-.btn:hover { border-color: rgba(var(--accent-rgb), 0.55); }
+.btn:hover { border-color: rgba(var(--fill-rgb), 0.55); }
 
 .btn.primary {
-  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   border-color: transparent;
   padding: 11px 22px;
@@ -706,7 +714,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   background:
-    radial-gradient(120% 140% at 88% 20%, rgba(var(--accent-rgb), 0.14), transparent 60%),
+    radial-gradient(120% 140% at 88% 20%, rgba(var(--fill-rgb), 0.14), transparent 60%),
     var(--panel);
   overflow: hidden;
 }
@@ -736,7 +744,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--fill);
 }
 .hero-title { margin: 0 0 10px; font-size: clamp(26px, 3.4vw, 44px); font-weight: 800; letter-spacing: -0.03em; }
 
@@ -821,13 +829,13 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
    like the thing you had chosen. Only the field lights the bar now. */
 .search-bar:has(.search-input:focus) {
   background: var(--panel);
-  border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.75);
-  box-shadow: 0 0 0 3px var(--select, var(--accent));
+  border-color: rgba(var(--fill-rgb), 0.75);
+  box-shadow: 0 0 0 3px var(--ring, var(--fill));
 }
 /* The magnifier: same 24px stroke glyph the rest of the controls draw. */
 .search-glyph { flex: none; display: flex; color: var(--faint); }
 .search-glyph svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
-.search-bar:focus-within .search-glyph { color: var(--accent); }
+.search-bar:focus-within .search-glyph { color: var(--fill); }
 /* The field inside the bar is part of it: no border, no fill, no browser chrome —
    `.text-input` used to win here and drew a second box inside the panel. */
 .search-bar .search-input, .search-input {
@@ -858,7 +866,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 .search-bar:has(.search-input:focus) {
   background: var(--panel);
   border-color: transparent;
-  box-shadow: 0 0 0 3px var(--select, var(--accent));
+  box-shadow: 0 0 0 3px var(--ring, var(--fill));
 }
 /* A named control, not an empty square: the funnel plus the word, in the app's own
    button shape. */
@@ -901,13 +909,13 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 .search-filter-btn {
   height: 46px;
   padding: 0 22px;
-  background: var(--accent);
+  background: var(--fill);
   border-color: transparent;
   color: #0b0c10;
   font-weight: 800;
 }
-.search-filter-btn:hover, .search-filter-btn:focus-visible { background: var(--accent); color: #0b0c10; }
-.search-filter-btn:active { background: var(--accent-deep); }
+.search-filter-btn:hover, .search-filter-btn:focus-visible { background: var(--fill); color: #0b0c10; }
+.search-filter-btn:active { background: var(--fill-deep); }
 
 
 /* The bar is the suggestion panel's own box: without a positioning context here the
@@ -933,7 +941,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 }
 .search-suggest[hidden] { display: none; }
 .suggest-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
-.suggest-item:hover, .suggest-item:focus-visible { background: rgba(var(--accent-rgb), 0.14); outline: none; }
+.suggest-item:hover, .suggest-item:focus-visible { background: rgba(var(--fill-rgb), 0.14); outline: none; }
 .suggest-kind { flex: none; width: 78px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
 .suggest-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -980,7 +988,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.chip-more:hover { color: #fff; border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.55); background: rgba(var(--select-rgb, var(--accent-rgb)), 0.12); }
+.chip-more:hover { color: #fff; border-color: rgba(var(--fill-rgb), 0.55); background: rgba(var(--fill-rgb), 0.12); }
 .chip-more .glyph svg { width: 13px; height: 13px; transition: transform 0.18s ease; }
 .chip-more.up .glyph svg { transform: rotate(180deg); }
 .filter-row .chip-more { margin-top: 2px; }
@@ -1002,11 +1010,12 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   transition: background 0.15s ease, color 0.15s ease;
 }
 .filter-chip:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
-/* **A chosen chip is ringed, not repainted.** The filter's chips answer with the selection
-   colour drawn *around* the pill the chip already is — the same answer the calendar's day
-   gives — so the tint stays the pill's own and nothing is a solid block of colour. */
-.filter-chip.active { background: rgba(255, 255, 255, 0.07); color: #fff; box-shadow: 0 0 0 2px var(--select, var(--accent)); }
-.filter-chip.active:hover { background: rgba(255, 255, 255, 0.12); color: #fff; box-shadow: 0 0 0 2px var(--select, var(--accent)); }
+/* **A chosen chip is a plate, not a box round one.** The filter's chips are buttons, and a
+   button answers with the **Fill**: the chosen one is a solid plate of the Fill colour with
+   ink on it — the same plate the chosen profile, the chosen tag and the Home tab wear.
+   A control never rings; the Ring is spent on content. */
+.filter-chip.active { background: var(--fill); color: #0b0b0b; box-shadow: none; }
+.filter-chip.active:hover { background: var(--fill); color: #0b0b0b; box-shadow: none; }
 .result-head { margin: 22px 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 /* Search results are two lists — Movies, then Shows — so they need a gap. */
 .search-group + .search-group { margin-top: 10px; }
@@ -1016,7 +1025,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius); background: var(--panel); color: inherit; cursor: pointer;
 }
-.result:hover { border-color: rgba(var(--accent-rgb), 0.5); }
+.result:hover { border-color: rgba(var(--fill-rgb), 0.5); }
 .result-name { font-size: 14px; font-weight: 700; }
 .result-sub { font-size: 12px; color: var(--muted); }
 
@@ -1024,14 +1033,14 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 
 .sources-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; }
 .graph-legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-.graph-legend .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.graph-legend .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--fill); display: inline-block; }
 .graph-legend .dot.leaf { width: 7px; height: 7px; background: rgba(231, 235, 243, 0.5); }
 
 .graph { width: 100%; height: auto; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); margin-bottom: 26px; }
 .graph-edge { stroke: rgba(231, 235, 243, 0.28); stroke-width: 1; }
 .graph-edge.faint { stroke: rgba(231, 235, 243, 0.12); }
 .graph-node { fill: rgba(231, 235, 243, 0.7); }
-.graph-node.center { fill: var(--accent); }
+.graph-node.center { fill: var(--fill); }
 .graph-node.hub { fill: #e8eaf2; }
 .graph-node.leaf { fill: rgba(231, 235, 243, 0.45); }
 .graph-label { fill: rgba(231, 235, 243, 0.82); font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 600; }
@@ -1039,7 +1048,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 .source-providers { padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); margin-bottom: 12px; }
 .source-providers-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--select-rgb, var(--accent-rgb)), 0.13); color: #e8dfc8; }
+.chip { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(var(--fill-rgb), 0.13); color: #e8dfc8; }
 .empty-panel { padding: 26px; border: 1px dashed rgba(255, 255, 255, 0.16); border-radius: var(--radius); display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
 
 /* ------------------------------------------------------------- providers */
@@ -1055,7 +1064,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
 .switch .slider { width: 44px; height: 24px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); transition: background 0.15s ease; position: relative; cursor: pointer; }
 .switch .slider::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #e8eaf2; transition: transform 0.15s ease; }
-.switch input:checked + .slider { background: rgba(var(--accent-rgb), 0.6); }
+.switch input:checked + .slider { background: rgba(var(--fill-rgb), 0.6); }
 .switch input:checked + .slider::after { transform: translateX(20px); }
 
 .provider-check { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
@@ -1077,8 +1086,8 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   color: var(--muted);
   cursor: pointer;
 }
-.model-chip:hover { color: var(--text); border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.5); }
-.model-chip.suggested { border-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.45); color: #e8dfc8; }
+.model-chip:hover { color: var(--text); border-color: rgba(var(--fill-rgb), 0.5); }
+.model-chip.suggested { border-color: rgba(var(--fill-rgb), 0.45); color: #e8dfc8; }
 
 /* A named group inside a settings pane, with its own rule under it. */
 .group-head { display: flex; flex-direction: column; gap: 2px; margin: 22px 0 12px; }
@@ -1133,11 +1142,11 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
    boxes sit inside a bordered block, so the tint has to be set here rather than left to
    the generic `.option:has(input:checked)` rule. */
 .vis-option:has(input:checked) {
-  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14);
+  background: rgba(var(--fill-rgb), 0.14);
 }
 .vis-option:has(input:checked) .option-title { color: #fff; }
 .vis-card-rows .vis-option:not(:has(input:checked)) { opacity: 0.62; }
-.vis-option:has(input:checked) input { accent-color: var(--select, var(--accent)); }
+.vis-option:has(input:checked) input { accent-color: var(--fill); }
 
 /* **One colour, one card** (Settings → Accent).
    The banner puts its artwork inside a card of its own — a panel, a radius, the picture
@@ -1178,7 +1187,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
    the selection colour around the very card that *is* that colour — and Settings is the one
    screen where nothing wears a ring (see the mark section). The plate says it instead. */
 .accent-card.active {
-  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.3);
+  background: rgba(var(--fill-rgb), 0.3);
   color: #fff;
 }
 
@@ -1271,7 +1280,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   -webkit-text-fill-color: var(--muted);
   opacity: 1;
 }
-.custom-row.editing { border-color: rgba(var(--accent-rgb), 0.5); }
+.custom-row.editing { border-color: rgba(var(--fill-rgb), 0.5); }
 /* The row's action slot — Edit/Delete, or Save/Cancel while it is being edited. */
 .site-actions { display: flex; gap: 8px; flex: none; align-items: center; }
 /* The editor a site's Edit button opens, inside its row. */
@@ -1295,8 +1304,9 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   transition: background 0.15s ease, color 0.15s ease;
 }
 .tag:hover { background: rgba(255, 255, 255, 0.13); color: var(--text); }
-.tag.on { background: rgba(255, 255, 255, 0.07); color: #fff; box-shadow: 0 0 0 2px var(--select, var(--accent)); }
-.tag.on:hover { background: rgba(255, 255, 255, 0.12); box-shadow: 0 0 0 2px var(--select, var(--accent)); }
+/* The chosen tag is a button too: a plate of the Fill colour with ink on it, and no ring. */
+.tag.on { background: var(--fill); color: #0b0b0b; box-shadow: none; }
+.tag.on:hover { background: var(--fill); color: #0b0b0b; box-shadow: none; }
 
 /* No scrollbar is drawn on a row: the row scrolls with the wheel (see
    `horizontalWheel` in app.js) and with the D-pad, and a chunky bar under every
@@ -1371,7 +1381,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   background: rgba(255, 255, 255, 0.18);
   border-radius: 999px;
 }
-.settings-nav::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-rgb), 0.55); }
+.settings-nav::-webkit-scrollbar-thumb:hover { background: rgba(var(--fill-rgb), 0.55); }
 .settings-group-box { display: flex; flex-direction: column; gap: 8px; }
 /* **One column.** The doors to the sections used to sit two to a row; they are a single
    column now, so the board reads top to bottom in the order the settings belong in. */
@@ -1402,14 +1412,14 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 .setting-grid > * { grid-column: 1 / -1; min-width: 0; }
 .setting-grid > .option { grid-column: 1 / -1; margin-bottom: 0; }
 .settings-tab:hover { background: var(--panel-2); color: var(--text); transform: translateY(-2px); }
-.settings-tab.active { background: rgba(var(--accent-rgb), 0.22); color: #fff; }
+.settings-tab.active { background: rgba(var(--fill-rgb), 0.22); color: #fff; }
 .settings-pane { min-width: 0; }
 /* **The account row.** Who is signed in: the provider's picture (or the first letter of
    their name when there is none), the name, the address and which provider it came from,
    and the way out. It is the same panel the panes already use, so the sign-in card is one
    more surface rather than a new one. */
 .account-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.account-avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; object-fit: cover; display: grid; place-items: center; background: var(--panel-2); color: var(--accent); font-size: 17px; font-weight: 800; }
+.account-avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; object-fit: cover; display: grid; place-items: center; background: var(--panel-2); color: var(--fill); font-size: 17px; font-weight: 800; }
 .account-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .account-buttons { align-items: center; }
 /* **The one line on the card that has to be seen.** Every `.option-desc` is hidden
@@ -1437,7 +1447,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.07);
 }
-.account-list .account-row.on { background: rgba(var(--accent-rgb), 0.14); }
+.account-list .account-row.on { background: rgba(var(--fill-rgb), 0.14); }
 /* The sign-in card stretches every `.btn` to its own width; the rows are not that shape —
    Use and Forget keep their own size and sit on the name's line. */
 .account-list .account-row { flex-wrap: nowrap; }
@@ -1446,7 +1456,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
   flex: none;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--fill);
   color: #14110a;
   font-size: 11.5px;
   font-weight: 800;
@@ -1481,7 +1491,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 /* **A chosen row is a tint, not a box.** The selection colour used to be drawn as a 1px
    border *and* a fill on every ticked row, which is the app ringing a control — the one shape
    Settings → Effects says controls never wear. The fill says it on its own. */
-.option:has(input:checked) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.06); }
+.option:has(input:checked) { background: rgba(var(--fill-rgb), 0.06); }
 /* **The selection as a ring** (Settings → Interaction → Chosen). The same colour the checked
    rows wear as a fill, drawn around them instead — the row keeps the plate's grey and the
    colour is its outline. */
@@ -1492,7 +1502,7 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 /* **A choice that cannot apply is dimmed, and it says why with the switch above it.** */
 .option.off { opacity: 0.45; cursor: default; }
 .option.off:hover, .option.off:focus-visible { box-shadow: none; }
-.option input { margin-top: 3px; accent-color: var(--select, var(--accent)); width: 18px; height: 18px; }
+.option input { margin-top: 3px; accent-color: var(--fill); width: 18px; height: 18px; }
 .option-body { display: block; flex: 1; }
 .option-title { display: block; font-size: 15px; font-weight: 700; }
 .option-desc { display: block; margin: 4px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
@@ -1516,16 +1526,16 @@ button.chip:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.26)
 }
 .toast {
   padding: 12px 15px;
-  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border: 1px solid rgba(var(--fill-rgb), 0.35);
   border-radius: 12px;
   background: rgba(12, 14, 19, 0.97);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
   cursor: pointer;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.toast:hover { border-color: rgba(var(--accent-rgb), 0.6); }
+.toast:hover { border-color: rgba(var(--fill-rgb), 0.6); }
 .toast.out { opacity: 0; transform: translateY(6px); }
-.toast-title { margin: 0; font-size: 13.5px; font-weight: 800; color: var(--accent); }
+.toast-title { margin: 0; font-size: 13.5px; font-weight: 800; color: var(--fill); }
 .toast-body { margin: 3px 0 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.86); }
 
 /* ------------------------------------------------------------- the trailer */
@@ -1594,7 +1604,7 @@ textarea:focus-visible {
      appeared on everything the keyboard touched. A `box-shadow` ring follows the
      element's own radius, so a pill lights up as a pill. */
   outline: none;
-  box-shadow: var(--hl);
+  box-shadow: var(--ring-shadow);
 }
 
 /* ------------------------------------------------------------------- modal */
@@ -1624,7 +1634,7 @@ textarea:focus-visible {
 .modal-hero { aspect-ratio: 16 / 9; background: var(--panel-2) 50% 18%/cover no-repeat; }
 .modal-body { padding: 22px 28px 30px; }
 .modal-body h2 { margin: 0 0 6px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
-.modal-meta { margin: 0 0 14px; font-size: 13px; color: var(--accent); font-weight: 700; letter-spacing: 0.08em; }
+.modal-meta { margin: 0 0 14px; font-size: 13px; color: var(--fill); font-weight: 700; letter-spacing: 0.08em; }
 .modal-desc { margin: 0; font-size: 15px; line-height: 1.6; color: rgba(255, 255, 255, 0.8); }
 
 .modal-close {
@@ -1651,10 +1661,10 @@ textarea:focus-visible {
 .row-switch { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.18); margin: 26px 0 34px; }
 .row-btn { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; padding: 9px 22px; border-radius: 999px; cursor: pointer; }
 .row-btn:hover { color: var(--text); }
-.row-btn.active { background: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep))); color: #14110a; }
+.row-btn.active { background: linear-gradient(160deg, var(--fill), var(--fill-deep)); color: #14110a; }
 
 /* The vertical divider between Watchlist and the rest of the cards. */
-.v-divider { align-self: stretch; width: 2px; min-height: 120px; margin: 0 6px; background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.95) 18%, rgba(var(--accent-rgb), 0.95) 82%, rgba(var(--accent-rgb), 0.2)); }
+.v-divider { align-self: stretch; width: 2px; min-height: 120px; margin: 0 6px; background: linear-gradient(180deg, rgba(var(--fill-rgb), 0.2), rgba(var(--fill-rgb), 0.95) 18%, rgba(var(--fill-rgb), 0.95) 82%, rgba(var(--fill-rgb), 0.2)); }
 .icons.rows .v-divider { flex: none; }
 
 .view-hint.inline { display: inline; margin: 0 0 0 12px; }
@@ -1679,7 +1689,7 @@ textarea:focus-visible {
 .explore-head .cat-tools { margin-left: auto; }
 .cat-menu { position: absolute; z-index: 30; margin-top: 44px; max-height: 320px; overflow: auto; min-width: 260px; padding: 6px; border: 1px solid rgba(255, 255, 255, 0.20); border-radius: var(--radius); background: var(--panel-2); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); }
 .menu-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 9px; cursor: pointer; }
-.menu-item:hover, .menu-item.active { background: rgba(var(--accent-rgb), 0.14); }
+.menu-item:hover, .menu-item.active { background: rgba(var(--fill-rgb), 0.14); }
 .sentinel { min-height: 60px; padding: 20px 0; text-align: center; }
 
 /* The sample rows read like the catalog rows below them — no label of their own
@@ -1708,7 +1718,7 @@ textarea:focus-visible {
   min-width: 0;
   padding: 7px 10px;
   border-radius: 8px;
-  background: rgba(var(--accent-rgb), 0.14);
+  background: rgba(var(--fill-rgb), 0.14);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1735,7 +1745,7 @@ textarea:focus-visible {
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
-.channel-card:hover, .channel-card:focus-visible { transform: translateY(-3px); border-color: rgba(var(--accent-rgb), 0.5); }
+.channel-card:hover, .channel-card:focus-visible { transform: translateY(-3px); border-color: rgba(var(--fill-rgb), 0.5); }
 .channel-art {
   display: flex;
   align-items: center;
@@ -1746,7 +1756,7 @@ textarea:focus-visible {
   background: var(--panel-2);
 }
 .channel-art img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.channel-fallback { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(var(--accent-rgb), 0.16); font-weight: 800; }
+.channel-fallback { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(var(--fill-rgb), 0.16); font-weight: 800; }
 .channel-fallback.big { width: 96px; height: 96px; font-size: 40px; }
 .channel-name { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .channel-sub { font-size: 10.5px; color: var(--faint); letter-spacing: 0.06em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1758,19 +1768,19 @@ textarea:focus-visible {
 .guide-corner { flex: none; width: 220px; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
 .guide-times { position: relative; flex: 1; display: flex; }
 .guide-time { flex: 1; padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--muted); border-left: 1px solid rgba(255, 255, 255, 0.15); }
-.guide-now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+.guide-now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--fill); }
 .guide-body { display: flex; flex-direction: column; max-height: 62vh; overflow-y: auto; }
 .guide-row { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
 .guide-row:last-child { border-bottom: 0; }
 .guide-channel { flex: none; width: 220px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0; border-right: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
-.guide-channel:hover { background: rgba(var(--accent-rgb), 0.08); }
+.guide-channel:hover { background: rgba(var(--fill-rgb), 0.08); }
 .guide-num { flex: none; width: 22px; font-size: 11px; color: var(--faint); }
 .guide-logo { flex: none; width: 28px; height: 28px; object-fit: contain; }
-.guide-logo.fallback { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(var(--accent-rgb), 0.16); font-weight: 800; }
+.guide-logo.fallback { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(var(--fill-rgb), 0.16); font-weight: 800; }
 .guide-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .guide-track { position: relative; flex: 1; min-height: 46px; }
 .guide-track.bare { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 16.6%); }
-.guide-block { position: absolute; top: 4px; bottom: 4px; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 8px; border-radius: 8px; background: rgba(var(--accent-rgb), 0.13); overflow: hidden; }
+.guide-block { position: absolute; top: 4px; bottom: 4px; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 8px; border-radius: 8px; background: rgba(var(--fill-rgb), 0.13); overflow: hidden; }
 .guide-block-title { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .guide-block-time { font-size: 10.5px; color: var(--muted); }
 .guide-nodata { position: absolute; inset: 0; display: flex; align-items: center; padding-left: 12px; font-size: 11.5px; color: var(--faint); }
@@ -1799,7 +1809,7 @@ textarea:focus-visible {
    reads exactly like the span it replaces — it is a button only so the card still
    carries a link to its screen. */
 .icon-name-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
-.icon-name-link:hover, .icon-name-link:focus-visible { color: var(--accent); }
+.icon-name-link:hover, .icon-name-link:focus-visible { color: var(--fill); }
 .channel-page .channel-art-large { display: flex; align-items: center; justify-content: center; padding: 18px; background: var(--panel-2); }
 .channel-page .channel-art-large img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
@@ -1816,14 +1826,14 @@ textarea:focus-visible {
   border-radius: 12px; background: var(--panel); color: inherit; font: inherit; cursor: pointer;
 }
 .cal-cell.blank { border: 0; background: transparent; cursor: default; }
-.cal-cell:hover { border-color: rgba(var(--accent-rgb), 0.5); }
-.cal-cell.today { background: var(--accent); color: #0b0b0b; border-color: transparent; }
-/* **The day you opened is a selection, not the highlight.** Today is where the app is (the
-   accent); the day you clicked is a thing you *chose*, which is what the selection colour
-   is for. */
-.cal-cell.selected { background: var(--panel-2); color: var(--text); border-color: transparent; box-shadow: inset 0 0 0 2px var(--select, var(--accent)); }
+.cal-cell:hover { border-color: rgba(var(--fill-rgb), 0.5); }
+.cal-cell.today { background: var(--fill); color: #0b0b0b; border-color: transparent; }
+/* **The day you opened is a fill, like every other control.** Today and the chosen day are
+   two states of the same control, so both wear the **Fill**: today at full strength with ink
+   on it, the day you picked as a wash of it. Neither draws a box — a ring is for content. */
+.cal-cell.selected { background: rgba(var(--fill-rgb), 0.22); color: #fff; border-color: transparent; box-shadow: none; }
 .cal-day { font-size: 14px; font-weight: 800; }
-.cal-count { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.cal-count { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fill); }
 .cal-count.empty { color: transparent; }
 .cal-detail { margin-bottom: 40px; }
 
@@ -1842,7 +1852,7 @@ textarea:focus-visible {
   margin: 26px 0 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--faint);
 }
-.cal-live-count { letter-spacing: 0.06em; color: var(--accent); }
+.cal-live-count { letter-spacing: 0.06em; color: var(--fill); }
 .cal-live { display: flex; flex-direction: column; gap: 6px; }
 .cal-live-row {
   display: grid; grid-template-columns: 148px 34px minmax(0, 1fr); align-items: center;
@@ -1850,10 +1860,10 @@ textarea:focus-visible {
   border-radius: 12px; background: var(--panel); color: inherit; font: inherit;
   text-align: left; cursor: pointer;
 }
-.cal-live-row:hover { border-color: rgba(var(--accent-rgb), 0.5); }
+.cal-live-row:hover { border-color: rgba(var(--fill-rgb), 0.5); }
 .cal-live-time { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 .cal-live-logo { width: 34px; height: 24px; object-fit: contain; border-radius: 5px; background: var(--panel-2); }
-.cal-live-logo.fallback { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--accent); }
+.cal-live-logo.fallback { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--fill); }
 .cal-live-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cal-live-title { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-live-channel { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1882,7 +1892,7 @@ textarea:focus-visible {
 .modal-pins { display: flex; flex-wrap: wrap; gap: 10px; margin-right: 4px; }
 .btn.pin { border-color: rgba(255, 255, 255, 0.16); }
 .btn.pin.active {
-  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   border-color: transparent;
   font-weight: 800;
@@ -1896,7 +1906,7 @@ textarea:focus-visible {
   margin: 0 2px;
   background: rgba(255, 255, 255, 0.18);
 }
-.btn.pin.custom { border-style: dashed; border-color: rgba(var(--accent-rgb), 0.5); }
+.btn.pin.custom { border-style: dashed; border-color: rgba(var(--fill-rgb), 0.5); }
 .btn.pin.custom.active { border-style: solid; }
 
 /* The state tag drawn on a title inside a watchlist row. */
@@ -1909,7 +1919,7 @@ textarea:focus-visible {
   text-transform: uppercase;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.20);
+  background: rgba(var(--fill-rgb), 0.20);
   color: #e8dfc8;
 }
 .watch-tag.watched { background: rgba(143, 214, 148, 0.16); color: #8fd694; }
@@ -1917,10 +1927,10 @@ textarea:focus-visible {
 /* ---------------------------------------------------------------------- AI */
 
 .ai-provider-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ai-provider.active { border-color: rgba(var(--accent-rgb), 0.55); }
+.ai-provider.active { border-color: rgba(var(--fill-rgb), 0.55); }
 .badge.free { background: rgba(143, 214, 148, 0.14); color: #8fd694; }
 .badge.free + .badge { margin-left: 6px; }
-.ai-signup { font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.ai-signup { font-size: 12px; font-weight: 600; color: var(--fill); text-decoration: none; }
 .ai-signup:hover { text-decoration: underline; }
 
 /* ------------------------------------------------------------------ strips */
@@ -1967,7 +1977,7 @@ textarea:focus-visible {
 }
 .chip-clamped .chip-track > * { scroll-snap-align: start; }
 .chip-clamped .chip-track::-webkit-scrollbar { width: 0; height: 0; }
-.chip-clamped .chip-track:focus-visible { outline: 2px solid rgba(var(--select-rgb, var(--accent-rgb)), 0.6); outline-offset: 4px; border-radius: 10px; }
+.chip-clamped .chip-track:focus-visible { outline: 2px solid rgba(var(--fill-rgb), 0.6); outline-offset: 4px; border-radius: 10px; }
 /* **The arrows sit at the right edge.** They are a full-width strip that pushes its
    two buttons to the right, so a clamped line (the search filters, a card's tag
    line) keeps its arrows on the right where the eye already is. */
@@ -1989,8 +1999,8 @@ textarea:focus-visible {
   padding: 0;
   border-radius: 10px;
   border: 0;
-  background: rgba(var(--accent-rgb), 0.14);
-  color: var(--accent);
+  background: rgba(var(--fill-rgb), 0.14);
+  color: var(--fill);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
@@ -1999,9 +2009,9 @@ textarea:focus-visible {
    wearing the 3px ring — a box drawn around a 22px square that says "there are more tags
    this way", twice as loud as the tags it scrolls. The tint is the answer, and the press
    flips it to the solid plate so a click lands with one. */
-.chip-arrow:hover:not(:disabled) { background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); color: #fff; box-shadow: none; }
-.chip-arrow:focus-visible { outline: none; box-shadow: none; background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); }
-.chip-arrow:active:not(:disabled) { background: var(--select, var(--accent)); color: #0b0b0b; box-shadow: none; transform: none; }
+.chip-arrow:hover:not(:disabled) { background: rgba(var(--fill-rgb), var(--mark-fill, 0.22)); color: #fff; box-shadow: none; }
+.chip-arrow:focus-visible { outline: none; box-shadow: none; background: rgba(var(--fill-rgb), var(--mark-fill, 0.22)); }
+.chip-arrow:active:not(:disabled) { background: var(--fill); color: #0b0b0b; box-shadow: none; transform: none; }
 /* An arrow at its own end of the list has nowhere to go, and says so. */
 .chip-arrow.at-end, .chip-arrow:disabled { opacity: 0.32; cursor: default; }
 .chip-arrow .glyph svg { width: 15px; height: 15px; }
@@ -2059,12 +2069,12 @@ textarea:focus-visible {
   text-align: center;
   cursor: pointer;
 }
-.alpha:hover:not(:disabled) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.2); color: #fff; }
-.alpha:focus-visible { outline: 2px solid rgba(var(--select-rgb, var(--accent-rgb)), 0.6); outline-offset: 1px; }
+.alpha:hover:not(:disabled) { background: rgba(var(--fill-rgb), 0.2); color: #fff; }
+.alpha:focus-visible { outline: 2px solid rgba(var(--fill-rgb), 0.6); outline-offset: 1px; }
 .alpha.off { opacity: 0.3; }
 /* A letter that is not loaded yet is dimmed, never dead: picking it pages the row
    in until that letter's titles arrive. */
-.alpha.off:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14); }
+.alpha.off:hover { background: rgba(var(--fill-rgb), 0.14); }
 /* A short window gets a shorter column rather than a cut-off one: 26 letters at
    18px plus the plate is ~507px, which fits anywhere above a small laptop. */
 @media (max-height: 640px) {
@@ -2110,7 +2120,7 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: radial-gradient(120% 120% at 50% 20%, rgba(var(--accent-rgb), 0.12), transparent 60%), var(--bg, #05060a);
+  background: radial-gradient(120% 120% at 50% 20%, rgba(var(--fill-rgb), 0.12), transparent 60%), var(--bg, #05060a);
   transition: opacity 0.55s ease, visibility 0.55s ease;
 }
 .boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -2139,7 +2149,7 @@ textarea:focus-visible {
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.005em;
-  filter: drop-shadow(0 3px 20px rgba(var(--accent-rgb), 0.3));
+  filter: drop-shadow(0 3px 20px rgba(var(--fill-rgb), 0.3));
 }
 /* **The mark is one drawing of the animal: the cat curled into the C.** The opening used
    to swap a *second* drawing into this box — the cat sat up, tipped over and became this
@@ -2206,8 +2216,8 @@ textarea:focus-visible {
 .boot-loader-bar {
   position: absolute; inset: 0; transform-origin: left center;
   border-radius: 3px;
-  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.4), var(--accent));
-  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.45);
+  background: linear-gradient(90deg, rgba(var(--fill-rgb), 0.4), var(--fill));
+  box-shadow: 0 0 12px rgba(var(--fill-rgb), 0.45);
   /* **One fill, left to right, and then it stays full.** 1.2s is the length of the first
      beat of the opening: the A is timed to start just after this mark. */
   animation: boot-load 1.2s cubic-bezier(0.32, 0, 0.2, 1) forwards;
@@ -2230,7 +2240,7 @@ textarea:focus-visible {
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.005em;
-  filter: drop-shadow(0 3px 20px rgba(var(--accent-rgb), 0.3));
+  filter: drop-shadow(0 3px 20px rgba(var(--fill-rgb), 0.3));
 }
 /* Each initial carries the gradient on its own: a clipped background lives on the element
    that draws the glyph, and these two move independently as they arrive. */
@@ -2293,12 +2303,12 @@ body { background: var(--ink); }
 
 .view-title { font-size: 34px; letter-spacing: -0.02em; }
 .section-title { letter-spacing: -0.01em; }
-.btn.primary { background: var(--accent); border-color: transparent; color: #0b0b0b; }
+.btn.primary { background: var(--fill); border-color: transparent; color: #0b0b0b; }
 .btn.primary:hover { filter: brightness(1.1); }
 
 /* The chosen letter in the rail is filled, so the filter is visible on the rail
    itself and not only in the line above the grid. */
-.alpha.on { background: var(--select, var(--accent)); color: #0b0b0b; }
+.alpha.on { background: var(--fill); color: #0b0b0b; }
 
 /* Explore's chosen letter: what is being shown, and the way back. */
 .explore-filter {
@@ -2317,7 +2327,7 @@ body { background: var(--ink); }
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--fill);
 }
 
 #search-more { margin: 24px 0 0; }
@@ -2411,7 +2421,7 @@ body { background: var(--ink); }
   font-weight: 600;
 }
 .chip:hover, .model-chip:hover { background: rgba(255, 255, 255, 0.17); }
-.chip.active { background: var(--select, var(--accent)); color: #0b0b0b; box-shadow: none; }
+.chip.active { background: var(--fill); color: #0b0b0b; box-shadow: none; }
 
 /* **One voice for every label.** Captions were small-caps with letter-spacing in
    nineteen places — the search result heads, the filter labels, the card
@@ -2492,24 +2502,23 @@ body { background: var(--ink); }
    under the cursor on the rest). The accent ring that used to be drawn here is gone with it. */
 
 /* A chosen row, a hovered result, a recommended model, a pin: a fill, not a border. */
-.option:has(input:checked) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14); }
+.option:has(input:checked) { background: rgba(var(--fill-rgb), 0.14); }
 .result:hover { background: var(--panel-2); }
-.model-chip.suggested { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.18); }
+.model-chip.suggested { background: rgba(var(--fill-rgb), 0.18); }
 .btn.pin { background: rgba(255, 255, 255, 0.1); }
 
 /* The month grid: flat blocks on the page instead of twenty-eight hairlines, with
    the accent marking today and the day you picked. */
 .cal-cell { border: 0; background: var(--panel-2); }
-.cal-cell:hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.16); }
+.cal-cell:hover { background: rgba(var(--fill-rgb), 0.16); }
 /* **Today is filled, like Home and Play.** A 2px ring drawn *inside* the cell read as a box
    around a number rather than as the day the app is on; the chosen day and today wear the
    highlight at full strength, with ink on it. */
-/* **Today is filled; the day you opened wears the ring.** Today is where the app is, so it
-   keeps the highlight as a *fill*; the day you clicked is a choice, so it is covered by a
-   ring in the selection colour — on top of today's fill when they are the same cell, which
-   is the one cell that shows both answers at once. */
-.cal-cell.today { background: var(--accent); color: #0b0b0b; box-shadow: none; }
-.cal-cell.selected { box-shadow: inset 0 0 0 2px var(--select, var(--accent)); }
+/* **Both days are fills.** Today is where the app is, so it wears the Fill at full strength
+   with ink on it; the day you opened is a choice, so it wears the same colour as a wash —
+   and the one cell that is both is simply the solid plate. A control never rings. */
+.cal-cell.today { background: var(--fill); color: #0b0b0b; box-shadow: none; }
+.cal-cell.selected { background: rgba(var(--fill-rgb), 0.22); color: #fff; box-shadow: none; }
 
 /* An empty state is a panel, not a dotted box. */
 .empty-panel { border: 0; background: var(--panel); }
@@ -2628,7 +2637,7 @@ button.hero-art {
 .icon-box:hover {
   transform: none;
   background: var(--panel-2);
-  box-shadow: inset 0 0 0 2px rgba(var(--accent-rgb), 0.45);
+  box-shadow: inset 0 0 0 2px rgba(var(--fill-rgb), 0.45);
 }
 
 /* **A divider has no cell in the grid.** `collectionGrid` drops a `v-divider` before
@@ -2738,7 +2747,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 }
 .chip-card-name { font-weight: 700; }
 .chip-card-tag { color: var(--muted); font-size: 11.5px; }
-.chip-card:hover .chip-card-tag, .chip-card:focus-visible .chip-card-tag { color: var(--accent); }
+.chip-card:hover .chip-card-tag, .chip-card:focus-visible .chip-card-tag { color: var(--fill); }
 
 /* The two Live TV cards wear the same box a Movies card does — two cards side by
    side, not two full-width banners. */
@@ -2850,8 +2859,8 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   width: 96px;
   height: 96px;
   border-radius: 20px;
-  background: rgba(var(--accent-rgb), 0.16);
-  color: var(--accent);
+  background: rgba(var(--fill-rgb), 0.16);
+  color: var(--fill);
   font-size: 40px;
   font-weight: 800;
 }
@@ -2906,9 +2915,9 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   transition: background var(--quick) var(--ease), color var(--quick) var(--ease);
 }
 .view-mark-art { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.view-mark:hover, .view-mark:focus-visible { background: rgba(var(--accent-rgb), 0.18); color: #fff; box-shadow: none; }
-.view-mark.active { background: rgba(var(--accent-rgb), 0.26); color: #fff; }
-.view-mark.active:hover, .view-mark.active:focus-visible { background: rgba(var(--accent-rgb), 0.26); box-shadow: none; }
+.view-mark:hover, .view-mark:focus-visible { background: rgba(var(--fill-rgb), 0.18); color: #fff; box-shadow: none; }
+.view-mark.active { background: rgba(var(--fill-rgb), 0.26); color: #fff; }
+.view-mark.active:hover, .view-mark.active:focus-visible { background: rgba(var(--fill-rgb), 0.26); box-shadow: none; }
 
 /* **The grid.** The same episodes as the list, as cards: the still, its number, its
    name and how long it runs. It fills the row instead of running a column, which is
@@ -2986,7 +2995,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .play-btn { font-size: 16px; font-weight: 800; padding: 12px 26px; }
 .title-pins { display: flex; gap: 8px; flex-wrap: wrap; }
 .title-body { display: flex; flex-direction: column; gap: 34px; width: 100%; max-width: 1500px; }
-.title-tagline { margin: 0; font-size: 17px; font-style: italic; color: var(--accent); }
+.title-tagline { margin: 0; font-size: 17px; font-style: italic; color: var(--fill); }
 /* **The overview runs the width of the page.** It was capped at 78 characters, so
    it stopped short of the right-hand edge every other row reaches. */
 .title-overview { margin: 0; font-size: 15.5px; line-height: 1.7; color: var(--text); max-width: none; }
@@ -3034,7 +3043,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .person-initials { display: grid; place-items: center; font-size: 30px; font-weight: 800; color: var(--faint); }
 .person-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
 .person-role { font-size: 11px; color: var(--muted); }
-.person:hover .person-face, .person:focus-visible .person-face { outline: none; box-shadow: var(--hl); }
+.person:hover .person-face, .person:focus-visible .person-face { outline: none; box-shadow: var(--ring-shadow); }
 
 /* Seasons: the show's own list, each one a way into its episodes. */
 .season-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
@@ -3054,7 +3063,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--fill);
   font: inherit;
   font-size: 13px;
   font-weight: 800;
@@ -3126,7 +3135,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 /* **The figure and its source sit in the plate's centre**, not against its left
    edge: the plate is the unit, and a number pinned left with empty space beside it
    read as a table cell rather than as a rating. */
-.rating-value { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.1; text-align: center; }
+.rating-value { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; color: var(--fill); font-variant-numeric: tabular-nums; line-height: 1.1; text-align: center; }
 .rating-source { font-size: 10.5px; font-weight: 700; color: var(--muted); text-align: center; }
 
 /* The facts a streaming app keeps in a grid: what it is, when, how long, where, in what. */
@@ -3152,7 +3161,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .detail-value { margin: 0; min-width: 0; font-size: 15px; color: var(--text); text-align: right; }
 /* A value with somewhere to go says so: accent colour, underlined on hover and
    focus, exactly the way every other link in the app reads. */
-.detail-link { font: inherit; font-size: 15px; color: var(--accent); background: transparent; border: 0; padding: 0; cursor: pointer; }
+.detail-link { font: inherit; font-size: 15px; color: var(--fill); background: transparent; border: 0; padding: 0; cursor: pointer; }
 .detail-link:hover, .detail-link:focus-visible { text-decoration: underline; }
 .detail-plain { color: var(--text); }
 
@@ -3208,7 +3217,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(var(--accent-rgb), 0.92);
+  background: rgba(var(--fill-rgb), 0.92);
   color: #fff;
   font-size: 16px;
   opacity: 0;
@@ -3336,7 +3345,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 /* The figure wears the same chip as the two marks; only its colour and its figures are
    its own. */
 .player-vol-value {
-  color: var(--accent);
+  color: var(--fill);
   font-variant-numeric: tabular-nums;
 }
 .player-vol-value.muted { color: var(--muted); }
@@ -3359,7 +3368,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
    is exactly what made the card read as a line drawn between them rather than as one
    control holding its own reading. */
 .player-seek-box:hover { background: rgba(255, 255, 255, 0.13); }
-.player-seek { flex: 1; min-width: 120px; height: 4px; accent-color: var(--accent); }
+.player-seek { flex: 1; min-width: 120px; height: 4px; accent-color: var(--fill); }
 .player-time { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* **The Assistant: a real dialog, big and in the middle of the screen.** It used to borrow
@@ -3397,7 +3406,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   background: var(--panel);
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
 }
-.assistant-kicker { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.assistant-kicker { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fill); }
 .assistant-title { margin: -8px 0 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
 .assistant-form { display: flex; align-items: stretch; gap: 10px; }
 .assistant-form .text-input { flex: 1; font-size: 16px; padding: 15px 18px; }
@@ -3432,14 +3441,14 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   backdrop-filter: blur(6px);
 }
 .player-center[hidden] { display: none; }
-.player-center:hover, .player-center:focus-visible { background: rgba(var(--accent-rgb), 0.75); }
+.player-center:hover, .player-center:focus-visible { background: rgba(var(--fill-rgb), 0.75); }
 /* The loading screen's own state: a small ring, the title, and nothing else. */
 .player-spinner {
   width: 34px;
   height: 34px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.18);
-  border-top-color: var(--accent);
+  border-top-color: var(--fill);
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -3507,11 +3516,11 @@ select.player-rate option { background: #14161c; color: var(--text); }
 .drawer-extract-note.ok { color: #9ff0b8; }
 .drawer-extract-note.bad { color: #ff9d9d; }
 /* The same turning ring as the finding-sources panel, at the size of a line of text. */
-.drawer-spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.18); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+.drawer-spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.18); border-top-color: var(--fill); animation: spin 0.9s linear infinite; }
 
 /* The volume figure, right of the icon it belongs to. */
 /* The ramped rate, and only while a ±10s button is held (it is emptied on release). */
-.player-speed-note { font-size: 11.5px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.player-speed-note { font-size: 11.5px; font-weight: 800; color: var(--fill); font-variant-numeric: tabular-nums; }
 
 /*
  * **Audio and subtitles, behind the gear — the same box as the drawer.**
@@ -3548,7 +3557,7 @@ select.player-rate option { background: #14161c; color: var(--text); }
   font-weight: 600; cursor: pointer;
 }
 .episode-item:hover, .episode-item:focus-visible { background: rgba(255, 255, 255, 0.14); }
-.episode-item.active { background: rgba(var(--accent-rgb), 0.24); }
+.episode-item.active { background: rgba(var(--fill-rgb), 0.24); }
 
 .stream-list { display: flex; flex-direction: column; gap: 8px; }
 .stream {
@@ -3556,7 +3565,7 @@ select.player-rate option { background: #14161c; color: var(--text); }
   border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.16); color: inherit; cursor: pointer;
 }
 .stream:hover, .stream:focus-visible { background: rgba(255, 255, 255, 0.14); }
-.stream.active { background: rgba(var(--accent-rgb), 0.24); }
+.stream.active { background: rgba(var(--fill-rgb), 0.24); }
 .stream-name { font-size: 13px; font-weight: 700; }
 .stream-detail { font-size: 11.5px; color: var(--muted); }
 .loading-player { justify-content: center; align-items: center; }
@@ -3668,8 +3677,8 @@ select:focus { background-color: rgba(255, 255, 255, 0.15); outline: none; }
 select option { background: #14161c; color: var(--text); }
 
 /* A stream that is a page to open rather than a video to play, in the Sources drawer. */
-.stream-flag { font-size: 10.5px; font-weight: 700; color: var(--accent); }
-.stream-external .stream-name { color: var(--accent); }
+.stream-flag { font-size: 10.5px; font-weight: 700; color: var(--fill); }
+.stream-external .stream-name { color: var(--fill); }
 /* A torrent, which the player opens with its own engine instead of a URL. */
 .stream-torrent .stream-name { color: var(--text); }
 
@@ -3807,7 +3816,7 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
   font: inherit; font-size: 14px; text-align: left; color: var(--text);
   background: transparent; border: 0; border-radius: 8px; padding: 9px 10px; cursor: pointer;
 }
-.dropdown-item:hover, .dropdown-item:focus-visible { background: rgba(var(--accent-rgb), 0.18); }
+.dropdown-item:hover, .dropdown-item:focus-visible { background: rgba(var(--fill-rgb), 0.18); }
 
 /* A row whose posters are the way in says so on hover, without wearing the accent
    the way a heading link does. */
@@ -3835,19 +3844,19 @@ select.text-input,
 .source-form select,
 .setting select,
 #live-source-mode {
-  accent-color: var(--accent) !important;
+  accent-color: var(--fill) !important;
 }
 /* **The volume bar is the accent's, not the browser's.** A range input with no rule of
    its own is drawn in the engine's blue whatever the theme is, so the one slider in
    Settings was the one control that ignored the accent. */
 .settings-pane input[type="range"],
 .text-input[type="range"] {
-  accent-color: var(--accent);
+  accent-color: var(--fill);
   height: 22px;
 }
 select option:checked,
 select option:hover {
-  background: rgba(var(--accent-rgb), 0.38) !important;
+  background: rgba(var(--fill-rgb), 0.38) !important;
   color: #fff !important;
 }
 
@@ -3856,7 +3865,7 @@ select option:hover {
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.16);
+  background: rgba(var(--fill-rgb), 0.16);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -3874,7 +3883,7 @@ select option:hover {
   margin-left: auto;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.16);
+  background: rgba(var(--fill-rgb), 0.16);
   font-size: 11px;
   font-weight: 600;
   border: 0;
@@ -3883,7 +3892,7 @@ select option:hover {
 }
 
 .rec-btn:hover {
-  background: rgba(var(--accent-rgb), 0.24);
+  background: rgba(var(--fill-rgb), 0.24);
 }
 
 /* IPTV extras */
@@ -3891,7 +3900,7 @@ select option:hover {
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.16);
+  background: rgba(var(--fill-rgb), 0.16);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -3932,7 +3941,7 @@ select option:hover {
   z-index: 2;
   margin: 0 !important;
   pointer-events: none !important;
-  box-shadow: var(--hl);
+  box-shadow: var(--ring-shadow);
   border-radius: var(--radius);
 }
 .pop-sharp-origin { visibility: hidden; }
@@ -3946,7 +3955,7 @@ select option:hover {
    alpha, no hard spread, so it reads as a glow rather than as a second, thicker ring.
    It is a light around a *thing*: a full-width row or a nav tile spans the whole pane,
    and a halo around one of those is a glowing box, not a glow. Those keep the ring and
-   take no light (the local `--hl` below wins over this one because the value is
+   take no light (the local `--ring-shadow` below wins over this one because the value is
    resolved on the element itself). */
 
 /* ============================================================================
@@ -4007,7 +4016,7 @@ select option:hover {
   transform: none;
   outline: none;
   box-shadow: none;
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
 }
 
 /* **The keyboard lands on the card, not on the picture inside it.** The arrow keys step
@@ -4022,7 +4031,7 @@ select option:hover {
 .season-card:has(:focus-visible),
 .company-card:has(:focus-visible),
 .trailer-card:has(:focus-visible) {
-  box-shadow: var(--hl);
+  box-shadow: var(--ring-shadow);
 }
 /* **Every focus stop shows the highlight.** The ring was drawn by a list of rules, one
    per kind of surface, and anything the list did not name — the banner's own poster, an
@@ -4030,7 +4039,7 @@ select option:hover {
    where you were. This is the one rule that ends that: if it can be focused, it lights up.
    The rules below it take the ring back off the *inner* half of a surface that already
    rings as a whole, so nothing wears two. */
-.focusable:focus-visible { outline: none; box-shadow: var(--hl); }
+.focusable:focus-visible { outline: none; box-shadow: var(--ring-shadow); }
 
 /* …and whatever is inside does not draw a second ring of its own. */
 .icon-box :focus-visible,
@@ -4059,29 +4068,29 @@ select option:hover {
 .option:has(input:checked), .vis-option:has(input:checked),
 .menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"] {
   box-shadow: none;
-  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.2);
+  background: rgba(var(--fill-rgb), 0.2);
   color: #fff;
 }
 /* The day you picked is *filled* with the highlight; today is *ringed* by it — a hairline
    at 45% was neither, and read as a pale pink box on a day that means something. */
-.cal-cell.selected { box-shadow: none; background: rgba(var(--accent-rgb), 0.22); }
-.cal-cell.today { background: var(--accent); color: #0b0b0b; box-shadow: none; }
+.cal-cell.selected { box-shadow: none; background: rgba(var(--fill-rgb), 0.22); }
+.cal-cell.today { background: var(--fill); color: #0b0b0b; box-shadow: none; }
 
 /* **The buttons that are filled stay filled.** Movies/Shows and the active chips are
    solid accent plates with dark text — and a plate stays a plate while it is hovered. */
 .row-btn.active {
-  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   box-shadow: none;
 }
 .btn.pin.active {
-  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   box-shadow: none;
 }
 .chip.active, .filter-chip.active, .model-chip.suggested,
 .chip.active:hover, .filter-chip.active:hover, .model-chip.suggested:hover {
-  background: var(--accent);
+  background: var(--fill);
   color: #0b0b0b;
   box-shadow: none;
 }
@@ -4090,7 +4099,7 @@ select option:hover {
 /* **The section you are in is a fill, not a ring** — a ring around a full-width nav tile
    reads as a box around the column. */
 .settings-tab.active {
-  background: rgba(var(--accent-rgb), 0.26);
+  background: rgba(var(--fill-rgb), 0.26);
   color: #fff;
   box-shadow: none;
 }
@@ -4098,7 +4107,7 @@ select option:hover {
    *selection*; the top bar's own control is the same solid accent plate its sibling switch
    wears, with the dark text that goes on it. */
 .tab[aria-selected="true"] {
-  background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(160deg, var(--fill), var(--fill-deep));
   /* **The same plate and the same text as Movies / Shows.** Home wore the fill but read a
      shade lighter than its sibling switch — the pill carried `.tab`'s lighter weight while
      the row buttons were set at the heavier one. Same weight, same colour, same gradient. */
@@ -4120,14 +4129,14 @@ select option:hover {
 .chip:not(.active):hover, .chip:not(.active):focus-visible,
 .model-chip:not(.suggested):hover, .chip-more:hover,
 .filter-chip:not(.active):hover {
-  background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   color: #fff;
 }
 /* **Filters is furniture, like Play and the Movies / Shows pill.** It is the bar's own solid
    plate and it stays one — this rule used to hand it the control tint, so the one button in
    the bar went pale under the cursor while Play next to it did not. */
 .search-filter-btn:hover, .search-filter-btn:focus-visible {
-  background: var(--accent);
+  background: var(--fill);
   color: #0b0c10;
   /* **The plate, with nothing drawn around it.** It briefly wore a selection ring; on a
      button that is already a solid plate the ring read as a second control around it. */
@@ -4137,7 +4146,7 @@ select option:hover {
    *choose* between — a genre, a catalog tag, a filter — and they were being tinted from the
    accent while the chosen row beside them used the selection colour, so the app had two
    "this is on" colours in one line of the same screen. */
-button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.24); color: #fff; }
+button.chip:not(.active):hover { background: rgba(var(--fill-rgb), 0.24); color: #fff; }
 
 /* **Menus.** The row under the cursor inside an open menu is a tinted plate; the button
    that opens it wears the ring like everything else. */
@@ -4146,12 +4155,12 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .menu-item:hover, .menu-item:focus-visible,
 .suggest-item:hover, .suggest-item:focus-visible {
   box-shadow: none;
-  background: rgba(var(--accent-rgb), 0.2);
+  background: rgba(var(--fill-rgb), 0.2);
   color: #fff;
 }
 
 /* A catalog's own name turns the accent, as it did at first. */
-.cat-name:hover, .row-head-link:hover, .row-head-link:focus-visible, .icon-name-link:hover { color: var(--accent); }
+.cat-name:hover, .row-head-link:hover, .row-head-link:focus-visible, .icon-name-link:hover { color: var(--fill); }
 .cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
 
 /* **A field you are typing in** shows it with its fill, not with a box around it. */
@@ -4206,9 +4215,9 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   cursor: pointer;
 }
 .avatar-pick .avatar-mark { width: 30px; height: 30px; stroke-width: 2.6; }
-.avatar-pick:hover, .avatar-pick:focus-visible { color: var(--text); box-shadow: var(--hl); outline: none; }
-.avatar-pick.active { color: var(--accent); background: rgba(var(--accent-rgb), 0.16); }
-.avatar-pick.active:hover { box-shadow: var(--hl); }
+.avatar-pick:hover, .avatar-pick:focus-visible { color: var(--text); box-shadow: var(--ring-shadow); outline: none; }
+.avatar-pick.active { color: var(--fill); background: rgba(var(--fill-rgb), 0.16); }
+.avatar-pick.active:hover { box-shadow: var(--ring-shadow); }
 /* The small mark beside a name in the profile list. */
 .avatar.small { width: 38px; height: 38px; }
 .avatar.small .avatar-mark { width: 20px; height: 20px; stroke-width: 3.2; }
@@ -4270,7 +4279,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   line-height: 1;
   cursor: pointer;
 }
-.trailer-btn:hover, .trailer-btn:focus-visible { background: rgba(var(--accent-rgb), 0.28); color: #fff; }
+.trailer-btn:hover, .trailer-btn:focus-visible { background: rgba(var(--fill-rgb), 0.28); color: #fff; }
 .trailer-seek {
   flex: 1;
   min-width: 0;
@@ -4280,8 +4289,8 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   border: 0;
   border-radius: 999px;
   /* Elapsed in the accent — a filled bar, the same reading as the player's. */
-  background: linear-gradient(90deg, var(--accent) 0 var(--fill, 0%), rgba(255, 255, 255, 0.16) var(--fill, 0%) 100%);
-  accent-color: var(--accent);
+  background: linear-gradient(90deg, var(--fill) 0 var(--fill, 0%), rgba(255, 255, 255, 0.16) var(--fill, 0%) 100%);
+  accent-color: var(--fill);
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
@@ -4293,9 +4302,9 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   margin-top: -4px;
   border: 0;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--fill);
 }
-.trailer-seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 999px; background: var(--accent); }
+.trailer-seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 999px; background: var(--fill); }
 .trailer-clock { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* ============================================================================
@@ -4306,7 +4315,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    pointed at, it lights up — and the line below it takes the ring back off the
    artwork *inside* a surface that already rings as a whole, so nothing wears two.
    ============================================================================ */
-.focusable:hover, .focusable:focus-visible { outline: none; box-shadow: var(--hl); }
+.focusable:hover, .focusable:focus-visible { outline: none; box-shadow: var(--ring-shadow); }
 .icon-box .icon-art, .icon-box .poster, .icon-box .content-strip,
 .cat-tile .icon-art, .cat-tile .poster, .company-card .icon-art,
 .season-card .icon-art, .channel-card .icon-art, .trailer-card .poster,
@@ -4571,7 +4580,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   /* **The bar's ring is the selection colour.** It wore the app's own highlight — the
      colour the app is tinted with — while the thing the ring is *for* is the selection:
      the field you are in. Two colours for "you are here" in one control. */
-  box-shadow: 0 0 0 3px var(--select, var(--accent));
+  box-shadow: 0 0 0 3px var(--ring, var(--fill));
 }
 
 /* **A person's card rings its face, not its name.**
@@ -4596,7 +4605,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--fill);
 }
 
 /* **The player's seek bar is a bar with its fill.** A flat track, a round accent thumb,
@@ -4609,7 +4618,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   height: 6px;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, var(--accent) 0 var(--fill, 0%), rgba(255, 255, 255, 0.22) var(--fill, 0%) 100%);
+    linear-gradient(90deg, var(--fill) 0 var(--fill, 0%), rgba(255, 255, 255, 0.22) var(--fill, 0%) 100%);
   cursor: pointer;
 }
 .player-seek::-webkit-slider-thumb {
@@ -4619,9 +4628,9 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   margin-top: -4.5px;
   border: 0;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--fill);
 }
-.player-seek::-moz-range-thumb { width: 15px; height: 15px; border: 0; border-radius: 999px; background: var(--accent); }
+.player-seek::-moz-range-thumb { width: 15px; height: 15px; border: 0; border-radius: 999px; background: var(--fill); }
 
 /* A calendar tile's release tag, drawn over the poster's top-left corner. */
 .cal-item { position: relative; }
@@ -4653,7 +4662,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 /* **The countdown on the player's Up-next card.** The next episode plays itself, so the
    card says which one and how long there is to stop it. */
 .player-next-note { display: flex; align-items: center; gap: 12px; margin: 0; flex-wrap: wrap; }
-.player-next-count { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-variant-numeric: tabular-nums; }
+.player-next-count { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fill); font-variant-numeric: tabular-nums; }
 .player-next-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
 
 /* **The live Upcoming card's frames hold a channel's logo, not a still** — the same two
@@ -4712,7 +4721,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 }
 /* **A chosen row in Settings wears the selection colour**, not just the plate's grey: the box
    rule above outranks the checked tint, so it is restated here with the colour it means. */
-.settings-pane .option-group .option:has(input:checked) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14); }
+.settings-pane .option-group .option:has(input:checked) { background: rgba(var(--fill-rgb), 0.14); }
 
 .settings-pane .option-group .provider { background: var(--panel-2); }
 /* **One box per option, in every pane, in both modes.** The Content pane's rows are one box
@@ -4759,7 +4768,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   transition: background var(--quick, 0.18s) ease;
 }
 .settings-pane .option input[type="radio"] { border-radius: 50%; }
-.settings-pane .option input:checked { background: var(--select, var(--accent)); }
+.settings-pane .option input:checked { background: var(--fill); }
 .settings-pane .option input[type="radio"]:checked::after {
   content: "";
   position: absolute;
@@ -4822,7 +4831,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    card's own rounded corners. */
 .profile-grid .profile-tile:hover,
 .profile-grid .profile-tile:focus-visible {
-  box-shadow: var(--hl);
+  box-shadow: var(--ring-shadow);
 }
 
 /* ============================================================================
@@ -4905,7 +4914,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   .profile-tile, .rec-btn, .chip-more):is(:hover, :focus-visible, :has(:focus-visible)) {
   /* `background-color`, not `background`: a plate that is a gradient (the Home tab, the Play
      button, the chosen Movies / Shows pill) keeps its gradient and takes this under it. */
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 /* The chosen things — a ticked row, the open menu, the tile you are on — wear the same
@@ -4915,18 +4924,16 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .options :is(.option, .vis-option):has(input:checked),
 .settings-pane .option-group .option:has(input:checked),
 .menu-item.active, .dropdown-btn[aria-expanded="true"] {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
 }
-/* **The plates that are already filled ring.** Play, Ask Assistant and Speak are solid
-   accent plates: a wash of the selection colour under a solid plate is invisible, so the
-   three of them answer the cursor with the outline instead — the same answer a card gives. */
+/* **A plate that is already filled keeps its plate.** Play, Ask Assistant and Speak are
+   solid Fill plates, and a control never rings: pointing at one brightens it by a hair, so
+   the plate stays the plate and nothing is drawn around it. */
 :is(.btn.primary, .voice-pad):is(:hover, :focus-visible, :has(:focus-visible)) {
-  /* The plate stays the plate — Play does not go pale under the cursor — and the ring is
-     drawn with a hair of the page between the two, so it reads as an outline around the
-     button rather than as a slightly different orange edge. */
-  background-color: var(--accent);
-  background-image: linear-gradient(160deg, var(--accent), var(--accent-deep));
-  box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
+  background-color: var(--fill);
+  background-image: linear-gradient(160deg, var(--fill), var(--fill-deep));
+  filter: brightness(1.08);
+  box-shadow: none;
 }
 
 /* **And a thing is never filled.** One statement, after the control rule, so no list above
@@ -4938,7 +4945,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 
 /* ------------------------------------------------------------------- a thing */
 :is(.icon-box, .poster, .result, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card):is(:hover, :focus-visible, :has(:focus-visible)) {
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--ring, var(--fill));
 }
 /* **A face rings its picture, and its card is not filled.** `.person` is a `.focusable`
    button, so it was taking the control fill *as well* as the ring around the picture — the
@@ -4946,7 +4953,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .person.focusable:is(:hover, :focus-visible, :has(:focus-visible)) { background-color: transparent; }
 /* A face rings its picture, not its card — the card is a button with a name on it. */
 .person:hover .person-face,
-.person:has(:focus-visible) .person-face { outline: none; box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent)); }
+.person:has(:focus-visible) .person-face { outline: none; box-shadow: 0 0 0 var(--mark-ring, 2px) var(--ring, var(--fill)); }
 
 /* **Nothing moves without a beat.** Every one of these changes a colour or a shadow under
    the cursor; without a transition the board snapped from one state to the next, which is the
@@ -4973,18 +4980,16 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 }
 
 /* ============================================================================
-   **A pin that is on wears a ring.**
+   **A pin that is on wears the plate, and nothing around it.**
    ----------------------------------------------------------------------------
-   Plan to Watch and Add to Library are not furniture like the Home tab or the Movies /
-   Shows pill: they are a *state* you set, and beside Play and Ask Assistant that state has
-   to be visible at a glance. The plate says it in the accent; the ring says it a second
-   time without covering the words. Written last, because the rule that fills a control on
-   hover (`box-shadow: none`) would otherwise take it back the moment you pointed at it.
+   Plan to Watch and Add to Library are a *state* you set, and the plate says it — the same
+   Fill plate Home and the chosen profile wear. The ring that said it a second time is gone
+   with every other ring on a control: a ring belongs to content.
    ============================================================================ */
 .btn.pin.active,
 .btn.pin.active:hover, .btn.pin.active:focus-visible,
 .btn.pin.custom.active, .btn.pin.custom.active:hover {
-  box-shadow: 0 0 0 2px var(--bg, #0b0b0b), 0 0 0 4px var(--select, var(--accent));
+  box-shadow: none;
 }
 
 /* ============================================================================
@@ -4995,14 +5000,14 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    has to be hunted down a second time when a later pass narrows something.
    ============================================================================ */
 
-/* **The chosen day is a plate, not a box.** Today and the day you opened wear the highlight
-   at full strength — the same fill Home and Play wear — with ink on it, and the cursor does
-   not make them pale (the control fill would paint the selection colour over the highlight,
-   so a filled cell flickers between two colours as you point at it). */
+/* **Both days are plates.** Today and the day you opened wear the Fill — today at full
+   strength with ink on it, the day you picked as a wash of it — and the cursor does not make
+   them pale (the control fill would paint over the plate, so a filled cell flickers between
+   two colours as you point at it). Neither draws a box: a ring is for content. */
 .cal-cell.today,
 .cal-cell.today:hover,
 .cal-cell.today:focus-visible {
-  background-color: var(--accent);
+  background-color: var(--fill);
   background-image: none;
   color: #0b0b0b;
   box-shadow: none;
@@ -5010,16 +5015,18 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .cal-cell.selected,
 .cal-cell.selected:hover,
 .cal-cell.selected:focus-visible {
+  background-color: rgba(var(--fill-rgb), 0.22);
   background-image: none;
-  box-shadow: inset 0 0 0 2px var(--select, var(--accent));
+  color: #fff;
+  box-shadow: none;
 }
-/* The one cell that is both: today's fill, the selection's ring. */
+/* The one cell that is both is simply today's plate. */
 .cal-cell.selected.today,
 .cal-cell.selected.today:hover,
 .cal-cell.selected.today:focus-visible {
-  background-color: var(--accent);
+  background-color: var(--fill);
   color: #0b0b0b;
-  box-shadow: inset 0 0 0 2px var(--select, var(--accent));
+  box-shadow: none;
 }
 .cal-cell.selected.today .cal-day { color: #0b0b0b; }
 .cal-cell.selected.today .cal-count { color: rgba(11, 11, 11, 0.72); }
@@ -5031,7 +5038,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    is the thing you came to do. It answers the cursor with the ring and a light fill of its
    own; Play and Speak stay plates. */
 #title-assistant:is(:hover, :focus-visible, :has(:focus-visible)) {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   background-image: none;
   box-shadow: none;
 }
@@ -5072,7 +5079,7 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .my-rating-btn.on,
 .my-rating-btn.on:hover,
 .my-rating-btn.on:focus-visible {
-  background-color: var(--select, var(--accent));
+  background-color: var(--fill);
   color: #0b0b0b;
   box-shadow: none;
 }
@@ -5125,18 +5132,18 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
 .ep-row .ep-card-art:focus-visible,
 .ep-row .ep-card-art:has(:focus-visible) {
   outline: none;
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--ring, var(--fill));
 }
 /* **The play mark is the thing you press, so it is the thing that fills.** It sat in the
    accent; the play badge on an episode is a choice you make, like every other fill. */
 .ep-play {
-  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.92);
+  background: rgba(var(--fill-rgb), 0.92);
   color: #fff;
 }
 .ep-card-art:hover .ep-play,
 .ep-card-art:focus-visible .ep-play,
 .player-center:hover, .player-center:focus-visible {
-  background: var(--select, var(--accent));
+  background: var(--fill);
   color: #0b0b0b;
 }
 
@@ -5167,7 +5174,7 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
    the selection colour — the same ring the field and the chosen row take. */
 .my-rating-grid { cursor: pointer; border-radius: 12px; }
 .my-rating-grid:hover { background: rgba(255, 255, 255, 0.04); }
-.my-rating-grid:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--select, var(--accent)); }
+.my-rating-grid:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring, var(--fill)); }
 .my-rating-btn { cursor: pointer; }
 
 /* **No up/down arrow anywhere wears the highlight.** The strip arrows and the editor's move
@@ -5187,7 +5194,7 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
 .chip-arrow:active:not(:disabled),
 .vis-btn:hover,
 .vis-btn:focus-visible {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   color: #fff;
   box-shadow: none;
   outline: none;
@@ -5219,7 +5226,7 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
 .my-rating-box.armed,
 .my-rating-box.armed:hover,
 .my-rating-box.armed:focus-visible {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 
@@ -5230,7 +5237,7 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
 .library-pop .btn.armed,
 .library-pop .btn.armed:hover,
 .library-pop .btn.armed:focus-visible {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 .library-pop .btn { display: inline-flex; align-items: center; gap: 8px; }
@@ -5305,7 +5312,7 @@ button.rating.my-rating {
 }
 .my-rating:not(.on) .rating-value { color: var(--faint); }
 /* The walk is live: the plate wears the selection, so it is clear the wheel is on it. */
-.my-rating.armed { box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent)); }
+.my-rating.armed { box-shadow: 0 0 0 var(--mark-ring, 2px) var(--ring, var(--fill)); }
 
 /* **A box per plate, under the plate's name.** `Sign in` and `Accounts` are two plates; the
    fields and the account rows sit in a box inside each one, so the name labels the plate and
@@ -5404,7 +5411,7 @@ button.rating.my-rating {
   cursor: pointer;
 }
 .guide-pin:hover, .guide-pin:focus-visible { color: var(--text); background: rgba(255, 255, 255, 0.06); }
-.guide-pin.on, .guide-pin.on:hover { color: var(--select, var(--accent)); }
+.guide-pin.on, .guide-pin.on:hover { color: var(--fill); }
 
 
 /* ============================================================================
@@ -5478,12 +5485,12 @@ button.rating.my-rating {
    this wash, which is the same box-around-a-card the tiles are meant to be free of. The
    keyboard keeps the app's focus ring, so focus is never carried by a wash alone. */
 .profile-tile:not(.active):hover {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
 .profile-tile:not(.active):focus-visible {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
-  box-shadow: var(--hl);
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  box-shadow: var(--ring-shadow);
 }
 /* **Chosen: the selection colour as a fill — the plate Home and Speak wear.** The card you
    are on is a solid plate in the selection colour with ink on it, exactly like the Home tab
@@ -5492,8 +5499,8 @@ button.rating.my-rating {
 .profile-tile.active,
 .profile-tile.active:hover,
 .profile-tile.active:focus-visible {
-  background-color: var(--select, var(--accent));
-  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  background-color: var(--fill);
+  background-image: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   box-shadow: none;
 }
@@ -5504,15 +5511,15 @@ button.rating.my-rating {
    crossed it. Both are said again here, at the weight it takes to hold them. */
 .profile-grid .profile-tile:not(.active):hover,
 .profile-grid .profile-tile:not(.active):focus-visible {
-  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
   box-shadow: none;
 }
-.profile-grid .profile-tile:not(.active):focus-visible { box-shadow: var(--hl); }
+.profile-grid .profile-tile:not(.active):focus-visible { box-shadow: var(--ring-shadow); }
 .profile-grid .profile-tile.active,
 .profile-grid .profile-tile.active:hover,
 .profile-grid .profile-tile.active:focus-visible {
-  background-color: var(--select, var(--accent));
-  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  background-color: var(--fill);
+  background-image: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   box-shadow: none;
 }
@@ -5591,7 +5598,7 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
   cursor: pointer;
 }
 .guide-list-row:hover,
-.guide-list-row:focus-visible { background: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22)); }
+.guide-list-row:focus-visible { background: rgba(var(--fill-rgb), var(--mark-fill, 0.22)); }
 .guide-list-logo { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: var(--panel-2); overflow: hidden; }
 .guide-list-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .guide-list-name { flex: none; width: 220px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -5629,15 +5636,15 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    ============================================================================ */
 .profile-tile.active,
 .profile-grid .profile-tile.active {
-  background-color: var(--select, var(--accent));
-  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  background-color: var(--fill);
+  background-image: linear-gradient(160deg, var(--fill), var(--fill-deep));
   color: #14110a;
   box-shadow: none;
 }
 .profile-tile.active:is(:hover, :focus-visible),
 .profile-grid .profile-tile.active:is(:hover, :focus-visible) {
-  background-color: var(--select, var(--accent));
-  background-image: linear-gradient(160deg, var(--select, var(--accent)), var(--select-deep, var(--accent-deep)));
+  background-color: var(--fill);
+  background-image: linear-gradient(160deg, var(--fill), var(--fill-deep));
   box-shadow: none;
 }
 /* **Ink on the plate, and a disc that can be seen on it.** The name and the line under it
@@ -5645,110 +5652,118 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    inverts: the page's own near-black disc, with the selection colour for the mark. */
 .profile-tile.active .profile-tile-name { color: #14110a; }
 .profile-tile.active .profile-tile-sub { color: rgba(20, 17, 10, 0.72); }
-.profile-tile.active .avatar { background: var(--ink, #0b0b0b); color: var(--select, var(--accent)); }
+.profile-tile.active .avatar { background: var(--ink, #0b0b0b); color: var(--fill); }
 
 /* ============================================================================
-   **The ring is for what you are on; a control answers with a fill.**
+   **The Fill fills; the Ring rings.**
    ----------------------------------------------------------------------------
-   The app drew the highlight ring around everything `.focusable` — a button, a chip, a tab, a
-   menu row, a filter, a calendar cell — so pointing at a word put a 3px box around it, and the
-   *selection* colour was spent on controls as a wash. The customer's rule, in their words:
-   **"remove ring from buttons. only selection color ring shows on cards, catalog row titles,
-   cast/crew/network production, etc."**
-   So: content — a card, a poster, a catalog row's title, a cast or crew face, a network or
-   production company — wears the selection ring, on the cursor and on the keyboard. A control
-   never rings: it answers the cursor with a plain lighten, and the keyboard with a stronger one,
-   so focus is never carried by a ring.
+   Two colours, two jobs, and no overlap between them.
+
+   - The **Ring** (Settings → Appearance → Ring) is for **content**: a card, a poster, a catalog
+     row's title, a cast or crew face, a network or a production company. It is drawn *around*
+     the thing you are on, on the cursor and on the keyboard.
+   - The **Fill** (Settings → Appearance → Fill) is for **everything else** — every control in
+     the app: a button, the Movies / Shows pill, the tabs, a chip, a tag, a filter, a calendar
+     cell, a menu row, an option, a profile tile. A control is a surface you press, so what you
+     are on is *painted* on it, and never boxed.
+
+   In the customer's words: **"remove the rings from the buttons … the fill should work on those
+   objects apart from cards, catalog rows, crew/cast and network production"**. So the ring
+   comes off every control — a ring around a button is a box drawn around a word — and the fill
+   goes back on the controls it was stripped from.
    ============================================================================ */
 .focusable:hover, .focusable:focus-visible, .focusable:has(:focus-visible) { box-shadow: none; }
 :is(.icon-box, .poster, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card,
   .result, .cat-name, .row-head-link, .guide-list-row, .guide-row, .episode-item,
   .stream):is(:hover, :focus-visible, :has(:focus-visible)) {
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--ring, var(--fill));
 }
 /* **A face rings its picture** — the card is a button with a name on it, and it is the picture
    that is the thing you are on. */
 .person:hover .person-face,
 .person:focus-visible .person-face,
 .person:has(:focus-visible) .person-face {
-  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--ring, var(--fill));
 }
 /* **A catalog row's title wears the ring, not the accent ink.** It used to answer the cursor by
    turning the accent colour; the mark the rest of the content wears is the ring. */
 .cat-name:not(.static):hover, .cat-name:not(.static):focus-visible { color: #fff; }
 .cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
 
-/* **A control's answer is a lighten, and never the highlight colour.** One rule for every
-   control in the app, so no pane keeps a coloured wash of its own. */
+/* **A control answers with the Fill.** One rule for every control in the app — a button, a
+   chip, a tab, a menu row, an option, a filter, a calendar cell — so no pane keeps a wash of
+   its own. The colour is the **Fill** (Settings → Appearance → Fill), at the app's own
+   strength (`--mark-fill`, which the Fills & rings switch turns off). */
 :is(.btn, .settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .chip-more, .row-btn,
   .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
   .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
   .rec-btn, .tag):is(:hover, :focus-visible, :has(:focus-visible)) {
-  background-color: rgba(255, 255, 255, 0.13);
+  background-color: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
 }
+/* **The keyboard's fill is a shade deeper than the cursor's**, and no outline comes with it.
+   A control that is *already* filled — a ticked row, an open menu, the tile you are on — wears
+   the same colour at the cursor's strength, so a keyboard landing on it would say nothing at
+   all; the deeper fill is what shows there. Written after the rule above, so it wins. */
 :is(.btn, .settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .chip-more, .row-btn,
   .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
   .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
   .rec-btn, .tag):is(:focus-visible, :has(:focus-visible)) {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(var(--fill-rgb), var(--mark-fill-strong, 0.34));
+  outline: none;
+}
+/* **And the plates brighten.** Play, the Movies / Shows pill, the Home tab, today, the Filters
+   button, the chosen chip, tag, filter, pin, profile and rating all wear the Fill as a solid
+   plate. A tint cannot show on a plate, so they go a shade brighter under the cursor and under
+   the keyboard — the one answer that reads on a fill that is already there. Written last of
+   the three, so the plate is what stands. */
+:is(.btn.primary, .row-btn.active, .tab[aria-selected="true"], .chip.active,
+  .tag.on, .filter-chip.active, .cal-cell.today, .search-filter-btn, .btn.pin.active,
+  .alpha.on, .my-rating-btn.on):is(:hover, :focus-visible, :has(:focus-visible)) {
+  background-color: var(--fill);
+  filter: brightness(1.08);
+}
+/* ============================================================================
+   **The seven plates, and the ring they wear under the cursor.**
+   ----------------------------------------------------------------------------
+   Home, the **Movies / Shows** pill, the calendar's **today**, **Speak**, **Play**, the
+   **profile** tile and the **mode** tile. Each is a **Fill** plate at rest — the Movies / Shows
+   pill's own treatment — and each answers the cursor with the **Ring**, drawn *around* the
+   plate with a hair of the page between the two so it reads as an outline rather than as a
+   slightly different edge of the same plate. At rest no ring is drawn.
+
+   The two widths are the app's own mark: `--mark-ring` is the ring's width and is `0px` when
+   **Mark what you are on** is off, which takes the hair and the outline with it — the page-hair
+   and the outline are both multiples of it, so switching the mark off leaves the plate alone.
+
+   Written at the weight of the rules it follows — `.profile-grid .profile-tile.active` is named
+   for the same reason — because a rule that loses the cascade is a rule nobody can see.
+   ============================================================================ */
+.btn.primary:is(:hover, :focus-visible, :has(:focus-visible)),
+.btn.primary.voice-pad:is(:hover, :focus-visible, :has(:focus-visible)),
+.voice-pad:is(:hover, :focus-visible, :has(:focus-visible)),
+.row-btn.active:is(:hover, :focus-visible, :has(:focus-visible)),
+.tab[aria-selected="true"]:is(:hover, :focus-visible, :has(:focus-visible)),
+.cal-cell.today:is(:hover, :focus-visible, :has(:focus-visible)),
+.profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)),
+.profile-grid .profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)) {
+  background-color: var(--fill);
+  filter: none;
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
+    0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring);
+}
+/* **The calendar's tag is a label on the poster, not a control**: `pointer-events: none`, so
+   the cursor over the tag is the cursor over the artwork under it. It shows the Fill with the
+   poster's own hover, which is what pointing at it looks like from the reader's side. */
+.cal-item:hover .cal-tag,
+.cal-item:focus-within .cal-tag {
+  background: rgba(var(--fill-rgb), var(--mark-fill, 0.22));
+  color: #fff;
 }
 
 /* ============================================================================
-   **No control wears the highlight colour as a fill.**
-   ----------------------------------------------------------------------------
-   As asked: Play, Speak, the Movies / Shows pill, the Home tab, the calendar's today, the
-   Filters button on the search bar, the chosen tag and the chosen chip. Each was a solid accent
-   plate (or a selection-coloured one) with ink on it. They are plain plates now — the same pale
-   fill every other button and pill in the app uses — and **what is chosen still reads**: the
-   chosen half of the switch is a darker plate on its track, and a chosen chip, tag or filter is
-   a brighter one. The state is the fill; the colour is spent on the content's ring.
+   **The plates stay plates.** Nothing to restate here — Play, Speak, the Movies / Shows pill,
+   the Home tab, today, the Filters button, the chosen chip, tag and filter each still own the
+   rule that fills them, and every one of those rules reads the **Fill** colour now. This
+   section exists only to say so: the fills are the Fill, the rings are the Ring, and the two
+   are the names the Appearance pane gives them.
    ============================================================================ */
-:is(.btn.primary, .btn.primary.voice-pad, .voice-pad) {
-  background: rgba(255, 255, 255, 0.07);
-  background-image: none;
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.14);
-}
-/* **And they do not ring under the cursor.** Play, Ask Assistant and Speak were the three plates
-   that answered the pointer with the double outline — the rule is still there, thirty lines up,
-   and a rule that only re-paints a button leaves the outline it never mentioned standing. The
-   lighten every other control gives is the whole answer. */
-:is(.btn.primary, .btn.primary.voice-pad, .voice-pad):is(:hover, :focus-visible, :has(:focus-visible)) {
-  background-color: rgba(255, 255, 255, 0.13);
-  background-image: none;
-  color: var(--text);
-  box-shadow: none;
-}
-/* The chosen half of a switch: a plate darker than its track, in the app's own neutral. */
-.row-btn.active, .row-btn.active:hover, .row-btn.active:focus-visible,
-.tab[aria-selected="true"], .tab[aria-selected="true"]:hover, .tab[aria-selected="true"]:focus-visible {
-  background: var(--panel, #181818);
-  background-image: none;
-  color: #fff;
-  font-weight: 800;
-}
-/* Today, and the Filters button. */
-.cal-cell.today { background: rgba(255, 255, 255, 0.16); color: #fff; box-shadow: none; }
-.search-filter-btn, .search-filter-btn:hover, .search-filter-btn:focus-visible,
-.search-filter-btn.on, .search-filter-btn.on:hover, .search-filter-btn.on:focus-visible {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.14);
-}
-.search-filter-btn.on { background: rgba(255, 255, 255, 0.16); color: #fff; }
-/* The chosen chip, tag and filter: a brighter neutral, and no selection ring. */
-.chip.active, .chip.active:hover, .chip.active:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  box-shadow: none;
-}
-.tag.on, .tag.on:hover, .tag.on:focus-visible,
-.filter-chip.active, .filter-chip.active:hover, .filter-chip.active:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  box-shadow: none;
-}
-/* A pin is a state the app already marks with its plate; the ring around the plate goes, like
-   every other ring on a button. */
-.btn.pin.active, .btn.pin.active:hover, .btn.pin.active:focus-visible,
-.btn.pin.custom.active, .btn.pin.custom.active:hover { box-shadow: none; }

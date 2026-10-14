@@ -15,13 +15,13 @@
     var theme = JSON.parse(localStorage.getItem("autocat.theme") || localStorage.getItem("nuvio.theme") || "null");
     if (theme) {
       var root = document.documentElement;
-      if (theme.base) root.style.setProperty("--accent", theme.base);
-      if (theme.rgb) root.style.setProperty("--accent-rgb", theme.rgb);
-      if (theme.deep) root.style.setProperty("--accent-deep", theme.deep);
-      // The selection colour, painted before the first frame like the accent beside it.
-      if (theme.select) root.style.setProperty("--select", theme.select);
-      if (theme.selectRgb) root.style.setProperty("--select-rgb", theme.selectRgb);
-      if (theme.selectDeep) root.style.setProperty("--select-deep", theme.selectDeep);
+      if (theme.base) root.style.setProperty("--fill", theme.base);
+      if (theme.rgb) root.style.setProperty("--fill-rgb", theme.rgb);
+      if (theme.deep) root.style.setProperty("--fill-deep", theme.deep);
+      // The Ring, painted before the first frame like the Fill beside it.
+      if (theme.select) root.style.setProperty("--ring", theme.select);
+      if (theme.selectRgb) root.style.setProperty("--ring-rgb", theme.selectRgb);
+      if (theme.selectDeep) root.style.setProperty("--ring-deep", theme.selectDeep);
       // **No typeface here any more.** A stored `theme.font` from a build that offered the
       // setting is deliberately ignored: the app is set in one face (see `--font` in
       // style.css), so an old choice cannot leave someone on a face the app no longer has.
@@ -65,9 +65,9 @@
         <svg class="boot-cat" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="presentation">
           <defs>
             <radialGradient id="catHalo" cx="50%" cy="45%" r="55%">
-              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.26"/>
-              <stop offset="65%" stop-color="var(--accent)" stop-opacity="0.05"/>
-              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+              <stop offset="0%" stop-color="var(--fill)" stop-opacity="0.26"/>
+              <stop offset="65%" stop-color="var(--fill)" stop-opacity="0.05"/>
+              <stop offset="100%" stop-color="var(--fill)" stop-opacity="0"/>
             </radialGradient>
             <linearGradient id="catFur" x1="0.15" y1="0" x2="0.6" y2="1">
               <stop offset="0%" stop-color="#262633"/>

@@ -145,9 +145,19 @@ this card?" is answered by the box they sit in, and the block's own switch repor
 how many of its rows are on. The same master switch is drawn in **Settings → AI** as
 *Pick the cards for you*.
 
-**Appearance** is the accent colour (the whole app is tinted from `--accent-rgb` /
-`--accent-deep`, so one pick re-tints buttons, chips, highlights
-together — Gold is the default, not the only colour) and **Motion** (*Follow
+**Appearance** holds the app's two colours, and each has one job:
+
+- the **Fill** (`--fill-rgb` / `--fill-deep`) is painted on **every control** — a button, the
+  Movies / Shows pill, the tabs, a chip, a tag, a filter, a calendar day, a profile tile — so
+  what you are on is a colour on a surface you press; and
+- the **Ring** (`--ring`) is drawn *around* **content** — a card, a poster, a catalog row's
+  title, a cast or crew face, a network, a production company — so what you are on in the
+  catalogue is an outline, and its artwork is never painted over.
+
+Both boards carry the same colours and the Ring starts as the Fill, so one pick re-tints the
+app and a second pick can set the outline apart. (**Motion** is the other half of this pane:
+*Follow system* / *Always animate* / *No animation*, covering the screen transition, hover lifts
+and the row highlight.) (*Follow
 system* / *Always animate* / *No animation*, covering the screen transition, hover
 lifts and the row highlight).
 
@@ -166,7 +176,7 @@ per catalog row inside each card — and becomes **Done**; closed, nothing is hi
 
 **One surface language, on every screen.** Nothing is drawn with a hairline: cards,
 tiles, the banner, panels, fields, buttons and the rail are single flat fills that
-lift or brighten under the cursor, and the accent goes on what you act on — the chosen
+lift or brighten under the cursor, and the **Fill** goes on what you act on — the chosen
 chip, the primary button, a focused field, the letter you picked, the profile you are
 on. The lines that remain mean something: the calendar's grid, the guide's ruler and
 channel column, the section dividers, the plate on the tag arrows, and the ring around
@@ -424,8 +434,8 @@ Everything below the divider is the normal, endlessly scrolling catalog.
 
 **Search goes as deep as a row does, and the bar carries no magnifier.** The field
 is the panel: one flat fill, the text edge to edge, and the **Filters** control
-closing it. The field draws no focus ring of its own either — the accent ring belongs
-to the whole bar. It searches **titles**, and only titles: the *Collections* and
+closing it. The field draws no focus ring of its own either — the Ring belongs to the
+whole bar. It searches **titles**, and only titles: the *Collections* and
 *Catalogs* lists that used to open under the results were **labels** standing where
 the contents should be, and they are gone (the suggestion dropdown still offers a
 collection or a catalog to jump to). A query (or a browse with no text) reads
