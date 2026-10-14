@@ -1094,6 +1094,15 @@ const defsCache = new Map();
  * The last two rolls' seeds are held aside now and only replayed when the pool
  * runs dry, so the next open is different rows, not the same ones reshuffled.
  */
+/**
+ * **How many of For You's four rows are your own titles, drawn per roll.**
+ *
+ * Six draws: two say *none of yours* -- a roll of the card is allowed to be all pool, which is
+ * what stops the one show you are on from being on it every time -- three say *one*, and one
+ * says *two*.
+ */
+const OWN_SEAT_ODDS = [0, 0, 1, 1, 1, 2];
+
 const recentForYouSeeds = new Map();
 /** Two rolls' worth of seeds per card and row type. */
 const FOR_YOU_SEED_MEMORY = FOR_YOU_ROWS_PER_TYPE * 2;
@@ -1249,11 +1258,19 @@ export function catalogDefs(code = activeCountry()) {
         // list had been used once — the owner's "Dune is in my Library, so it is in the four again
         // and again". The fresh ones lead, the random pool tops the card up to four, and only a
         // card that still has room after that repeats one of yours.
-        const ownFresh = own.filter(({ seed }) => !remembered.has(seed.id));
+        // **Your list takes a random number of the four seats.** Your titles were dealt *first*
+        // -- every one of them, then the pool -- so the show you are on was on the card on every
+        // single roll, and the shuffle below only moved it around inside them: the owner's "Dune
+        // is in my Library, so it is in the four again and again". The seats are drawn fresh per
+        // roll now: some rolls are all pool, most put one of yours in, and a real watchlist gets
+        // two. Which seat each lands in is still the shuffle at the end, so a title never owns a
+        // row, and *which* of your titles is dealt is random too (`ownFresh` is shuffled).
+        const ownFresh = shuffled(own.filter(({ seed }) => !remembered.has(seed.id)));
         const ownSeen = own.filter(({ seed }) => remembered.has(seed.id));
-        for (const { seed } of ownFresh) {
-          if (mine.length >= FOR_YOU_ROWS_PER_TYPE) break;
-          if (!used.has(seed.id)) take(seed);
+        const ownSeats = Math.min(ownFresh.length, OWN_SEAT_ODDS[Math.floor(Math.random() * OWN_SEAT_ODDS.length)]);
+        for (let i = 0; i < ownSeats && mine.length < FOR_YOU_ROWS_PER_TYPE; i++) {
+          const pick = ownFresh[i];
+          if (!used.has(pick.seed.id)) take(pick.seed);
         }
         // The top-up is drawn **at random**, and the last two rolls' seeds are held back
         // so two opens in a row are not the same rows (see `recentForYouSeeds`). The held

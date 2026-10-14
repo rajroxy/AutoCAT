@@ -5467,9 +5467,13 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
   /* **The row's own box, not a line under it.** It is the app's panel in its own corners with
      its own padding — the horizontal box the row wore before it was stripped — so Play and Add
      to Library are one object sitting on the page, and what scrolls under them is covered. */
-  padding: 12px 14px;
+  /* **No outline, and a shorter box.** The hairline read as a border drawn around the
+     controls instead of the plate they stand on, so it is gone. The strip was also taller
+     than what it holds -- 12px above and below a 22px button -- so 7px keeps the corners and
+     the cover under the sticky row in a strip that actually reads shorter. */
+  padding: 7px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 0;
   background: var(--panel-2);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
 }

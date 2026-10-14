@@ -558,7 +558,63 @@ export async function askAbout(question, context = {}, opts = {}) {
  * things to watch on Home — one per line, and hands back only the lines. Any failure is an empty
  * list, which the box reads as "keep what is written".
  */
-const TAGS_SYSTEM = `You write the suggestion buttons for a streaming app's Ask AI box. Reply with six short suggestions, one per line, no numbering, no bullet marks, no markdown, no explanation. Each suggestion is at most five words and is something the person could tap: a question about the title, or a request for something to watch tonight. Never repeat a suggestion.`;
+const TAGS_SYSTEM = `You write the suggestion buttons for a streaming app's Ask AI box. Reply with six short suggestions, one per line, no numbering, no bullet marks, no markdown, no explanation. Each suggestion is at most five words and is something the person could tap: a question about the title, or a request for something to watch tonight. Never repeat a suggestion. Use the exact media word you are told to use, and never the other one.`;
+
+/**
+ * **A suggestion about the wrong medium is not a suggestion for this screen.**
+ *
+ * The box is opened on the films side or the shows side, and the model is asked for that side —
+ * but the chain can answer with the other word anyway (`candidateOrder` walks several models), so
+ * the lines are read back here. A line naming the other medium has its word swapped for the right
+ * one (*"Best new sci fi movie"* on the shows side becomes *"Best new sci fi show"*), and a line
+ * that still reads as the wrong medium — one naming both, or a category that only exists on the
+ * other side (*"best anime movies"*, *"an episode to start"*) — is dropped rather than shown on
+ * the wrong tab. Three lines have to survive, so a drifted answer makes the chain try the next
+ * model instead of filling the box with the wrong screen's words.
+ */
+const MEDIA_WORDS = {
+  shows: {
+    wrong: /\b(movies?|films?|cinematic|cinema|theatres?)\b/i,
+    fix: [
+      [/\bmovies\b/gi, "shows"],
+      [/\bmovie\b/gi, "show"],
+      [/\bfilms\b/gi, "shows"],
+      [/\bfilm\b/gi, "show"],
+      [/\bcinema\b/gi, "shows"],
+      [/\btheatres?\b/gi, "shows"],
+    ],
+  },
+  films: {
+    wrong: /\b(shows?|series|tv|television|episodes?|sitcoms?)\b/i,
+    fix: [
+      [/\bshows\b/gi, "movies"],
+      [/\bshow\b/gi, "movie"],
+      [/\bseries\b/gi, "movies"],
+      [/\bepisodes\b/gi, "movies"],
+      [/\bepisode\b/gi, "movie"],
+      [/\bsitcoms\b/gi, "movies"],
+      [/\bsitcom\b/gi, "movie"],
+      [/\btv\b/gi, "movie"],
+    ],
+  },
+};
+
+function keepToTab(tags, browsing) {
+  const rule = MEDIA_WORDS[browsing];
+  if (!rule) return tags;
+  const right = [];
+  const repaired = [];
+  for (const line of tags) {
+    if (!rule.wrong.test(line)) {
+      right.push(line);
+      continue;
+    }
+    let fixed = line;
+    for (const [pattern, word] of rule.fix) fixed = fixed.replace(pattern, word);
+    if (!rule.wrong.test(fixed) && fixed.length <= 60) repaired.push(fixed);
+  }
+  return repaired.length >= 3 ? [...right, ...repaired] : right;
+}
 
 export async function askTags(context = {}, opts = {}) {
   const provider = opts.provider || aiProviderName();
@@ -576,7 +632,15 @@ export async function askTags(context = {}, opts = {}) {
   // of the app, and a suggestion about a series on the films side is a suggestion for the wrong
   // screen — the owner asked for the tags to be written "according to the tab I am on".
   const browsing = context.row === "series" ? "shows" : context.row === "movie" ? "films" : "";
-  const tab = browsing ? ` The person is browsing ${browsing} right now: every suggestion must be about ${browsing}.` : "";
+  // **The word is named, and then it is checked.** Asking the model to keep to the tab was not
+  // enough: the same call came back with *"Recommend a gripping thriller"* on the films side and
+  // *"Best new sci fi movie"* on the shows side, depending on which model in the chain answered.
+  // So the word the tab requires is spelled out in the prompt **and** the lines are read back
+  // afterwards — a suggestion naming the other medium is repaired, and one that cannot be
+  // repaired that way is dropped (see `keepToTab`).
+  const tab = browsing
+    ? ` The person is browsing ${browsing} right now: every suggestion must be about ${browsing}, and must use the word "${browsing === "shows" ? "show" : "movie"}" (never "${browsing === "shows" ? "movie" : "show"}").`
+    : "";
   const prompt = about
     ? `${about}\n\nWrite six suggestions someone could tap about this title.${tab}`
     : `Nothing is chosen yet. Write six suggestions someone could tap tonight — things to watch, and questions that get them a pick.${tab}`;
@@ -584,11 +648,14 @@ export async function askTags(context = {}, opts = {}) {
   for (const candidate of await candidateOrder(cfg, key, model)) {
     try {
       const raw = await complete(cfg, key, candidate, prompt, { system: TAGS_SYSTEM, maxTokens: 220 });
-      const tags = String(raw || "")
-        .split("\n")
-        .map((line) => line.replace(/^\s*[-*\d.)\]]+\s*/, "").trim())
-        .filter((line) => line && line.length <= 60 && !/^suggestions?[:\s]/i.test(line))
-        .slice(0, 8);
+      const tags = keepToTab(
+        String(raw || "")
+          .split("\n")
+          .map((line) => line.replace(/^\s*[-*\d.)\]]+\s*/, "").trim())
+          .filter((line) => line && line.length <= 60 && !/^suggestions?[:\s]/i.test(line))
+          .slice(0, 8),
+        browsing,
+      );
       if (tags.length >= 3) {
         WORKING.set(cfg.label, candidate);
         return { ok: true, provider, model: candidate, tags };
