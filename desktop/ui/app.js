@@ -2278,6 +2278,7 @@ function parseHash() {
   if (hash.startsWith("channel/")) return { view: "channel", id: decodeURIComponent(hash.slice(8)) };
   if (hash === "guide") return { view: "guide" };
   if (hash === "recordings") return { view: "recordings" };
+  if (hash === "livewatchlist") return { view: "livewatchlist" };
   if (hash.startsWith("categories/")) return { view: "category", group: decodeURIComponent(hash.slice(11)) };
   if (hash === "categories") return { view: "categories" };
   if (hash === "profiles") return { view: "profiles" };
@@ -10588,6 +10589,7 @@ async function render() {
   try {
   if (view === "guide") nodes = renderGuide();
   else if (view === "recordings") nodes = renderRecordings();
+  else if (view === "livewatchlist") nodes = renderLiveWatchlist();
   else if (view === "categories") nodes = renderLiveCategories();
   else if (view === "category") nodes = renderLiveCategory(group);
   else if (view === "channel") nodes = renderChannel(id);
@@ -11100,21 +11102,26 @@ function renderGuide() {
       "div",
       { class: "guide-row" },
       el(
-        "button",
-        {
-          class: "guide-channel focusable",
-          type: "button",
-          title: `Open ${channel.name}`,
-          onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
-        },
-        el("span", { class: "guide-num", text: String(i + 1) }),
-        channel.logo
-          ? el("img", { class: "guide-logo", src: channel.logo, alt: "", loading: "lazy" })
-          : el("span", { class: "guide-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
-        el("span", { class: "guide-name", text: channel.name }, (() => {
-          const res = channelResolution(channel.name);
-          return res ? el("span", { class: "guide-res", text: res }) : null;
-        })()),
+        "div",
+        { class: "guide-cell" },
+        el(
+          "button",
+          {
+            class: "guide-channel focusable",
+            type: "button",
+            title: `Open ${channel.name}`,
+            onclick: () => go(`#/channel/${encodeURIComponent(channel.id)}`),
+          },
+          el("span", { class: "guide-num", text: String(i + 1) }),
+          channel.logo
+            ? el("img", { class: "guide-logo", src: channel.logo, alt: "", loading: "lazy" })
+            : el("span", { class: "guide-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
+          el("span", { class: "guide-name", text: channel.name }, (() => {
+            const res = channelResolution(channel.name);
+            return res ? el("span", { class: "guide-res", text: res }) : null;
+          })()),
+        ),
+        guidePinButton(channel),
       ),
       el(
         "div",
@@ -11129,6 +11136,26 @@ function renderGuide() {
   return [
     el("h1", { class: "view-title", text: "Guide" }),
     el("p", { class: "view-hint", text: `${channels.length} channels · the next ${LIVE_GUIDE_HOURS} hours` }),
+    // **A control that fills the screen with the guide.** An IPTV player's guide *is* the
+    // screen; this one sat in the page with the top bar over it. The button puts the guide
+    // itself fullscreen, and `Esc` — or the button again — brings the page back.
+    el(
+      "div",
+      { class: "guide-tools" },
+      el("button", {
+        class: "btn focusable",
+        type: "button",
+        id: "guide-fullscreen",
+        text: document.fullscreenElement ? "Leave full screen" : "Full screen",
+        title: "Fill the screen with the guide",
+        onclick: () => {
+          const node = document.getElementById("guide-screen");
+          if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+          else node?.requestFullscreen?.().catch(() => {});
+          setTimeout(() => render(), 120);
+        },
+      }),
+    ),
     // Country and category filter strips for immersive guide
     (() => {
       const all = state.live.all || [];
@@ -11169,7 +11196,9 @@ function renderGuide() {
         }),
     view.guide === "list" ? guideListBlock(channels) : el(
       "div",
-      { class: "guide" },
+      // **The screen's guide is the screen** — no panel around it (see `.guide-screen`), and a
+      // target for the full-screen button above.
+      { class: "guide guide-screen", id: "guide-screen" },
       el(
         "div",
         { class: "guide-head" },
@@ -11188,6 +11217,26 @@ function renderGuide() {
 }
 
 /* ----------------------------------------------------------------- channels */
+
+/**
+ * **The star on a guide row: this is how a channel is kept.**
+ *
+ * The IPTV watchlist holds channels, and the guide is where channels live — so the row a
+ * channel is on carries the one control that puts it on the list. It is its own button beside
+ * the channel, not something inside it: a control nested in a button cannot be reached by the
+ * keyboard, and pressing the row plays the channel.
+ */
+function guidePinButton(channel) {
+  const on = liveWatchHas(channel.id);
+  return el("button", {
+    class: `guide-pin focusable${on ? " on" : ""}`,
+    type: "button",
+    title: on ? `Take ${channel.name} off the watchlist` : `Pin ${channel.name} to the watchlist`,
+    "aria-pressed": String(on),
+    text: on ? "\u2605" : "\u2606",
+    onclick: () => toggleLiveWatch(channel),
+  });
+}
 
 /** One channel tile: logo, name, and the group/country it came with. */
 function channelCard(channel) {
@@ -11329,16 +11378,21 @@ function guideGrid(channels, { hours = 3 } = {}) {
       "div",
       { class: "guide-row" },
       el(
-        "button",
-        { class: "guide-channel focusable", type: "button", title: `Play ${channel.name}`, onclick: () => openChannelPlayer(channel.id) },
-        el("span", { class: "guide-num", text: String(i + 1) }),
-        channel.logo
-          ? el("img", { class: "guide-logo", src: channel.logo, alt: "", loading: "lazy" })
-          : el("span", { class: "guide-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
-        el("span", { class: "guide-name", text: channel.name }, (() => {
-          const res = channelResolution(channel.name);
-          return res ? el("span", { class: "guide-res", text: res }) : null;
-        })()),
+        "div",
+        { class: "guide-cell" },
+        el(
+          "button",
+          { class: "guide-channel focusable", type: "button", title: `Play ${channel.name}`, onclick: () => openChannelPlayer(channel.id) },
+          el("span", { class: "guide-num", text: String(i + 1) }),
+          channel.logo
+            ? el("img", { class: "guide-logo", src: channel.logo, alt: "", loading: "lazy" })
+            : el("span", { class: "guide-logo fallback", text: (channel.name || "?").slice(0, 1).toUpperCase() }),
+          el("span", { class: "guide-name", text: channel.name }, (() => {
+            const res = channelResolution(channel.name);
+            return res ? el("span", { class: "guide-res", text: res }) : null;
+          })()),
+        ),
+        guidePinButton(channel),
       ),
       el(
         "div",
@@ -11492,31 +11546,95 @@ function liveUpcomingCard(mode = "livetv") {
   });
 }
 
+/* ------------------------------------------------- the IPTV watchlist (its own) */
+
 /**
- * **The Watchlist, on the IPTV home too.** A live profile is still a place you keep titles to
- * watch — pinning one from a title page files it here whichever half of the app you are in —
- * so the card that holds them is on this home as well — and it is the **Movies home's own
- * Watchlist card**, drawn by `iconBox`: the same frame, the same poster row and the same way
- * in. It was a wall of six pinned posters of its own, which made one watchlist look like two
- * different things depending on which home you were standing on.
+ * **The IPTV profile keeps its own watchlist, and it holds channels.**
+ *
+ * The two homes are two different things to watch: the Movies side pins films and shows, the
+ * live side pins **channels**. They were one list, so the IPTV Watchlist card was the Movies
+ * card — holding titles this profile has no page for — and a channel was nothing you could
+ * keep at all. The list lives under the mode's own scope (`autocat.livewatch@<scope>`), the
+ * same split every other setting uses, so the two never mix in either direction.
+ */
+const LIVE_WATCH = "autocat.livewatch";
+const liveWatchKey = () => `${LIVE_WATCH}@${activeScope()}`;
+
+/** The channels pinned on this profile's live side, newest first. */
+function liveWatchItems() {
+  const raw = readJSON(liveWatchKey(), []);
+  return Array.isArray(raw) ? raw.filter((c) => c && c.id && c.name) : [];
+}
+
+/** Is this channel on the live watchlist? */
+const liveWatchHas = (id) => liveWatchItems().some((c) => String(c.id) === String(id));
+
+/** Pin a channel to the live watchlist, or take it off. */
+function toggleLiveWatch(channel) {
+  if (!channel || !channel.id) return;
+  const list = liveWatchItems();
+  const at = list.findIndex((c) => String(c.id) === String(channel.id));
+  if (at === -1) {
+    list.unshift({
+      id: channel.id,
+      name: channel.name || "Channel",
+      logo: channel.logo || "",
+      group: (channel.groups || [])[0] || channel.country || "",
+    });
+  } else {
+    list.splice(at, 1);
+  }
+  writeJSON(liveWatchKey(), list);
+  render();
+}
+
+/** The card's own page: the channels you pinned, ready to play. */
+function renderLiveWatchlist() {
+  if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
+  const pins = liveWatchItems();
+  return [
+    el("h1", { class: "view-title", text: "Watchlist" }),
+    el("p", {
+      class: "view-hint",
+      text: pins.length
+        ? `${pins.length} channel${pins.length === 1 ? "" : "s"} pinned — press one to watch it, or the star to take it off.`
+        : "Nothing pinned yet. Open the guide and press the star on a channel to keep it here.",
+    }),
+    pins.length
+      ? el("div", { class: "channel-strip pinned-channels" }, ...pins.map((pin) =>
+          el(
+            "div",
+            { class: "channel-pin" },
+            channelCard(findChannel(pin.id) || pin),
+            el("button", {
+              class: "guide-pin focusable on",
+              type: "button",
+              title: `Take ${pin.name} off the watchlist`,
+              text: "\u2605",
+              onclick: () => toggleLiveWatch({ id: pin.id, name: pin.name, logo: pin.logo }),
+            }),
+          ),
+        ))
+      : null,
+  ].filter(Boolean);
+}
+
+/**
+ * **The Watchlist card, and it is the live one.** It holds the channels pinned on the live
+ * side (see `liveWatchItems`), not the Movies home's titles — this profile has no title page
+ * to pin from — and the two lists are kept apart on purpose. With nothing pinned the card says
+ * so and still opens its page, where the guide's star is explained.
  */
 function liveWatchlistCard() {
-  // **It is the Movies home's own card, not a different one.** This was a bespoke wall of six
-  // pinned posters — a watchlist card that looked like nothing else in the app, on a home whose
-  // whole point is that it reads like the other one. The card is drawn by `iconBox`, the
-  // component Home uses, so the frame, the poster row, the name and the way in are the same
-  // card in both profiles.
-  const card = (state.collections || []).find((c) => c && c.key === "watchlist");
-  if (card) return iconBox(card, state.row);
-  // The addon has not answered yet: the plate still says what it is and still opens.
+  const pins = liveWatchItems();
   return liveCard({
-    id: "open-watchlist",
+    id: "open-live-watchlist",
     title: "Watchlist",
-    sub: "Pin a title from any title page",
-    grid: el("div", { class: "poster-wall" },
-      el("span", { class: "poster-wall-empty", text: "Nothing pinned yet" }),
-    ),
-    action: () => go("#/c/watchlist"),
+    sub: pins.length
+      ? `${pins.length} channel${pins.length === 1 ? "" : "s"} pinned`
+      : "Pin a channel from the guide",
+    posters: pins.map((pin) => ({ logo: pin.logo, name: pin.name })),
+    action: () => go("#/livewatchlist"),
   });
 }
 

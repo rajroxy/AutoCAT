@@ -484,16 +484,35 @@ body {
 }
 /* **A 16:9 frame holds 16:9 artwork.** The tile is landscape, so the wide shot fills it
    at its own shape — nothing is cropped into the other orientation. */
-.spotlight-tile-art { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
+/* **The tile's own edge, then the picture's inside it.** The art filled the tile edge to edge
+   while the frame's tag and title sat on it, so a still that happened to be bright ran to the
+   tile's corners and read as a different shape from every other picture in the app. The art is
+   inset 8px in its tile with a corner of its own — the same two edges the banner's artwork
+   wears — in **both** Upcoming cards, because both draw this one tile. */
+.spotlight-tile-art {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  border-radius: 8px;
+  object-fit: cover;
+  object-position: 50% 40%;
+}
 /* **A frame with nothing in it is the app's own plate, not a box.** The blank tile wore a
    160° gradient, which on a dark card drew a lighter edge down one side — the "outline" on
    the Upcoming card's poster. It is the same flat plate every empty slot in the app is. */
-.spotlight-tile-art.blank { background: var(--panel-2); }
+/* **An empty slot is the app's empty slot.** The blank tile wore `--panel-2`, a shade lighter
+   than the card it sits on — which is what drew the "outline" around the poster that had no
+   picture. It is the same faint fill every other empty slot in the app uses. */
+.spotlight-tile-art.blank { background: rgba(255, 255, 255, 0.035); }
 /* The tag and the name are **drawn on the frame**, the way the tagged artwork draws
    them: a pill across the top, the title under it at the bottom. */
 .spotlight-frame {
   position: absolute;
-  inset: 0;
+  /* On the picture, not the tile: the same 8px inset and corner as the art under it. */
+  inset: 8px;
+  border-radius: 8px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -2464,7 +2483,8 @@ body { background: var(--ink); }
 
 /* The profile you are on, and the one you are pointing at. */
 .profile-tile:hover, .profile-tile:focus-visible { background: var(--panel-2); }
-.profile-tile.active { background: rgba(var(--accent-rgb), 0.12); box-shadow: inset 0 0 0 2px rgba(var(--accent-rgb), 0.8); }
+/* **How the chosen tile is said lives at the end of the sheet** (ring on the chosen card, fill
+   under the cursor on the rest). The accent ring that used to be drawn here is gone with it. */
 
 /* A chosen row, a hovered result, a recommended model, a pin: a fill, not a border. */
 .option:has(input:checked) { background: rgba(var(--select-rgb, var(--accent-rgb)), 0.14); }
@@ -4032,8 +4052,7 @@ select option:hover {
    **hover and keyboard** answer (see `.focusable:hover` / `:focus-visible` above); being
    selected is said with the accent tint and nothing else. */
 .option:has(input:checked), .vis-option:has(input:checked),
-.menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"],
-.profile-tile.active {
+.menu-item.active, .dropdown-item.active, .dropdown-btn[aria-expanded="true"] {
   box-shadow: none;
   background: rgba(var(--select-rgb, var(--accent-rgb)), 0.2);
   color: #fff;
@@ -5297,7 +5316,6 @@ button.rating.my-rating {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
   align-items: stretch;
-  min-height: 380px;
 }
 /* The frame is the VOD hero's artwork — the 380px the detail banner's art has — in its own
    12px plate, inside the banner's own frame. */
@@ -5306,7 +5324,12 @@ button.rating.my-rating {
   /* The plate centres the fallback mark; the picture inside it is taken out of the flow. */
   display: grid;
   place-items: center;
-  min-height: 380px;
+  /* **The VOD banner's poster shape, which is the reference.** `.hero-art` is a 16:9 frame —
+     its height is its width times nine sixteenths — and this was a fixed 380px, so at any wide
+     window the two halves were taller than the poster they were meant to match and read as two
+     vertical plates. Same ratio, same 12px plate, same 10px inset picture as the banner on the
+     Movies home. */
+  aspect-ratio: 16 / 9;
   border-radius: 12px;
   overflow: hidden;
   background: var(--panel-2);
@@ -5379,6 +5402,73 @@ button.rating.my-rating {
 .guide-preview-name { font-size: 13.5px; font-weight: 800; color: var(--text); }
 .guide-preview-now { font-size: 12px; color: var(--muted); }
 .guide-table { min-width: 0; overflow: hidden; }
+/* **The star on a guide row.** A channel is kept by pressing it, and it is a button of its own
+   beside the channel rather than something inside it — a control nested in a button cannot be
+   reached by the keyboard. Off it is a hollow star, on it is the selection colour. */
+.guide-cell { flex: none; width: 250px; display: flex; align-items: stretch; }
+.guide-cell .guide-channel { flex: 1; width: auto; }
+.guide-pin {
+  flex: none;
+  width: 34px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: var(--faint);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.guide-pin:hover, .guide-pin:focus-visible { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.guide-pin.on, .guide-pin.on:hover { color: var(--select, var(--accent)); }
+
+/* **The Guide card takes the whole row.** It is a table with a time ruler across it; inside one
+   260px column it could only be a thumbnail of itself. Full width it is the guide, drawn on
+   Home, with the columns wide enough to read. */
+.icons.grid .icon-box:has(.guide-wrap-frame) { grid-column: 1 / -1; }
+.icons.grid .icon-box:has(.guide-wrap-frame) .icon-wrap.guide-wrap-frame {
+  aspect-ratio: 32 / 9;
+  min-height: 340px;
+}
+
+/* ============================================================================
+   **The Guide screen is the screen.**
+   ----------------------------------------------------------------------------
+   It sat in the app's own panel — a bordered, rounded, 62vh-capped box in the middle of a page
+   — which is a card's shape, not a guide's. An IPTV player's guide runs to the edges of the
+   screen and as far down as there are channels, so this one does too, and the Full screen
+   button hands it the whole display.
+   ============================================================================ */
+.guide-screen {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.guide-screen .guide-head { background: transparent; }
+.guide-screen .guide-body { max-height: none; }
+.guide-screen .guide-row { min-height: 52px; }
+.guide-tools { display: flex; justify-content: flex-end; margin: -4px 0 10px; }
+.guide-screen:fullscreen {
+  padding: 16px 18px;
+  background: var(--bg, #0b0b0b);
+}
+.guide-screen:fullscreen .guide-body { height: calc(100vh - 150px); }
+.guide-screen:fullscreen .guide-head { position: sticky; top: 0; background: var(--panel); z-index: 2; }
+
+/* **The pinned channels page.** The same channel cards the Channels screen draws, each with the
+   star that takes it off the list. */
+.pinned-channels { display: flex; flex-wrap: wrap; gap: 14px; }
+.channel-pin { position: relative; display: flex; }
+.channel-pin .guide-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(3, 4, 6, 0.66);
+}
 /* **The frame is a door.** The guide table's own rows are channel buttons; everything else in
    the card's frame opens the full guide (see `liveCard`), so the frame says so. */
 .guide-wrap { cursor: pointer; }
