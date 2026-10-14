@@ -45,9 +45,11 @@ serve.mjs                   server: gallery + addon on one origin
 Every card × 2 rows = one cover per card per row. In the app the order opens on
 **For You** and ends on **your own three cards** — and `CARD_ORDER` in
 `collections.mjs` is the only place that order is written, so a card cannot drift. The
-names below are the app's own labels for the cards; the two service cards are **Global**
-and **Regional** in the app, while the generated covers still carry the older **Global
-OTT** / **Regional OTT** wording (the app never draws a cover):
+names below are the app's own labels for the cards. The two service cards are
+**International** and **Domestic** in the app — the owner's own words for a worldwide row
+beside a country's own rows, where the app used to say *Global* and *Regional* — and the
+**keys** stay `global-ott*` / `regional-ott*`, because a key is a cover filename and a
+catalog-id prefix rather than a title:
 
 1. For You
 2. Discover Plus
@@ -61,19 +63,32 @@ OTT** / **Regional OTT** wording (the app never draws a cover):
 10. Based on the
 11. Moods & Vibes
 12. Themes & Tags
-13. Global | Top 10
-14. Global
-15. Regional | Top 10
-16. Regional
-17. **Watchlist**
-18. **Upcoming** — `Upcoming`, one row per row type: TMDB's own upcoming films, and
+13. International | Top 10
+14. International
+15. Domestic | Top 10
+16. Domestic
+17. **Specialist | Top 10** — one `<Service> | Top 10` row per **art-house, documentary
+    and niche catalogue** TMDB lists where you are: MUBI, the Criterion Channel, Shudder,
+    Cultpix, Curiosity Stream, DOCSVILLE, Magellan TV, GuideDoc, Kanopy, MHz Choice and
+    the rest of a list kept in `collections.mjs`. The card declares no rows of its own —
+    each row is a service from **your region's own provider list**, so a row is only ever
+    published for a catalogue your country carries, read in your country, and a service
+    that answers fewer than **five** titles on a row type loses its row
+    (`primeSpecialistCounts` measures each one, once, with the row's own query)
+18. **Updates** — `Arriving Soon` and `Leaving Soon`, both read from **today's date** on
+    every request, so the card moves on its own: what releases or airs in the next
+    **thirty days** (nearest first), and what arrived **two to six months** ago — the
+    titles the app's own rolling *Latest / Newest / Trending* windows are about to drop,
+    most popular first
+19. **Watchlist**
+20. **Upcoming** — `Upcoming`, one row per row type: TMDB's own upcoming films, and
     the first-air-date order from today on for shows (**nearest first**), so what is
     coming next is the first thing on the card. This is the one card published with
     **`spotlight`**: its frame is the same 16:9 box every card has — so it sits **in
     the same row** as the Watchlist and the Custom card — but the frame holds **one
     still**, and that still **changes every ten seconds** the way the hero banner's
     does. It is **not clickable**: no artwork button, no focus stop, no hover lift
-19. **Custom**
+21. **Custom**
 
 A vertical rule sits between **Watchlist** and **Upcoming**, because that is the line
 between your own list and what is on its way to it.
@@ -164,10 +179,12 @@ drawn on the cover:
 | Popular by ◆ Decade | `Popular in <decade>s` (both) |
 | Decades | `<decade>s`, 1950s–2020s (both) |
 | Genre from ◆ Decades | `<Genre> ◆ 1950 → Present` — movie genres / TV genres (both) |
-| Global \| Top 10 | `Latest \| Top 10` · `Newest \| Top 10` · `Trending \| Top 10`, then `<Platform> \| Top 10` — the six platforms the card carries: Netflix · Prime Video · Disney+ · Max · Apple TV+ · Paramount+ (both) |
-| Global | `<Platform>` — everything on that platform, **followed by that platform's own `<Platform> Originals` row** (both) |
-| Regional \| Top 10 | `Latest \| Top 10` · `Newest \| Top 10` · `Trending \| Top 10`, then `<Service> \| Top 10` — the services of the region set in Settings → Content (both) |
-| Regional | `<Service>` — everything on each of those services, plus the two Asian-catalogue services (both) |
+| International \| Top 10 | `Latest \| Top 10` · `Newest \| Top 10` · `Trending \| Top 10`, then `<Platform> \| Top 10` — the six platforms the card carries: Netflix · Prime Video · Disney+ · Max · Apple TV+ · Paramount+ (both) |
+| International | `<Platform>` — everything on that platform, **followed by that platform's own `<Platform> Originals` row** (both) |
+| Domestic \| Top 10 | `Latest \| Top 10` · `Newest \| Top 10` · `Trending \| Top 10`, then `<Service> \| Top 10` — the services of the region set in Settings → Content (both) |
+| Domestic | `<Service>` — everything on each of those services, plus the two Asian-catalogue services (both) |
+| Specialist \| Top 10 | `<Service> \| Top 10` — one row per art-house, documentary and niche catalogue **TMDB lists in your region** (both). The rows are added at request time (`withSpecialistServices`), so they follow the region the app is set to; a row whose own query answers fewer than five titles is dropped on the next build |
+| Updates | `Arriving Soon` — release/first-air date within the next 30 days, nearest first (both) · `Leaving Soon` — release/first-air date 60–180 days back, most popular first (both) |
 | Continental | continent names (both) |
 | Countries | **countries with 50+ titles on a row type, less the places asked out** — 79 publish a movies row and 45 a shows row, of 251 known; out are the rows under fifty, the 36 territories TMDB returns nothing for, **and 37 named removals** (below). **Pakistan, Bangladesh and Southeast Asia (less Brunei, Myanmar, Timor-Leste) are exempt by name** and publish wherever they have anything |
 | Runtimes | `30+ mins … 120+ mins` (**movies**) / `4 · 6 · 8 · 10 Episodes` (**shows**) |
@@ -233,7 +250,17 @@ Stan, TVING, Viaplay, Viu, Voyo, Zee5, …), in name order, each row
 carrying the region it was verified in. A service verified in several regions is one
 row scoped to one of them, so the card has no empty duplicates, and the last two rows
 are Crunchyroll and Viki — the Asian-catalogue services, which are not regional data,
-so `activeRegion()` scopes them per request. The cards are title-only on the cover
+so `activeRegion()` scopes them per request.
+
+**The Asian rows are on the card, and the duplicate is removed by name.** They were cut
+once, on the reading that Crunchyroll, Viki and Kocowa hold the Asian catalogue between
+them; they do not — a row is read in the provider's *own* region, so WeTV, Viu, iQIYI,
+TVING, Zee5 and the rest open catalogues the three never carry, and the cut took most of a
+continent off the card. What the cut was really after is a platform TMDB numbers twice, once
+per region, which came back as two rows with the same name: `oneRowPerService` folds those
+by **brand** (`popKey`, so `Disney+` and `Disney Plus` are one), and the first row wins.
+The three pan-Asian catalogues keep the place their placement anchor gives them —
+Crunchyroll beside FOD, Kocowa after Rakuten Viki — instead of leading the card. The cards are title-only on the cover
 because they are the same everywhere, and each row id carries its own region
 (`autocat-regional-ott--jiohotstar-in`), so two regions can never collide on one
 catalog id.
@@ -242,6 +269,26 @@ catalog id.
 hold every region's services. It still scopes the rows that have *no* region of their
 own (`activeRegion()` in `addon/catalogs.mjs`) and the per-country counts
 `/settings` reports.
+
+**The Specialist card is the same idea, one shelf further in.** The Regional (now
+**Domestic**) card keeps the *household names* of a country and deliberately leaves out the
+art-house catalogues, the documentary streamers and the one-interest shelves — so they have
+a card of their own. It publishes **no rows until the region answers**: every row is a
+service from TMDB's own provider list for the country the app is set to, filtered by the
+specialist list in `collections.mjs` (`isSpecialistService`), and the **id is TMDB's**, never
+a baked-in one. The card's filters are its own, too: `STORE_LIKE` — which the Domestic card
+uses to drop the shops *and* the art-house catalogues — would have removed Dekkoo, Cultpix,
+Magellan TV and GuideDoc, which are exactly what this card is for, so it drops only the real
+storefronts (`STOREFRONT`) and lets the curated list decide the rest. In Korea that is eleven
+films rows and, with the five-title floor applied, one shows row; a card that answered a
+single title was the thing the floor is for.
+
+**Updates is a card that reads the calendar, not a store.** `Arriving Soon` is the next
+thirty days in release-date order and `Leaving Soon` is the sixty-to-one-hundred-and-eighty
+day window in popularity order — the same `date.asc` shorthand the Upcoming card uses, plus
+the one key it was missing (`olderThan`, a date window that *ends* before today). Nothing is
+stored and nothing is scheduled: both rows are recomputed from today's date on every request,
+which is what makes them move on their own.
 
 **One surface language, on every screen.** The app draws **no hairline outlines**:
 cards, tiles, the banner, the panels, the fields, the buttons and the rail are single

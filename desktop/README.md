@@ -152,9 +152,11 @@ everywhere:
   tag, a filter, a calendar day, a profile tile — so what you are on is a colour on a surface
   you press (`--fill-rgb` / `--fill-deep`);
 - it is the *wash* a control shows **under the cursor** (`--hover`); and
-- it is drawn *around* **content** — a card, a poster, a catalog row's title, a cast or crew
-  face, a network, a production company (`--ring`) — so what you are on in the catalogue is an
-  outline, and its artwork is never painted over.
+- it is drawn *around* **content** — a card, a poster, a cast or crew face, a network, a
+  production company (`--ring`) — so what you are on in the catalogue is an outline, and its
+  artwork is never painted over. (A catalog row's *name* is the exception: it says what the
+  row below it is, so it is a label and wears no ring — `30—44 mins` used to come up boxed
+  over its own row.)
 
 One pick re-tints all three, because they are one colour: the board used to be three (a Fill, a
 Hover and a Ring, each with its own list), which was three lists to keep in step for a mark that
@@ -198,6 +200,20 @@ controls is the same drawn 24px stroke icon (no emoji glyphs), and both dividers
 painted lines, not faint near-transparent ones. Settings is a **real cog** — the old
 glyph was a centre dot with eight even spokes, which reads as a brightness/sun icon,
 not as settings.
+
+**The plate you are on is a button, and pressing it refreshes.** Home and the chosen
+**Movies / Shows** pill wear the **hand** — they are controls that answer a press, not
+labels — and pressing the one you are already on re-reads the screen's catalogs on the
+spot (`refreshNow`: a new deal for the artwork and the sample rows, `gen` bumped so every
+request is a new URL). The same plate on **Search** and the **Calendar** is that screen's
+own half-switch and still does nothing; every other screen's **Home** tab is the way back
+to Home as before.
+
+**A planned title's label wears no ring at rest.** The calendar's `Plan to Watch ·
+planned` pins are a *state* on a control, so they take the **Fill** plate and nothing
+else; the **Ring** is what the cursor draws around them. The chosen **profile**'s avatar
+is the page's own near-black disc with the Fill for the mark, at rest and under the
+cursor, instead of *black* ink on a gradient disc.
 
 **The four doors are Home's.** The profile switch, the calendar, search and Settings
 are all ways *into* something, and drawn on a card, a channel or a settings pane they
@@ -418,12 +434,20 @@ the draws are requested with a cache-busting `_=<n>` parameter and answered
 `cache-control: no-store`, because a cached identical URL is what made Shuffle look
 like a button that did nothing.
 
-**The two ◆ Top 10 OTT cards get an order dropdown instead** — **Latest · Newest ·
-Trending · Popular · Top rated** — and **only there, on their Explore page**: a Top 10
-is one service's best, so "best by what?" is the one question worth asking of it. The
-plain Global OTT and Regional OTT cards publish the whole service in published order
-and ask no such question, and **no card asks it from its card page** — a card page is
-a wall of its own rows.
+**The rows that publish a pool get an order dropdown** — **Latest · Newest · Trending ·
+Popular · Top rated** — and only on their Explore page (a genre, a decade, a country, a
+runtime bucket, a keyword row): the choice rides on every request the page makes, so the
+row is really re-read from the server rather than re-sorted on screen. It stands **under
+the horizontal rule**, below the sample row it orders — it used to sit above it, in front
+of the thing it belongs to. **The ◆ Top 10 rows get none**: a Top 10 is one service's
+best, already capped and already in the server's own order. And **no card asks it from its
+card page** — a card page is a wall of its own rows.
+
+**The sample row is drawn once, and Shuffle is what redraws it.** Every redraw of the
+screen used to roll a fresh random twelve, so changing the **order** dropdown re-rolled
+the sample above it — the one thing on the page that is meant to stay put moved. The draw
+is kept per catalog for the session (`shuffledSamples`); **Shuffle** (or a catalog
+refresh, which drops the artwork with it) is what asks for another.
 
 **The wheel moves the row, never the page.** Pointing at a strip and scrolling
 scrolls that strip sideways; at either end the row simply stops, so the page cannot
@@ -451,6 +475,13 @@ like it stopped at 120. There is **no button**: a search that ends in a *Load mo
 control is one that looks finished. It used to keep only the first page, which is why
 "disney+" looked like it answered with about twenty titles. `◆ Top 10` rows are the
 deliberate exception.
+
+**Typing suggests; the wall waits for the press.** A keystroke draws the **type-ahead
+list** under the bar — `Movie` / `Show` on every line, and *More results for "…"* at the
+foot — and the **catalog wall is hidden while the list is up**. It used to fill in behind
+the list as you typed, so the titles the list was offering were already on the page and
+the last line had nothing left to do. Enter, the last line, or emptying the box brings the
+wall back (Escape does too, and leaves the field).
 
 **Where the next window starts is the server's answer.** A window stops early at a
 short TMDB page, so a search with forty results is finished on page two — and

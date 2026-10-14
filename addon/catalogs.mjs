@@ -7,7 +7,7 @@
  *
  * Only the `catalog` resource is advertised — no search, no discover resource.
  */
-import { asianRow, collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, rowFillsAPage } from "../scripts/collections.mjs";
+import { collectionsFor, catalogEntries, COUNTRIES, countryHasContent, GLOBAL_OTT, isPopularRegional, isSpecialistService, rowFillsAPage } from "../scripts/collections.mjs";
 import { genres, resolveGenre, tmdbPath, get } from "./tmdb.mjs";
 import { activeCountry } from "./settings.mjs";
 import { list as watchlistState } from "./watchlist.mjs";
@@ -175,6 +175,13 @@ function presetSpecs(value, media, take, adult = false) {
 async function specsFor(entry, media, opts = {}) {
   const t = tmdbPath(media);
   const adult = opts.adult ? { include_adult: true } : {};
+  // **The Explore page's own order** — the five in `OTT_SORTS`, offered on the rows that
+  // publish a pool (a genre, a decade, a continent, a country, a runtime bucket, a keyword
+  // row; see `SORTABLE_KINDS` in the app). It is merged *over* the row's own filters, so
+  // "Top rated" is the best-reviewed of **that row** rather than of the whole catalogue, and
+  // an order nobody asked for never reaches the row it is not offered on.
+  const order = OTT_SORTS[opts.sort];
+  const ordered = (params) => (order ? { ...params, ...order(media) } : params);
   // No `page` here on purpose: the paging pool supplies the page number, and
   // hard-coding page 1 is exactly what stopped rows from going past 20 titles.
   const page = (params, take) => q(`/discover/${t}`, { ...params, ...adult }, take);
@@ -199,15 +206,18 @@ async function specsFor(entry, media, opts = {}) {
     // makes the sort mean something. `params` is handed to TMDB as written, so the row and
     // the sentence describing it are the same thing (see the card in `collections.mjs`).
     //
-    // Two keys in there are the row's own shorthand, turned into the release-date window
-    // of whichever media type asked: `within` is a number of days back from today and
-    // `before` a year it has to predate. Writing those as TMDB's own two date parameters
-    // would mean each row naming `primary_release_date` or `first_air_date` itself, and
-    // the same row would then be two different rows for a film and a show.
+    // Three keys in there are the row's own shorthand, turned into the release-date window
+    // of whichever media type asked: `within` is a number of days back from today,
+    // `olderThan` is a number of days back it has to **predate** (the pair makes a window
+    // that ends before today rather than at it — see the Updates card), and `before` a year
+    // it has to predate. Writing those as TMDB's own two date parameters would mean each row
+    // naming `primary_release_date` or `first_air_date` itself, and the same row would then
+    // be two different rows for a film and a show.
     case "curated": {
-      const { within, before, future, ...rest } = entry.params || {};
+      const { within, before, olderThan, future, ...rest } = entry.params || {};
       const params = { ...rest };
       if (Number.isFinite(within)) params[`${dateField(media)}.gte`] = iso(new Date(Date.now() - within * 864e5));
+      if (Number.isFinite(olderThan)) params[`${dateField(media)}.lte`] = iso(new Date(Date.now() - olderThan * 864e5));
       if (Number.isFinite(before)) params[`${dateField(media)}.lte`] = `${before}-12-31`;
       // **"Upcoming", said once for either media type.** A film sorts on
       // `primary_release_date` and a show on `first_air_date`, so a row that means "what
@@ -227,31 +237,31 @@ async function specsFor(entry, media, opts = {}) {
     case "genre": {
       const id = await resolveGenre(media, entry.genre);
       if (!id) return [];
-      return [page({ with_genres: id, sort_by: entry.sort === "popular" ? "popularity.desc" : "vote_count.desc", "vote_count.gte": 20 }, entry.take)];
+      return [page(ordered({ with_genres: id, sort_by: entry.sort === "popular" ? "popularity.desc" : "vote_count.desc", "vote_count.gte": 20 }), entry.take)];
     }
 
     case "decade":
       return [
-        page({
+        page(ordered({
           ...range(entry.decade),
           sort_by: entry.sort === "popular" ? "popularity.desc" : "vote_count.desc",
           "vote_count.gte": entry.sort === "popular" ? 20 : 0,
-        }, entry.take),
+        }), entry.take),
       ];
 
     case "genre-decade": {
       const id = await resolveGenre(media, entry.genre);
       if (!id) return [];
-      return [page({ with_genres: id, [`${dateField(media)}.gte`]: `${entry.from}-01-01`, sort_by: "popularity.desc", "vote_count.gte": 20 }, entry.take)];
+      return [page(ordered({ with_genres: id, [`${dateField(media)}.gte`]: `${entry.from}-01-01`, sort_by: "popularity.desc", "vote_count.gte": 20 }), entry.take)];
     }
 
     case "continent":
-      return [page({ with_origin_country: entry.codes.join("|"), sort_by: "popularity.desc", "vote_count.gte": 20 }, entry.take)];
+      return [page(ordered({ with_origin_country: entry.codes.join("|"), sort_by: "popularity.desc", "vote_count.gte": 20 }), entry.take)];
 
     // A low vote floor: TMDB has very little for small industries (Ghana, Kenya),
     // and a high floor emptied those rows entirely.
     case "country":
-      return [page({ with_origin_country: entry.code, sort_by: "popularity.desc", "vote_count.gte": 5 }, entry.take)];
+      return [page(ordered({ with_origin_country: entry.code, sort_by: "popularity.desc", "vote_count.gte": 5 }), entry.take)];
 
     // A length **bucket**: floor and ceiling both, so "30–44 mins" is a row of
     // short films rather than "every popular film over half an hour", which is
@@ -259,7 +269,7 @@ async function specsFor(entry, media, opts = {}) {
     case "runtime": {
       const params = { "with_runtime.gte": entry.min, sort_by: "popularity.desc", "vote_count.gte": 20 };
       if (Number.isFinite(entry.max)) params["with_runtime.lte"] = entry.max;
-      return [page(params, entry.take)];
+      return [page(ordered(params), entry.take)];
     }
 
     // **More like what you watch**: TMDB's own recommendation list for each title
@@ -316,7 +326,7 @@ async function specsFor(entry, media, opts = {}) {
       // No vote floor: TMDB's keyword supply is thin ("epic" has only a handful
       // of titles with 10+ votes), and a floor left those rows nearly empty.
       // Popularity ordering keeps the recognisable titles at the front.
-      return [page({ with_keywords: String(entry.id), sort_by: "popularity.desc", "vote_count.gte": 0 }, entry.take)];
+      return [page(ordered({ with_keywords: String(entry.id), sort_by: "popularity.desc", "vote_count.gte": 0 }), entry.take)];
 
     // An OTT service: a global platform (region = the configured one) or a
     // region's own service (JioHotstar in IN, Stan in AU, …).
@@ -324,7 +334,6 @@ async function specsFor(entry, media, opts = {}) {
     // asked for. With none chosen it is the row it always was — most popular first —
     // so the switch is additive and the default is unchanged.
     case "provider": {
-      const order = OTT_SORTS[opts.sort];
       return [
         page({
           with_watch_providers: entry.providerId,
@@ -626,14 +635,6 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
     .filter((p) => !GLOBAL_BRAND.test(p.name))
     .filter((p) => !STORE_LIKE.test(p.name))
     .filter((p) => !CHANNEL_TIER.test(p.name))
-    // **The Asian rows are off the card** (see `ASIA_CODES` in `scripts/collections.mjs`).
-    // Crunchyroll, Rakuten Viki and Kocowa carry the Asian titles on every card already, so a
-    // country-by-country row for an Asian service says the same thing twice — and this list,
-    // TMDB's answer for the region in Settings, is where the country's own rows come from, so
-    // the cut has to be here as well as on the card's own list or the rows come straight back.
-    // Judged by the **service**, not by the region: this list is one region's, and the
-    // pan-regional Asian platforms are listed for sixty-odd countries.
-    .filter((p) => !asianRow("", p.name));
   if (!here.length) return null;
   // **The country's own list, in TMDB's order for that country.**
   //
@@ -659,6 +660,146 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
 }
 
 /**
+ * **The Specialist card's rows: the art-house, documentary and niche catalogues your region
+ * really carries** (`<service> | Top 10`, one row per service).
+ *
+ * The card declares none of them itself, and that is the point: the services on the
+ * specialist list are the ones the Regional card leaves out, and the **ids** come from TMDB's
+ * own answer for the region — the same list `regionalServicesFor` reads — so a row is only
+ * ever published for a service that is in your country, read in your country.
+ *
+ * A row here is a **Top 10**, so it is capped like the Domestic card's Top 10 rows; the
+ * channel tiers of a platform that has its own card are dropped with the same patterns the
+ * Regional card uses, and the worldwide platforms are left to the International card.
+ *
+ * Returns `null` while that region's list has not arrived — an unasked question is not a
+ * "no", and the card keeps whatever it already has rather than emptying itself.
+ */
+const SPECIALIST_ROW_LIMIT = 12;
+
+/**
+ * **How many titles a Specialist row has to answer with to be a row at all.**
+ *
+ * The Domestic cards cull at twenty-five, measured by `scripts/probe-regional.mjs` — but they
+ * are rows for the services everyone names, and this card is the niche catalogues: a
+ * specialist service *is* small, so the floor is the size of the row it publishes (a Top 10)
+ * rather than a market. **Five** is where a row stops being a row: below it the page shows a
+ * handful of posters where a shelf was promised — Dekkoo answers Korea with **one** series.
+ *
+ * The measurements are taken live (`primeSpecialistCounts`), one query per row, and a row
+ * that has never been measured is **kept**: an unasked question is not a "no" — the same rule
+ * the region provider lists follow.
+ */
+const MIN_SPECIALIST_TITLES = 5;
+const SPECIALIST_COUNTS_TTL = 12 * 60 * 60 * 1000;
+const specialistCounts = new Map();
+
+function specialistServices(code, type, { cull = true } = {}) {
+  const wanted = String(code || "US").toUpperCase() || "US";
+  const own = regionProviders.get(`${type}:${wanted}`);
+  const held = own || regionProviders.get(`${type}:US`);
+  if (!held?.named?.length) return null;
+  // The region the rows are read in is the region the list came from — a US fallback is read
+  // in the US, so its rows are asked for the US catalogue rather than the wrong one.
+  const region = own ? wanted : GLOBAL_OTT_REGION;
+  const rows = held.named
+    .filter((p) => !GLOBAL_PROVIDER_IDS.has(p.id))
+    .filter((p) => !GLOBAL_BRAND.test(p.name))
+    .filter((p) => !STOREFRONT.test(p.name))
+    .filter((p) => !CHANNEL_TIER.test(p.name))
+    .filter((p) => isSpecialistService(p.name))
+    .filter((p) => {
+      // **The measurement is a filter, not a deletion.** The priming pass enumerates the
+      // list *unmeasured* (`cull: false`), so a service that was too thin in one season is
+      // still measured the next time and comes back the moment its catalogue can fill a row.
+      if (!cull) return true;
+      const measured = specialistCounts.get(`${type}:${p.id}@${region}`);
+      return !measured || measured.n >= MIN_SPECIALIST_TITLES;
+    })
+    .slice(0, SPECIALIST_ROW_LIMIT);
+  return rows.length ? { region, rows } : null;
+}
+
+/**
+ * **Measure the Specialist rows, one query each.**
+ *
+ * Read by `specialistServices` above, which keeps a row until a measurement says it cannot
+ * fill a page. Called beside `primeRegionProviders` where the manifest and the card set are
+ * built, so the card is culled by the *next* build rather than on a cold start — a first load
+ * must not be emptier than the second (the rule the region lists already follow).
+ */
+export async function primeSpecialistCounts(code = activeCountry()) {
+  const jobs = [];
+  for (const [type, media] of [["movie", "movie"], ["series", "series"]]) {
+    const found = specialistServices(code, type, { cull: false });
+    if (!found) continue;
+    for (const svc of found.rows) {
+      const slotKey = `${type}:${svc.id}@${found.region}`;
+      const held = specialistCounts.get(slotKey);
+      if (held && Date.now() - held.at < SPECIALIST_COUNTS_TTL) continue;
+      jobs.push(
+        (async () => {
+          try {
+            // **The row's own question, not one like it.** This is the query the *provider* case
+            // in `specsFor` makes with no order chosen (the shape a Top 10 row is read in), vote
+            // floor included — a measurement taken with a looser floor counts titles the row
+            // will never show, and Dekkoo's single Korean series came back as five.
+            const res = await get(`/discover/${tmdbPath(media)}`, {
+              with_watch_providers: svc.id,
+              watch_region: found.region,
+              with_watch_monetization_types: "flatrate",
+              sort_by: "popularity.desc",
+              "vote_count.gte": 10,
+            });
+            const n = (res?.results || []).length;
+            // Nothing at all is a failure as often as it is an empty catalogue, so a row that
+            // answered empty keeps the measurement it already had.
+            if (n || !held) specialistCounts.set(slotKey, { at: Date.now(), n });
+          } catch {
+            /* one row that did not answer keeps its last measurement */
+          }
+        })(),
+      );
+    }
+  }
+  await Promise.all(jobs);
+}
+
+/**
+ * Add the Specialist card's rows to the defs — one `<service> | Top 10` per service.
+ *
+ * Kept apart from `withRegionalServices` on purpose: that pass replaces the Regional cards'
+ * own rows with the country's list, and this one *only* adds to the Specialist card, so the
+ * two can never take each other's rows away.
+ */
+function withSpecialistServices(defs, code) {
+  const out = [...defs];
+  const published = new Set();
+  for (const [type, media] of [["movie", "movie"], ["series", "tv"]]) {
+    const found = specialistServices(code, type);
+    if (!found) continue;
+    for (const svc of found.rows) {
+      // **The type is part of the row's identity.** One provider is a Films row *and* a
+      // Series row, and keying the guard on the id alone published the Films row and then
+      // dropped every Series row behind it — the card came back with eleven film rows and
+      // no series at all.
+      const rowKey = `${type}:${svc.id}`;
+      if (published.has(rowKey)) continue;
+      published.add(rowKey);
+      const name = `${svc.name} | Top 10`;
+      out.push({
+        id: `${CATALOG_ID_PREFIX}specialist-top-10--${slug(svc.name)}-${String(found.region).toLowerCase()}`,
+        type,
+        key: "specialist-top-10",
+        entry: { kind: "provider", providerId: svc.id, region: found.region, name, take: 10 },
+        name,
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * **Stores and aggregators are not streaming services.** TMDB lists the shops (Google Play
  * Movies, Apple TV, JustWatch TV), the aggregators and the pass-throughs beside the real
  * services, and a row called "Google Play Movies" is not a place with a catalogue of its
@@ -669,6 +810,19 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
    loose pattern — meant for the Rakuten TV shop — was dropping a real streaming service the
    Regional OTT card is supposed to carry. */
 const STORE_LIKE = /google play|justwatch|apple tv|amazon video|youtube|microsoft|rakuten tv|chili|vudu|fandango|redbox|hoopla|kanopy|plex|eventive|cultpix|takflix|guide?doc|broadwayhd|magellan|filmzie|dekkoo|docalliance|true story|jolt film|netzkino|shadowz|\bpresents plus\b/i;
+
+/**
+ * **The shopfronts, for the card that is *made* of art-house catalogues.**
+ *
+ * `STORE_LIKE` above is the Regional card's own filter — it drops the shops *and* the
+ * art-house catalogues, because that card is the household names of a country. The
+ * **Specialist** card is the opposite card: Dekkoo, Cultpix, Magellan TV and GuideDoc are
+ * exactly what it is for, and applying the Regional filter to it left the card with three
+ * rows where the region carries seven. Only the real storefronts — where a title is bought
+ * rather than subscribed to — are dropped here; which of the rest is published is decided by
+ * the specialist list in `scripts/collections.mjs`.
+ */
+const STOREFRONT = /google play|justwatch|apple tv|amazon video|youtube|microsoft|rakuten tv|vudu|fandango|redbox|plex|eventive|takflix|jolt film|netzkino|shadowz|\bpresents plus\b/i;
 
 /**
  * **A channel tier is not a service.** "HBO Max Amazon Channel", "Anime Times Amazon
@@ -857,13 +1011,13 @@ export function catalogDefs(code = activeCountry()) {
   const key = String(code || "US").toUpperCase();
   if (!defsCache.has(key)) defsCache.set(key, buildCatalogDefs(collectionsFor(key)));
   const { defs, recommendCards } = defsCache.get(key);
-  if (!recommendCards.length) return withAvailableProviders(withRegionalServices(defs, key));
+  if (!recommendCards.length) return withAvailableProviders(withSpecialistServices(withRegionalServices(defs, key), key));
   // **The rows are published even with an empty watchlist.** Withholding them left
   // the For You card with no rows at all, so it could not show anything; with nothing
   // pinned each row falls back to what is trending (the `recommend` case in
   // `specsFor`), which is why the card is never empty.
   return [
-    ...withAvailableProviders(withRegionalServices(defs, key)),
+    ...withAvailableProviders(withSpecialistServices(withRegionalServices(defs, key), key)),
     ...recommendCards.flatMap((c) => {
       const rows = [];
       // **Per row type**, not per card: a watchlist holding only shows must still

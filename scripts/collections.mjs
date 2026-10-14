@@ -110,74 +110,19 @@ export const CONTINENTS = {
 export const MIN_COUNTRY_TITLES = 50;
 
 /**
- * **The Asian countries, by ISO code, and why their regional rows are not published.**
+ * **The Asian rows are published, and the duplicate is removed by name.**
  *
- * As asked: *"remove asian country regional ott as viki, kocowa and crunchyroll has all."*
- * The three pan-Asian catalogues are Crunchyroll, Rakuten Viki and Kocowa: Crunchyroll and
- * Viki are carried by **every** region's Regional OTT card (`WORLDWIDE` below), and Kocowa
- * is the third. Between them they are the anime and the Asian-drama catalogue, so a
- * country-by-country row for an Asian service names the same titles a second time — under a
- * brand the viewer reaches from the three anyway.
+ * They were briefly cut from both Regional cards, on the reading that Crunchyroll, Rakuten
+ * Viki and Kocowa — carried by every card — already hold the Asian catalogue. They do not:
+ * a regional row is read in the **provider's own region**, so `WeTV`, `Viu`, `iQIYI`,
+ * `TVING`, `Zee5`, `aha` and the rest open catalogues the three never carry, and the cut took
+ * most of a continent off the card. So the rows are back, on the region's own card, on the
+ * continent rows, and in the live list the per-request build tops the card up from.
  *
- * A row is judged by **where its titles are**, not by the name on it: the country the service
- * was verified in. That is what lets a service verified outside Asia (iQIYI in Morocco, read
- * in the United States) keep the place it has, while the rows that exist only for an Asian
- * region come off.
+ * The duplicate the cut was really about is still gone — `Crunchyroll` sat on the card twice,
+ * once per region's provider id. That is `oneRowPerService`'s job now: **the brand is the
+ * identity**, and the first row for a name wins.
  */
-export const ASIA_CODES = new Set(CONTINENTS.Asia);
-
-/** Is this row's home an Asian country? (`code` first, then the service's own region.) */
-export const fromAsia = (...codes) =>
-  codes.some((c) => ASIA_CODES.has(String(c || "").toUpperCase()));
-
-/**
- * **The art-house trio is not an Asian catalogue.** MUBI, DOCSVILLE and Curiosity Stream are
- * verified in **Japan**, and the reason the Asian rows come off — Crunchyroll, Viki and Kocowa
- * carry the Asian titles between them — has nothing to do with them: they are a documentary
- * and world-cinema service that happens to resolve in Japan, and none of the three carries
- * them. Judging a row by *what it is* and not only by where it was verified keeps the one row
- * that is not an Asian row.
- */
-const NOT_ASIAN = new Set(["MUBI", "DOCSVILLE", "Curiosity Stream"]);
-
-/**
- * **The Asian services, by name.**
- *
- * The region rule alone was not enough: a row is built from the *first* country a service is
- * verified in, and the pan-regional Asian platforms — Zee5, aha, Sun Nxt, WeTV, iQIYI — are
- * listed for sixty-odd countries, so each of them survived on the technicality of having been
- * verified somewhere outside Asia first. The card knows what these services *are*: they are the
- * names its own regional list files under *South Asia*, *Korea and Japan* and *Greater China and
- * South-East Asia*, so they are Asian rows wherever they were first seen.
- *
- * Three deliberate exceptions:
- *
- *   - **Hulu**, which sits in the Korea-and-Japan group on that list but whose row is the
- *     **United States'** Hulu (verified there, read there) — it is not an Asian catalogue;
- *   - the **pan-Asian three** themselves (Crunchyroll, Rakuten Viki, Kocowa), which are the
- *     rows that take Asia's place on the card;
- *   - the **art-house trio** (see `NOT_ASIAN`).
- */
-const ASIAN_SERVICES = new Set([
-  // —— Korea and Japan
-  "TVING", "wavve", "Watcha", "Coupang Play", "U-NEXT", "ABEMA", "AbemaTV", "Lemino", "TVer",
-  "FOD", "WOWOW", "DMM TV", "d Anime Store",
-  // —— Greater China and South-East Asia
-  "iQIYI", "WeTV", "Tencent Video", "Youku", "Mango TV", "Bilibili", "myTV SUPER", "Viu",
-  "Vidio", "Catchplay", "Mewatch", "TrueID", "sooka", "Astro GO", "Vision+",
-  // —— South Asia
-  "JioHotstar", "Zee5", "MX Player", "aha", "Sun Nxt", "Sun NXT", "Sony Liv", "SonyLIV",
-  "Hoichoi", "JioCinema", "Eros Now", "Lionsgate Play",
-].map((n) => String(n).toLowerCase().replace(/[^a-z0-9+]/g, "")));
-
-const asianKey = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9+]/g, "");
-
-/** Is this service an Asian row — one the three pan-Asian catalogues already hold? */
-export const asianRow = (code, name) => {
-  const key = asianKey(name);
-  if (NOT_ASIAN.has(String(name || "").trim())) return false;
-  return fromAsia(code) || ASIAN_SERVICES.has(key);
-};
 
 /**
  * **Published nowhere: the places the user asked out.**
@@ -465,13 +410,10 @@ export const REGIONAL_SERVICES = (type) => {
       }
     }
   }
-  const list = [...byId.values()]
-    // **The Asian rows are off the card** (see `ASIA_CODES`): the three pan-Asian catalogues —
-    // Crunchyroll and Viki, which every card carries, and Kocowa — already hold what these rows
-    // would open. Judged here as well as in the card's own list, because this is the list the
-    // live build tops the card up from: a row culled in one place and added back in the other
-    // would come straight back the moment a card was opened.
-    .filter((svc) => !asianRow(svc.region, svc.name))
+  // **One row per service here too**, by name: this is the list the live build tops the card
+  // up from, and a platform TMDB numbers twice for two regions came back twice (see
+  // `oneRowPerService`). The name is the identity; the first region it was seen in wins.
+  const list = [...new Map([...byId.values()].map((svc) => [popKey(svc.name) || svc.id, svc])).values()]
     .sort((a, b) => a.name.localeCompare(b.name));
   const seen = new Set(list.map((s) => s.id));
   // **A regional row stays only while its country is on the Countries card.** The two
@@ -583,6 +525,47 @@ const POPULAR_REGIONAL_KEYS = new Set([...POPULAR_REGIONAL].map(popKey));
 export const isPopularRegional = (name) => POPULAR_REGIONAL_KEYS.has(popKey(name));
 
 /**
+ * **The Specialist card's own list: the art-house, documentary and niche catalogues.**
+ *
+ * They are the services the Regional card deliberately leaves out — "the Amazon/Apple/Roku
+ * *channel* variants, the box companions, the **art-house catalogues**" — and they are a card
+ * of their own now: the places a viewer goes *on purpose*, rather than the ones a country's
+ * subscription list happens to lead with. MUBI and the Criterion Channel for the canon,
+ * Shudder and Cultpix for horror, Curiosity Stream, DOCSVILLE and MagellanTV for
+ * documentaries, MHz Choice for subtitled drama, Kanopy beside them.
+ *
+ * The names are compared the way the household list is (`popKey`), because TMDB spells a
+ * brand its own way — `The Criterion Channel` where the card says `Criterion Channel`.
+ *
+ * The **card has no rows of its own**: every row it publishes is one of these services as
+ * TMDB lists it for *your* region, added at request time (see `withSpecialistServices` in
+ * `addon/catalogs.mjs`) — so an id is never guessed here, and a service your region does not
+ * carry never gets a row.
+ */
+const SPECIALIST_SERVICES = new Set([
+  // —— the canon and the art house
+  "MUBI", "Criterion Channel", "The Criterion Channel", "Criterion", "BFI Player",
+  "Curzon Home Cinema", "Curzon", "Filmin", "OVID", "Metrograph", "Fandor", "Kino Now",
+  "Kino Film Collection", "Mubi",
+  // —— horror, cult and the midnight shelf
+  "Shudder", "Screambox", "Midnight Pulp", "Cultpix", "Arrow Video", "Arrow Player",
+  "ARROW", "Dekkoo", "Full Moon", "Troma Now",
+  // —— documentary
+  "Curiosity Stream", "DOCSVILLE", "MagellanTV", "DocPlay", "GuideDoc", "WaterBear",
+  "DocAlliance", "DocAlliance Films", "Dox", "Nebula", "Topic", "Filmzie",
+  "Artiflix", "Artify",
+  // —— the specialist shelves people subscribe to
+  "MHz Choice", "Acorn TV", "Sundance Now", "IFC Films Unlimited", "Kanopy", "Hoopla",
+  "Hi-YAH!", "AsianCrush", "HiDive", "RetroCrush", "Gusto TV",
+]);
+
+/** The same list, as keys — see `popKey`. */
+const SPECIALIST_KEYS = new Set([...SPECIALIST_SERVICES].map(popKey));
+
+/** Is this a service the Specialist card publishes? (@see `withSpecialistServices` in addon/catalogs.mjs) */
+export const isSpecialistService = (name) => SPECIALIST_KEYS.has(popKey(name));
+
+/**
  * **A row that cannot fill a page is not a row.**
  *
  * The floor under a Regional OTT row, in the region the row is read in. The customer asked
@@ -685,36 +668,18 @@ const SHOW_ROW_OFF = new Set([
 const offTheShowsCard = (type, name) => type === "tv" && SHOW_ROW_OFF.has(String(name || "").trim());
 
 /**
- * **Where a row sits when the customer names its neighbour.**
+ * **Every row keeps the place it was published in.**
  *
- * A card is built in the order the regions were verified in, and the two worldwide services
- * are appended after every one of them — so Crunchyroll, the anime catalogue, whose rows are
- * read beside Japan's, drew at the very bottom of the card. It now sits immediately after
- * FOD, on both Regional OTT cards (the plain one and its Top 10 twin, whose labels carry the
- * ` | Top 10` suffix this strips). A row whose anchor is missing keeps the place it had.
+ * There was a placement map here: Crunchyroll was pulled up beside FOD and Kocowa was put
+ * directly after Rakuten Viki. It is empty again, as asked — a service moved out of the order
+ * its own region was read in makes the card look like it has favourites, and Crunchyroll, Viki
+ * and Kocowa are ordinary rows of the regions that carry them. `placeRowsAfter` stays: it is
+ * the one place a placement would be written, and with nothing in the map it hands the list
+ * back untouched.
  */
-const ROW_AFTER = {
-  Crunchyroll: "FOD",
-  // **Viki before Kocowa**, as asked: the anchor is the row it follows, so Kocowa is placed
-  // immediately after Rakuten Viki and the pair reads `Rakuten Viki | Kocowa` on both regional
-  // cards (TMDB's own name for the row is `Rakuten Viki`; the ` | Top 10` suffix is stripped
-  // before the match, so the twin card moves with it).
-  Kocowa: "Rakuten Viki",
-};
+const ROW_AFTER = {};
 const rowLabel = (row) => String(row?.name || "").replace(/ \| Top 10$/, "");
 
-/**
- * **The three pan-Asian catalogues lead the card.** Crunchyroll, Rakuten Viki and Kocowa are
- * what the Regional OTT card says about Asia now that the country rows are off it, so they come
- * first — in the order the customer named them — instead of sitting wherever their placement
- * anchor left them (`Crunchyroll`'s anchor was `FOD`, a row the Asian cut takes with it, which
- * had quietly pushed it to the bottom of the list).
- */
-const ASIAN_HEAD = ["Rakuten Viki", "Kocowa", "Crunchyroll"];
-const asianFirst = (rows) => [
-  ...ASIAN_HEAD.flatMap((name) => rows.filter((r) => rowLabel(r) === name)),
-  ...rows.filter((r) => !ASIAN_HEAD.includes(rowLabel(r))),
-];
 function placeRowsAfter(rows, after = ROW_AFTER) {
   let out = rows;
   for (const [name, anchor] of Object.entries(after)) {
@@ -749,7 +714,12 @@ const CONTINENTAL_OTT_LIMIT = 12;
 const oneRowPerService = (rows) => {
   const seen = new Set();
   return rows.filter((row) => {
-    const key = String(row.providerId ?? row.name);
+    // **The brand is the identity, not the number.** TMDB numbers a service per region, so
+    // the same platform is two provider ids across two countries and the card carried it
+    // twice — "Crunchyroll" beside "Crunchyroll". The name decides, and the id is only what
+    // tells two same-named rows apart (`popKey` folds the punctuation away, so "Disney+" and
+    // "Disney Plus" are the one brand).
+    const key = popKey(row.name) || String(row.providerId ?? "");
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -777,11 +747,6 @@ function regionalOttByContinent(kind = "all") {
     // A service is published once, in the continent its first verified country sits in.
     const used = new Set();
     for (const [name, codes] of continentsWithContent()) {
-      // **Asia is not a group any more.** Its household names are the three pan-Asian
-      // catalogues, and those are on every card already — so the continent that used to fill
-      // the head of this list with `TVING`, `U-NEXT`, `Viu` and the rest publishes nothing
-      // here (see `ASIA_CODES`).
-      if (name === "Asia") continue;
       const seen = new Set();
       let taken = 0;
       for (const code of codes) {
@@ -790,8 +755,6 @@ function regionalOttByContinent(kind = "all") {
           if (taken >= CONTINENTAL_OTT_LIMIT) break;
           // Crunchyroll and Viki are on every region's Regional OTT card already.
           if (WORLDWIDE.some((w) => w.id === svc.id)) continue;
-          // …and no Asian row is a row (see `ASIA_CODES`), the art-house trio aside.
-          if (asianRow(svc.region || code, svc.name)) continue;
           if (offTheShowsCard(type, svc.name)) continue;
           if (!rowFillsAPage(svc.id, svc.region || code, type)) continue;
           if (!isPopularRegional(svc.name) || seen.has(svc.id) || used.has(svc.id)) continue;
@@ -953,9 +916,6 @@ function regionalOtt(kind) {
       const local = localFor(name, type).filter((svc) => isPopularRegional(svc.name));
       if (!local.length) continue;
       for (const svc of local) {
-        // **No Asian rows** — the three pan-Asian catalogues have it (see `ASIA_CODES`),
-        // the art-house trio aside.
-        if (asianRow(svc.region || code, svc.name)) continue;
         // The same service can be listed for two countries (a pan-regional platform);
         // the region is part of the row's identity, so each one is its own row, and a
         // true duplicate of the same service *in the same region* is dropped.
@@ -998,7 +958,7 @@ function regionalOtt(kind) {
         ? provider(`${svc.name} | Top 10`, svc.id, null, TOP10)
         : provider(svc.name, svc.id, null));
     }
-    return asianFirst(placeRowsAfter(rows));
+    return placeRowsAfter(rows);
   };
   return { movie: build("movie", "movie"), show: build("tv", "tv") };
 }
@@ -1207,6 +1167,13 @@ const CARD_ORDER = [
   "global-ott",
   "regional-ott-top-10",
   "regional-ott",
+  // **The Specialist card sits after the Domestic ones.** It is the same idea read one shelf
+  // further in — the services a viewer picks *on purpose* rather than the ones their country
+  // happens to lead with — so it follows the card it comes off.
+  "specialist-top-10",
+  // **Updates closes the OTT block.** What is arriving and what is on its way out, read from
+  // today's date every time the card is opened (see the card's own note below).
+  "updates",
   // **Your own cards sit at the bottom, in the order you use them**: your list, then
   // what is on its way, then the rows you filled yourself. Watchlist was first for a
   // long time, which put a list that is usually short in front of the whole app.
@@ -1391,16 +1358,21 @@ const buildCollections = (code = "") => {
     },
   },
 
-  // Global — the period rows, then Top 10 for each platform.
+  // **International** — the period rows, then Top 10 for each platform.
+  //
+  // The card was called **Global**; the owner asked for **International** in the app's own
+  // words (a worldwide row beside a country's own rows is *international* next to *domestic*).
+  // The **key does not move**: it is the cover's filename and the catalog ids' prefix, so
+  // renaming it would leave every published row behind.
   {
     key: "global-ott-top-10",
-    lines: ["Global", "| Top 10"],
+    lines: ["International", "| Top 10"],
     scene: "global-ott-top-10",
     catalogs: both([...top10Periods(), ...globalOtt.top10(TOP10)]),
   },
   {
     key: "global-ott",
-    lines: ["Global"],
+    lines: ["International"],
     scene: "global-ott",
     catalogs: both(globalOtt.all()),
   },
@@ -1410,9 +1382,13 @@ const buildCollections = (code = "") => {
   // it was verified in, so a service verified for one market is still asked for that
   // market's titles. Covers stay title-only: drawing one service's name would be wrong
   // for a card that changes with the Region.
+  // The card was called **Regional**; it is **Domestic** in the app's words now — what is on
+  // *your* country's services, as against the International card's worldwide platforms. The
+  // **key stays** `regional-ott*` for the same reason the International one's does: it names
+  // the cover file and the catalog ids.
   {
     key: "regional-ott-top-10",
-    lines: ["Regional", "| Top 10"],
+    lines: ["Domestic", "| Top 10"],
     scene: "regional-ott-top-10",
     titleOnly: true,
     // **The region's Top 10s, and the continents' beside them.** Both Regional cards carry
@@ -1429,7 +1405,7 @@ const buildCollections = (code = "") => {
   },
   {
     key: "regional-ott",
-    lines: ["Regional"],
+    lines: ["Domestic"],
     scene: "regional-ott",
     titleOnly: true,
     // **The region's services, and then the continents'.** The card is the one place the
@@ -1445,6 +1421,44 @@ const buildCollections = (code = "") => {
         show: oneRowPerService([...here.show, ...wider.show]),
       };
     })(),
+  },
+
+  // **Specialist | Top 10** — the art-house, documentary and niche catalogues.
+  //
+  // The card declares **no rows of its own**: `withSpecialistServices` publishes one
+  // `<service> | Top 10` row for each service on the specialist list that TMDB actually
+  // carries where you are (see the list in this file). Declaring ids here would mean baking
+  // in a provider id per brand, and the region's own list is a better answer than any list
+  // kept here: a service your country does not carry gets no row, and the id is TMDB's.
+  //
+  // `titleOnly` for the same reason the Domestic cards are: the card names one service per
+  // row and the services differ by region, so a cover that drew one of them would be wrong
+  // for the next reader. It reuses the Domestic Top 10's own scene rather than shipping with
+  // no artwork at all.
+  {
+    key: "specialist-top-10",
+    lines: ["Specialist", "| Top 10"],
+    scene: "regional-ott-top-10",
+    titleOnly: true,
+    catalogs: both([]),
+  },
+
+  // **Updates** — what is arriving, and what is on its way out.
+  //
+  // Two rows, both read from **today's date** every time the card is opened, so the card
+  // moves on its own: `future: 30` is what arrives in the next month (nearest first), and
+  // `within: 180` + `olderThan: 60` is what arrived two to six months ago — the titles the
+  // app's own rolling *Latest / Newest / Trending* windows are about to drop. Neither row is
+  // stored or scheduled: the dates are recomputed on every request, which is what "arriving
+  // and leaving, from time to time" means here (see `specsFor` in `addon/catalogs.mjs`).
+  {
+    key: "updates",
+    lines: ["Updates"],
+    scene: "on-the-board",
+    catalogs: both([
+      curated("Arriving Soon", { sort_by: "date.asc", future: 30 }),
+      curated("Leaving Soon", { sort_by: "popularity.desc", "vote_count.gte": 20, within: 180, olderThan: 60 }),
+    ]),
   },
 
   {

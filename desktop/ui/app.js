@@ -404,6 +404,18 @@ const OTT_SORTS = [
 ];
 
 /**
+ * **The rows the Explore page offers its own order on.**
+ *
+ * A genre, a decade, a continent, a country, a runtime bucket, an episode bucket and a
+ * keyword row (**Moods & vibes**, **Themes & tags**) each publish a **pool**: the row is "the
+ * anime", "the 1990s", "Japan", "90–104 mins", and the order is how you want that pool read —
+ * what just came out, what is trending now, what is best reviewed. Every other row already
+ * has the one order that *is* the row (a service in its own published order, a banner row by
+ * date, For You by your own watchlist), so the dropdown is not offered there.
+ */
+const SORTABLE_KINDS = new Set(["genre", "genre-decade", "decade", "continent", "country", "runtime", "episodes", "keyword"]);
+
+/**
  * The two OTT cards that read their rows **in an order** — the ◆ Top 10 pair.
  *
  * The dropdown belongs to those two and only those two, on their **Explore** page: a
@@ -2412,20 +2424,9 @@ function orderedCatalogs(card) {
   return catalogs;
 }
 
-// A drawn icon, like the rest of the controls — not the ⇄ text glyph.
-const shuffleIcon = () =>
-  el(
-    "span",
-    { class: "glyph", "aria-hidden": "true" },
-    svgNode(
-      "svg",
-      { viewBox: "0 0 24 24" },
-      svgNode("path", { d: "M4 7h3.2l9.6 10H20" }),
-      svgNode("path", { d: "M17 14l3 3-3 3" }),
-      svgNode("path", { d: "M4 17h3.2l9.6-10H20" }),
-      svgNode("path", { d: "M17 4l3 3-3 3" }),
-    ),
-  );
+/* The drawn two-way arrows that used to sit inside the Shuffle button are gone with it:
+   the word says what the control does, and it was the only icon in the app standing in for a
+   label that already reads. */
 
 /* -------------------------------------------------------------------- views */
 
@@ -3885,6 +3886,10 @@ function refreshNow() {
   // there, which is why "refresh" never changed a card's posters.
   clearTileWindows();
   contentDrawn.clear();
+  // The sample rows on an Explore page are a draw of their own, so a refresh deals them
+  // again too (see `shuffledSamples`) — a refresh that left the same twelve on top was a
+  // refresh that only half happened.
+  shuffledSamples.clear();
   // A refresh re-reads whatever the current screen is made of — including the
   // channel list and the guide, which are catalogs too.
   if (liveProfile()) {
@@ -4077,6 +4082,17 @@ function collectionGrid(row) {
 function rowSwitch(scope = "home") {
   const mine = scope === "home" ? state.row : rowScope(scope);
   const pick = (value) => {
+    // **A press on the plate you are standing on is the app's refresh.** Home and the chosen
+    // Movies / Shows pill are the two controls that say which half of the catalogs is on
+    // screen, and the ask was a *catalog* refresh on both: pressing the one you are already
+    // on re-reads the rows from the server (`refreshNow`) instead of doing nothing.
+    if (mine === value) {
+      // **Only Home's own switch refreshes.** The same plate on Search and the Calendar says
+      // which half *that* screen is reading, and both screens re-read their own way (Enter, a
+      // new month) — a refresh there would be a redraw nobody asked for.
+      if (scope === "home") refreshNow();
+      return;
+    }
     if (scope === "home") setRow(value);
     else setRowScope(scope, value);
     state.order = {};
@@ -4092,7 +4108,13 @@ function rowSwitch(scope = "home") {
         role: "tab",
         "aria-selected": String(mine === value),
         text: label,
-        onclick: () => pick(value),
+        onclick: (event) => {
+          // **A press on the row you are already on is not a door.** `pick` already returns
+          // for the chosen pill; the default is stopped here too, so nothing re-reads the
+          // screen the press was meant to leave alone.
+          event.preventDefault();
+          pick(value);
+        },
       }),
     ),
   );
@@ -4274,9 +4296,33 @@ async function renderCard(key) {
  * catalog below it rather than like a numbered "Shuffle 1/2/3" list. The one
  * Shuffle button in the header redraws all three (that is what `reload` is for).
  */
+/**
+ * **The sample row is drawn once per catalog, and Shuffle is what draws a new one.**
+ *
+ * The row is a random twelve, and every redraw of the screen rolled a fresh twelve — so
+ * changing the **order** dropdown (which re-reads the row from the server) re-rolled the
+ * sample above it too, and the one thing on the page that is meant to stay put moved. The
+ * drawn sample is kept per catalog for the session; `Shuffle` asks for a new one, and
+ * `refreshNow` drops the lot along with the rest of the drawn artwork.
+ */
+const shuffledSamples = new Map();
+
 function shuffleRow(cat) {
   const strip = el("div", { class: "strip" });
-  const load = async () => {
+  const paint = (metas) => {
+    strip.replaceChildren();
+    if (!metas.length) {
+      strip.append(el("p", { class: "empty", text: "Nothing to shuffle in this catalog yet." }));
+      return;
+    }
+    for (const m of metas) strip.append(posterCard(m));
+  };
+  const load = async (fresh = false) => {
+    const held = fresh ? null : shuffledSamples.get(cat.id);
+    if (held) {
+      paint(held);
+      return;
+    }
     strip.replaceChildren(...Array.from({ length: 5 }, () => el("div", { class: "placeholder" })));
     try {
       // The `_` is a fresh number per draw, and the server answers a shuffle with
@@ -4285,19 +4331,15 @@ function shuffleRow(cat) {
       const { metas } = await get(
         `/catalog/${apiType()}/${encodeURIComponent(cat.id)}/shuffle=12.json${catalogQuery()}&_=${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
       );
-      strip.replaceChildren();
-      if (!metas.length) {
-        strip.append(el("p", { class: "empty", text: "Nothing to shuffle in this catalog yet." }));
-        return;
-      }
-      for (const m of metas) strip.append(posterCard(m));
+      shuffledSamples.set(cat.id, metas);
+      paint(metas);
     } catch (err) {
       strip.replaceChildren(el("p", { class: "empty", text: `Could not shuffle — ${err.message}` }));
     }
   };
-  queueMicrotask(load);
+  queueMicrotask(() => load());
 
-  return { node: el("div", { class: "cat-row shuffle-row" }, strip), reload: load };
+  return { node: el("div", { class: "cat-row shuffle-row" }, strip), reload: () => load(true) };
 }
 
 /**
@@ -4355,19 +4397,33 @@ function renderExplore(key, id) {
   // picker in the corner of their Explore pages; those rows keep the server's own order
   // now, and a card with no control draws no header at all. The `ott` flag stays: it is
   // still what says a Top 10 publishes a *capped* list, so it still gets no Shuffle row.
+  // **Shuffle first, then the order.** A row that publishes a pool gets the dropdown the
+  // ◆ Top 10 OTT cards have always had — *Latest / Newest / Trending / Popular / Top rated* —
+  // drawn after its **Shuffle**. The choice rides on every request this page makes, so the row
+  // is really re-read from the server instead of re-sorted on screen.
+  const sortable = SORTABLE_KINDS.has(String(cat.kind));
+  // **The order rides under the Shuffle row.** The dropdown re-reads the same sample the
+  // Shuffle row draws, so it is drawn *after* it (`sortTools`, below) instead of up in the
+  // header — where it stood in front of the thing it belongs to.
+  const sortTools = !ott && sortable ? el("div", { class: "cat-tools" }, ottSortControl()) : null;
   const tools = ott
     ? null
     : sampled
       ? el(
           "div",
           { class: "cat-tools" },
-          el("button", {
-            class: "btn subtle focusable shuffle-btn",
-            type: "button",
-            id: "shuffle-samples",
-            title: "Shuffle — draw a fresh sample",
-            onclick: () => samples.forEach((row) => row.reload()),
-          }, shuffleIcon(), el("span", { text: "Shuffle" })),
+          sampled
+            ? el("button", {
+                class: "btn subtle focusable shuffle-btn",
+                type: "button",
+                id: "shuffle-samples",
+                title: "Shuffle — draw a fresh sample",
+                // **The word is the button.** It carried the drawn two-way arrows beside the
+                // label, which was the only icon in the app standing in for a word that
+                // already says what it does.
+                onclick: () => samples.forEach((row) => row.reload()),
+              }, el("span", { text: "Shuffle" }))
+            : null,
         )
       : null;
   const head = tools ? el("header", { class: "explore-head" }, tools) : null;
@@ -4559,7 +4615,10 @@ function renderExplore(key, id) {
     { class: "section explore" },
     head,
     shuffles,
+    // **The order rides under the rule**, below the sample row it belongs to — it was drawn
+    // *above* the Shuffle row (see `sortTools`), in front of the thing it orders.
     rule,
+    sortTools,
     el(
       "div",
       { class: "explore-body" },
@@ -4788,8 +4847,14 @@ function renderSearch() {
   // "a lonely detective in the rain" only means something if search can find
   // *titles*, not just collection names.
   const titles = el("div", { class: "search-titles", id: "search-titles" });
-  const suggestions = el("div", { class: "search-suggest", id: "search-suggest", hidden: true });
+  // **The text the wall was built from.** Typing does not rewrite the URL, so the next
+  // window of a row has to remember what was actually asked for (see `loadTitles`).
+  let lastText = query;
   let timer = null;
+  // **The type-ahead list under the bar.** It was taken out with the wall's rework, and the
+  // search stopped reading the way it did: the titles you are looking for are listed under the
+  // field as you type, and the wall below fills in behind them.
+  const suggestions = el("div", { class: "search-suggest", id: "search-suggest", hidden: true });
 
   const suggestRow = (kind, label, onclick) =>
     el(
@@ -4800,41 +4865,61 @@ function renderSearch() {
     );
 
   /**
-   * The dropdown suggests **titles, and only titles**.
-   *
-   * It used to lead with matching Collections and Catalogs, so typing "home" showed
-   * a `Catalog — Homeless — Themes & Tags` line above any film — the reported "why
-   * is search showing this in place of contents". The box now suggests the titles
-   * themselves, which is what searching for a film means.
+   * The list suggests **titles, and only titles**: each line says what it is — `Movie` or
+   * `Show`, because a film and a series with the same name are two different things — and
+   * pressing one opens that title. The last line is the way into the full wall of results.
    */
-  // **Each suggestion says what it is**, on the left, where the label column is: a
-  // film and a show with the same name are two different things, and "Title" on
-  // every line told you nothing about which one this is.
-  const drawSuggestions = (_text, metas = []) => {
-    // **What you are already watching is not offered back to you.** The results wall drops
-    // those titles (`hideOwned`); the dropdown did not, so the same film you are part-way
-    // through came back as a suggestion while the wall it leads to had dropped it.
-    const nodes = hideOwned(metas).filter((m) => (m.type === "movie" ? "movie" : "show") === barType()).map((m) =>
-      suggestRow(m.type === "series" ? "Show" : "Movie", m.name, () =>
-        go(`#/t/${m.type === "series" ? "series" : "movie"}/${String(m.id || "").replace(/^tmdb:/, "")}`),
-      ),
-    );
-    // The way **into** the results: the dropdown is what you get while typing, and
-    // the wall of posters is what you get when you ask for it.
-    const text = String(_text || "").trim();
-    if (text) {
+  const drawSuggestions = (text, metas = []) => {
+    const nodes = hideOwned(metas)
+      .filter((m) => (m.type === "movie" ? "movie" : "show") === barType())
+      .map((m) =>
+        suggestRow(m.type === "series" ? "Show" : "Movie", m.name, () =>
+          go(`#/t/${m.type === "series" ? "series" : "movie"}/${String(m.id || "").replace(/^tmdb:/, "")}`),
+        ),
+      );
+    const value = String(text || "").trim();
+    if (value) {
       nodes.push(
         el(
           "button",
-          { class: "suggest-item suggest-more focusable", type: "button", onclick: () => submitNow(_text) },
+          { class: "suggest-item suggest-more focusable", type: "button", onclick: () => submitNow(value) },
           el("span", { class: "suggest-kind", text: "All" }),
-          el("span", { class: "suggest-text", text: `More results for \u201c${text}\u201d` }),
+          el("span", { class: "suggest-text", text: `More results for \u201c${value}\u201d` }),
         ),
       );
     }
     suggestions.replaceChildren(...nodes);
     suggestions.hidden = !nodes.length;
   };
+
+  /** Ask for what the box is showing, and list it under the bar. */
+  const suggest = async (text) => {
+    const value = String(text ?? "").trim();
+    if (!value) {
+      suggestions.hidden = true;
+      suggestions.replaceChildren();
+      return;
+    }
+    try {
+      const p = new URLSearchParams(resultQuery());
+      p.set("q", value);
+      const { metas = [] } = await get(`/search.json?${p.toString()}`);
+      drawSuggestions(value, metas);
+    } catch {
+      drawSuggestions(value);
+    }
+  };
+
+  /**
+   * **The wall is the answer, and it is drawn as you type** (see `refresh`).
+   *
+   * There was a floating suggestion list here, and it was the *only* thing a keystroke
+   * drew: the results waited for Enter, and what you saw meanwhile was a list of the same
+   * titles tagged `Movie` / `Show`, over the space the results should have been in. A
+   * search that draws its results does not need that list - the grid already says what
+   * each title is, under its own `Movies` / `Shows` heading, and this screen's own switch
+   * above the bar says which half of it you are reading.
+   */
 
   /** Run the search: the way out of the dropdown, and what Enter does. */
   const submitNow = (text) => {
@@ -4843,6 +4928,9 @@ function renderSearch() {
     if (value) p.set("q", value);
     else p.delete("q");
     suggestions.hidden = true;
+    // **The press is what asks for the wall.** It is shown before the screen is re-read, so
+    // the results replace the list in the same beat rather than after a blank frame.
+    titles.hidden = false;
     go(`#/search?${p.toString()}`);
   };
 
@@ -4936,40 +5024,40 @@ function renderSearch() {
     searchObserver.observe(moreSentinel);
   };
 
-  const loadTitles = async (text, more = false, { grid = true } = {}) => {
-    const trimmed = (text || "").trim();
+  const loadTitles = async (text, more = false) => {
+    // **The text being searched.** For a "more" window it is the text the wall was already
+    // built from, not the one in the address bar: typing does not rewrite the URL (Enter
+    // does), so a `q` read back out of it is the last *submitted* search, not the one on
+    // screen - which is what left a typed search showing the previous query's titles.
+    const trimmed = more ? lastText : String(text ?? "").trim();
     if (!more) {
+      // **A submitted search owns the screen again** — the wall is what it was asked for
+      // (see `refresh`, which hides it while only the list is up).
+      titles.hidden = false;
+      lastText = trimmed;
       searchStart = 0;
       searchSeen.clear();
       groups.movie = null;
       groups.show = null;
       searchDone = true;
-      titles.replaceChildren();
     }
-    // **While you type, the dropdown is the only thing on screen.** The results grid
-    // used to be drawn from the same keystroke, so a handful of suggested titles sat
-    // on top of a wall of posters for a search that had not been run yet.
-    if (!resultQuery() || !grid) {
-      searchDone = true;
-      if (!grid && trimmed) {
-        try {
-          const p = new URLSearchParams(resultQuery());
-          p.set("q", trimmed);
-          const { metas = [] } = await get(`/search.json?${p.toString()}`);
-          drawSuggestions(trimmed, metas);
-        } catch {
-          drawSuggestions(trimmed);
-        }
-      } else {
-        drawSuggestions(trimmed);
-      }
+    if (searchBusy) {
+      // **A keystroke is never thrown away.** The last request is still in flight; this
+      // text waits a beat and comes back, instead of returning into nothing and leaving
+      // the wall on the older query.
+      clearTimeout(timer);
+      timer = setTimeout(() => loadTitles(more ? lastText : text, more), 120);
       return;
     }
-    if (searchBusy) return;
     searchBusy = true;
-    if (!more) titles.replaceChildren(el("p", { class: "view-hint", text: "Searching titles…" }));
+    // The hint is only for a screen with nothing on it: swapping the wall for it on every
+    // keystroke made the posters blink away for a quarter of a second while you typed.
+    if (!more && !titles.querySelector(".poster")) {
+      titles.replaceChildren(el("p", { class: "view-hint", text: "Searching titles…" }));
+    }
     try {
       const p = new URLSearchParams(resultQuery());
+      if (trimmed) p.set("q", trimmed);
       if (searchStart > 0) p.set("start", String(searchStart));
       const { metas: raw = [], next = null } = await get(`/search.json?${p.toString()}`);
       // **Search never shows what you are already watching** — the Watched and Watching
@@ -4977,10 +5065,7 @@ function renderSearch() {
       const metas = hideOwned(raw);
       if (!more) {
         titles.replaceChildren();
-        // **The suggestion list closes when the results arrive.** It stayed open over
-        // the grid, so its "Title" labels sat on top of the posters underneath them.
-        // **The suggestion list is emptied when the results arrive.** It used to be
-        // redrawn here, which put the floating list back on top of the poster grid.
+        // **The list closes when the wall arrives** — it says the same titles in one column.
         suggestions.hidden = true;
         suggestions.replaceChildren();
         if (!metas.length) {
@@ -5006,19 +5091,37 @@ function renderSearch() {
 
   const refresh = (value) => {
     clearTimeout(timer);
-    // Typing clears the results and shows the dropdown again; the grid comes back
-    // when you ask for it (Enter, or "More results" in the dropdown).
-    titles.replaceChildren();
-    suggestions.hidden = false;
-    // A shorter beat on the keystroke: the dropdown is the only thing drawn while
-    // you type, so waiting a quarter of a second made the suggestions feel behind
-    // the keyboard.
-    timer = setTimeout(() => loadTitles(value, false, { grid: false }), 150);
+    // **Typing suggests; the wall waits for the press.** The list under the bar is what a
+    // keystroke draws — the catalog wall filled in behind it as you typed, so the titles the
+    // list was offering were already on the page and *More results for …* had nothing left
+    // to do. The submitted wall is untouched until it is asked for: Enter, or the last line
+    // of the list.
+    const text = String(value ?? "").trim();
+    if (!text) {
+      // **An empty box is the browse**, not a search: the wall is the screen's own content
+      // again — the chips and filters below are how a search with no text at all is read.
+      suggestions.hidden = true;
+      suggestions.replaceChildren();
+      titles.hidden = false;
+      timer = setTimeout(() => loadTitles(value), 250);
+      return;
+    }
+    titles.hidden = true;
+    // A quarter of a second is long enough that a typed word is one request and short
+    // enough that the list is under the cursor by the time the eye moves to it.
+    timer = setTimeout(() => suggest(value), 250);
   };
 
   input.addEventListener("keydown", (e) => {
+    // Escape leaves the field - the floating list it used to close is gone with the
+    // dropdown itself (see `loadTitles`).
     if (e.key === "Escape") {
       suggestions.hidden = true;
+      // **Escape puts the wall back.** The list is what the typing drew, and the wall under
+      // it is hidden while the list is up (see `refresh`) — so leaving the field leaves the
+      // results on the page rather than an empty screen.
+      titles.hidden = false;
+      input.blur();
       return;
     }
     if (e.key === "Enter") submitNow(input.value);
@@ -8589,7 +8692,13 @@ const visFold = (label, open, onFold) =>
       e.stopPropagation();
       onFold();
     },
-  }, el("span", { class: "vis-caret", "aria-hidden": "true" }));
+  },
+    // **The drawn chevron, not a CSS triangle.** The fold button wore a border-built triangle
+    // in a grey of its own, which is not the shape the app draws anywhere else — the tag
+    // arrows, the dropdown and every small control use the same stroked chevron. It is that
+    // one now, turned on its side while the level is shut (see `.vis-caret` in the sheet).
+    el("span", { class: "vis-caret", "aria-hidden": "true" }, chevronDown()),
+  );
 
 /** A card inside a tab: its switch, its fold, and the two move buttons. */
 function visCardBlock(v, row, card, index, total) {
@@ -9552,12 +9661,11 @@ function paneAnimation() {
 /**
  * **Settings → Effects: the three things the app does to show you where you are.**
  *
- * They are the whole vocabulary, and each of them is one switch:
+ * They are the whole vocabulary, and each of them is a switch — except the marking itself,
+ * which the app always does (a control is filled, a card is ringed; see the mark section in
+ * the stylesheet) and no longer offers a way to turn off:
  *
  * - **Popup** — what you point at lifts under the cursor.
- * - **Fills & rings** — a **control** (a button, an icon, a menu row, a dropdown) is *filled*
- *   with the **Fill** colour, and a **thing** (a card, a catalog title, a face, a company) is
- *   *ringed* by the **Ring**.
  * - **Blur** — the page behind a popup, and the page around the card you are on, is put out
  *   of focus.
  *
@@ -9578,9 +9686,10 @@ function paneInteraction() {
     // ---------------------------------------------------------------- Popup
     groupHead("Popup"),
     toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => set("pop", e.target.checked)),
-    // ------------------------------------------------------- Fills & rings
-    groupHead("Fills & rings"),
-    toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the Color; a card, a catalog title, a face or a company you are on is ringed by the same one.", (e) => set("mark", e.target.checked)),
+    // **The old *Fills & rings* switch is gone.** It turned the whole marking treatment off —
+    // no fill on a control, no ring on a card — which is a way of saying "the app will not show
+    // you where you are". That is not a preference; what the app does is one thing, and it is
+    // not a setting (see the mark section in the stylesheet).
   ];
 }
 
@@ -10476,11 +10585,12 @@ function renderTabs() {
         type: "button",
         role: "tab",
         "aria-selected": "true",
-        // **An arrow, not a hand.** Home is a place you are, not a link out of the app —
-        // and the pointer over four words of a tab bar read as a door to somewhere else.
-        style: "cursor: default",
+        // **Home keeps its hand, because pressing it refreshes.** The tab says where you are,
+        // and the press that used to do nothing now re-reads the screen's catalogs
+        // (`refreshNow`) — the app's own refresh, on the plate that names the screen it
+        // refreshes. Anywhere else in the app it is still the way back Home.
         text: "Home",
-        onclick: () => go("#/"),
+        onclick: () => (parseHash().view === "home" ? refreshNow() : go("#/")),
       }),
     );
   }
@@ -10588,12 +10698,18 @@ async function render() {
   // The dividers and the profile/calendar pair are one group, so the rule between them
   // and the tabs goes with them rather than staying as a stroke with nothing beside it.
   document.getElementById("top-left").hidden = !onHome;
-  // Only the OTT cards' rows are read in one of the five orders; every other screen
-  // asks for its rows the way it always did.
-  // The order rides on the request only where the dropdown is offered — the ◆ Top 10
-  // OTT cards' Explore page — so no other row can be served in an order it never asked
-  // for (and two orders cannot share a pool that was built for one of them).
-  activeOttSort = view === "explore" && isOttTop10Card(cardByKey(key)) ? state.ottSort : "";
+  // **The order rides on the request only where the dropdown is offered.** The ◆ Top 10 OTT
+  // cards have it, and so does the Explore page of a row that publishes a *pool* — a genre, a
+  // decade, a continent, a country, a runtime or episode bucket, a keyword row (Moods & vibes,
+  // Themes & tags); see `SORTABLE_KINDS`. Every other screen clears it, so no row can be
+  // served in an order it never asked for (and two orders cannot share a pool built for one).
+  const sortCard = cardByKey(key);
+  const sortCatalog = view === "explore" && sortCard
+    ? rowOf(sortCard).catalogs.find((c) => String(c.id) === String(id))
+    : null;
+  activeOttSort = isOttTop10Card(sortCard) || SORTABLE_KINDS.has(String(sortCatalog?.kind))
+    ? state.ottSort
+    : "";
   renderProfile();
 
   let nodes;

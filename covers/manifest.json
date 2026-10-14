@@ -18,7 +18,7 @@
   {
     "collection": "discover-top-10",
     "title": "Discover Plus",
-    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks",
+    "subtitle": "Latest · Newest · Trending · Popular · Top Rated",
     "row": "movie",
     "svg": "covers/movies/discover-top-10.svg",
     "png": "covers/movies/discover-top-10.png"
@@ -26,7 +26,7 @@
   {
     "collection": "discover",
     "title": "Discover",
-    "subtitle": "Latest · Newest · Trending · Popular · Top Rated",
+    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks",
     "row": "movie",
     "svg": "covers/movies/discover.svg",
     "png": "covers/movies/discover.png"
@@ -50,7 +50,7 @@
   {
     "collection": "genre-from-decades",
     "title": "Genre from Decades",
-    "subtitle": "Action 1950 → Present · Adventure 1950 → Present · Animation 1950 → Present · Comedy 1950 → Present · Crime 1950 → Present · Documentary 1950 → Present · Drama 1950 → Present · Family 1950 → Present · Fantasy 1950 → Present · History 1950 → Present · Horror 1950 → Present · Music 1950 → Present · Mystery 1950 → Present · Romance 1950 → Present · Science Fiction 1950 → Present · Thriller 1950 → Present · War 1950 → Present · Western 1950 → Present",
+    "subtitle": "Action | 1950 → Present · Adventure | 1950 → Present · Animation | 1950 → Present · Comedy | 1950 → Present · Crime | 1950 → Present · Documentary | 1950 → Present · Drama | 1950 → Present · Family | 1950 → Present · Fantasy | 1950 → Present · History | 1950 → Present · Horror | 1950 → Present · Music | 1950 → Present · Mystery | 1950 → Present · Romance | 1950 → Present · Science Fiction | 1950 → Present · Thriller | 1950 → Present · War | 1950 → Present · Western | 1950 → Present",
     "row": "movie",
     "svg": "covers/movies/genre-from-decades.svg",
     "png": "covers/movies/genre-from-decades.png"
@@ -90,7 +90,7 @@
   {
     "collection": "continental",
     "title": "Continental",
-    "subtitle": "Asia · Europe · North America · South America · Africa · Oceania",
+    "subtitle": "Asia · Europe · North America · South America · Africa · Middle East · Oceania",
     "row": "movie",
     "svg": "covers/movies/continental.svg",
     "png": "covers/movies/continental.png"
@@ -137,15 +137,15 @@
   },
   {
     "collection": "global-ott-top-10",
-    "title": "Global | Top 10",
-    "subtitle": "Latest | Top 10 · Newest | Top 10 · Trending | Top 10 · Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
+    "title": "International | Top 10",
+    "subtitle": "Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
     "row": "movie",
     "svg": "covers/movies/global-ott-top-10.svg",
     "png": "covers/movies/global-ott-top-10.png"
   },
   {
     "collection": "global-ott",
-    "title": "Global",
+    "title": "International",
     "subtitle": "Netflix · Netflix Originals · Prime Video · Prime Video Originals · Disney+ · Disney+ Originals · Max · Max Originals · Apple TV+ · Apple TV+ Originals · Paramount+ · Paramount+ Originals",
     "row": "movie",
     "svg": "covers/movies/global-ott.svg",
@@ -153,7 +153,7 @@
   },
   {
     "collection": "regional-ott-top-10",
-    "title": "Regional | Top 10",
+    "title": "Domestic | Top 10",
     "subtitle": "",
     "row": "movie",
     "svg": "covers/movies/regional-ott-top-10.svg",
@@ -161,11 +161,27 @@
   },
   {
     "collection": "regional-ott",
-    "title": "Regional",
+    "title": "Domestic",
     "subtitle": "",
     "row": "movie",
     "svg": "covers/movies/regional-ott.svg",
     "png": "covers/movies/regional-ott.png"
+  },
+  {
+    "collection": "specialist-top-10",
+    "title": "Specialist | Top 10",
+    "subtitle": "",
+    "row": "movie",
+    "svg": "covers/movies/specialist-top-10.svg",
+    "png": "covers/movies/specialist-top-10.png"
+  },
+  {
+    "collection": "updates",
+    "title": "Updates",
+    "subtitle": "Arriving Soon · Leaving Soon",
+    "row": "movie",
+    "svg": "covers/movies/updates.svg",
+    "png": "covers/movies/updates.png"
   },
   {
     "collection": "watchlist",
@@ -178,7 +194,7 @@
   {
     "collection": "upcoming",
     "title": "Upcoming",
-    "subtitle": "Upcoming",
+    "subtitle": "Upcoming · Upcoming in United States · Upcoming in India · Upcoming in Japan · Upcoming in South Korea · Upcoming in United Kingdom · Upcoming in France · Upcoming in Spain · Upcoming in Germany · Upcoming in Italy · Upcoming in China · Upcoming in Mexico · Upcoming in Brazil · Upcoming in Turkey · Upcoming in Australia · Upcoming in Canada · Upcoming in Nigeria · Upcoming in Russia · Upcoming in Netherlands · Upcoming in Sweden · Upcoming in Norway · Upcoming in Denmark · Upcoming in Poland · Upcoming in Ireland · Upcoming in Portugal · Upcoming in Greece · Upcoming in Argentina · Upcoming in Colombia · Upcoming in Chile · Upcoming in Peru · Upcoming in Egypt · Upcoming in South Africa · Upcoming in Morocco · Upcoming in Israel · Upcoming in Saudi Arabia · Upcoming in United Arab Emirates · Upcoming in Indonesia · Upcoming in Thailand · Upcoming in Philippines · Upcoming in Taiwan · Upcoming in Hong Kong · Upcoming in Malaysia · Upcoming in Singapore · Upcoming in Vietnam · Upcoming in Pakistan · Upcoming in Bangladesh · Upcoming in New Zealand · Upcoming in Ukraine · Upcoming in Czech Republic · Upcoming in Hungary · Upcoming in Romania · Upcoming in Finland · Upcoming in Switzerland · Upcoming in Belgium · Upcoming in Austria · Upcoming in Bulgaria · Upcoming in Serbia · Upcoming in Croatia · Upcoming in Iceland · Upcoming in Slovakia · Upcoming in Slovenia · Upcoming in Lithuania · Upcoming in Latvia · Upcoming in Estonia · Upcoming in Bosnia and Herzegovina · Upcoming in North Macedonia · Upcoming in Luxembourg · Upcoming in Georgia · Upcoming in Kazakhstan · Upcoming in Lebanon · Upcoming in Venezuela · Upcoming in Uruguay · Upcoming in Dominican Republic · Upcoming in Cuba · Upcoming in Tunisia · Upcoming in Algeria · Upcoming in Cambodia · Upcoming in Iran · Upcoming in Lao People's Democratic Republic · Upcoming in Palestinian Territory",
     "row": "movie",
     "svg": "covers/movies/upcoming.svg",
     "png": "covers/movies/upcoming.png"
@@ -210,7 +226,7 @@
   {
     "collection": "discover-top-10",
     "title": "Discover Plus",
-    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks",
+    "subtitle": "Latest · Newest · Trending · Popular · Top Rated",
     "row": "show",
     "svg": "covers/shows/discover-top-10.svg",
     "png": "covers/shows/discover-top-10.png"
@@ -218,7 +234,7 @@
   {
     "collection": "discover",
     "title": "Discover",
-    "subtitle": "Latest · Newest · Trending · Popular · Top Rated",
+    "subtitle": "Critically Acclaimed · Staff Picks · Hidden Gems · Cult Classics · All-Time Landmarks",
     "row": "show",
     "svg": "covers/shows/discover.svg",
     "png": "covers/shows/discover.png"
@@ -242,7 +258,7 @@
   {
     "collection": "genre-from-decades",
     "title": "Genre from Decades",
-    "subtitle": "Action & Adventure 1950 → Present · Animation 1950 → Present · Comedy 1950 → Present · Crime 1950 → Present · Documentary 1950 → Present · Drama 1950 → Present · Family 1950 → Present · Kids 1950 → Present · Mystery 1950 → Present · News 1950 → Present · Reality 1950 → Present · Sci-Fi & Fantasy 1950 → Present · Soap 1950 → Present · Talk 1950 → Present · War & Politics 1950 → Present · Western 1950 → Present",
+    "subtitle": "Action & Adventure | 1950 → Present · Animation | 1950 → Present · Comedy | 1950 → Present · Crime | 1950 → Present · Documentary | 1950 → Present · Drama | 1950 → Present · Family | 1950 → Present · Kids | 1950 → Present · Mystery | 1950 → Present · News | 1950 → Present · Reality | 1950 → Present · Sci-Fi & Fantasy | 1950 → Present · Soap | 1950 → Present · Talk | 1950 → Present · War & Politics | 1950 → Present · Western | 1950 → Present",
     "row": "show",
     "svg": "covers/shows/genre-from-decades.svg",
     "png": "covers/shows/genre-from-decades.png"
@@ -282,7 +298,7 @@
   {
     "collection": "continental",
     "title": "Continental",
-    "subtitle": "Asia · Europe · North America · South America · Africa · Oceania",
+    "subtitle": "Asia · Europe · North America · South America · Africa · Middle East · Oceania",
     "row": "show",
     "svg": "covers/shows/continental.svg",
     "png": "covers/shows/continental.png"
@@ -329,15 +345,15 @@
   },
   {
     "collection": "global-ott-top-10",
-    "title": "Global | Top 10",
-    "subtitle": "Latest | Top 10 · Newest | Top 10 · Trending | Top 10 · Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
+    "title": "International | Top 10",
+    "subtitle": "Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
     "row": "show",
     "svg": "covers/shows/global-ott-top-10.svg",
     "png": "covers/shows/global-ott-top-10.png"
   },
   {
     "collection": "global-ott",
-    "title": "Global",
+    "title": "International",
     "subtitle": "Netflix · Netflix Originals · Prime Video · Prime Video Originals · Disney+ · Disney+ Originals · Max · Max Originals · Apple TV+ · Apple TV+ Originals · Paramount+ · Paramount+ Originals",
     "row": "show",
     "svg": "covers/shows/global-ott.svg",
@@ -345,7 +361,7 @@
   },
   {
     "collection": "regional-ott-top-10",
-    "title": "Regional | Top 10",
+    "title": "Domestic | Top 10",
     "subtitle": "",
     "row": "show",
     "svg": "covers/shows/regional-ott-top-10.svg",
@@ -353,11 +369,27 @@
   },
   {
     "collection": "regional-ott",
-    "title": "Regional",
+    "title": "Domestic",
     "subtitle": "",
     "row": "show",
     "svg": "covers/shows/regional-ott.svg",
     "png": "covers/shows/regional-ott.png"
+  },
+  {
+    "collection": "specialist-top-10",
+    "title": "Specialist | Top 10",
+    "subtitle": "",
+    "row": "show",
+    "svg": "covers/shows/specialist-top-10.svg",
+    "png": "covers/shows/specialist-top-10.png"
+  },
+  {
+    "collection": "updates",
+    "title": "Updates",
+    "subtitle": "Arriving Soon · Leaving Soon",
+    "row": "show",
+    "svg": "covers/shows/updates.svg",
+    "png": "covers/shows/updates.png"
   },
   {
     "collection": "watchlist",
@@ -370,7 +402,7 @@
   {
     "collection": "upcoming",
     "title": "Upcoming",
-    "subtitle": "Upcoming",
+    "subtitle": "Upcoming · Upcoming in United States · Upcoming in India · Upcoming in Japan · Upcoming in South Korea · Upcoming in United Kingdom · Upcoming in France · Upcoming in Spain · Upcoming in Germany · Upcoming in Italy · Upcoming in China · Upcoming in Mexico · Upcoming in Brazil · Upcoming in Turkey · Upcoming in Australia · Upcoming in Canada · Upcoming in Russia · Upcoming in Netherlands · Upcoming in Sweden · Upcoming in Norway · Upcoming in Denmark · Upcoming in Poland · Upcoming in Ireland · Upcoming in Portugal · Upcoming in Greece · Upcoming in Argentina · Upcoming in Colombia · Upcoming in Egypt · Upcoming in South Africa · Upcoming in Israel · Upcoming in Indonesia · Upcoming in Thailand · Upcoming in Philippines · Upcoming in Taiwan · Upcoming in Hong Kong · Upcoming in Malaysia · Upcoming in Singapore · Upcoming in Vietnam · Upcoming in Pakistan · Upcoming in Bangladesh · Upcoming in New Zealand · Upcoming in Czech Republic · Upcoming in Hungary · Upcoming in Finland · Upcoming in Belgium · Upcoming in Austria",
     "row": "show",
     "svg": "covers/shows/upcoming.svg",
     "png": "covers/shows/upcoming.png"

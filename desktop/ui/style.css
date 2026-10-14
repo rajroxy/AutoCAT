@@ -1248,7 +1248,6 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 .settings-pane .sources .source,
 .settings-pane .option-group .sources .source {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .source {
@@ -1707,12 +1706,13 @@ textarea:focus-visible {
    outside the bar on its left — it opens the panel, so it reads first — and the Movies / Shows
    switch is about the results below, so it sits under the bar, on the right, where they start. */
 .search-head { display: flex; align-items: center; gap: 12px; }
-.search-head .search-bar { flex: 1 1 auto; min-width: 0; }
+.search-head .search-bar { flex: 1 1 auto; min-width: 0; min-height: 46px; padding: 5px 9px 5px 16px; }
+.search-head .search-bar .search-input { font-size: 14px; padding: 8px 0; }
 .search-switch-row.search-under { justify-content: flex-end; margin: -12px 0 24px; }
 /* The funnel is an icon, not a word: the panel names itself when it opens. It keeps the play
    button's plate, at the bar's own height. */
-.search-wrap .search-filter-btn { width: 60px; height: 60px; padding: 0; justify-content: center; border-radius: 14px; }
-.search-wrap .search-filter-btn svg { width: 20px; height: 20px; }
+.search-wrap .search-filter-btn { width: 46px; height: 46px; padding: 0; justify-content: center; border-radius: 11px; }
+.search-wrap .search-filter-btn svg { width: 16px; height: 16px; }
 /* **The filter panel's arrows wear a plate you can see on it.** They are `var(--panel)`
    elsewhere — the page's own card colour — and inside the panel, whose box *is* `var(--panel)`,
    that left them with no box at all. */
@@ -4158,10 +4158,10 @@ select option:hover {
 }
 .settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
 
-/* **The plate you are already standing on shows an arrow, not a hand.** Home is the screen you
-   are on and the chosen Movies / Shows pill is the row you are already browsing — a pointer
-   promises a door where there is only the room you are in. */
-.tab[aria-selected="true"], .row-btn.active { cursor: default; }
+/* **The plate you are already standing on keeps the hand, because it is a button you press.**
+   Home and the chosen Movies / Shows pill are the app's own **refresh**: pressing the one you
+   are on re-reads the catalogs (see `pick` and the Home tab in `renderTabs`), so the cursor is
+   the pointer it was — an arrow over a control that answers a press is the lie here. */
 
 /* **A tag lights up like everything else.** Pills used to be the exception — the ring
    was taken off them ("too small to ring"), so hovering a tag did nothing you could see
@@ -4285,10 +4285,14 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
 /* **The fold caret is the app's caret.** Same triangle as every dropdown in Settings, turned
    on its side while the level is shut — the character `▾` sat on a different baseline in every
    font and was a different weight from the one thing it is meant to match. */
-.vis-caret { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--muted); }
-.vis-fold.open .vis-caret { border-top-color: var(--text); }
+/* **The caret is the app's own chevron**, the same stroked mark the tag arrows and the
+   dropdowns draw — it was a border-built triangle in its own grey, a shape nothing else in the
+   app uses. It is turned on its side while the level is shut, which is what the triangle's
+   `rotate(-90deg)` was for. */
+.vis-caret { display: inline-flex; align-items: center; color: var(--muted); }
+.vis-fold.open .vis-caret { color: var(--text); }
 .vis-fold:not(.open) .vis-caret { transform: rotate(-90deg); }
-.vis-fold:hover .vis-caret, .vis-fold:focus-visible .vis-caret { border-top-color: var(--text); }
+.vis-fold:hover .vis-caret, .vis-fold:focus-visible .vis-caret { color: var(--text); }
 .vis-fold {
   flex: none;
   width: 30px;
@@ -5038,6 +5042,11 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
   box-shadow: none;
 }
 
+/* **A planned title's label does not wear the ring at rest.** The pin is the *state* it names,
+   and the app's rule for a control is the **Fill** — the ring is what the cursor draws around
+   it (see the plate rules at the foot of this file, which give `.btn.pin.active` its ring on
+   the hover and nothing at rest). */
+
 /* ============================================================================
    **The last word: the few answers that must not be talked out of.**
    ----------------------------------------------------------------------------
@@ -5711,10 +5720,11 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    inverts: the page's own near-black disc, with the selection colour for the mark. */
 .profile-tile.active .profile-tile-name { color: #14110a; }
 .profile-tile.active .profile-tile-sub { color: rgba(20, 17, 10, 0.72); }
-/* **The disc stays the app's own disc.** The chosen tile inverted the avatar — the page's
-   near-black circle with the accent mark on it — which read as a different object from every
-   other avatar in the app. The disc is the gradient it always was, chosen or not. */
-.profile-tile.active .avatar { background: linear-gradient(160deg, var(--fill), var(--fill-deep)); color: #14110a; }
+/* **The disc is the page's own, and the mark is the app's colour.** On the chosen tile the
+   avatar inverts — the page's near-black circle with the Fill for the mark — which is what it
+   was before this pass repainted it: a gradient disc with dark ink on it read as the plate
+   showing through, and it turned the mark **black**. The disc is the ink; the mark is colour. */
+.profile-tile.active .avatar { background: var(--ink, #0b0b0b); color: var(--fill); }
 
 /* ============================================================================
    **The Fill fills; the Ring rings.**
@@ -5736,10 +5746,16 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    ============================================================================ */
 .focusable:hover, .focusable:focus-visible, .focusable:has(:focus-visible) { box-shadow: none; }
 :is(.icon-box, .poster, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card,
-  .result, .cat-name, .row-head-link, .guide-list-row, .guide-row, .episode-item,
+  .result, .row-head-link, .guide-list-row, .guide-row, .episode-item,
   .stream):is(:hover, :focus-visible, :has(:focus-visible)) {
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--ring, var(--fill));
 }
+/* **A catalog row's name is a label, not a thing you are on.** It wore the ring the way a
+   poster or a card does, which drew an outline around the *words* above the row - `30-44
+   mins` came up boxed on every collection page, exactly the way a selected item looks. The
+   name says what the row below it is; the ring belongs to the row's titles and to the
+   **Explore** button beside it. */
+.cat-name:is(:hover, :focus-visible, :has(:focus-visible)) { box-shadow: none; }
 /* **A face rings its picture** — the card is a button with a name on it, and it is the picture
    that is the thing you are on. */
 .person:hover .person-face,
@@ -5811,7 +5827,8 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
 .row-btn.active:is(:hover, :focus-visible, :has(:focus-visible)),
 .cal-cell.today:is(:hover, :focus-visible, :has(:focus-visible)),
 .profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)),
-.profile-grid .profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)) {
+.profile-grid .profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)),
+.btn.pin.active:is(:hover, :focus-visible, :has(:focus-visible)) {
   background-color: var(--fill);
   filter: none;
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),

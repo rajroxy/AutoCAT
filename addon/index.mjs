@@ -62,7 +62,7 @@ import {
   remove as customRemove,
   metasFor as customMetas,
 } from "./customrows.mjs";
-import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, isOttSort } from "./catalogs.mjs";
+import { catalogSpecs, activeRegion, catalogDefs, CATALOG_ID_PREFIX, findCatalog, primeForYouSeeds, primeRegionProviders, primeSpecialistCounts, isOttSort } from "./catalogs.mjs";
 import { activeCountry, activeContentSource, activeLanguage, getSettings, updateSettings, publicSettings, tmdbKey, providerKeys } from "./settings.mjs";
 import { enrichRatings, ratingsState, titleRatings, verifyProvider } from "./providers.mjs";
 import { pushRating, pushWatch } from "./trackers.mjs";
@@ -1097,7 +1097,7 @@ export async function catalogShuffle(media, def, count, opts = {}) {
   } else if (specs.length === 1 && specs[0].custom) {
     pool = customMetas(specs[0].custom, media, 0, 100000);
   } else if (specs.length === 1 && specs[0].episodes) {
-    pool = await episodeMetas(media, specs[0].episodes, language, Boolean(opts.adult));
+    pool = await episodeMetas(media, specs[0].episodes, language, Boolean(opts.adult), opts.sort);
   } else {
     const varied = countryVariedSpecs(specs);
     // The row named no country of its own, so the country-scoped variants *are* the
@@ -1185,14 +1185,31 @@ async function episodeCandidates(media, language = activeLanguage()) {
  */
 const stripAdult = (metas, adult) => (adult ? metas : metas.filter((m) => !m?.adult));
 
+/**
+ * The five orders, read off a show's own record.
+ *
+ * An episode bucket is built from a cached pool rather than from a TMDB query, so the Explore
+ * page's dropdown **re-orders the bucket** instead of re-reading it: the same titles, in the
+ * order asked for (`latest` and `newest` are the same date order here — a bucket of shows has
+ * no release calendar to be ahead of).
+ */
+const EPISODE_ORDERS = {
+  latest: (a, b) => String(b.first_air_date || "").localeCompare(String(a.first_air_date || "")),
+  newest: (a, b) => String(b.first_air_date || "").localeCompare(String(a.first_air_date || "")),
+  trending: (a, b) => (b.popularity ?? 0) - (a.popularity ?? 0),
+  popular: (a, b) => (b.popularity ?? 0) - (a.popularity ?? 0),
+  top_rated: (a, b) => (b.vote_average ?? 0) - (a.vote_average ?? 0),
+};
+const BY_POPULARITY = (a, b) => (b.popularity ?? 0) - (a.popularity ?? 0);
+
 /** One episode bucket: `{ min, max }` — every show whose count falls inside it. */
-async function episodeMetas(media, bucket, language = activeLanguage(), adult = false) {
+async function episodeMetas(media, bucket, language = activeLanguage(), adult = false, sort = "") {
   const { min = 1, max = Infinity } = bucket || {};
   const shows = await episodeCandidates(media, language);
   return shows
     .filter((d) => d.number_of_episodes >= min && d.number_of_episodes <= max)
     .filter((d) => adult || !d.adult)
-    .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+    .sort(EPISODE_ORDERS[sort] || BY_POPULARITY)
     .map((d) => toMeta(d, media))
     .filter(Boolean);
 }
@@ -1509,10 +1526,28 @@ function watchlistPayload() {
  *
  * The watchlist and custom rows are kept whole (they *are* the two places), so the
  * filter is applied where a row came from TMDB.
+ *
+ * A **Library row** counts here too: a title you filed in one of your own rows is off Home
+ * and out of Search exactly as a pinned one is, and the row you put it in (and the Library
+ * card) is where it lives.
  */
+/** The keys inside every one of **your** Library rows — the calendar's own row aside.
+ *
+ * The calendar's row (`calendar-plans`) is not a Library row: a plan made from the grid is a
+ * date you are waiting for, and a title you have planned that way stays where you found it.
+ */
+function libraryKeys() {
+  const out = [];
+  for (const [row, keys] of Object.entries(customKeys() || {})) {
+    if (row === "calendar-plans") continue;
+    if (Array.isArray(keys)) out.push(...keys);
+  }
+  return out;
+}
+
 export function withoutWatched(metas, keep = false) {
   if (keep) return metas;
-  const watched = watchedKeys();
+  const watched = [...watchedKeys(), ...libraryKeys()];
   if (!watched.length) return metas;
   const set = new Set(watched);
   const keyOf = (m) => `${m?.type === "series" ? "series" : "movie"}:${String(m?.id || "")}`;
@@ -2817,6 +2852,9 @@ async function serveAddon(req, res, pathname, origin) {
     // Regional OTT row for a service TMDB does not list in the selected country is a row
     // that opens empty (see `primeRegionProviders`).
     await primeRegionProviders().catch(() => {});
+    // **And how much each Specialist row really holds**, so a niche catalogue that answers a
+    // single title loses its row on the next build (see `primeSpecialistCounts`).
+    await primeSpecialistCounts().catch(() => {});
     json(res, 200, buildManifest(origin));
     return true;
   }
@@ -2825,6 +2863,7 @@ async function serveAddon(req, res, pathname, origin) {
     setKey(tmdbKey());
     await primeForYouSeeds().catch(() => {});
     await primeRegionProviders().catch(() => {});
+    await primeSpecialistCounts().catch(() => {});
     json(res, 200, collectionsPayload(origin.replace(/\/$/, "")));
     return true;
   }
