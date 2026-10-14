@@ -5135,11 +5135,20 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
   color: #0b0b0b;
 }
 
-/* **A calendar tile's date tag is the selection colour.** It was white on black, which sat
-   on the artwork as a foreign object; it is the pill every other tag in the app is. */
+/* **A calendar tile's date tag is the Upcoming card's chip.** It was the selection colour on
+a near-black label — a pill that read as a *control* on a tile that has none — so the tile's
+date and the Upcoming card's date were the same words in two different voices. This is that
+chip, exactly: same fill, same corner, same type, drawn over the poster's top-left corner. */
 .cal-tag {
-  background: rgba(var(--select-rgb, var(--accent-rgb)), 0.92);
-  color: #0b0b0b;
+  top: 10px;
+  left: 10px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(3, 4, 6, 0.72);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 /* **The Library's rows, in the page.** The picker is the app's own chip line under the

@@ -11318,7 +11318,7 @@ function channelRow(name, channels) {
  * first few rows of what is inside it, then the name and a line of description under
  * it — and the frame is the button, the way a cover is.
  */
-function liveCard({ id, title, sub, rows, action, posters = [], grid = null, spotlight = false, wrap = "" }) {
+function liveCard({ id, title, sub, rows = [], action, posters = [], grid = null, spotlight = false, wrap = "" }) {
   // **The frame holds six channel logos**, the way a Movies card holds its own
   // posters: a wall of `.content-tile`s in the same `.icon-wrap`. Only when there
   // is nothing to draw (no lineup read yet) does it fall back to the guide rows.
