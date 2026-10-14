@@ -68,9 +68,10 @@ catalog-id prefix rather than a title:
 15. Domestic | Top 10
 16. Domestic
 17. **Specialist | Top 10** — one `<Service> | Top 10` row per **art-house, documentary
-    and niche catalogue** TMDB lists where you are: MUBI, the Criterion Channel, Shudder,
-    Cultpix, Curiosity Stream, DOCSVILLE, Magellan TV, GuideDoc, Kanopy, MHz Choice and
-    the rest of a list kept in `collections.mjs`. The card declares no rows of its own —
+    and niche catalogue** TMDB lists where you are, and the list is the owner's own:
+    **Shudder · Screambox · Criterion Channel · Curiosity Stream · Docsville · Hallmark+ ·
+    Magellan TV · Discovery+** (three of them answer Korea, six the US — a region-scoped
+    card is supposed to look like that). The card declares no rows of its own —
     each row is a service from **your region's own provider list**, so a row is only ever
     published for a catalogue your country carries, read in your country, and a service
     that answers fewer than **five** titles on a row type loses its row
@@ -112,7 +113,7 @@ their ids keep resolving — they are simply not in the grid.
   renders at one uniform size (the largest that fits every collection), so no card's text is
   smaller than another's.
 - **Subtitles** — under the title, a card names the catalogs that live inside it (e.g. Discover
-  → Latest · Newest · Trending · Popular · Top Rated; On the Board → Now Playing for movies,
+  → Latest · Newest · Oldest · Trending · Popular · Least popular · Top Rated; On the Board → Now Playing for movies,
   Airing Today · Airing This Week · On the Air for shows). Names wrap and shrink to fit. Never an
   editorial descriptor. A card with no catalogs is title-only.
 - **Colour** — a single near-black field (`#08090C`, matching the AutoCAT home background) with a
@@ -173,7 +174,7 @@ drawn on the cover:
 | Watchlist | `Plan to Watch` · `Watching` · `Watched` (both) — served from your pins, not from TMDB |
 | Discover Plus | `Acclaimed` · `Picks` · `Hidden Gems` · `Cult Classics` · `Landmarks` · `Fresh`, each **Top 25** (both) — every row a sort plus the vote floor that makes it mean something |
 | On the Board | Now Playing / Airing Today · Airing This Week · On the Air |
-| Discover | Latest · Newest · Trending · Popular · Top Rated (both) |
+| Discover | Latest · Newest · Oldest · Trending · Popular · Least popular · Top Rated (both) |
 | Popular by ◆ Genre | `Popular in <Genre>` — movie genres / TV genres |
 | Genres | `<Genre>` — the movie genres / TV genres, and nothing else (Anime and Asian Drama are keywords, not genres) |
 | Popular by ◆ Decade | `Popular in <decade>s` (both) |
@@ -264,6 +265,18 @@ Crunchyroll beside FOD, Kocowa after Rakuten Viki — instead of leading the car
 because they are the same everywhere, and each row id carries its own region
 (`autocat-regional-ott--jiohotstar-in`), so two regions can never collide on one
 catalog id.
+
+**The owner's region-by-region list is the card's own vocabulary.** `OWNER_REGIONAL` in
+`collections.mjs` holds the services named in the owner's report — JioHotstar, SonyLIV,
+ManoramaMAX, U-NEXT, TVING, Laftel, friDay Video, MaxStream, Viu, iWantTFC, TF1+, MagentaTV,
+NLZIET, Megogo, tabii, PBS, ALLBLK, Dropout, Club Illico, Looke, Zapping, Shahid, ADtv,
+Filimo, mako, StarTimes ON, eVOD, Beamafilm, Māori+ and the rest — and
+`POPULAR_REGIONAL_KEYS` treats it exactly like the household list: a row is published where
+the region's data (or TMDB's answer for the country) verifies the service, and the
+twenty-five-title floor still culls a row that cannot fill a page. **The vocabulary is what
+the verified regional data is probed with** (`scripts/regional-candidates.mjs` +
+`probe-regional.mjs`), so a service the owner named but the data has never measured shows up
+in the app only where TMDB already lists it for the country on screen.
 
 **The country setting no longer decides what is in the Regional OTT cards** — they
 hold every region's services. It still scopes the rows that have *no* region of their

@@ -201,6 +201,28 @@ painted lines, not faint near-transparent ones. Settings is a **real cog** — t
 glyph was a centre dot with eight even spokes, which reads as a brightness/sun icon,
 not as settings.
 
+**A card rings under the cursor.** The ring is drawn as an overlay on the card's own box
+(`.icon-box:hover::after`), in the **Ring** colour with the page's hair outside it — the
+inset ring the card used to wear was painted *under* the poster wall that fills it, which is
+why pointing at a card showed nothing.
+
+**An empty row keeps the height of a row.** A row that came back with nothing holds one
+line of text where a shelf of posters stood — and a watchlist row says nothing at all — so
+the card collapsed to its heading. The strip has a floor of one poster row now
+(`.strip { min-height }`, the same `--poster-w` sum the placeholders use), and a filled row
+is taller than the floor, so nothing moves on a row with titles in it.
+
+**The title's controls are a row, not a strip.** Play, Ask Assistant, Plan to Watch and Add
+to Library sit under the banner in a row of their own — with **no plate behind them**, no
+padding and no corners: the panel drawn there read as a band across the page rather than as
+the title's own controls. The row is still `sticky`, so Add to Library keeps answering while
+the page is read.
+
+**The order dropdown lines up with the grid it orders** — its own row under the rule, its
+right edge on the posters' right edge instead of floating in the alphabet rail's column —
+and it carries **Oldest** and **Least popular** as well as Latest / Newest / Trending /
+Popular / Top rated.
+
 **The plate you are on is a button, and pressing it refreshes.** Home and the chosen
 **Movies / Shows** pill wear the **hand** — they are controls that answer a press, not
 labels — and pressing the one you are already on re-reads the screen's catalogs on the
