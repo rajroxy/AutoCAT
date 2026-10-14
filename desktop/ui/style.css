@@ -5412,13 +5412,18 @@ button.rating.my-rating {
    colour that means something else. Written last so no earlier rule can put the accent ring
    back or flatten the fill.
    ============================================================================ */
-/* **Not chosen: the selection colour as a fill under the cursor.** This is the app's own
-   highlight — `mark-fill` is the wash every control wears — so an unselected profile answers
-   the pointer exactly like the Movies / Shows button beside it. The keyboard keeps the ring
-   `.focusable` draws, so the fill is not the only thing saying where the focus is. */
-.profile-tile:not(.active):hover,
+/* **Not chosen: the selection colour as a fill under the cursor** — the app's own highlight,
+   the wash every control wears. No ring comes with it: the ring is what the *chosen* card
+   wears (below), and the profile grid's own `:hover` rule re-added an accent outline on top of
+   this wash, which is the same box-around-a-card the tiles are meant to be free of. The
+   keyboard keeps the app's focus ring, so focus is never carried by a wash alone. */
+.profile-tile:not(.active):hover {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  box-shadow: none;
+}
 .profile-tile:not(.active):focus-visible {
   background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  box-shadow: var(--hl);
 }
 /* **Chosen: the selection colour as a ring.** The card you are on wears the mark the chosen
    calendar day wears — an outline in the selection colour — at rest and under the cursor
@@ -5426,6 +5431,24 @@ button.rating.my-rating {
 .profile-tile.active,
 .profile-tile.active:hover,
 .profile-tile.active:focus-visible {
+  background-color: var(--panel);
+  background-image: none;
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+}
+/* **The same two answers where the grid outweighs them.** The Profiles and Modes pages draw
+   their tiles inside `.profile-grid`, and that prefix carries a **fourth** weight: one rule
+   re-adds an accent outline under the cursor, another takes the chosen card's ring away when
+   you point at it — which would leave the chosen profile looking unchosen the moment the mouse
+   crossed it. Both are said again here, at the weight it takes to hold them. */
+.profile-grid .profile-tile:not(.active):hover,
+.profile-grid .profile-tile:not(.active):focus-visible {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), var(--mark-fill, 0.22));
+  box-shadow: none;
+}
+.profile-grid .profile-tile:not(.active):focus-visible { box-shadow: var(--hl); }
+.profile-grid .profile-tile.active,
+.profile-grid .profile-tile.active:hover,
+.profile-grid .profile-tile.active:focus-visible {
   background-color: var(--panel);
   background-image: none;
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
