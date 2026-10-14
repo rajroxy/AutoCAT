@@ -1581,14 +1581,17 @@ const top10Periods = (_suffix = " | Top 10") => [];
  * long it is, what it was made from) rather than down with the keyword cards.
  */
 const CARD_ORDER = [
+  // **Your own list leads, then the two Discover cards, then For You.** The order is the
+  // owner's own list of rows: the Watchlist is what you are watching, Discover Plus and
+  // Discover are the catalogue, and For You is what the app makes of the three.
+  "watchlist",
   "on-the-board",
-  "for-you",
   "discover-top-10",
   "discover",
+  "for-you",
   // **Seasons sits with the browsing cards.** It is a date card like Discover — what is
   // arriving, what is back — so it follows the two that ask the same question about the whole
   // catalogue, and it is only drawn on the Shows tab (see the card's own note).
-  "seasons",
   "popular-by-genre",
   "top-rated-by-genre",
   // **Genres in or from decades sits in front of Genres.** The two are the same list
@@ -1602,8 +1605,14 @@ const CARD_ORDER = [
   "popular-by-decade",
   "top-rated-by-decade",
   "decades",
+  // **Continental and Countries are one card.** They were the same list read twice -- a
+  // continent is a wide country query -- and the owner asked for them to be a single card
+  // without losing a row: every continent row and every country row is inside it (see the
+  // card's own note). One key, so nothing points at a card that is gone.
   "continental",
-  "countries",
+  // **Seasons follows the countries.** It is the card of what is starting, back or finished,
+  // so it comes straight after the card that says where.
+  "seasons",
   "runtimes",
   "based-on-the",
   "moods-and-vibes",
@@ -1615,17 +1624,18 @@ const CARD_ORDER = [
   // **The Specialist card sits after the Domestic ones.** It is the same idea read one shelf
   // further in — the services a viewer picks *on purpose* rather than the ones their country
   // happens to lead with — so it follows the card it comes off.
+  // **The Library sits before the Specialist Top 10**, as asked: the rows you filled
+  // yourself are yours the way the Watchlist is, and they belong in front of the last shelf of
+  // services rather than after it.
+  "custom",
   "specialist-top-10",
   "specialist",
   // **Updates closes the OTT block.** What is arriving and what is on its way out, read from
   // today's date every time the card is opened (see the card's own note below).
   "updates",
-  // **Your own cards sit at the bottom, in the order you use them**: your list, then
-  // what is on its way, then the rows you filled yourself. Watchlist was first for a
-  // long time, which put a list that is usually short in front of the whole app.
-  "watchlist",
+  // **Upcoming is the last card on the page**, as asked, and it is drawn as a card of four
+  // posters now rather than as one spotlighted still (see its own note).
   "upcoming",
-  "custom",
 ];
 
 /**
@@ -1705,11 +1715,13 @@ const buildCollections = (code = "") => {
     // at a time. A wall of posters said nothing a row does not say better; one picture at
     // a time reads as "this is what is next".
     //
-    // It is **not a door**: there is no button in the frame and clicking it goes
-    // nowhere, because it is a glance at what is coming rather than a catalog to walk
-    // through. It sits **between your Watchlist and your Custom row**, in the same row
+    // **It is a card of four posters now, not one still.** The spotlight frame held a single
+    // landscape picture that changed every ten seconds; the owner asked for the Upcoming card to
+    // be the four-poster card it is everywhere else, so the flag is off and it wears its own rows
+    // like every other card. It stays out of the hero rotation (`heroCandidates` names it): it is
+    // a glance at what is next, not a banner. It sits **between your Watchlist and your Custom row**, in the same row
     // as both, so the three of them are your own corner of the page.
-    spotlight: true,
+    // (`spotlight` was here; the card draws as a normal card of four posters now.)
     // **What is on its way, under your own list.** One row per row type: what is
     // coming to cinemas, and what airs next — sorted by the date it arrives, so the
     // nearest thing is the first thing, not the most popular thing.
@@ -1934,22 +1946,27 @@ const buildCollections = (code = "") => {
 
   {
     key: "continental",
-    lines: ["Continental"],
+    lines: ["Continental &", "Countries"],
     scene: "continental",
-    // **Every continent, with its thin countries dropped.** The continent is the row, and
-    // a continent is a large enough query that no country list is needed to hold it up —
-    // so the rows stay six and it is the codes inside each one that narrow.
-    catalogs: both(continentsWithContent().map(([name, codes]) => continent(name, codes))),
-  },
-  {
-    key: "countries",
-    lines: ["Countries"],
-    scene: "countries",
+    // **Continental and Countries are one card, and no row was dropped for it.** The two cards
+    // were one browse read twice -- six continent rows, then a row per country that holds its
+    // own catalogue -- so the owner asked for them as one card rather than two halves of one
+    // idea. Every continent row stays, every country row stays, and they keep the order the two
+    // cards were in: the continents first (the wide query), then the countries. The entries are
+    // the same (`continent`, `country`), so every link and every published id still resolves.
     catalogs: {
-      movie: countriesFor("movie").map(([name, code]) => country(name, code)),
-      show: countriesFor("show").map(([name, code]) => country(name, code)),
+      movie: [
+        ...continentsWithContent().map(([name, codes]) => continent(name, codes)),
+        ...countriesFor("movie").map(([name, code]) => country(name, code)),
+      ],
+      show: [
+        ...continentsWithContent().map(([name, codes]) => continent(name, codes)),
+        ...countriesFor("show").map(([name, code]) => country(name, code)),
+      ],
     },
   },
+  // (Countries is not a card of its own any more: its rows are in the Continental card, which
+  // is the two lists in one place.)
   {
     key: "runtimes",
     lines: ["Runtime"],

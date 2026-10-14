@@ -5049,6 +5049,7 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
   box-shadow: none;
 }
 
+
 /* ============================================================================
    **What you are on: a control is filled, a thing is ringed.**
    ----------------------------------------------------------------------------
@@ -5970,14 +5971,18 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    Written at the weight of the rules it follows — `.profile-grid .profile-tile.active` is named
    for the same reason — because a rule that loses the cascade is a rule nobody can see.
    ============================================================================ */
-/* **The tab you are on does not ring.** *Home* is the screen you are already on — the solid
-   plate says so — and a ring around it is the app pointing at what you have already chosen;
-   its cursor is an arrow for the same reason (see the cursor rule near `.tab`). What *does*
-   ring is the **chosen** row in Settings — the section you are in, a ticked option, the colour
-   you picked — so a press there answers the way Play and Speak do. */
+/* **The tab you are on rings too, like the plate beside it.** *Home* was the one plate of the
+   set that did not: the solid fill was the whole answer, and a ring around it was read as the
+   app pointing at what you had already chosen. The owner asked for the ring on it -- and the
+   keyboard is the case that settles it, because the Home pill is the only control on the top
+   bar and a fill is not a *position*: with the shadow stripped there was nothing on screen
+   saying where the arrows were. It wears the same ring as Play, the Movies / Shows pill and the
+   rest, drawn with the page's own hair between the plate and the outline (see the note above,
+   and the "Mark what you are on" switch, which is what sizes it). */
 .btn.primary:is(:hover, :focus-visible, :has(:focus-visible)),
 .btn.primary.voice-pad:is(:hover, :focus-visible, :has(:focus-visible)),
 .voice-pad:is(:hover, :focus-visible, :has(:focus-visible)),
+.tab[aria-selected="true"]:is(:hover, :focus-visible, :has(:focus-visible)),
 .row-btn.active:is(:hover, :focus-visible, :has(:focus-visible)),
 .cal-cell.today:is(:hover, :focus-visible, :has(:focus-visible)),
 .profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)),

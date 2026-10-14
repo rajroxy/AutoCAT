@@ -2437,7 +2437,7 @@ const cardsForRow = (row) =>
 
 /** A card's catalog rows on one tab, in the order they were put in. */
 const catsForCard = (card, row) =>
-  orderedBy(card[row]?.catalogs || [], visFor().order?.catalogs?.[card.key]?.[row], (c) => c.id);
+  dealtRows(card, orderedBy(card[row]?.catalogs || [], visFor().order?.catalogs?.[card.key]?.[row], (c) => c.id), row);
 
 /** Move a card one place inside its tab. */
 function moveVisCard(row, key, delta) {
@@ -2460,7 +2460,7 @@ function moveVisCatalog(row, card, id, delta) {
   render();
 }
 
-function orderedCatalogs(card) {
+function orderedCatalogsRaw(card) {
   const catalogs = rowOf(card).catalogs;
   const saved = visFor().order?.catalogs?.[card.key]?.[rowKey()];
   if (saved?.length) return orderedBy(catalogs, saved, (c) => c.id);
@@ -2472,6 +2472,52 @@ function orderedCatalogs(card) {
     return sorted;
   }
   return catalogs;
+}
+
+/* ------------------------------------------------ a refresh deals the rows again */
+
+/**
+ * **A refresh deals a card's rows again.**
+ *
+ * The rows were re-read on a refresh but always drawn in the same order with the same names, so
+ * a card that is a set of shelves (Discover, Genres, the OTT cards) looked identical after one —
+ * the owner's "rows dobara padhi jaati hain par kuch badalta nahi". The rows of those cards are
+ * **shuffled per refresh** now: press Refresh (or the Home plate) and the shelves come back in a
+ * new order.
+ *
+ * Four cards keep their order, because there the order *is* the meaning: **For You** (your own
+ * titles are the point of it, and its rows are re-dealt by the server every open), **Watchlist**
+ * (Watching, then Plan to Watch, then Watched), the **Library** (the rows you filled yourself,
+ * in the order you put them in), and **Updates** (what is arriving, nearest first, then what is
+ * leaving).
+ */
+let rowDeal = 0;
+const rowDeals = new Map();
+const ROW_DEAL_KEEPS_ORDER = new Set(["for-you", "watchlist", "custom", "updates"]);
+
+function dealtRows(card, list, row = rowKey()) {
+  const rows = list || [];
+  if (rows.length < 2 || ROW_DEAL_KEEPS_ORDER.has(card.key)) return rows;
+  const key = `${rowDeal}:${card.key}:${row}`;
+  let order = rowDeals.get(key);
+  if (!order) {
+    order = rows.map((c) => c.id);
+    for (let i = order.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    rowDeals.set(key, order);
+    if (rowDeals.size > 80) rowDeals.delete(rowDeals.keys().next().value);
+  }
+  const byId = new Map(rows.map((c) => [c.id, c]));
+  const out = order.map((id) => byId.get(id)).filter(Boolean);
+  for (const c of rows) if (!order.includes(c.id)) out.push(c);
+  return out;
+}
+
+/** A card's rows, in the order this refresh dealt them. */
+function orderedCatalogs(card) {
+  return dealtRows(card, orderedCatalogsRaw(card), rowKey());
 }
 
 /* The drawn two-way arrows that used to sit inside the Shuffle button are gone with it:
@@ -3449,7 +3495,13 @@ let heroHover = false;
  * a banner wearing its name and tags over a shot from Now Playing would be two cards
  * in one frame.
  */
-const heroCandidates = () => state.collections.filter((c) => cardVisible(c) && rowOf(c).catalogs.length && !c.spotlight);
+const heroCandidates = () => state.collections.filter(
+  (c) => cardVisible(c) && rowOf(c).catalogs.length && !c.spotlight
+    // **Upcoming is not a banner.** It is a card of four posters now (it used to be the one
+    // spotlight card, which kept it out of this list); a banner that names a title it is not
+    // about is not what it is for, so it is named out here as well.
+    && c.key !== "upcoming",
+);
 
 /** The card the banner shows — one pick at launch, a new one every ten seconds. */
 function heroCard() {
@@ -3915,6 +3967,10 @@ async function refreshNow() {
   LAUNCH_SEED = Math.floor(Math.random() * 1e9);
   clearTileWindows();
   contentDrawn.clear();
+  // **And the shelves are dealt again.** A card's rows come back in a new order (see
+  // `dealtRows`), which is the half of a refresh you can see on the page itself.
+  rowDeal += 1;
+  rowDeals.clear();
   // The sample rows on an Explore page are a draw of their own, so a refresh deals them
   // again too (see `shuffledSamples`) — a refresh that left the same twelve on top was a
   // refresh that only half happened.
@@ -4236,14 +4292,14 @@ function voicePad() {
       // **The label says what pressing it does.** It was *Speak* — a word for one of the two
       // things the box takes (you can type into it, and it answers) — and the owner asked for
       // a better one. *Ask AI* is the app's own name for this box everywhere else.
-      title: "Ask AI — say or type what you want to watch",
-      "aria-label": "Ask AI — say or type what you want to watch",
+      title: "Ask Assistant — say or type what you want to watch",
+      "aria-label": "Ask Assistant — say or type what you want to watch",
       // **The pad opens the box, and the box listens.** It used to start the listener
       // directly, which meant no tags, no answer on screen and nothing to type into; the
       // microphone lives inside the box now (beside Ask), so this is one door to it.
       onclick: () => openAssistant(null),
     },
-    el("span", { text: "Ask AI" }),
+    el("span", { text: "Ask Assistant" }),
   );
 }
 
@@ -6595,8 +6651,8 @@ async function renderTitle(type, id) {
             class: "btn focusable",
             type: "button",
             id: "title-assistant",
-            text: "Ask AI",
-            title: "Ask AI about this title",
+            text: "Ask Assistant",
+            title: "Ask Assistant about this title",
             onclick: () => openAssistant({ ...meta, description: meta.description || (data.tagline || "") }),
           }),
           ...pinButtons(meta),
@@ -7465,6 +7521,17 @@ function libraryButton(item) {
     event.stopPropagation();
     step(event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
+  // **The cursor leaving the button puts the walk away.** Opening the walk fills the button
+  // (the owner's report: "why does Add to Library not lose its fill when the cursor leaves it"),
+  // because the walk stayed armed until a press applied it -- which is right for a wheel and
+  // for a remote, and wrong for a mouse that has moved somewhere else. Nothing is applied by
+  // leaving: the title is still where it was, and pressing the button again opens the walk
+  // again.
+  btn.addEventListener("mouseleave", () => {
+    if (at < 0) return;
+    setAt(-1);
+    paint();
+  });
   paint();
   return el("div", { class: "library-pop" }, btn);
 }
