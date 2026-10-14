@@ -623,6 +623,7 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
   if (!held?.named?.length) return null;
   const here = held.named
     .filter((p) => !GLOBAL_PROVIDER_IDS.has(p.id))
+    .filter((p) => !GLOBAL_BRAND.test(p.name))
     .filter((p) => !STORE_LIKE.test(p.name))
     .filter((p) => !CHANNEL_TIER.test(p.name));
   if (!here.length) return null;
@@ -656,7 +657,10 @@ export function regionalServicesFor(code, type, limit = REGIONAL_ROW_LIMIT) {
  * own — it is where a film can be bought. The Regional OTT card is about services you
  * subscribe to.
  */
-const STORE_LIKE = /google play|justwatch|apple tv|amazon video|youtube|microsoft|rakuten|chili|vudu|fandango|redbox|hoopla|kanopy|plex|eventive|cultpix|takflix|guide?doc|broadwayhd|magellan|filmzie|dekkoo|docalliance|true story|jolt film|netzkino|shadowz|\bpresents plus\b/i;
+/* `rakuten tv` and not `rakuten`: TMDB's name for Rakuten Viki is "Rakuten Viki", and the
+   loose pattern — meant for the Rakuten TV shop — was dropping a real streaming service the
+   Regional OTT card is supposed to carry. */
+const STORE_LIKE = /google play|justwatch|apple tv|amazon video|youtube|microsoft|rakuten tv|chili|vudu|fandango|redbox|hoopla|kanopy|plex|eventive|cultpix|takflix|guide?doc|broadwayhd|magellan|filmzie|dekkoo|docalliance|true story|jolt film|netzkino|shadowz|\bpresents plus\b/i;
 
 /**
  * **A channel tier is not a service.** "HBO Max Amazon Channel", "Anime Times Amazon
@@ -670,8 +674,27 @@ const CHANNEL_TIER = /amazon channel|netflix kids|on u-next|apple tv channel|\bp
 /** The worldwide platforms, by provider id — the ones the Global OTT card owns. */
 const GLOBAL_PROVIDER_IDS = new Set(GLOBAL_OTT.map(([, id]) => String(id)));
 
-/** How many services the Regional OTT card lists for a country. */
-const REGIONAL_ROW_LIMIT = 14;
+/**
+ * **A worldwide brand is never one region's own service, whatever id it arrives under.**
+ *
+ * TMDB lists the same platform under several provider ids — the plain one, the ad-supported
+ * one, an operator's bundle — and the id list above only knows the entry the project verified.
+ * A "Regional OTT" row for Amazon Prime Video is a row for a service that has its own card, so
+ * the brands are excluded by name as well as by id (the names are TMDB's own, which is exactly
+ * how they reach the card).
+ */
+const GLOBAL_BRAND = /^(amazon prime video|prime video|netflix|disney\+?|disney plus|hbo max|max|apple tv|paramount\+?|paramount plus)\b/i;
+
+/**
+ * How many services the Regional OTT card lists for a country.
+ *
+ * It was fourteen, and the popular names are ordered first — so a country whose list of
+ * household names ran long published *only* those and cut the rest, which is how a card about
+ * "your region's services" came back missing the ones a viewer in it subscribes to. The
+ * country's own list is longer than fourteen in the markets this app covers, so the ceiling is
+ * where a row list stops being readable rather than where the data happens to end.
+ */
+const REGIONAL_ROW_LIMIT = 24;
 
 /** A shuffled copy — the walk's order is the point. */
 function shuffled(list) {
@@ -766,18 +789,21 @@ function withRegionalServices(defs, code) {
   // (`regionalOttByContinent`, flagged `wider`) vanished the moment TMDB's list for the
   // region arrived — the card looked like the rows had never been added at all. A wider row
   // is not this region's service, so it is not what this list is replacing.
-  const kept = defs.filter((d) => !String(d.key || "").startsWith("regional-ott") || d.entry?.wider);
   // Both regional cards are the same list read twice: the plain one, and the Top 10 the
   // service publishes for itself.
-  for (const [cardKey, rowName, take] of [
+  const CARDS = [
     ["regional-ott", (svc) => svc.name, 40],
     ["regional-ott-top-10", (svc) => `${svc.name} | Top 10`, 10],
-  ]) {
+  ];
+  const own = new Map(CARDS.map(([cardKey]) => [cardKey, []]));
+  const ownIds = new Set();
+  for (const [cardKey, rowName, take] of CARDS) {
     for (const [type, rows] of [["movie", movie], ["series", series]]) {
       if (!rows) continue;
       for (const svc of rows) {
         const name = rowName(svc);
-        kept.push({
+        ownIds.add(String(svc.id));
+        own.get(cardKey).push({
           id: `${CATALOG_ID_PREFIX}${cardKey}--${slug(svc.name)}-${String(code).toLowerCase()}`,
           type,
           key: cardKey,
@@ -787,7 +813,29 @@ function withRegionalServices(defs, code) {
       }
     }
   }
-  return kept;
+  // **Your own country's services lead the card.** The static rows this replaced sat where
+  // they were and the country's list was appended after them, so a US card opened on U-NEXT,
+  // TVING and BBC iPlayer — the continents' rows — and the services a viewer in the country
+  // actually subscribes to were somewhere below the fold. Each card gets its own list at the
+  // place its regional rows began, and the continent rows follow it, minus any service the
+  // country's own list already carries (a continent row for Hulu beside Hulu is one service
+  // published twice in one card).
+  const placed = new Set();
+  const out = [];
+  for (const d of defs) {
+    const card = String(d.key || "");
+    if (!card.startsWith("regional-ott")) {
+      out.push(d);
+      continue;
+    }
+    if (!placed.has(card)) {
+      placed.add(card);
+      out.push(...(own.get(card) || []));
+    }
+    if (d.entry?.wider && !ownIds.has(String(d.entry.providerId))) out.push(d);
+  }
+  for (const [cardKey] of CARDS) if (!placed.has(cardKey)) out.push(...(own.get(cardKey) || []));
+  return out;
 }
 
 export function catalogDefs(code = activeCountry()) {

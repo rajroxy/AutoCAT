@@ -5225,16 +5225,6 @@ button.chip:not(.active):hover { background: rgba(var(--select-rgb, var(--accent
    **The live banner is the VOD banner's shape: two posters.**
    ============================================================================ */
 .live-hero .hero-art { background: var(--panel-2); }
-.live-hero-arts {
-  display: grid;
-  /* **Two posters, each half the banner.** The frame was a narrow plate beside a wide one,
-     which read as a logo and a picture rather than the VOD banner's pair. The two halves are
-     the same size now, and tall enough to be posters rather than strips. */
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  align-self: stretch;
-  min-height: 300px;
-}
 .live-hero-frame { min-height: 300px; }
 .live-hero-frame {
   position: relative;
@@ -5299,41 +5289,54 @@ button.rating.my-rating {
    ============================================================================ */
 .live-hero-pair {
   display: grid;
-  /* **Two halves of one frame.** The pair is a single card the way the VOD banner's artwork
-     is: no gap between the halves, the outer corners rounded to the same 12px the VOD hero's
-     frame wears, and a hairline seam where they meet. Two separate rounded cards read as two
-     pictures standing side by side; one frame reads as the banner. */
+  /* **Two posters, not one picture cut in half.** The pair was joined — no gap, one rounded
+     frame, a hairline seam — and that reads as a single wide picture. The VOD banner wears
+     **two edges**: the banner's own plate, and the artwork card inside it with its own rounded
+     edge. Each half is that artwork card now — its own plate, its own corners, with the
+     picture inset inside it the way the banner insets its own shot. */
   grid-template-columns: 1fr 1fr;
-  gap: 0;
+  gap: 14px;
   align-items: stretch;
+  min-height: 380px;
+}
+/* The frame is the VOD hero's artwork — the 380px the detail banner's art has — in its own
+   12px plate, inside the banner's own frame. */
+.live-hero-poster {
+  position: relative;
+  /* The plate centres the fallback mark; the picture inside it is taken out of the flow. */
+  display: grid;
+  place-items: center;
   min-height: 380px;
   border-radius: 12px;
   overflow: hidden;
-}
-/* The frame is the VOD hero's frame — the 380px the detail banner's artwork has — so the two
-   halves are the size of a real poster rather than of a logo plate. */
-.live-hero-poster {
-  position: relative;
-  display: block;
-  min-height: 380px;
-  /* The pair carries the corners, so the halves themselves are square where they meet and
-     flush with the frame's edge. */
-  border-radius: 0;
   background: var(--panel-2);
   /* **A picture, not a button.** The panel says what is on; there is no page behind it, so the
      cursor stays an arrow over both halves. */
   cursor: default;
 }
-/* The seam between the two halves. */
-.live-hero-poster + .live-hero-poster { box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.08); }
-.live-hero-poster .live-hero-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* **The second edge.** The picture sits inset in its plate with a corner of its own — the same
+   10px inset and 10px radius the VOD banner's artwork has, so the two banners wear the same
+   edge rather than one flat picture reaching the frame. */
+.live-hero-poster .live-hero-still {
+  position: absolute;
+  inset: 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  border-radius: 10px;
+  object-fit: cover;
+}
 .live-hero-still-logo { object-fit: contain; padding: 24%; }
 .live-hero-caption {
   position: absolute;
-  inset: auto 0 0 0;
+  /* The caption sits on the picture, not on the plate: the same 10px inset, corners that meet
+     the picture's own bottom edge. */
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  border-radius: 0 0 10px 10px;
   padding: 16px 18px 18px;
   background: linear-gradient(180deg, rgba(3, 4, 6, 0) 0%, rgba(3, 4, 6, 0.88) 100%);
 }
@@ -5376,6 +5379,12 @@ button.rating.my-rating {
 .guide-preview-name { font-size: 13.5px; font-weight: 800; color: var(--text); }
 .guide-preview-now { font-size: 12px; color: var(--muted); }
 .guide-table { min-width: 0; overflow: hidden; }
+/* **The frame is a door.** The guide table's own rows are channel buttons; everything else in
+   the card's frame opens the full guide (see `liveCard`), so the frame says so. */
+.guide-wrap { cursor: pointer; }
+.guide-wrap .guide-channel,
+.guide-wrap .guide-wrap button,
+.guide-wrap .chip { cursor: pointer; }
 
 /* ============================================================================
    **The Watchlist card's wall.** Six posters in the card's own frame, the way the Movies
@@ -5391,5 +5400,27 @@ button.rating.my-rating {
 }
 .poster-wall-art { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; background: var(--panel-2); }
 .poster-wall-empty { grid-column: 1 / -1; grid-row: 1 / -1; display: grid; place-items: center; color: var(--muted); font-size: 13px; font-weight: 700; }
+
+/* ============================================================================
+   **Profiles and Modes: a ring when you point at one, a fill when it is the one.**
+   ----------------------------------------------------------------------------
+   The chosen profile wore an inset ring in the accent — a box drawn round the card you had
+   already chosen, which is the ring the board has no other use for. A control answers the
+   cursor with the **selection** colour and says what is chosen with its **fill**, so that is
+   what these tiles do: the cursor rings the selection colour, the chosen card is filled with
+   it, and nothing draws a box round a choice. Written last so no earlier rule can put the
+   accent ring back.
+   ============================================================================ */
+.profile-tile:not(.active):hover,
+.profile-tile:not(.active):focus-visible {
+  background-color: var(--panel);
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--select, var(--accent));
+}
+.profile-tile.active,
+.profile-tile.active:hover,
+.profile-tile.active:focus-visible {
+  background-color: rgba(var(--select-rgb, var(--accent-rgb)), 0.18);
+  box-shadow: none;
+}
 
 

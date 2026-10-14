@@ -457,10 +457,42 @@ const POPULAR_REGIONAL = new Set([
   "CINE.AR Play", "VIX", "ViX Premium", "Claro video", "Cin\u00e9polis KLIC", "Univer Video",
   "Paramount Plus", "Crave", "CBC Gem", "ICI TOU.TV EXTRA", "STACKTV", "Club Illico",
   "RiverTV", "TSN+", "Sportsnet+",
+  // —— **the household names the list was missing.** The card is built by *asking TMDB* which
+  // services a country really carries, and this list is what decides which of them the card's
+  // Popular prefix is made of. The names below are the ones people actually name in their
+  // country — the US's Peacock and Kocowa, India's SonyLIV and JioCinema, the Korean and
+  // Japanese catalogues, the Greater-China and SEA platforms, the broadcasters' own players in
+  // Britain and Europe — and each was missing, which is why the card could show fourteen rows
+  // and none of them the service the viewer was looking for.
+  "Peacock", "Peacock Premium", "Peacock Standard", "Pluto TV", "Tubi", "Tubi TV", "Starz",
+  "Showtime", "AMC+", "AMC Plus", "MGM+", "MGM Plus", "Fubo", "FuboTV", "Philo", "Shudder",
+  "HIDIVE", "Kocowa", "Rakuten Viki", "SonyLIV", "JioCinema", "Voot", "ALTBalaji",
+  "Lionsgate Play", "Eros Now", "ManoramaMAX", "Chaupal", "Sun NXT", "Watcha", "Laftel",
+  "AbemaTV", "TVer", "FOD", "DMM TV", "WOWOW", "TELASA", "Iflix", "GoPlay", "RCTI+",
+  "Mola TV", "Vivamax", "iWantTFC", "Tonton", "StarHub TV+", "Hami Video", "KKTV",
+  "myVideo", "friDay", "LINE TV", "Now E", "Hmvod", "FPT Play", "VieON", "Galaxy Play",
+  "7plus", "10 play", "ABC iview", "Channel 5", "My5", "All 4", "STV Player", "RTE Player",
+  "Virgin Media Play", "TG4", "Arte", "France TV", "OCS", "Sky Go", "WOW", "Mitele", "3Cat",
+  "RTVE Play", "TIMvision", "Kijk", "SVT Play", "C More", "DR TV", "Canal+ Online",
+  "TVP VOD", "BluTV", "Puhutv", "Ivi", "Premier", "OSN", "HOT VOD", "Partner TV",
+  "Kan 11", "DStv Now", "iwonder", "Star+", "Blim",
 ]);
 
+/**
+ * **A name as one key.** TMDB spells a brand its own way — `SonyLIV` where the card says
+ * `Sony Liv`, `Rakuten Viki` where it says `Viki`, `aha` where it says `Aha` — and the list
+ * above was compared letter for letter, so the service was in the data, on the region's list,
+ * and still not recognised as one of the names a viewer would know. Case, spaces, dots and
+ * hyphens are dropped on both sides now, which is the whole of the difference between the two
+ * spellings of one service.
+ */
+const popKey = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9+]/g, "");
+
+/** The list above, as keys, so the comparison never depends on how a name is punctuated. */
+const POPULAR_REGIONAL_KEYS = new Set([...POPULAR_REGIONAL].map(popKey));
+
 /** Is this a service the Regional OTT card publishes? (@see `regionalServicesFor` in addon/catalogs.mjs) */
-export const isPopularRegional = (name) => POPULAR_REGIONAL.has(String(name || "").trim());
+export const isPopularRegional = (name) => POPULAR_REGIONAL_KEYS.has(popKey(name));
 
 /**
  * **How many regional services one continent puts on the Continental card.**

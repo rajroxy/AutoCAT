@@ -9751,12 +9751,21 @@ function sourceSection(title, hint, types, list) {
       render();
     },
   });
+  // **The form and the rows are one box.** They were two loose blocks under the pane's
+  // heading — a field, a button, then a list of cards floating on the page — while every
+  // other account pane (Debrid, Trackers, Subtitles) keeps its controls inside the app's own
+  // inner panel. The `provider` box is that panel, and this is where the URL field, the Add
+  // button and every add-on row live now.
   return [
     el("p", { class: "option-desc", text: hint }),
-    el("div", { class: "source-form" }, picker ? picker.node : null, urlInput, add),
-    list.length
-      ? el("div", { class: "sources" }, ...list.map((s, pos) => sourceRow(s, state.sources.indexOf(s), list, pos)))
-      : el("p", { class: "option-desc", text: "None added yet." }),
+    el(
+      "div",
+      { class: "provider" },
+      el("div", { class: "source-form" }, picker ? picker.node : null, urlInput, add),
+      list.length
+        ? el("div", { class: "sources" }, ...list.map((s, pos) => sourceRow(s, state.sources.indexOf(s), list, pos)))
+        : el("p", { class: "option-desc", text: "None added yet." }),
+    ),
   ];
 }
 
@@ -11247,7 +11256,17 @@ function liveCard({ id, title, sub, rows, action, posters = [], grid = null, spo
     { class: "icon-box live-card" + (spotlight ? " card-spotlight" : "") },
     el(
       "div",
-      { class: `icon-wrap${filled ? " art-filled" : ""}${wrap ? ` ${wrap}` : ""}` },
+      {
+        class: `icon-wrap${filled ? " art-filled" : ""}${wrap ? ` ${wrap}` : ""}`,
+        // **A card whose frame is a whole screen is a door into it.** The Guide card's frame
+        // is the TiviMate table, and its rows are channel buttons — so the frame itself took
+        // no press and the only way in was the small name underneath, which read as "the
+        // guide card does not open". A press anywhere the table does not already answer
+        // opens the full guide.
+        ...(grid && action
+          ? { onclick: (event) => { if (!event.target.closest("button")) action(); } }
+          : {}),
+      },
       grid
         ? grid
         : el(
@@ -11476,27 +11495,27 @@ function liveUpcomingCard(mode = "livetv") {
 /**
  * **The Watchlist, on the IPTV home too.** A live profile is still a place you keep titles to
  * watch — pinning one from a title page files it here whichever half of the app you are in —
- * so the card that holds them is on this home as well. Its frame is the posters themselves,
- * the way the Movies home's Watchlist is: a wall of what you pinned, six at a time.
+ * so the card that holds them is on this home as well — and it is the **Movies home's own
+ * Watchlist card**, drawn by `iconBox`: the same frame, the same poster row and the same way
+ * in. It was a wall of six pinned posters of its own, which made one watchlist look like two
+ * different things depending on which home you were standing on.
  */
 function liveWatchlistCard() {
-  const items = (state.watchItems || []).filter((i) => i && i.poster);
-  const posters = items.slice(0, 6);
-  const wall = posters.length
-    ? el("div", { class: "poster-wall" }, ...posters.map((i) =>
-        el("img", { class: "poster-wall-art", src: i.poster, alt: "", loading: "lazy" }),
-      ))
-    : el("div", { class: "poster-wall" },
-        el("span", { class: "poster-wall-empty", text: "Nothing pinned yet" }),
-      );
+  // **It is the Movies home's own card, not a different one.** This was a bespoke wall of six
+  // pinned posters — a watchlist card that looked like nothing else in the app, on a home whose
+  // whole point is that it reads like the other one. The card is drawn by `iconBox`, the
+  // component Home uses, so the frame, the poster row, the name and the way in are the same
+  // card in both profiles.
+  const card = (state.collections || []).find((c) => c && c.key === "watchlist");
+  if (card) return iconBox(card, state.row);
+  // The addon has not answered yet: the plate still says what it is and still opens.
   return liveCard({
     id: "open-watchlist",
     title: "Watchlist",
-    sub: posters.length ? `${items.length} pinned · press to open` : "Pin a title from any title page",
-    grid: wall,
-    // **The card's own page, not the explore route.** `#/x/watchlist` means "explore one
-    // catalog of the watchlist" and needs a catalog id after the key; without it the route
-    // parses to an empty one. The card page (`#/c/<key>`) is the list of rows this card holds.
+    sub: "Pin a title from any title page",
+    grid: el("div", { class: "poster-wall" },
+      el("span", { class: "poster-wall-empty", text: "Nothing pinned yet" }),
+    ),
     action: () => go("#/c/watchlist"),
   });
 }
