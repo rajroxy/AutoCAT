@@ -674,6 +674,10 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 .cat-name.static:hover { color: rgba(255, 255, 255, 0.86); }
 
 .cat-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+/* **The glyph and the word sit on one line.** Shuffle is the one `.btn` with a drawn icon
+   inside it, and a plain inline box put that icon on the text's baseline — the mark rode high
+   of the word. It is the same row the voice pad uses. */
+.cat-tools .btn, .shuffle-btn { display: inline-flex; align-items: center; gap: 8px; }
 
 .section-meta { flex: 1; }
 .section-actions { margin-top: 14px; }
@@ -1231,6 +1235,21 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 .source-form select.text-input { flex: 1; }
 
 .sources { display: flex; flex-direction: column; gap: 10px; }
+/* **Every add-on is a box inside the section's box.** The list is one plate (see
+   `sourceSection`), and each add-on in it is a panel of its own — the shape the TMDB and TVDB
+   rows wear in Settings → Trackers & providers — so two add-ons read as two things rather than
+   one list of rows lying flat on the section's own surface. */
+/* **Each add-on is a box inside the panel.** The list is one plate, and in Settings that
+   plate is painted `--panel-2` (`​.settings-pane .option-group .provider`) — so a row wearing
+   `--panel-2` too was the *same* fill, and the box could not be seen. The row is a shade up
+   from its panel, with the hairline that says where one add-on ends and the next begins. The
+   selectors carry the weight of the rules they have to beat, or the pane repaints the row. */
+.sources .source,
+.settings-pane .sources .source,
+.settings-pane .option-group .sources .source {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
 
 .source {
   display: flex;
@@ -1680,10 +1699,26 @@ textarea:focus-visible {
 /* The poster service upgrades the artwork silently — no BTTR badge on the card. */
 .poster { position: relative; }
 
-/* **The switch above the search bar steps aside for the filters.** One line, and it is
+/* **The switch under the search bar steps aside for the filters.** One line, and it is
    either the row you are searching or the panel that narrows it — never both. */
 .search-switch-row { display: flex; align-items: center; }
 .search-switch-row[hidden] { display: none; }
+/* **The funnel leads the field, and the switch follows it.** The filter control is an icon
+   outside the bar on its left — it opens the panel, so it reads first — and the Movies / Shows
+   switch is about the results below, so it sits under the bar, on the right, where they start. */
+.search-head { display: flex; align-items: center; gap: 12px; }
+.search-head .search-bar { flex: 1 1 auto; min-width: 0; }
+.search-switch-row.search-under { justify-content: flex-end; margin: -12px 0 24px; }
+/* The funnel is an icon, not a word: the panel names itself when it opens. It keeps the play
+   button's plate, at the bar's own height. */
+.search-wrap .search-filter-btn { width: 60px; height: 60px; padding: 0; justify-content: center; border-radius: 14px; }
+.search-wrap .search-filter-btn svg { width: 20px; height: 20px; }
+/* **The filter panel's arrows wear a plate you can see on it.** They are `var(--panel)`
+   elsewhere — the page's own card colour — and inside the panel, whose box *is* `var(--panel)`,
+   that left them with no box at all. */
+.search-filters .chip-arrow,
+.search-filters .chip-arrow:disabled,
+.search-filters .chip-arrow.at-end { background-color: var(--panel-2); }
 
 /* ------------------------------------------------------------------ explore */
 
@@ -4123,6 +4158,11 @@ select option:hover {
 }
 .settings-nav .settings-tab:hover, .settings-nav .settings-tab:focus-visible { transform: none; }
 
+/* **The plate you are already standing on shows an arrow, not a hand.** Home is the screen you
+   are on and the chosen Movies / Shows pill is the row you are already browsing — a pointer
+   promises a door where there is only the room you are in. */
+.tab[aria-selected="true"], .row-btn.active { cursor: default; }
+
 /* **A tag lights up like everything else.** Pills used to be the exception — the ring
    was taken off them ("too small to ring"), so hovering a tag did nothing you could see
    and pressing one left no mark at all. They take the same accent ring on hover and on
@@ -5302,7 +5342,20 @@ chip, exactly: same fill, same corner, same type, drawn over the poster's top-le
    `margin-top: auto`, so it reads lower without the frame moving. */
 .title-hero { min-height: 380px; }
 .title-hero .hero-body { display: flex; flex-direction: column; }
-.title-hero .title-actions { margin-top: auto; margin-bottom: 10px; }
+/* **The title's own row of controls stays on screen.** Play, Ask Assistant, Plan to Watch and
+   Add to Library are drawn under the banner (see `actions` on the title page), and the row is
+   `sticky`: scrolling on to the cast, the rating or the productions does not take the controls
+   with it. `top` clears the top bar, which is sticky at `z-index: 20` itself, and the row's own
+   plate keeps what it passes from reading through it. */
+.title-actions-bar {
+  position: sticky;
+  top: 78px;
+  z-index: 12;
+  margin: 0 0 22px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: var(--panel);
+}
 
 /* **The plate you rate from is a ratings plate.** `Your rating` is drawn as the fourth
    `Ratings` plate — the same box, the same figure over its source — so it belongs in that
@@ -5658,7 +5711,10 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    inverts: the page's own near-black disc, with the selection colour for the mark. */
 .profile-tile.active .profile-tile-name { color: #14110a; }
 .profile-tile.active .profile-tile-sub { color: rgba(20, 17, 10, 0.72); }
-.profile-tile.active .avatar { background: var(--ink, #0b0b0b); color: var(--fill); }
+/* **The disc stays the app's own disc.** The chosen tile inverted the avatar — the page's
+   near-black circle with the accent mark on it — which read as a different object from every
+   other avatar in the app. The disc is the gradient it always was, chosen or not. */
+.profile-tile.active .avatar { background: linear-gradient(160deg, var(--fill), var(--fill-deep)); color: #14110a; }
 
 /* ============================================================================
    **The Fill fills; the Ring rings.**
@@ -5744,11 +5800,15 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    Written at the weight of the rules it follows — `.profile-grid .profile-tile.active` is named
    for the same reason — because a rule that loses the cascade is a rule nobody can see.
    ============================================================================ */
+/* **The tab you are on does not ring.** *Home* is the screen you are already on — the solid
+   plate says so — and a ring around it is the app pointing at what you have already chosen;
+   its cursor is an arrow for the same reason (see the cursor rule near `.tab`). What *does*
+   ring is the **chosen** row in Settings — the section you are in, a ticked option, the colour
+   you picked — so a press there answers the way Play and Speak do. */
 .btn.primary:is(:hover, :focus-visible, :has(:focus-visible)),
 .btn.primary.voice-pad:is(:hover, :focus-visible, :has(:focus-visible)),
 .voice-pad:is(:hover, :focus-visible, :has(:focus-visible)),
 .row-btn.active:is(:hover, :focus-visible, :has(:focus-visible)),
-.tab[aria-selected="true"]:is(:hover, :focus-visible, :has(:focus-visible)),
 .cal-cell.today:is(:hover, :focus-visible, :has(:focus-visible)),
 .profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)),
 .profile-grid .profile-tile.active:is(:hover, :focus-visible, :has(:focus-visible)) {
@@ -5757,14 +5817,25 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
   box-shadow: 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
     0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring);
 }
-/* **The calendar's tag is a label on the poster, not a control**: `pointer-events: none`, so
-   the cursor over the tag is the cursor over the artwork under it. It shows the Fill with the
-   poster's own hover, which is what pointing at it looks like from the reader's side. */
-.cal-item:hover .cal-tag,
-.cal-item:focus-within .cal-tag {
-  background: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
-  color: #fff;
+/* **The chosen rows in Settings ring the same way.** The section you are in, a ticked option
+   and the colour you picked are the plates of that screen: pointing at one answers with the
+   ring the Play and Speak buttons draw. They keep their own tint under it — a settings row is
+   a line of type, not a button's solid plate — so only the outline is added. */
+.settings-tab.active:is(:hover, :focus-visible, :has(:focus-visible)),
+.option:has(input:checked):is(:hover, :focus-visible, :has(:focus-visible)),
+.vis-option:has(input:checked):is(:hover, :focus-visible, :has(:focus-visible)),
+.accent-card.active:is(:hover, :focus-visible, :has(:focus-visible)) {
+  background-color: rgba(var(--fill-rgb), var(--mark-fill-strong, 0.34));
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
+    0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring);
 }
+/* **The calendar's tag is a label on the poster, not a control**: `pointer-events: none`, so
+   the cursor over the tag is the cursor over the artwork under it — and a label is not a
+   control, so it keeps the plate it is drawn on whatever the cursor does around it. (The rule
+   that lit it with the tile's own hover is gone: it lit the *date*.) */
+/* **The date tag is a label on the artwork, and it never changes colour.** It took the
+   cursor's wash with the poster's own hover, so pointing at a tile lit the *date* — the one
+   thing on the tile that is not a control. It is drawn over the picture and stays put. */
 
 /* ============================================================================
    **The plates stay plates.** Nothing to restate here — Play, Speak, the Movies / Shows pill,

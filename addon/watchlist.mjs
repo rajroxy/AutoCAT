@@ -134,17 +134,22 @@ export function list(state) {
 /**
  * The keys of every title in the **Watched** state.
  *
- * The app shows watched titles in exactly two places — the Watchlist card's Watched row
- * and a Custom row you put them in — so every *other* row and every search has to be able
- * to say "not this one". The keys are the same shape the store uses (`movie:<id>`), which
+ * The app shows these titles in exactly two places — the Watchlist card's own row for the
+ * state and a Custom row you put them in — so every *other* row and every search has to be
+ * able to say "not this one". The keys are the same shape the store uses (`movie:<id>`), which
  * is also the shape a TMDB meta arrives in, so nothing has to be re-derived.
  */
 export function watchedKeys() {
-  // **Watching counts too.** A title you have started belongs in the Watching row and
-  // nowhere else, exactly as a finished one belongs in Watched — so both states are
-  // hidden from every other row and from search. Only a title still *planned* keeps
-  // showing up around the app, which is the point of planning it.
-  return [...load().values()].filter((i) => i.state === "watched" || i.state === "watching").map((i) => keyOf(i));
+  // **All three states count, a plan included.** A title you have started belongs in the
+  // Watching row and nowhere else, exactly as a finished one belongs in Watched — and a
+  // title you have **planned** is one you have already picked out: it came straight back on
+  // Home, in Search and in the search panel the moment it was pinned, which is the wall you
+  // had just chosen it out of. Its two places are the Watchlist card's Plan to Watch row and
+  // the Calendar, and both are kept whole (see `withoutWatched`).
+  return [...load()
+    .values()]
+    .filter((i) => i.state === "watched" || i.state === "watching" || i.state === "planned")
+    .map((i) => keyOf(i));
 }
 
 /** How many titles sit in each state — what the Watchlist card reports. */

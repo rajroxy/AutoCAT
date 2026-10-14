@@ -1059,15 +1059,11 @@ const state = {
   customRowEdit: "",
   // **The Fill**: every control in the app is painted with it (Settings → Appearance → Fill).
   accent: storedAccent(KEY.accent) || "copper",
-  // **The Ring follows the Fill until it is set.** Empty means "same as the fill", so nothing
-  // changes for anyone who never opens this setting.
-  // **The Ring is a choice of its own.** It used to fall back to the fill through a "Match
-  // highlight" card on the board; that card is gone, so an install that has never picked one
-  // takes the fill it is already wearing — the same colour, made explicit.
-  select: storedAccent(KEY.select) || storedAccent(KEY.accent),
-  // **The Hover colour follows the Fill until it is set.** Empty means "same as the Fill", so
-  // the cursor's own colour is a setting nobody has to touch to get the app's own look.
-  hover: storedAccent(KEY.hover) || "",
+  // **One colour.** The Ring and the Hover were settings of their own; the pane draws a single
+  // **Color** board now, so a build that still has one of the old values stored reads the Fill
+  // (Settings → Accent) and nowhere else.
+  select: storedAccent(KEY.accent),
+  hover: storedAccent(KEY.accent),
   // Kept from an older build: the ring was once a choice between an outline and a wash.
   selStyle: localStorage.getItem(KEY.selStyle) === "ring" ? "ring" : "fill",
   // **Two choices, not three.** "Follow system" was the third and it is gone from the
@@ -1931,15 +1927,18 @@ function emptyRowText(catalog) {
  */
 /** The keys of the titles this profile has started or finished, as the store names them. */
 /**
- * **What already belongs to you.** A title in the Library — pinned as Watching or Watched, or
- * sitting in one of your own Library rows — is not offered back to you on Home, in Search or
- * in the search dropdown; the Watchlist card and the Library card are where it lives. Both
- * halves are here so there is one answer to "is this mine" rather than three.
+ * **What already belongs to you.** A title in the Library — pinned as Plan to Watch, Watching
+ * or Watched, or sitting in one of your own Library rows — is not offered back to you on Home,
+ * in Search or in the search dropdown; the Watchlist card and the Library card are where it
+ * lives. Both halves are here so there is one answer to "is this mine" rather than three.
  */
 function ownedKeys() {
   const out = new Set();
   for (const [key, value] of Object.entries(state.watchlist || {})) {
-    if (value === "watching" || value === "watched") out.add(key);
+    // **A plan counts as yours.** Planning a title is the first thing you do with it, and a
+    // title you have planned came straight back on Home, in Search and in the search panel's
+    // results the moment you pinned it — the same wall you had just picked it out of.
+    if (value === "watching" || value === "watched" || value === "planned") out.add(key);
   }
   // A row's own titles count as owned: the moment one is put in a row it leaves the rows it
   // was found in, the same way a pin does. **The calendar's own row is not one of yours** —
@@ -4363,12 +4362,12 @@ function renderExplore(key, id) {
           "div",
           { class: "cat-tools" },
           el("button", {
-            class: "btn subtle focusable",
+            class: "btn subtle focusable shuffle-btn",
             type: "button",
             id: "shuffle-samples",
             title: "Shuffle — draw a fresh sample",
             onclick: () => samples.forEach((row) => row.reload()),
-          }, shuffleIcon(), el("span", { text: " Shuffle" })),
+          }, shuffleIcon(), el("span", { text: "Shuffle" })),
         )
       : null;
   const head = tools ? el("header", { class: "explore-head" }, tools) : null;
@@ -5103,7 +5102,7 @@ function renderSearch() {
   // from two ends — which half of the catalogue to look through, and what to narrow it to —
   // and the panel is tall enough to carry the screen on its own. Opening it hides the
   // switch; closing it brings the switch back.
-  const switchRow = el("div", { class: "search-switch-row", id: "search-switch-row" }, rowSwitch("search"));
+  const switchRow = el("div", { class: "search-switch-row search-under", id: "search-switch-row" }, rowSwitch("search"));
 
   const filterBtn = el(
     "button",
@@ -5120,8 +5119,9 @@ function renderSearch() {
         filterBtn.setAttribute("aria-expanded", String(!panel.hidden));
       },
     },
+    // **The icon alone.** The word "Filters" beside the funnel made the bar a row of two
+    // controls of the same weight; the panel names itself when it opens.
     filterIcon(),
-    el("span", { text: "Filters" }),
   );
 
   // **A search screen opens empty.** The Country chip defaults to the region, so
@@ -5140,17 +5140,19 @@ function renderSearch() {
     // being browsed; a search box that asks "what is this called?" is not a row, and the
     // two buttons sat between the field and its own heading for no reason. What kind of
     // title a search is looking for is the **Type** row in Filters, one press away.
-    // **The same Movies / Shows switch Home wears, above the bar** — this screen's own copy
+    // **The same Movies / Shows switch Home wears, under the bar** — this screen's own copy
     // of it (see `rowSwitch`), because a search is read through one row at a time and Home
     // should not change its mind because you searched for something.
-    switchRow,
     el(
       "div",
       { class: "search-wrap" },
-      // The field is the app's own panel: the magnifier leads it, the text fills it
-      // edge to edge, and the filter control closes it — one control, full width.
-      el("div", { class: "search-bar" }, input, filterBtn, suggestions),
+      // **The funnel leads, the field follows, and the switch sits under it.** The filter
+      // control is the icon that opens the panel, so it stands outside the bar on its left;
+      // the Movies / Shows switch is about the results below, so it sits under the bar, on the
+      // right, where the results begin.
+      el("div", { class: "search-head" }, filterBtn, el("div", { class: "search-bar" }, input, suggestions)),
     ),
+    switchRow,
     filters.country !== "all" && query.trim()
       ? el("p", {
           class: "view-hint",
@@ -6332,36 +6334,15 @@ async function renderTitle(type, id) {
   // · Ended` repeated what the ratings row and the facts grid already say, in the one
   // place on the page that should be the name and nothing else.
   const kind = media === "series" ? "show" : "movie";
-  const node = el(
-    "article",
-    { class: "title-page" },
-
-    // **The banner is the home screen's banner.** The same two-column card, in the
-    // same place at the top of the page: the title's own actions (Play, the pins),
-    // its ratings, its overview and its genres down the left, and the wide shot in
-    // the frame on the right — one treatment for the same banner.
-    el(
-      "header",
-      { class: "hero title-hero" },
-      el(
-        "div",
-        { class: "hero-body" },
-        // **The overview leads the column**, then the actions, then the genres. What
-        // the title *is* comes before the buttons that ask you to do something with
-        // it. No kicker and no title here — the bar above the page already names it.
-        (data.tagline || meta.description)
-          ? el("section", { class: "title-row" },
-              el("h3", { class: "row-head", text: "Overview" }),
-              data.tagline ? el("p", { class: "title-tagline", text: data.tagline }) : null,
-              meta.description ? el("p", { class: "title-overview", text: meta.description }) : null,
-            )
-          : null,
-        // **One row of four.** Play and Ask Assistant used to sit on a line above a
-        // separate row of pins, so the four things you do with a title were split across
-        // two lines. They are one row now, in the order you reach for them.
-        el(
-          "div",
-          { class: "title-actions", id: "title-pins" },
+  // **The title's controls are a row of their own, under the banner — and they stay put.**
+  // Play, Ask Assistant, Plan to Watch and Add to Library used to be the bottom line of the
+  // banner's own column, which took them off the screen the moment the page scrolled past the
+  // artwork: Add to Library is a control you come back to while reading the page, and it was
+  // only there while the top of the page was. The row is a sibling of the banner now, so it
+  // can be `sticky` for the whole title (see `.title-actions-bar`).
+  const actions = el(
+    "div",
+    { class: "title-actions title-actions-bar", id: "title-pins" },
           el("button", {
             class: "btn primary play-btn focusable",
             type: "button",
@@ -6389,7 +6370,32 @@ async function renderTitle(type, id) {
             onclick: () => openAssistant({ ...meta, description: meta.description || (data.tagline || "") }),
           }),
           ...pinButtons(meta),
-        ),
+  );
+  const node = el(
+    "article",
+    { class: "title-page" },
+
+    // **The banner is the home screen's banner.** The same two-column card, in the
+    // same place at the top of the page: the title's own actions (Play, the pins),
+    // its ratings, its overview and its genres down the left, and the wide shot in
+    // the frame on the right — one treatment for the same banner.
+    el(
+      "header",
+      { class: "hero title-hero" },
+      el(
+        "div",
+        { class: "hero-body" },
+        // **The overview leads the column.** What the title *is* comes before the buttons
+        // that ask you to do something with it — and those buttons are a row of their own
+        // under the banner now (see `actions` below), so what is left in the column is the
+        // overview. No kicker and no title here — the bar above the page already names it.
+        (data.tagline || meta.description)
+          ? el("section", { class: "title-row" },
+              el("h3", { class: "row-head", text: "Overview" }),
+              data.tagline ? el("p", { class: "title-tagline", text: data.tagline }) : null,
+              meta.description ? el("p", { class: "title-overview", text: meta.description }) : null,
+            )
+          : null,
       ),
       // **The wide shot, in the banner's own frame.** A title with no backdrop keeps
       // its poster, whole, on the frame's plate — never stretched across it.
@@ -6405,6 +6411,9 @@ async function renderTitle(type, id) {
             : null,
       ),
     ),
+
+    // The title's own row of controls, under the banner (see `actions` above).
+    actions,
 
     el(
       "div",
@@ -7469,7 +7478,13 @@ function myRatingGrid(meta) {
   // and the wheel (or left/right, or a remote's own arrows) moves the score inside the same
   // box; press again to save it. The score is drawn as you move it — that *is* the rating,
   // waiting to be written.
+  // **It shows nothing until you pick it up.** The plate used to arm itself on the first
+  // press at 5 — a score nobody had given, drawn as if it had been — and the wheel moved it
+  // without a press at all, so a scroll over the ratings row rated the title. The first press
+  // picks the box up at **0/10**; only then do the wheel and the arrows move it, and the
+  // second press saves.
   let armed = mine;
+  let picked = false;
   const value = el("span", { class: "rating-value", text: mine ? `${mine}/10` : "\u2013" });
   const box = el("button", {
     class: `rating my-rating focusable${mine ? " on" : ""}`,
@@ -7479,8 +7494,9 @@ function myRatingGrid(meta) {
     title: mine ? `Your rating is ${mine}/10 — press to change it, scroll or use left/right, press to save` : "Press to rate this, scroll or use left/right, press to save",
     onclick: (event) => {
       event.stopPropagation();
-      // The first press picks the box up; the second one saves what the wheel left.
-      if (armed === mine) { armed = mine || 5; paint(); return; }
+      // The first press picks the box up at 0/10; the second one saves what the wheel left.
+      if (!picked) { picked = true; armed = mine || 0; paint(); return; }
+      picked = false;
       setMyRating(meta, armed);
     },
   },
@@ -7488,12 +7504,14 @@ function myRatingGrid(meta) {
     el("span", { class: "rating-source", text: "Your rating" }),
   );
   const paint = () => {
-    value.textContent = armed ? `${armed}/10` : "\u2013";
+    value.textContent = picked || armed ? `${armed}/10` : "\u2013";
     box.classList.toggle("on", Boolean(armed));
-    box.classList.toggle("armed", armed !== mine);
+    box.classList.toggle("armed", picked && armed !== mine);
   };
   const step = (by) => {
-    armed = Math.min(10, Math.max(1, (armed || (by > 0 ? 0 : 11)) + by));
+    // **The wheel and the arrows move the score only once the box is picked up.**
+    if (!picked) return;
+    armed = Math.min(10, Math.max(0, armed + by));
     paint();
   };
   box.addEventListener("keydown", (event) => {
@@ -7501,8 +7519,9 @@ function myRatingGrid(meta) {
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); step(-1); return; }
     if (event.key === "Enter" || event.key === " " || event.key === "Select") {
       event.preventDefault();
-      if (armed && armed !== mine) setMyRating(meta, armed);
-      else if (armed) setMyRating(meta, armed);
+      if (!picked) { picked = true; armed = mine || 0; paint(); return; }
+      picked = false;
+      setMyRating(meta, armed);
     }
   });
   box.addEventListener("wheel", (event) => {
@@ -7517,8 +7536,10 @@ function myRatingGrid(meta) {
 async function setMyRating(meta, value) {
   const key = watchKey(meta);
   const mine = { ...(state.ratings?.mine || {}) };
-  if (Number(mine[key]) === value) delete mine[key];
-  else mine[key] = value;
+  // **A score of 0 is no score.** It is what the walk starts on, and saving it means
+  // "take my rating off" rather than a rating of nothing.
+  if (!Number(value) || Number(mine[key]) === Number(value)) delete mine[key];
+  else mine[key] = Number(value);
   state.ratings = { ...(state.ratings || {}), mine };
   writeJSON(KEY.ratings, state.ratings);
   render();
@@ -9234,20 +9255,17 @@ function applyTheme() {
   root.style.setProperty("--fill", base);
   root.style.setProperty("--fill-rgb", rgb);
   root.style.setProperty("--fill-deep", deep);
-  // **The Hover colour**, which is the Fill unless someone chose their own: it is the *wash*
-  // under the cursor, on every control in the app — a button, a chip, a menu row, the day you
-  // point at — so the mark the cursor makes can read in a colour of its own.
-  const hov = state.hover ? accentOf(state.hover) : null;
-  root.style.setProperty("--hover", hov ? hov[3] : base);
-  root.style.setProperty("--hover-rgb", hov ? hov[2] : rgb);
-  root.style.setProperty("--hover-deep", hov ? hov[4] : deep);
-  // **The Ring**, which is the Fill unless someone chose their own: it is the outline a card, a
-  // catalog row's title, a cast or crew face, a network or a production company wears, so the
-  // outline around your content can be a different colour from the fill on your buttons.
-  const sel = state.select ? accentOf(state.select) : null;
-  root.style.setProperty("--ring", sel ? sel[3] : base);
-  root.style.setProperty("--ring-rgb", sel ? sel[2] : rgb);
-  root.style.setProperty("--ring-deep", sel ? sel[4] : deep);
+  // **The wash under the cursor is the same Color.** Settings → Accent draws one board (see
+  // `paneAppearance`), so the *wash* every control shows under the cursor is the colour the
+  // controls are filled with.
+  root.style.setProperty("--hover", base);
+  root.style.setProperty("--hover-rgb", rgb);
+  root.style.setProperty("--hover-deep", deep);
+  // **And so is the Ring** — the outline a card, a catalog row's title, a cast or crew face, a
+  // network or a production company wears. One colour, drawn everywhere the app marks.
+  root.style.setProperty("--ring", base);
+  root.style.setProperty("--ring-rgb", rgb);
+  root.style.setProperty("--ring-deep", deep);
   root.classList.toggle("motion-off", state.motion === "off");
   root.classList.toggle("pop-on", state.pop !== false);
   root.style.setProperty("--quick", (SPEEDS.find(([id]) => id === state.speed) || SPEEDS[2])[3]);
@@ -9258,12 +9276,12 @@ function applyTheme() {
   try {
     localStorage.setItem(KEY.theme, JSON.stringify({
       base, rgb, deep,
-      hover: hov ? hov[3] : base,
-      hoverRgb: hov ? hov[2] : rgb,
-      hoverDeep: hov ? hov[4] : deep,
-      select: sel ? sel[3] : base,
-      selectRgb: sel ? sel[2] : rgb,
-      selectDeep: sel ? sel[4] : deep,
+      hover: base,
+      hoverRgb: rgb,
+      hoverDeep: deep,
+      select: base,
+      selectRgb: rgb,
+      selectDeep: deep,
       motion: state.motion,
     }));
   } catch {
@@ -9271,8 +9289,8 @@ function applyTheme() {
   }
 }
 
-/** Settings → **Accent**: the three colours the app marks with — the Fill, the Hover and the
- *  Ring — and how much the app moves. */
+/** Settings → **Accent**: the one colour the app marks with — its **Color** — and how much
+ *  the app moves. */
 function paneAppearance() {
   // **One card per colour, like the banner's own frame.** The banner puts its artwork
   // inside a card of its own — a panel with a radius, the picture as the thing inside it —
@@ -9280,69 +9298,13 @@ function paneAppearance() {
   // colour as the artwork** (the same base → deep gradient the app's fill is built from),
   // with the colour's name under it. The chosen one wears the colour it *is*; a row of bare
   // circles could only tell you the colour of the dot.
-  // **Three colours, three jobs, one board each.** The **Fill** paints every control in the
-  // app — a button, a chip, a tab, a menu row, the day you picked; the **Ring** is drawn around
-  // content — a card, a catalog row's title, a cast or crew face, a network, a production
-  // company; and the **Hover** is the wash a control shows *under the cursor*, so the mark the
-  // cursor makes can be a colour of its own. All three start together, and each board carries
-  // the same colours, so a choice is never limited by which board it is on.
-  const hoverGrid = () => {
-    const on = state.hover || state.accent;
-    return el("div", { class: "accent-grid" },
-      ...ACCENTS.map(([id, label, , base, deep]) =>
-        el("button", {
-          class: `accent-card focusable${on === id ? " active" : ""}`,
-          type: "button",
-          id: `hover-${id}`,
-          title: label,
-          "aria-label": `${label} — hover colour`,
-          "aria-pressed": String(on === id),
-          style: `--swatch: ${base}; --swatch-deep: ${deep}`,
-          onclick: () => {
-            state.hover = id;
-            localStorage.setItem(KEY.hover, state.hover);
-            applyTheme();
-            render();
-          },
-        },
-          el("span", { class: "accent-card-art", "aria-hidden": "true" }),
-          el("span", { class: "accent-card-name", text: label }),
-        ),
-      ),
-    );
-  };
-  const selectionGrid = () => {
-    // **Every colour, and four the Fill's board does not carry.** No "Match highlight" card:
-    // that card was the *absence* of a choice, which is why the board could never show it as one.
-    const choices = SELECT_ACCENTS.map(([id, label, , base, deep]) => [id, label, base, deep]);
-    const on = state.select || state.accent;
-    return el("div", { class: "accent-grid" },
-      ...choices.map(([id, label, base, deep]) =>
-        el("button", {
-          class: `accent-card focusable${on === id ? " active" : ""}`,
-          type: "button",
-          id: `select-${id}`,
-          title: label,
-          "aria-label": `${label} — ring colour`,
-          "aria-pressed": String(on === id),
-          style: `--swatch: ${base}; --swatch-deep: ${deep}`,
-          onclick: () => {
-            state.select = id;
-            localStorage.setItem(KEY.select, state.select);
-            applyTheme();
-            render();
-          },
-        },
-          el("span", { class: "accent-card-art", "aria-hidden": "true" }),
-          el("span", { class: "accent-card-name", text: label }),
-        ),
-      ),
-    );
-  };
+  // **One colour, one board.** The app used to offer the Fill, the Hover and the Ring as three
+  // boards — three lists to keep in step, for a mark that is one colour wherever it is drawn.
+  // There is one list now, named **Color**, and every place the app marks reads it (see
+  // `applyTheme`): the fill behind a control, the wash under the cursor and the ring around
+  // your content are the same colour.
   return [
-    // **The three boards** — the Fill's, the Ring's and the Hover's — under the names the three
-    // colours go by everywhere else in the app, each with the same list of colours on it.
-    groupHead("Fill"),
+    groupHead("Color"),
     el("div", { class: "provider" },
       el("div", { class: "accent-grid" },
         ...ACCENTS.map(([id, label, , base, deep]) =>
@@ -9351,7 +9313,7 @@ function paneAppearance() {
             type: "button",
             id: `accent-${id}`,
             title: label,
-            "aria-label": `${label} — fill colour`,
+            "aria-label": `${label} — accent colour`,
             "aria-pressed": String(state.accent === id),
             style: `--swatch: ${base}; --swatch-deep: ${deep}`,
             onclick: () => {
@@ -9367,10 +9329,6 @@ function paneAppearance() {
         ),
       ),
     ),
-    groupHead("Hover"),
-    el("div", { class: "provider" }, hoverGrid()),
-    groupHead("Ring"),
-    el("div", { class: "provider" }, selectionGrid()),
     // **No glow switch.** The Fill is the fill, full stop: an optional halo around it was a
     // second look for the same information, and it never read the way it was meant to on a
     // full-width row.
@@ -9622,7 +9580,7 @@ function paneInteraction() {
     toggleRow(state.pop !== false, "Pop on hover", "A card, a catalog title, a button, an icon or a chip lifts a little under the cursor.", (e) => set("pop", e.target.checked)),
     // ------------------------------------------------------- Fills & rings
     groupHead("Fills & rings"),
-    toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the Fill colour; a card, a catalog title, a face or a company you are on is ringed by the Ring.", (e) => set("mark", e.target.checked)),
+    toggleRow(state.mark !== false, "Mark what you are on", "A control you point at is filled with the Color; a card, a catalog title, a face or a company you are on is ringed by the same one.", (e) => set("mark", e.target.checked)),
   ];
 }
 

@@ -1499,13 +1499,13 @@ function watchlistPayload() {
  * row so one read is enough), plus how many titles each row holds.
  */
 /**
- * **Watched titles belong in two places, and this is the rule that keeps them there.**
+ * **The titles you own belong in two places, and this is the rule that keeps them there.**
  *
- * A title you have watched appears in the Watchlist card's **Watched** row and in a
- * **Custom** row you put it in — and nowhere else: not in another Home card, not in
- * another catalog row, not in search. Search in particular has **no filter to reveal
- * them**: the answer for "show me that film again" is the Watched row, and a search that
- * silently hid titles with no way to ask for them back would be the worse trade.
+ * A title you have planned, started or watched appears in the Watchlist card's own row for
+ * that state and in a **Custom** row you put it in — and nowhere else: not in another Home
+ * card, not in another catalog row, not in search. Search in particular has **no filter to
+ * reveal them**: the answer for "show me that film again" is the Watched row, and a search
+ * that silently hid titles with no way to ask for them back would be the worse trade.
  *
  * The watchlist and custom rows are kept whole (they *are* the two places), so the
  * filter is applied where a row came from TMDB.

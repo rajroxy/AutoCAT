@@ -145,20 +145,20 @@ this card?" is answered by the box they sit in, and the block's own switch repor
 how many of its rows are on. The same master switch is drawn in **Settings → AI** as
 *Pick the cards for you*.
 
-**Appearance** holds the app's two colours, and each has one job:
+**Accent** holds the app's **Color** — one board, and one colour the app marks with
+everywhere:
 
-- the **Fill** (`--fill-rgb` / `--fill-deep`) is painted on **every control** — a button, the
-  Movies / Shows pill, the tabs, a chip, a tag, a filter, a calendar day, a profile tile — so
-  what you are on is a colour on a surface you press; and
-- the **Hover** (`--hover`) is the *wash* a control shows **under the cursor** — the same
-  surfaces, filled while you point at them — so the mark the cursor makes can read in a colour
-  of its own; and
-- the **Ring** (`--ring`) is drawn *around* **content** — a card, a poster, a catalog row's
-  title, a cast or crew face, a network, a production company — so what you are on in the
-  catalogue is an outline, and its artwork is never painted over.
+- it is painted on **every control** — a button, the Movies / Shows pill, the tabs, a chip, a
+  tag, a filter, a calendar day, a profile tile — so what you are on is a colour on a surface
+  you press (`--fill-rgb` / `--fill-deep`);
+- it is the *wash* a control shows **under the cursor** (`--hover`); and
+- it is drawn *around* **content** — a card, a poster, a catalog row's title, a cast or crew
+  face, a network, a production company (`--ring`) — so what you are on in the catalogue is an
+  outline, and its artwork is never painted over.
 
-All three boards carry the same colours, and the Hover and the Ring both start as the Fill, so
-one pick re-tints the app and another can set the cursor or the outline apart. (**Motion** is the other half of this pane:
+One pick re-tints all three, because they are one colour: the board used to be three (a Fill, a
+Hover and a Ring, each with its own list), which was three lists to keep in step for a mark that
+is one colour wherever it is drawn. (**Motion** is the other half of this pane:
 *Follow system* / *Always animate* / *No animation*, covering the screen transition, hover lifts
 and the row highlight.) (*Follow
 system* / *Always animate* / *No animation*, covering the screen transition, hover
@@ -239,7 +239,9 @@ shot keeps its poster **as a poster** — whole, rounded, shadowed, on a dark wa
 (Stretching the picture was tried and reverted: it slimmed every face in the frame.)
 There is **no scrim**: it darkened the picture for a name and buttons that moved off
 it, so every banner read as murky — artwork and nothing else means nothing dimming it.
-**Play and the pins are the page's first row**, under the banner and **above the ratings**.
+**Play and the pins are the page's first row**, under the banner and **above the ratings** —
+and that row is `sticky` (`.title-actions-bar`), so scrolling on to the cast or the
+productions does not take **Add to Library** with it.
 
 ## Torrents
 
