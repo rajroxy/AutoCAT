@@ -1644,6 +1644,12 @@ const CARD_ORDER = [
   "discover-top-10",
   "discover",
   "for-you",
+  // **Updates is where the question is.** What is leaving and what is arriving sat with the
+  // Specialist shelf and the Upcoming card at the very bottom of Home, and the owner's report was
+  // *"where is updates card and leaving and arriving rows"* — a card nobody can find is a card
+  // that is not there. It follows For You, on the first screen, with Upcoming still last as
+  // asked; the OTT and specialist shelves carry on below it in their own order.
+  "updates",
   // **Seasons sits with the browsing cards.** It is a date card like Discover — what is
   // arriving, what is back — so it follows the two that ask the same question about the whole
   // catalogue, and it is only drawn on the Shows tab (see the card's own note).
@@ -1685,9 +1691,6 @@ const CARD_ORDER = [
   "custom",
   "specialist-top-10",
   "specialist",
-  // **Updates closes the OTT block.** What is arriving and what is on its way out, read from
-  // today's date every time the card is opened (see the card's own note below).
-  "updates",
   // **Upcoming is the last card on the page**, as asked, and it is drawn as a card of four
   // posters now rather than as one spotlighted still (see its own note).
   "upcoming",

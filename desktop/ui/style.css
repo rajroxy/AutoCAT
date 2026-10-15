@@ -185,8 +185,15 @@ body {
   /* **One flat colour, not a gradient.** The disc was the accent drawn in a 160 degree
      gradient, which reads as a small coloured ball rather than as the app's fill; the mark on
      it is the ink. This is the disc the profiles wore before the gradient pass. */
-  background: var(--fill);
-  color: #14110a;
+  /* **A portrait, not a hole.** A flat accent disc with a solid ink silhouette on it is what
+     the owner called "horror": a black figure on a pale ball. The disc is the accent lit from
+     the top-left, so it reads as a sphere, and the mark is the **ink at two thirds** — the same
+     soft contrast every avatar in the world uses (a grey glyph on a grey circle), never a
+     silhouette cut out of the light. */
+  background:
+    radial-gradient(120% 120% at 32% 20%, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 58%),
+    var(--fill);
+  color: rgba(20, 17, 10, 0.66);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
   font-weight: 900;
   font-size: 13px;
@@ -295,8 +302,10 @@ body {
      "avatar again looks damn bad", said a second time about a glyph that was drawn and could
      not be seen. A lift of white instead keeps the plate's own hue, and the ink mark stays
      dark and legible on it on every palette the app ships. */
-  background: rgba(255, 255, 255, 0.34);
-  color: #14110a;
+  background:
+    radial-gradient(120% 120% at 32% 20%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 58%),
+    rgba(255, 255, 255, 0.34);
+  color: rgba(20, 17, 10, 0.66);
   box-shadow: none;
 }
 .profile-tile-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
@@ -1426,6 +1435,8 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 .strip::-webkit-scrollbar { height: 0; display: none; }
 
 .poster {
+  /* **The poster is the frame the date is pinned to** (see `.poster .lineup-tag`). */
+  position: relative;
   flex: none;
   width: var(--poster-w);
   padding: 0;
@@ -2076,6 +2087,50 @@ textarea:focus-visible {
   color: #8fd694;
 }
 .lineup-tag.leaving { margin-left: 6px; background: rgba(var(--fill-rgb), 0.20); color: #e8dfc8; }
+/* **The date is pinned to the picture's top-left corner**, the way the Upcoming card's own pill
+   is (`spotlight-tag` — same radius, same weight, same corner): it was a caption *under* the
+   artwork, so the one thing a Leaving Soon poster has to say was outside the picture, and a row
+   of them read as a strip of pictures with a line of small print below. On the artwork it reads
+   as the title's own tag on its own poster — `Leaves 10 Nov`, `Arrives 12 Nov` — in both the
+   Updates card and its own page. */
+.poster .lineup-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  background: rgba(3, 4, 6, 0.72);
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+.poster .lineup-tag.leaving { background: rgba(3, 4, 6, 0.72); color: #fff; }
+/* **A card's tile wears the same pill**, in the same corner: the Updates card's pictures are the
+   only ones in the app that are about a date, so they are the only ones that carry it — on the
+   frame itself, over the artwork, never as a caption under it. */
+.content-tile.tagged { position: relative; overflow: hidden; padding: 0; }
+.content-tile.tagged > .tile-art { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; border-radius: inherit; }
+.content-tile .lineup-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  background: rgba(3, 4, 6, 0.72);
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
 
 /* ---------------------------------------------------------------------- AI */
 
@@ -2843,8 +2898,10 @@ textarea:focus-visible {
    rather than as a small glyph in the middle of a big circle. `evenodd` is here for the
    one mark whose eyes are holes rather than dots. */
 .avatar-mark.solid {
-  width: 82%;
-  height: 82%;
+  /* Two thirds of the disc, not four fifths: a silhouette that fills the circle edge to edge
+     is what made it read as a shadow. */
+  width: 68%;
+  height: 68%;
   fill: currentColor;
   stroke: none;
   fill-rule: evenodd;
@@ -4046,6 +4103,18 @@ select.player-rate { padding: 7px 30px 7px 10px !important; border-radius: 9px !
   background: rgba(255, 255, 255, 0.035);
   box-shadow: none;
 }
+/* **A card holds only the pictures it has.** When fewer titles answer than the wall has slots,
+   the pictures keep the width their own slot would have had — a poster stays a poster — and the
+   space beside them is the card's own panel. The alternative, which is what a blank slot was,
+   draws a plate the size of a picture where there is no picture: the dark rectangles reported on
+   the catalog cards. `--slots` is the wall's own width, so the arithmetic is the flex layout's
+   own `gap` repeated. */
+.content-strip.short .content-tile {
+  flex: 0 0 auto;
+  width: calc((100% - (var(--slots, 3) - 1) * 8px) / var(--slots, 3));
+}
+/* The wide card's tiles are 18px apart and there are four of them. */
+.content-strip.short .spotlight-tile { flex: 0 0 auto; width: calc((100% - 54px) / 4); }
 
 /* --------------------------------------------------------- the app's dropdown */
 /* A dropdown the app draws itself — a button and a list. There is no native

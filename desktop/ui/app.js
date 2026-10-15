@@ -652,18 +652,20 @@ const AVATARS = ["person", "star", "heart", "bolt", "moon", "cat"];
 
 /** One avatar mark, by name. */
 /**
- * **A face is a shape, not an outline.**
+ * **A face is two shapes and a gap between them.**
  *
- * Every mark below is drawn as a *filled* silhouette and carries `solid`, which is what makes
- * it fill rather than stroke (see `.avatar-mark.solid`). They were hairline outlines on the
- * disc — a head and a pair of shoulders drawn with a 3.4-unit pen — and a thin ring on a wide
- * coloured disc is the shape of a *placeholder*, not of a portrait (the owner's "avatar again
- * looks damn bad"): at 84px the pen was a twenty-fifth of the disc and the mark read as a
- * generic "person" glyph rather than as anybody's face. The bust is one closed path — head,
- * neck and shoulders — so it reads as a drawn portrait at any size, and the other five marks
- * are the same kind of shape, so the picker is one set instead of two kinds of glyph.
+ * Every mark below is drawn as a *filled* silhouette and carries `solid`, which is what makes it
+ * fill rather than stroke (see `.avatar-mark.solid`). They were hairline outlines first — a head
+ * and a pair of shoulders on a 3.4-unit pen, which on a wide disc is the shape of a
+ * *placeholder* rather than of a portrait. They were then one solid mass at 82% of the disc in
+ * near-black ink, and on the profile cards that read as a **shadow figure** (the owner's "this
+ * avatar also looks horror"). What a portrait glyph is, everywhere it is drawn well, is a head
+ * laid over a pair of shoulders with the gap between them — so that is what these are, at two
+ * thirds of the disc, in the ink at 66% on a lit disc (`avatarMark` and `avatarNode` below,
+ * `.avatar` in the sheet).
  */
-const BUST = "M24 10.4c-5.3 0-9.5 4.2-9.5 9.5 0 3.4 1.8 6.4 4.5 8.2-6.7 2.2-11.3 8.2-11.3 15.2 0 1.5 1.2 2.7 2.7 2.7h27.2c1.5 0 2.7-1.2 2.7-2.7 0-7-4.6-13-11.3-15.2 2.7-1.8 4.5-4.8 4.5-8.2 0-5.3-4.2-9.5-9.5-9.5z";
+const HEAD = "M32.3 18.4a8.3 8.3 0 1 1-16.6 0 8.3 8.3 0 0 1 16.6 0z";
+const BUST = "M24 29.4c-8.9 0-15.9 5.7-15.9 12.8 0 1.5 1.2 2.7 2.7 2.7h26.4c1.5 0 2.7-1.2 2.7-2.7 0-7.1-7-12.8-15.9-12.8z";
 /** The same bust with a head of hair over it — the one mark that is two silhouettes. */
 const HAIR = "M24 6.6c-7.7 0-13.4 5.5-13.4 14.1 0 2.4.5 4.5 1.4 6.2l3.4-1.4c-.6-1.3-.9-2.8-.9-4.5 0-5.9 3.9-9.4 9.5-9.4s9.5 3.5 9.5 9.4c0 1.7-.3 3.2-.9 4.5l3.4 1.4c.9-1.7 1.4-3.8 1.4-6.2C37.4 12.1 31.7 6.6 24 6.6z";
 
@@ -688,7 +690,7 @@ function avatarMark(kind) {
         }),
       );
     default:
-      return svg(svgNode("path", { d: BUST }));
+      return svg(path(HEAD), path(BUST));
   }
 }
 
@@ -2672,6 +2674,7 @@ function avatarNode(name) {
       "svg",
       { class: "avatar-mark solid", viewBox: "0 0 48 48", "aria-hidden": "true" },
       svgNode("path", { d: HAIR }),
+      svgNode("path", { d: HEAD }),
       svgNode("path", { d: BUST }),
     );
   }
@@ -2679,12 +2682,14 @@ function avatarNode(name) {
     return svgNode(
       "svg",
       { class: "avatar-mark solid", viewBox: "0 0 48 48", "aria-hidden": "true" },
+      svgNode("path", { d: HEAD }),
       svgNode("path", { d: BUST }),
     );
   }
   return svgNode(
     "svg",
     { class: "avatar-mark solid", viewBox: "0 0 48 48", "aria-hidden": "true" },
+    svgNode("path", { d: HEAD }),
     svgNode("path", { d: BUST }),
   );
 }
@@ -3281,8 +3286,13 @@ function drawTiles(strip, art, count, layout) {
       });
       // **Every slot is drawn, however few titles answered** (see below) — a slot with no
       // title behind it is the card's own plate at the same width, so the row keeps its shape.
-      const blanks = Array.from({ length: Math.max(0, count - tiles.length) }, () => el("figure", { class: "spotlight-tile blank" }));
-      strip.replaceChildren(el("div", { class: "spotlight-track" }, ...tiles, ...blanks));
+      // **A slot with no title behind it is not drawn.** Four empty tiles used to be laid in
+      // beside however many titles answered, and on a dark card four faint plates is a row of
+      // dark rectangles — the "black bands ... in catalogs". The titles that did answer keep
+      // their own 16:9 shape (`short` in the sheet) and the rest of the frame is the card's own
+      // panel, which is what an empty part of a card should be.
+      if (tiles.length < count) strip.classList.add("short");
+      strip.replaceChildren(el("div", { class: "spotlight-track" }, ...tiles));
       // **The title's wide poster arrives after the card does.** The card is never waiting on
       // four extra reads to show a picture — it draws on the artwork it already has, and each
       // slot swaps when its own read answers. `putSpotlightArt` waits for the incoming file
@@ -3295,14 +3305,23 @@ function drawTiles(strip, art, count, layout) {
         });
       }
     } else {
-      strip.replaceChildren(
-        ...picked.map((m) => artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" })),
-        // **Every slot is drawn, however few titles answered.** One pin used to be laid
-        // in as a single tile, and `flex: 1` then stretched it across the whole frame —
-        // so the Watchlist read as one big poster instead of as the two-poster wall it
-        // is. The slots with no title behind them stay the card's own panel.
-        ...Array.from({ length: Math.max(0, count - picked.length) }, () => el("div", { class: "content-tile blank" })),
-      );
+      // **The card draws its pictures, not the gaps between them.** A slot with no title
+      // behind it used to be filled with `.content-tile.blank` — a faint plate the width of a
+      // poster — so a card holding one pin drew one picture and two dark rectangles beside it.
+      // The posters that answered keep their own slot size (`short`, see the sheet) and the rest
+      // of the frame stays the card's own panel; nothing is drawn where there is no picture.
+      if (picked.length < count) {
+        strip.classList.add("short");
+        strip.style.setProperty("--slots", String(count));
+      }
+      // **The date rides on the picture.** A title that is leaving or arriving wears its own
+      // pill in the picture's top-left corner, the way the Upcoming card's tiles do — the tile
+      // used to be a bare `<img>`, so the one thing the Updates card is about was nowhere on it.
+      strip.replaceChildren(...picked.map((m) => {
+        const img = artImage(m.poster || m.background, m, { class: "tile-art", alt: "", loading: "lazy" });
+        const tag = lineupTag(m);
+        return tag ? el("div", { class: "content-tile tagged" }, img, tag) : img;
+      }));
     }
   }
   strip.classList.add("filled");
@@ -3325,10 +3344,13 @@ function drawTiles(strip, art, count, layout) {
  * your titles" when they are nobody's. An empty card now shows the shape of what
  * would be there and says nothing else.
  */
-function drawEmptyTiles(strip, count) {
+function drawEmptyTiles(strip) {
   if (!strip.isConnected || strip.classList.contains("filled")) return;
-  const n = Math.max(1, count || 3);
-  strip.replaceChildren(...Array.from({ length: n }, () => el("div", { class: "content-tile blank" })));
+  // **A card with nothing to show draws no boxes.** A row that answered with nothing left
+  // three empty plates on the frame, which on a dark card is three dark rectangles — an empty
+  // catalog that looked like a broken one. The frame is the app's own flat panel (the strip
+  // stays `art-blank`), and the card's name is under it either way.
+  strip.replaceChildren();
   strip.classList.add("filled");
 }
 
