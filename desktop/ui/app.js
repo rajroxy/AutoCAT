@@ -1259,6 +1259,12 @@ const setRow = (row) => {
   contentDrawn.clear();
   tileWindows.clear();
   tileTaken.clear();
+  // **And the deal moves.** Clearing the windows is not enough on its own: the window a card draws
+  // is `drawSeedFor(key) % span`, and that seed carries the launch seed — so the rows were read
+  // again under an unchanged seed and the *same* posters came out, which is the owner's *"no
+  // catalogs titles refresh when click on movie or shows button"*. A new seed moves every card's
+  // window, exactly as a Home refresh already did (see `refreshNow`).
+  LAUNCH_SEED = Math.floor(Math.random() * 1e9);
 };
 /** One switch per screen: Home's is `state.row`, and these are the other three. */
 const rowScope = (scope) => (state.rows || {})[scope] || "movie";
@@ -2773,10 +2779,13 @@ function signInCard() {
     // each one the *fields* sit in a box of their own, so `Sign in` names the plate while
     // the form is the thing in it. Plain fields floating on the plate read as part of the
     // accounts list beside them.
-    el("div", { class: "account-new account-box", id: "account-new" }, accountForm()),
+    // **No middle box.** The pane drew a box inside the plate and then the fields inside that —
+    // three borders around two inputs ("settings me account wale box me bhi middle inner box ko hta
+    // dena"). The fields sit on the plate now; the rows of the accounts list below keep their own.
+    el("div", { class: "account-new", id: "account-new" }, accountForm()),
     el("div", { class: "h-divider", "aria-hidden": "true" }),
     groupHead("Accounts"),
-    rows.length ? el("div", { class: "account-list account-box" }, ...rows) : null,
+    rows.length ? el("div", { class: "account-list" }, ...rows) : null,
     current
       ? el("button", {
           class: "btn subtle focusable",
@@ -3286,7 +3295,32 @@ function drawTiles(strip, art, count, layout) {
     // middle of itself, so the picture is the title's wide one — and its *landscape poster*
     // where TMDB has one, which is the picture the name is printed on (`landscapePoster`).
     const wideCard = count >= 4;
-    if (wideCard) {
+    // **What you are watching is a landscape tile.** Trakt and Stremio show the thing you are in
+    // the middle of as a wide "Up Next / Continue watching" frame rather than as a poster among
+    // posters, and that is the Watchlist card's first tile now: the watching title's own wide
+    // art, its state in the corner and its name on the picture. The rest of the wall stays a wall
+    // of posters, and the slots nothing answered still keep their places (`blank`).
+    // **The layout is read from the art, not from the caller.** The watchlist card is drawn twice
+    // on a launch — once when its rows answer (`fillFrame`) and once from the per-launch cache
+    // (`hydrateContent`) — and the cached draw passed `job.layout`, so the "Up Next" tile came out
+    // as two posters on the second pass. A title that is *being watched* is the one condition, and
+    // it is on the art itself.
+    const upNext = layout !== "backdrop" && picked.some((m) => m && m.state === "watching");
+    if (upNext) {
+      const [head, ...rest] = picked;
+      const slots = [];
+      if (head) {
+        slots.push(el("div", { class: "upnext-tile" },
+          artImage(backdropOf(head) || heroImage(head) || head.poster || "", head, { class: "upnext-art", alt: "", loading: "lazy" }),
+          el("span", { class: "upnext-tag", text: head.state === "watching" ? "Continue watching" : "Up Next" }),
+          el("span", { class: "upnext-name", text: head.name || head.title || "" }),
+        ));
+      }
+      for (const m of rest) slots.push(artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" }));
+      while (slots.length < count) slots.push(el("div", { class: "content-tile blank" }));
+      strip.classList.add("upnext-strip");
+      strip.replaceChildren(...slots);
+    } else if (wideCard) {
       const tiles = picked.map((m) => {
         const tile = spotlightTile();
         fillSpotlightTile(tile, m);
@@ -3318,16 +3352,20 @@ function drawTiles(strip, art, count, layout) {
       // poster — so a card holding one pin drew one picture and two dark rectangles beside it.
       // The posters that answered keep their own slot size (`short`, see the sheet) and the rest
       // of the frame stays the card's own panel; nothing is drawn where there is no picture.
-      if (picked.length < count) {
-        strip.classList.add("short");
-        strip.style.setProperty("--slots", String(count));
-      }
+      // **The wall keeps its shape, whatever answered.** A card draws the number of slots it
+      // was given; a slot with no title behind it is the app's own empty plate, so a Watchlist
+      // holding one pin is still the two-poster wall it was designed as — the owner's *"jitna
+      // poster maine bola hai wo hoga hi, chahe khali ho"*. It used to draw only the pictures it
+      // had (`short`), which read as a card that had lost the rest of them.
+      //
       // **No chip on a card's own wall.** The date is drawn on the **title's poster** inside the
       // card — the poster you press on the Updates page — and not on the little picture standing
       // for the card on Home: the owner's *"update card ke poster pe chip kyu diya wo to update
       // card ke andar title ke poster pe hoga na"*. A wall of three posters wearing three date
       // pills also read as a wall of warnings rather than as a shelf.
-      strip.replaceChildren(...picked.map((m) => artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" })));
+      const slots = picked.map((m) => artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" }));
+      while (slots.length < count) slots.push(el("div", { class: "content-tile blank" }));
+      strip.replaceChildren(...slots);
     }
   }
   strip.classList.add("filled");
@@ -3506,6 +3544,9 @@ async function fillFrame(strip, job, cats, from) {
       // jaga") — so the slots your own pins leave empty are filled from the card's own rows
       // (Watching, then Plan to Watch), which is still *your* list, only wider.
       const art = pins.length < job.count ? [...pins, ...(await rowArt(cats, job.count - pins.length, pins))] : pins;
+      // **Your wall leads with what you are on** (see `drawTiles`, which reads the same condition
+      // off the art): the title you are *watching* is the landscape "Continue watching" tile, the
+      // rest of your pins are posters. `watchlistArt` already sorts the watching title first.
       contentDrawn.set(job.key, art);
       if (strip.isConnected) drawTiles(strip, art, job.count, job.layout);
       return;
@@ -7177,7 +7218,6 @@ async function renderSeason(showId, seasonNumber) {
                 m.poster
                   ? el("img", { src: m.poster, alt: "", loading: "lazy" })
                   : el("div", { class: "ep-still-empty", text: "No still" }),
-                el("span", { class: "ep-play", "aria-hidden": "true", text: "▶" }),
               ),
               el("div", { class: "ep-body" },
                 el("div", { class: "ep-head" },
@@ -9642,25 +9682,10 @@ function paneProfile() {
     // separate, each keeps its own keys, add-ons, Debrid account, playlists, playback and
     // layout (and the mode switch carries what you are looking at across, once). Unified,
     // they are one app again — the way this install worked before the split.
-    // **There is no Unified any more.** Two modes that can be one app and two apps by a switch
-    // was a question the owner did not want asked: VOD and IPTV are **two modes**, each with its
-    // own keys, add-ons, Debrid, playlists, playback and layout, and the switch that made them
-    // one is deleted rather than restated. The pane still says which store it is writing to.
-    groupHead("Modes"),
-    el("p", {
-      class: "option-desc",
-      text: "Each mode keeps its own: keys, add-ons, Debrid, playlists, playback and layout.",
-    }),
-    // **Which store you are editing, said out loud.** Two modes with two sets of settings
-    // look exactly like one set of settings until something says which one the pane is
-    // writing to — and "why don't they have separate settings" is a fair question to ask of
-    // a screen that never tells you.
-    el("p", {
-      class: "option-desc",
-      text: settingsUnified()
-        ? "Right now VOD and IPTV share one set of settings."
-        : `Right now ${state.profile} keeps its own settings — every pane on this screen writes to ${state.profile}'s copy, and the other mode keeps its own.`,
-    }),
+    // **The Modes label is gone with the switch.** With one set of settings there is nothing
+    // left for a heading called "Modes" to head, and the two sentences under it only explained a
+    // choice that no longer exists — the owner's *"dono mode separate and unified hata diya magar
+    // mode label kon hatayega"*. The editor that followed them stays, under its own head.
     // **The lists are a group of their own.** The editor stood under the Modes head, so the two
     // switches that decide whether the modes share their settings sat in the same plate as the
     // Movies and Shows rows they have nothing to do with.
@@ -9947,6 +9972,12 @@ function paneProviders() {
     groupHead("Catalog & metadata"),
     providerRow("tmdb"),
     providerRow("tvdb"),
+    // **MDBList, in its own box under TVDB** — the owner's *"mdblist ka bhi do provider me tvdb ke
+    // baad alag main box me"*. It is a provider like the other two: its own key field, its own
+    // save and verify (the server reads one title through it and counts the rating sources it
+    // answers), and its own switch. The provider itself was already wired for the ratings row; what
+    // was missing was the box you put the key in.
+    providerRow("mdblist"),
     el("div", { class: "group-head" },
       el("span", { class: "option-title", text: "Enrichment" }),
       el("span", { class: "option-desc", text: "TMDB builds every row; TVDB adds what TMDB left out. Both work together — neither replaces the other." }),
@@ -15030,14 +15061,17 @@ async function openPlayer(url, title, opts = {}) {
       // baddimag, kabhi dekha nahi hai stremio ya nuvio ka jo audio and subtitle option dete hai"*.
       // Stremio and Nuvio show **quality, audio and subtitle** here — what the sources on offer
       // carry — not a list of who answered. The streams themselves stay one press away in Sources.
-      heights.length
-        ? el("h3", { class: "row-head", text: "Resolution" })
-        : null,
-      heights.length ? el("div", { class: "stream-list" }, ...resRows) : null,
+      // **No Resolution list.** It was asked for once and taken back out: what quality the
+      // picture is comes from the source you pick — every row in Sources names its own — and a
+      // second list of heights in the options popup was one control too many (*"remove resolution
+      // in option in player"*). Audio and subtitles are what this popup is for.
       here
         ? el("p", { class: "option-desc", text: `Playing from ${label(here)}${sizeOf(here) ? ` at ${sizeOf(here)}p` : ""}.` })
         : null,
       el("h3", { class: "row-head", text: "Subtitles" }),
+      // **Rows, not a grid of boxes.** The grid was asked for once and taken back in the same breath
+      // (*"audio and subtitles grid boxes me nahi hoga, jaisa tha waise hi hoga"*): a track is a row,
+      // the way the track lists in this panel have always been.
       subKeys.length ? el("div", { class: "stream-list" }, ...subKeys) : null,
       el("div", { class: "stream-list" },
         ...(subs.length ? subs : [el("p", { class: "empty", text: this_stream_has_no_subs })]),
@@ -15279,7 +15313,7 @@ async function openPlayer(url, title, opts = {}) {
     attach(next);
     // Set **after** the call: `attach` clears the failure line as it starts, and the note
     // belongs to the source being opened, not to the one being left.
-    sayError(`That source would not open — trying another one (${triedSources.size} of ${sourcePool.length})…`);
+    sayError(`Source ${triedSources.size} of ${sourcePool.length} did not open — trying the next…`);
     return true;
   };
 

@@ -1516,9 +1516,11 @@ const decadeGenres = (type, list) =>
 // **Fall**, then Winter — the owner's *"season me rainy aur fall bhi to aata hai"*: four rows
 // named after the West's year left the rains out entirely. The windows touch rather than
 // overlap: summer keeps June–August, the rain runs July–September, Fall is September–November.
-const SEASON_NAMES = ["Spring", "Summer", "Rainy", "Fall", "Winter"];
-// The month each season starts in, in the same order: March, June, July, September, December.
-const SEASON_FIRST_MONTH = [3, 6, 7, 9, 12];
+const SEASON_NAMES = ["Spring", "Summer", "Rainy", "Autumn", "Winter"];
+// The month each season starts in, in the same order: March, June, July, August, December.
+// **Autumn, not Fall** — the year here has a monsoon and an autumn, and the owner's last word on it
+// was *"remove fall"*: Autumn reads August–October and the row named Fall is gone.
+const SEASON_FIRST_MONTH = [3, 6, 7, 8, 12];
 
 /** `YYYY-MM-DD` for the first of a numbered month. */
 const firstOfMonth = (year, month) => `${year}-${String(month).padStart(2, "0")}-01`;

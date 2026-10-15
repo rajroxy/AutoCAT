@@ -177,8 +177,28 @@ const publicAccount = (a) => ({ id: a.id, name: a.name, email: a.email || "", pi
  */
 export function ensureDefaultAccount(profile = "") {
   const who = cleanProfile(profile);
-  if (readAccounts().some((a) => (a.profile || "you") === who)) return false;
-  signInLocal({ name: who === "female" ? "Eve" : "Adam", who: who === "you" ? "" : who });
+  const mine = readAccounts().filter((a) => (a.profile || "you") === who);
+  const name = who === "female" ? "Eve" : "Adam";
+  // **The default account is there whether or not the profile holds others.** It used to be made
+  // only for a profile with no accounts at all, so a profile that already had one of its own never
+  // showed the default — the owner's *"adam account nahi aaya"*.
+  if (mine.some((a) => a.name === name)) return false;
+  // **An account the app is already using is not swapped out.** When the profile holds accounts,
+  // the default is filed beside them and nothing is signed in as it; only a profile with nothing
+  // at all gets the default signed in for it.
+  if (mine.length) {
+    const list = readAccounts();
+    writeAccounts([...list, {
+      id: `local-${randomBytes(6).toString("hex")}`,
+      name,
+      email: "",
+      picture: "",
+      profile: who,
+      since: new Date().toISOString(),
+    }]);
+    return true;
+  }
+  signInLocal({ name, who: who === "you" ? "" : who });
   return true;
 }
 

@@ -585,8 +585,13 @@ body {
    the 16:9 shape its artwork already is: (1196 − 3×18) / 4 = 285.5 by the frame's 161. Inset
    by 10px with 10px gaps the same four came out 286 by 141 — a 2.03:1 slot, which crops a
    sixteenth off the top and bottom of every poster put in it, and did. */
-.icon-box.card-wide .content-strip { inset: 0; }
-.icon-box.card-wide .spotlight-track { gap: 18px; }
+/* **The four posters sit inside the card, like every other card's.** They were laid edge to
+   edge, so the Upcoming frame's pictures ran to its corners while every other card inset its
+   posters by 10px with 8px between them ("upcoming card pe poster edges card ke edge pe hai ...
+   dekh lo other card ko kaise poster card ke andar hote hai"). The frame's own padding is the
+   same 10px now, and the gap is the same 8px the poster walls use. */
+.icon-box.card-wide .content-strip { inset: 10px; }
+.icon-box.card-wide .spotlight-track { gap: 8px; }
 .icon-box.card-wide .spotlight-tile { flex: 1 1 0; }
 .spotlight-track {
   display: flex;
@@ -1168,6 +1173,11 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 
 /* ------------------------------------------------------------- providers */
 
+/* **One plate for every inner box in Settings.** The provider boxes sat on `--panel` while the
+   source rows and the account box sat on `--panel-2` — the same kind of box, two different
+   fills, which is what "settings ke sare options app style ke sath match hone chahiye" is about.
+   `--panel-2` is the app's raised plate everywhere else (a card's tiles, the settings rows), so
+   it is the one the boxes wear. */
 .provider { padding: 16px 18px; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius); background: var(--panel); }
 .provider-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .provider-head .option-title { display: inline-block; }
@@ -2064,6 +2074,24 @@ textarea:focus-visible {
 }
 .btn.pin.custom { border-style: dashed; border-color: rgba(var(--fill-rgb), 0.5); }
 .btn.pin.custom.active { border-style: solid; }
+
+/* **The state chip rides the poster's own top-left corner.** It sat *under* the artwork as a
+   caption — "ye chip ko top left me poster pe kyu nahi laga rahe ho" — where the Upcoming card's
+   date has always been: on the picture, in the same corner, so the one thing a card is about is on
+   the card and not beneath it. */
+.poster { position: relative; }
+.poster .watch-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(3, 4, 6, 0.72);
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
 
 /* The state tag drawn on a title inside a watchlist row. */
 .watch-tag {
@@ -3540,7 +3568,7 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 36px; height: 34px;
   border: 0; border-radius: 9px; padding: 0 12px;
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.13);
   color: var(--text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
 }
 /* **Every other control takes the accent when you point at it** — the owner's "sound button pe
@@ -3564,10 +3592,13 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .player-icon.play:hover, .player-icon.play:focus-visible {
   background: var(--fill);
   color: #14110a;
-  /* **A ring you can actually see.** An accent ring on an accent button is invisible — that is
-     the "play button pe ring pata bhi nahi chal raha hai" report — so the ring on this one is
-     the ink colour lifted, which reads on the fill on every palette. */
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55);
+  /* **The same ring Movies and Speak wear.** The owner asked for the mark the chosen plates wear
+     ("play button pe ... ring ... jaise movies ya speak button pe clearly show hota hai"): the
+     accent ring **outside a hair of the page**, which is what makes it read on an accent plate —
+     the hair is the separation the ring needs, and it is the app's own `.focusable` mark, not a
+     colour invented for this one button. */
+  box-shadow: 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
+    0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring, var(--fill));
 }
 /* A drawn mark, on the same stroked grid as the top bar's icons. */
 /* **The percentage, faint in the corner.** A reading rather than a control: the app's own
@@ -3781,7 +3812,10 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   white-space: pre-wrap;
 }
 .assistant-answer:empty { display: none; }
-.assistant-actions { display: flex; justify-content: flex-end; }
+/* **The row's buttons stand apart.** They were flush against each other — "find a pairing button
+   watch along box me close button ke jyada pass chipka hua hai" — so the row has the app's own gap
+   and the way out sits at the end of it. */
+.assistant-actions { display: flex; justify-content: flex-end; gap: 12px; }
 
 /* The centre play target — the picture is clickable, and this is what says so. */
 .player-center {
@@ -3812,10 +3846,12 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* **The name is a name, not a headline.** At 18px on the black splash it read as a title card
-   for a screen that is only saying it is looking ("finding sources ki jagah itna bada text"); it
-   sits at the app's body size, and the line under it stays short. */
-.player-loading-title { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+/* **The sizes on the finding-sources screen were right the first time.** They were taken down
+   a size when the long sentence under them was the problem; the sentence is one short line now, so
+   the name and the line go back to what they were ("player loading screen pe jo title label and
+   finding sources text ka jo size pehle tha wo thik tha"). */
+.player-loading-title { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+.loading-player .player-note { font-size: 13px; }
 
 /* The rate dropdown is one of the app's own fields, tinted with the accent. */
 select.player-rate {
@@ -6388,17 +6424,14 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    box now, in the **Ring** colour with the page's hair outside it, exactly the way a poster
    and a plate are marked, and it is drawn *inside* the frame so the card's `overflow: hidden`
    can never clip it. */
-.icon-box:hover { box-shadow: none; }
-.icon-box:hover::after,
-.icon-box:focus-within::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
-    inset 0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring, var(--fill));
-}
+/* **No ring on a card, ever — not even after a press.** The card drew an inset accent ring under
+   the cursor and, through `:focus-within`, while the artwork button inside it held focus: press a
+   card (For You, say) and the ring stayed on it, the owner's *"phir se wo bada wala selection ring
+   aa gaya for you pe click karne ke baad"*. A card is a shelf: it lifts and it lights, and its
+   pictures are what tells you where you are. The ring belongs to the plates and posters that are
+   targets, not to the frame around them. */
+.icon-box:hover, .icon-box:focus-within, .icon-box:focus-visible { box-shadow: none; }
+.icon-box:hover::after, .icon-box:focus-within::after, .icon-box::after { content: none; }
 
 /* **The order dropdown lines up with the grid it orders.** It sat at the page's right edge,
    which is the **alphabet rail's** column, so it floated between the rail and the posters
@@ -6584,4 +6617,106 @@ html .tab.tab-home:is(:hover, :focus-visible, :has(:focus-visible)) {
   filter: none;
   padding: 9px 4px;
 }
-html .tab.tab-home { font-size: 16px; letter-spacing: -0.01em; }
+html .tab.tab-home {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  /* **A label, so no hand.** The cursor was a pointing hand because the press refreshes the
+     screen; the owner's answer is that the name of the screen is a label and a label does not
+     promise anything ("home label pe cursor aana chahiye hover pe, hand nahi"). The press still
+     works. */
+  cursor: default;
+}
+
+/* ============================================================================
+   **"Continue watching" — the thing you are in the middle of, wide.**
+   ----------------------------------------------------------------------------
+   The Watchlist card's first tile is the title you are *watching*, drawn the way
+   Trakt and Stremio draw it: a landscape frame, the state in its corner and the
+   name on the picture. The rest of the wall stays a wall of posters, and a slot
+   nothing answered for keeps its place as the app's own empty plate.
+   ============================================================================ */
+.content-strip.upnext-strip { align-items: stretch; }
+.upnext-tile {
+  position: relative;
+  flex: 2 1 0;
+  min-width: 0;
+  height: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.upnext-tile .upnext-art { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 32%; }
+.upnext-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(3, 4, 6, 0.72);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.upnext-name {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.92), 0 1px 12px rgba(0, 0, 0, 0.8);
+}
+
+/* **A track is a box in a grid.** The player's audio and subtitle options are the boxes
+   Stremio and Nuvio draw, wrapping, rather than a column of full-width rows that read as a
+   list of streams. */
+.player-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(134px, 1fr));
+  gap: 8px;
+}
+.player-options-grid .stream {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 9px 10px;
+}
+.player-options-grid .empty { grid-column: 1 / -1; }
+
+/* ============================================================================
+   **One inner box, everywhere in Settings.**
+   ----------------------------------------------------------------------------
+   The panes had grown four looks for the same thing: a provider box on `--panel`,
+   an option row on `--panel`, an add-on row on `--panel-2`, and the older
+   `.setting` rows on nothing at all — transparent, no radius, sitting straight on
+   the pane. The owner's ask is that every option in Settings looks like the app
+   ("settings ke sare options app style ke sath match hone chahiye"), and the app's
+   own inner plate is `--panel` at the app's radius with its own padding. So this
+   is the one rule that says it, at the end of the sheet where nothing outranks it:
+   a box is `--panel`, a 12px corner, and 12/14 padding — whatever pane it is in.
+   ============================================================================ */
+.settings-pane .provider,
+.settings-pane .option,
+.settings-pane .option-group .option,
+.settings-pane .setting,
+.settings-pane .site-row,
+.settings-pane .option-group > .site-row,
+.settings-pane .sources .source,
+.settings-pane .source,
+.sources .source,
+.settings-pane .option-group .provider {
+  background: var(--panel);
+  border: 0;
+  border-radius: 12px;
+}
+/* The add-on rows are `.source.provider` **inside an `.option-group`**, which the sheet already
+   had a rule for — a rule with one more name on it than the box rules above, so it won. It is
+   said here at that same weight, later, which is all it takes. */
+.settings-pane .option-group .sources .source { background: var(--panel); }
+.settings-pane .setting { padding: 12px 14px; }
+.settings-pane .source { padding: 12px 14px; }
