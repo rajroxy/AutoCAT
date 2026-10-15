@@ -1422,6 +1422,16 @@ export const brandOf = (name) => BRAND_FOLD.get(popKey(name)) || ROW_LABEL[name]
 const ROW_REGION = { BritBox: "US", iQIYI: "US" };
 
 const TOP10 = 10;
+// **The app's own window on the catalogue, and how near "soon" is.** A title arrives on the day
+// it is released and the app carries it for `CATALOG_DAYS`; the Updates card is the two ends of
+// that window, so its rows mean what they say rather than repeating the "what is on" cards:
+// everything on **Arriving Soon** lands in the next `SOON_DAYS` days, and everything on
+// **Leaving Soon** is out of the app within `SOON_DAYS` — it has `CATALOG_DAYS` behind it and
+// `SOON_DAYS` left, which is why that row is **the last month of the stay and not the whole
+// back catalogue**. `addon/lineup.mjs` writes the same dates down against each title
+// (`LEAVING_DAYS` there is `CATALOG_DAYS` here).
+const CATALOG_DAYS = 180;
+const SOON_DAYS = 30;
 // **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide
 // card that is worth scrolling. Its card key stays `discover-top-10` — that is the
 // cover's filename (see the card's own entry for the name and its rows).
@@ -1489,7 +1499,8 @@ const decadeGenres = (type, list) =>
  * its window runs from December of this cycle into February of the next.
  *
  * **Read from today every time the card is reopened**, so next March the card is that year's
- * four seasons without anything being edited. Every row is the **series side only** — a film
+ * four seasons without anything being edited, and the rows are named for the season alone —
+ * *Summer* is summer, not summer of one year. Every row is the **series side only** — a film
  * has no season, so this card publishes nothing at all for movies (see the card's own note) —
  * and none of them is capped, because a season is a window rather than a fixed list.
  */
@@ -1512,8 +1523,10 @@ const seasonsRows = () => {
   return SEASON_NAMES.map((name, i) => {
     const endMonth = SEASON_FIRST_MONTH[i] + 2;
     // `between` is the row's own shorthand for "first aired from this day to that day", on
-    // whichever date field the media type uses (see `catalogSpecs`). The year rides in the
-    // name because a season name alone does not say which year's.
+    // whichever date field the media type uses (see `catalogSpecs`). **The name is the season
+    // and nothing else** — a season is every year's, so "Summer 2026" dated a row that is
+    // summer itself; the window is the year's reading of it, taken from today, and next year it
+    // is next year's without anything being edited.
     const between = [
       firstOfMonth(year, SEASON_FIRST_MONTH[i]),
       lastOfMonth(endMonth > 12 ? year + 1 : year, endMonth > 12 ? endMonth - 12 : endMonth),
@@ -1521,7 +1534,7 @@ const seasonsRows = () => {
     // Popularity is the order: what a season is worth watching is what people watched, and a
     // window that has not happened yet still fills (TMDB gives an unreleased title a
     // popularity of its own), so a row reads on both sides of today.
-    return curated(`${name} ${year}`, { between, sort_by: "popularity.desc", "vote_count.gte": 0 });
+    return curated(name, { between, sort_by: "popularity.desc", "vote_count.gte": 0 });
   });
 };
 
@@ -1981,14 +1994,27 @@ const buildCollections = (code = "") => {
     // have to watch *now*, so it is the first row on the card (the owner asked for it in that
     // order: "there should be first leaving soon then arriving soon").
     //
-    // **These two rows are the app's own word on what leaves and what arrives**, and they are
-    // read as such: `within: 180` is how long a title stays, so the day it falls out of this
-    // window (its release + 180 days — `LEAVING_DAYS` in `addon/lineup.mjs`) is the day it is
-    // gone from the app, and `future: 30` is the window whose release dates are the days the
-    // arriving titles land. Both dates are kept against the title and drawn on its card.
+    // **These two rows are the two ends of the app's own window on the catalogue** — what is
+    // coming into it and what is going out of it — and they are read as such: a title in
+    // **Arriving Soon** has not landed yet and lands within `SOON_DAYS`, and a title in
+    // **Leaving Soon** landed `CATALOG_DAYS - SOON_DAYS` days ago and is gone from the app
+    // within `SOON_DAYS` of that day (its release + `CATALOG_DAYS` — `LEAVING_DAYS` in
+    // `addon/lineup.mjs`). Both dates are kept against the title and drawn on its card.
+    //
+    // **The leaving row is a month, not a season.** It held releases from sixty to a hundred and
+    // eighty days old, so four titles in five on it were not leaving for months and the row read
+    // as another "what is new" shelf; it is the *last* month of the stay now, which is the only
+    // set whose leaving date is inside the word "soon". Nothing here is drawn from the banner's
+    // rows, the on-the-board card or the Upcoming card — the catalogue's own two edges are the
+    // whole of it.
     catalogs: both([
-      curated("Leaving Soon", { sort_by: "popularity.desc", "vote_count.gte": 20, within: 180, olderThan: 60 }),
-      curated("Arriving Soon", { sort_by: "date.asc", future: 30 }),
+      curated("Leaving Soon", {
+        sort_by: "popularity.desc",
+        "vote_count.gte": 20,
+        within: CATALOG_DAYS,
+        olderThan: CATALOG_DAYS - SOON_DAYS,
+      }),
+      curated("Arriving Soon", { sort_by: "date.asc", future: SOON_DAYS }),
     ]),
   },
 

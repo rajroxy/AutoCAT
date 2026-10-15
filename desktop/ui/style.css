@@ -272,6 +272,16 @@ body {
 }
 
 .profile-tile .avatar { width: 84px; height: 84px; font-size: 32px; }
+/* **The avatar is a mix, not the plate it sits on.** The disc wears the app's fill (`var(--fill)`)
+   and a profile tile's plate is the *same* colour — on a purple profile the avatar and the box it
+   sits on were one flat shape (the reported "isn't it mixed?"). On these tiles the disc is the
+   app's ink and the mark is the colour: two colours, on any palette, and the picture reads at a
+   glance instead of blending into the card. Everywhere else the avatar keeps the app's own plate. */
+.profile-tile .avatar, .current-profile .avatar {
+  background: #0D0E12;
+  color: var(--fill);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
 .profile-tile-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
 .profile-tile-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
 
@@ -318,6 +328,13 @@ body {
 .cats, .chip-block, .chip-clamped .chip-track, .chip-track { padding-left: 4px; padding-right: 4px; }
 .chip-track { padding-top: 4px; }
 .icons, .grid-titles, .channel-strip, .people, .settings-nav { padding-left: 6px; padding-right: 6px; }
+/* **The shelf is not a control, so it draws no ring.** A horizontally scrolling strip is
+   focusable by default, and the browser then paints its own focus ring around the whole strip —
+   one big rectangle around every card on the row, in the browser's colour (the reported "why this
+   one big selection around all card"). The ring that means something is the one the app draws on
+   the card you are on (`:has(:focus-visible)`), and it is still there. */
+.icons.rows, .icons.grid, .grid-titles, .channel-strip, .people { outline: none; }
+.icons.rows:focus, .icons.rows:focus-visible, .icons.grid:focus, .icons.grid:focus-visible { outline: none; }
 .icons, .grid-titles { padding-top: 4px; }
 
 /* `align-items: center` is what keeps the card's rule level with its name: a flex
@@ -490,11 +507,15 @@ body {
 .icons.rows .icon-box.card-wide { width: calc(1200px + 54px); }
 .icon-box.card-spotlight .icon-wrap,
 .icon-box.card-wide .icon-wrap { aspect-ratio: 745 / 100; }
-/* A card that rises under the cursor is promising a door, and this one is a window. */
-.icon-box.card-spotlight:hover { transform: none; }
+/* A card that rises under the cursor is promising a door, and these two are windows — the live
+   home's Upcoming and the Movies home's own, which is the same glance at what is coming. */
+.icon-box.card-spotlight:hover,
+.icon-box.card-wide:hover { transform: none; }
 /* **A window, not a door** — so no hand over it, the same way a poster is not promising
    anything until it has one. */
-.icon-box.card-spotlight, .icon-box.card-spotlight .icon-wrap, .spotlight-tile { cursor: default; }
+.icon-box.card-spotlight, .icon-box.card-spotlight .icon-wrap,
+.icon-box.card-wide, .icon-box.card-wide .icon-wrap,
+.spotlight-tile { cursor: default; }
 /* **Four full posters inside the one card** — the same tiles the Watchlist and Custom
    cards hold, so a poster reads the way it does everywhere else in the app, with its
    own title and the date it lands over a bottom gradient.
@@ -563,21 +584,13 @@ body {
    element is taken out of the layout until there is a picture for it (`putSpotlightArt`
    clears `blank`, and the tile is the app's own flat plate again). */
 .spotlight-tile-art.blank { background: transparent; display: none; }
-/* **A title whose only artwork is a portrait poster wears it whole.** A 2:3 poster cut into a
-   16:9 slot is a band through the middle of itself — the picture's own name cropped off the
-   edge of the tile — so a tile with nothing wide to show puts its poster in **contained**, and
-   behind it the same poster large, blurred and darkened, which is the treatment the title page
-   already gives a poster with nothing wide to show. (`--poster` is set by `portraitTile`.) */
-.spotlight-tile.portrait .spotlight-tile-art { object-fit: contain; object-position: 50% 50%; }
-.spotlight-tile.portrait::before {
-  content: "";
-  position: absolute;
-  inset: -8%;
-  background-image: var(--poster, none);
-  background-size: cover;
-  background-position: 50% 40%;
-  filter: blur(16px) brightness(0.55) saturate(1.05);
-}
+/* **No bars, ever.** A tile that has only a portrait poster used to letterbox it — the poster
+   whole, over a blurred copy of itself — which fitted the poster and drew two dark bands down
+   the sides of the tile: the black bands the owner reported on the rows. A wide tile is now
+   *filled* whatever picture it ends up with, framed from the top (where a poster's title is)
+   because the tile draws the title itself anyway. The wide picture itself is the title's own
+   key art, backdrop or trailer frame, in that order (see `landscapeArt` in the addon). */
+.spotlight-tile .spotlight-tile-art { object-position: 50% 30%; }
 /* The tag and the name are **drawn on the frame**, the way the tagged artwork draws
    them: a pill across the top, the title under it at the bottom. */
 .spotlight-frame {
@@ -3408,7 +3421,10 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
      `rgba(14,16,21,.86)` at 14px corners — which read as a surface from another program sitting
      over the picture. It wears the panel the whole app is built from (`--panel`), the app's own
      radius, and the same hairline every card has. */
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  /* **And no hairline.** The bar wore the card's 1px edge, which over a picture read as an
+     outline drawn around the controls rather than as the panel they are on; the panel and its
+     shadow are what make it a surface, so those stay and the line goes. */
+  border: 0;
   border-radius: var(--radius);
   background: var(--panel);
   backdrop-filter: blur(12px);
@@ -6235,5 +6251,70 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
 
 /* **The Activity page.** The timeline on its own screen, in the page's column rather than in a
    settings pane: the same rows, at the width a catalog's grid gets. */
-.activity-page { display: block; margin-top: 14px; }
+.activity-page { display: block; margin-top: 18px; }
 .activity-page .activity-list { max-width: 860px; }
+/* **The dashboard.** Six numbers, a fortnight and two readings, as the app's own panels — the
+   same surface, radius and hairline every card wears, laid out in two columns and one strip.
+   The numbers are the timeline's own count (see `activityStats`). */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.dash-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.dash-number { font-size: 30px; font-weight: 800; line-height: 1.1; color: var(--text); }
+.dash-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.dash-sub { font-size: 12px; color: var(--muted); }
+.dash-card {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.dash-head { margin: 0 0 10px; font-size: 13px; font-weight: 800; letter-spacing: 0.02em; color: var(--text); }
+.dash-line { margin: 0; font-size: 13px; color: var(--muted); }
+.dash-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 92px;
+  margin-top: 16px;
+  padding: 14px 16px 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.dash-bar { position: relative; flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+/* A pairing: a poster, a name and the line saying why it is on the list. */
+.pair-section { display: flex; flex-direction: column; gap: 8px; }
+.pair-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pair-row:hover, .pair-row:focus-visible { background: rgba(var(--hover-rgb), var(--mark-fill, 0.22)); outline: none; }
+.pair-poster { width: 38px; height: 57px; flex: none; border-radius: 6px; object-fit: cover; background: var(--panel-2); }
+.pair-initials { display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--muted); }
+.pair-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pair-name { font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pair-why { font-size: 12px; color: var(--muted); }
+
+.dash-bar-fill {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 4px 4px 2px 2px;
+  background: rgba(var(--fill-rgb, 200, 169, 106), 0.55);
+}

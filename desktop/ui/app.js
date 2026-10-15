@@ -1228,6 +1228,15 @@ const apiType = () => state.row;
 const setRow = (row) => {
   state.row = row;
   localStorage.setItem(KEY.row, row);
+  // **A row switch is a new screen, walls and all.** A card's own pictures are read once per
+  // launch and remembered under a key that does not name the row, so switching Movies → Shows
+  // left the cards that are on both sides wearing the *other* side's posters — and a card that
+  // only publishes Shows rows, drawn while Movies was on, stayed the empty plate it began as
+  // (the reported "why is the Seasons card empty"). Forgetting them here makes the next draw
+  // ask again. See `contentDrawn` and `fillFrame`.
+  contentDrawn.clear();
+  tileWindows.clear();
+  tileTaken.clear();
 };
 /** One switch per screen: Home's is `state.row`, and these are the other three. */
 const rowScope = (scope) => (state.rows || {})[scope] || "movie";
@@ -3251,15 +3260,6 @@ function drawTiles(strip, art, count, layout) {
       const tiles = picked.map((m) => {
         const tile = spotlightTile();
         fillSpotlightTile(tile, m);
-        // **A title with no wide picture wears its poster whole.** Two thirds of a global
-        // Upcoming row is small new films whose only artwork is a 2:3 poster (a slow film
-        // from Jakarta has no key art the week it opens), and a 2:3 poster cut into a 16:9
-        // slot is a slice of a face with its title cropped mid-line — the picture this card
-        // was complained about. A title that has *no* backdrop at all is one of those, and it
-        // is the poster **whole** over a blurred copy of itself, which is the same treatment
-        // the title page gives a poster it has nothing wide to show (see `.portrait` in the
-        // sheet). The read below replaces this the moment a real wide picture answers.
-        if (!backdropOf(m)) portraitTile(tile, m);
         return tile;
       });
       // **Every slot is drawn, however few titles answered** (see below) — a slot with no
@@ -3274,9 +3274,6 @@ function drawTiles(strip, art, count, layout) {
         landscapePoster(m).then((url) => {
           const img = tiles[i]?.querySelector(".spotlight-tile-art");
           if (!url || !img) return;
-          // A wide picture for a tile that was wearing a whole poster: it is not a portrait
-          // any more, so the class goes with the poster that needed it.
-          tiles[i].classList.remove("portrait");
           putSpotlightArt(img, url, m.posterBackup || "");
         });
       }
@@ -3762,19 +3759,6 @@ function spotlightArt(m) {
 }
 
 /**
- * **Only the portrait exists: draw it whole, over a blurred copy of itself.**
- *
- * The same treatment the title page gives a poster it has nothing wide to show — the tile's
- * own `--poster` is painted large, blurred and darkened behind the artwork, and the artwork
- * sits inside it uncropped (see `.portrait` in the sheet).
- */
-function portraitTile(tile, m) {
-  const art = posterOf(m);
-  tile.classList.add("portrait");
-  if (art) tile.style.setProperty("--poster", `url("${art}")`);
-}
-
-/**
  * **A title's wide poster: the landscape picture with its name on it.**
  *
  * The wide tiles are 16:9, so the picture in one has to be landscape — a 2:3 poster in a
@@ -4055,13 +4039,14 @@ function stopSpotlight() {
  */
 const REFRESH_CHOICES = [
   // **Disabled leads the list**, as asked — the switch that turns the clock off is the first one.
-  [0, "Disabled"],
-  [30, "Every 30 minutes"],
-  [60, "Every 60 minutes"],
+  // It is the **only** one: a second "Disabled" sat after "Every 60 minutes", so the same switch
+  // was offered twice at opposite ends of the list and the second one read as a third interval.
   // **Disabled, not Manual.** The pane's own *Refresh now* button is gone with it: the app
   // re-reads the screen when it says it will, and a switch that means "never" should say so
   // rather than name a button that no longer exists.
   [0, "Disabled"],
+  [30, "Every 30 minutes"],
+  [60, "Every 60 minutes"],
 ];
 
 let refreshTimer = null;
@@ -4279,10 +4264,12 @@ function iconBox(c, row) {
     el(
       "div",
       { class: "icon-wrap art-blank" },
-      // A spotlight card draws **no artwork button at all**: there is no focus stop, no
-      // `Open …` label and nothing to press, because it is a glance at what is coming
-      // rather than a catalog to walk into.
-      spotlight
+      // A spotlight card — and the wide Upcoming card, which is the same kind of thing — draws
+      // **no artwork button at all**: there is no focus stop, no `Open …` label and nothing to
+      // press, because it is a glance at what is coming rather than a catalog to walk into. (The
+      // wide card used to be a door onto its own card page; the owner's ask was that it read the
+      // way the banner does — a picture, not a page.)
+      spotlight || wide
         ? null
         : el(
             "button",
@@ -7236,20 +7223,83 @@ const listQuery = (type) => `?type=${encodeURIComponent(type)}${state.safe ? "" 
  * joined list and the notes come back from the server, so the two of you are looking at the
  * same room rather than at two copies of one.
  *
- * The assistant is still one press away: *Find a pairing* opens the same box the Watch Along
+ * The assistant is still one press away — its button is its own — and *Find a pairing* now
+ * answers the question itself, in this box, from the catalogue (see `pairingsFor`). It used to
+ * open the assistant's box, which is a press that says "find" landing in a text field. (The
+ * assistant box the Watch Along
  * button used to, asked the same question — what to put on *with* this.
  */
+/**
+ * **The pairing read**: TMDB's neighbours for one title, with the line saying why each is on
+ * the list (see the addon's `/pair/…` route). Cached for the visit — the box can be opened
+ * twice in a minute, and the answer does not move.
+ */
+const pairCache = new Map();
+async function pairingsFor(meta) {
+  const path = `${meta?.type === "series" ? "series" : "movie"}/${encodeURIComponent(String(meta?.id || "").replace(/^tmdb:/, ""))}`;
+  if (pairCache.has(path)) return pairCache.get(path);
+  let list = [];
+  try {
+    const params = new URLSearchParams();
+    if (state.language) params.set("lang", state.language);
+    const query = params.toString();
+    const res = await get(`/pair/${path}.json${query ? `?${query}` : ""}`);
+    list = Array.isArray(res?.pairs) ? res.pairs : [];
+  } catch {
+    list = [];
+  }
+  pairCache.set(path, list);
+  return list;
+}
+
 async function openWatchAlong(meta) {
   const key = watchKey(meta);
   const name = meta?.name || "this title";
   const body = el("div", { class: "watch-along-body" });
   const note = el("p", { class: "player-note", text: "" });
+  // The pairing lands **here**, under the party controls: it is a question about this title, and
+  // this is the box that is about this title.
+  const pairSection = el("section", { class: "watch-along-section pair-section", hidden: true });
+  const fillPairing = async () => {
+    pairSection.hidden = false;
+    pairSection.replaceChildren(
+      el("p", { class: "watch-along-head", text: "Pair it with" }),
+      el("p", { class: "option-desc", text: "Looking through the catalogue…" }),
+    );
+    const list = await pairingsFor(meta);
+    pairSection.replaceChildren(
+      el("p", { class: "watch-along-head", text: "Pair it with" }),
+      list.length
+        ? el("p", { class: "option-desc", text: "Titles TMDB keeps beside this one — press one to open it." })
+        : el("p", { class: "option-desc", text: "Nothing to pair it with: the catalogue has no neighbours for this title." }),
+      ...list.map((pair) =>
+        el("button", {
+          class: "pair-row focusable",
+          type: "button",
+          // A pairing is a door onto the title it names, so a press opens it and leaves the box.
+          onclick: () => {
+            close();
+            go(`#/t/${pair.type === "series" ? "series" : "movie"}/${String(pair.id || "").replace(/^tmdb:/, "")}`);
+          },
+        },
+          pair.poster
+            ? el("img", { class: "pair-poster", src: pair.poster, alt: "", loading: "lazy" })
+            : el("span", { class: "pair-poster pair-initials", text: initialsOf(pair.name).toUpperCase() }),
+          el("span", { class: "pair-text" },
+            el("span", { class: "pair-name", text: pair.name }),
+            el("span", { class: "pair-why", text: pair.pairWhy || "" }),
+          ),
+        ),
+      ),
+    );
+  };
   const overlay = el("div", { class: "assistant-overlay watch-along-overlay", role: "dialog", "aria-modal": "true", "aria-label": `Watch Along · ${name}` },
     el("div", { class: "assistant-card watch-along-card" },
       el("p", { class: "assistant-kicker", text: "Watch Along" }),
       el("h2", { class: "assistant-title", text: name }),
       el("p", { class: "option-desc", text: "Watch it with someone: start a party, hand them the code, and keep the talk about it in one place." }),
       body,
+      pairSection,
       note,
       el("div", { class: "assistant-actions" },
         el("button", {
@@ -7257,6 +7307,14 @@ async function openWatchAlong(meta) {
           type: "button",
           id: "watch-along-pair",
           text: "Find a pairing",
+          title: "Find a title to watch alongside this one",
+          onclick: () => fillPairing(),
+        }),
+        el("button", {
+          class: "btn subtle focusable",
+          type: "button",
+          id: "watch-along-ask",
+          text: "Ask the assistant",
           title: "Ask the assistant what to watch alongside this",
           onclick: () => { close(); openAssistant(meta, { question: `What should I watch in a pair with ${name}? Name one title to pair it with, and why, in two lines.` }); },
         }),
@@ -9839,6 +9897,73 @@ function agoText(iso) {
 
 const ACTIVITY_LABEL = { planned: "Plan to Watch", watching: "Watching", watched: "Watched" };
 
+/**
+ * **The dashboard's own reading of the timeline.** Everything here is counted from the events
+ * themselves — the app keeps no second set of numbers that could drift from the lines under it —
+ * so the figure and the list it came from are always the same read.
+ */
+function activityStats(events) {
+  const films = events.filter((e) => e.type !== "series").length;
+  const shows = events.length - films;
+  const by = (state) => events.filter((e) => e.state === state).length;
+  // **A day's bar is how many titles moved that day**, which is what the timeline is made of.
+  const dayMs = 86400000;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 14 }, (_, i) => {
+    const start = today.getTime() - (13 - i) * dayMs;
+    const at = events.filter((e) => {
+      const t = Date.parse(e.at);
+      return Number.isFinite(t) && t >= start && t < start + dayMs;
+    }).length;
+    return { start, at };
+  });
+  const busiest = days.reduce((best, d) => (d.at > best.at ? d : best), days[0] || { at: 0, start: Date.now() });
+  const last = events.reduce((newest, e) => (Date.parse(e.at) > Date.parse(newest?.at || 0) ? e : newest), null);
+  return {
+    total: events.length,
+    films,
+    shows,
+    planned: by("planned"),
+    watching: by("watching"),
+    watched: by("watched"),
+    days,
+    busiest,
+    last,
+    span: events.length ? `${String(events.at(-1).at).slice(0, 10)} → ${String(events[0].at).slice(0, 10)}` : "",
+  };
+}
+
+/** The 14-day strip: one bar per day, its height the day's own count. */
+function activityChart(stats) {
+  const peak = Math.max(1, ...stats.days.map((d) => d.at));
+  const label = (t) => new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(new Date(t));
+  return el(
+    "section",
+    { class: "dash-card" },
+    el("h3", { class: "dash-head", text: "The last fourteen days" }),
+    el(
+      "div",
+      { class: "dash-chart", role: "img", "aria-label": `${stats.days.map((d) => `${label(d.start)}: ${d.at}`).join(", ")}` },
+      ...stats.days.map((d) =>
+        el(
+          "div",
+          { class: "dash-bar", title: `${label(d.start)} — ${d.at} title${d.at === 1 ? "" : "s"}` },
+          el("span", { class: "dash-bar-fill", style: `height:${Math.round((d.at / peak) * 100)}%` }),
+        ),
+      ),
+    ),
+  );
+}
+
+/** One number with its name, the unit of a dashboard. */
+const dashStat = (value, name, sub = "") =>
+  el("div", { class: "dash-stat" },
+    el("span", { class: "dash-number", text: String(value) }),
+    el("span", { class: "dash-name", text: name }),
+    sub ? el("span", { class: "dash-sub", text: sub }) : null,
+  );
+
 /** One line of the timeline — the same row on the page and anywhere else it is drawn. */
 function activityRows(events) {
   return events.map((e) =>
@@ -9855,15 +9980,47 @@ function activityRows(events) {
   );
 }
 
-/** Settings → Content → Activity: the page it opens, drawn full width like a catalog's. */
+/**
+ * Settings → Content → Activity: **the dashboard it opens, and the timeline under it.**
+ *
+ * The page used to be the list alone — a screen of rows with nothing to read at a glance, which
+ * is the one thing a page you open *on purpose* owes you. It leads with the numbers now: what
+ * you have, what moved, and the last fortnight as a strip, and the timeline it is all counted
+ * from sits under them, newest first.
+ */
 async function renderActivityPage() {
   const events = await activityEvents();
+  if (!events.length) {
+    return [
+      el("h2", { class: "view-title", text: "Activity" }),
+      el("p", { class: "empty", text: "Nothing yet. Pin a title, or start one, and its date is kept here." }),
+    ];
+  }
+  const stats = activityStats(events);
+  const busiest = stats.busiest.at ? new Date(stats.busiest.start).toDateString() : "—";
   return [
     el("h2", { class: "view-title", text: "Activity" }),
-    el("p", { class: "option-desc", text: "Everything you pinned, and when it moved — newest first." }),
-    events.length
-      ? el("div", { class: "activity-page" }, el("div", { class: "activity-list" }, ...activityRows(events)))
-      : el("p", { class: "empty", text: "Nothing yet. Pin a title, or start one, and its date is kept here." }),
+    el("p", { class: "option-desc", text: "Your own titles, read as a dashboard and then as a timeline — newest first." }),
+    el("div", { class: "dash-grid" },
+      dashStat(stats.total, "Titles on the timeline", stats.span),
+      dashStat(stats.watched, "Watched", "finished"),
+      dashStat(stats.watching, "Watching", "on the go"),
+      dashStat(stats.planned, "Plan to Watch", "waiting"),
+      dashStat(stats.films, "Films", `${stats.total ? Math.round((stats.films / stats.total) * 100) : 0}% of the list`),
+      dashStat(stats.shows, "Shows", `${stats.total ? Math.round((stats.shows / stats.total) * 100) : 0}% of the list`),
+    ),
+    activityChart(stats),
+    el("div", { class: "dash-grid" },
+      el("section", { class: "dash-card" },
+        el("h3", { class: "dash-head", text: "Most recent move" }),
+        el("p", { class: "dash-line", text: stats.last ? `${stats.last.name} — ${ACTIVITY_LABEL[stats.last.state] || stats.last.state}, ${agoText(stats.last.at)}` : "—" }),
+      ),
+      el("section", { class: "dash-card" },
+        el("h3", { class: "dash-head", text: "Busiest day" }),
+        el("p", { class: "dash-line", text: stats.busiest.at ? `${busiest} — ${stats.busiest.at} title${stats.busiest.at === 1 ? "" : "s"}` : "Nothing in the last fortnight" }),
+      ),
+    ),
+    el("div", { class: "activity-page" }, el("div", { class: "activity-list" }, ...activityRows(events))),
   ];
 }
 

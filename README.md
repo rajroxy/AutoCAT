@@ -7,6 +7,31 @@ Two things that ship together:
 2. **A catalog addon** — a Stremio/AutoCAT addon that turns each cover into a live
    home-screen row, backed by TMDB.
 
+## What's here now
+
+- **The Updates card is the catalogue's own two edges.** *Arriving Soon* is what has not landed
+  yet and lands within **30 days**; *Leaving Soon* is the **last month** of a title's stay in the
+  app, so everything on it is gone within 30 days of the day you read it. A title arrives on its
+  release date and the app carries it for **180 days** (`CATALOG_DAYS` in
+  `scripts/collections.mjs`, `LEAVING_DAYS` in `addon/lineup.mjs`); the date is written on its
+  own poster, and a title that has left is dropped from every row but your own lists. Neither
+  row is read from the banner's Now Playing / Airing Today rows or from the Upcoming card.
+- **Explore reads a row to its end.** A cap (`take`) is the size of the *card* — "Netflix |
+  Top 10" is ten titles on its own wall — and an Explore page asks for the row uncapped
+  (`deep` in `addon/index.mjs`).
+- **The Seasons card is the year's four seasons** — Spring, Summer, Autumn, Winter, in the
+  order the year runs them, each row the window of dates that season covers. Shows only.
+- **Upcoming is a window, not a door**: four 16:9 tiles, each a poster card with its date in a
+  pill and its name under it, and each showing the title's own **wide picture** — TMDB key art,
+  then a backdrop, then a frame from its trailer (`/landscape/{movie|series}/{id}.json`). It
+  does not open on click and has no hover lift, like the hero banner.
+- **Two new reads for one title**: `/landscape/…` (its wide artwork) and
+  `/pair/…` (what to watch alongside it — what *Watch Along → Find a pairing* draws).
+- **From the last round**: a real Activity dashboard (numbers, a fortnight, and the timeline
+  under it), a Watch Along pairing that answers in its own box, an assistant box with no
+  outline, one source drawer that scrolls one way, and the app's own row shape in
+  Settings → Content.
+
 ```
 covers/
   movies/<collection>.svg   animated SVG master (vector — crisp at any size)

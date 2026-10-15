@@ -1451,6 +1451,22 @@ async function landscapeArt(media, id, language) {
       [...named].sort(by)[0] ||
       [...wide].sort(by)[0];
     if (best) url = `${IMG}/w1280${best.file_path}`;
+    // **A wide frame out of the trailer.** Plenty of new titles have no wide picture at all — a
+    // slow film from Jakarta has one 2:3 poster the week it opens — and a 2:3 poster in a 16:9
+    // slot is either a band cut through it (the black bars the owner reported) or a letterboxed
+    // stamp. Almost every one of those titles *does* have a trailer on TMDB, and a trailer's
+    // own thumbnail is a 16:9 frame of the actual title: the name is drawn on the tile by the
+    // card's own frame, so a still of the thing is the wide picture that fits. It is the last
+    // answer, not the first — real key art and real backdrops still win.
+    if (!url) {
+      const videos = await get(`/${tmdbPath(media)}/${id}/videos`, { language });
+      const clips = (videos?.results || []).filter((v) => v?.key && v?.site === "YouTube");
+      const clip =
+        clips.find((v) => v.type === "Trailer" && String(v.iso_639_1).toLowerCase() === short) ||
+        clips.find((v) => v.type === "Trailer") ||
+        clips[0];
+      if (clip) url = `https://img.youtube.com/vi/${clip.key}/maxresdefault.jpg`;
+    }
   } catch {
     // An old title with no image list, or a blip: no answer, and the card keeps the wide
     // shot the row served it — the tile is never left empty because of this call.
@@ -1460,6 +1476,68 @@ async function landscapeArt(media, id, language) {
   landscapeArts.set(key, { url, expires: Date.now() + LANDSCAPE_TTL });
   if (landscapeArts.size > 400) landscapeArts.delete(landscapeArts.keys().next().value);
   return url;
+}
+
+/* --------------------------------------------------------------- the pairing */
+
+/**
+ * **What to put on *with* this one.**
+ *
+ * *Find a pairing* used to hand the question to the assistant, which meant a press that said it
+ * would find a pairing opened a text box instead. The pairing is a fact about the catalogue and
+ * the catalogue can answer it: TMDB's own two "what else" lists for a title — its
+ * **recommendations**, then its **similar** titles — are the neighbours it keeps, so the first
+ * few of those are the pairing, each one carrying why it is on the list (how it is rated, and
+ * whether it comes from a different year), which is the line the box prints under its name.
+ *
+ * Cached for half an hour: the list does not move, and the box can be opened twice in a minute.
+ */
+const PAIR_TTL = 30 * 60 * 1000;
+const PAIRS = new Map();
+
+async function pairings(media, id, language) {
+  const key = `${media}:${id}:${language}`;
+  const hit = PAIRS.get(key);
+  if (hit && hit.expires > Date.now()) return hit.list;
+
+  let list = [];
+  try {
+    const detail = await get(`/${tmdbPath(media)}/${id}`, {
+      append_to_response: "recommendations,similar",
+      language,
+    });
+    const seedId = String(detail?.id || id);
+    const seedYear = Number(String(detail?.release_date || detail?.first_air_date || "").slice(0, 4)) || 0;
+    const seen = new Set([seedId]);
+    const out = [];
+    const candidates = [...(detail?.recommendations?.results || []), ...(detail?.similar?.results || [])];
+    for (const raw of candidates) {
+      const meta = toMeta(raw, media);
+      const rawId = String(raw?.id || "");
+      if (!meta || !rawId || seen.has(rawId)) continue;
+      seen.add(rawId);
+      const year = Number(String(meta.releaseDate || "").slice(0, 4)) || 0;
+      const years = seedYear && year ? year - seedYear : 0;
+      meta.pairWhy = [
+        meta.imdbRating ? `Rated ${meta.imdbRating}` : "",
+        years === 0 ? (year ? `Same year — ${year}` : "") : `${year} · ${Math.abs(years)} year${Math.abs(years) === 1 ? "" : "s"} ${years < 0 ? "earlier" : "later"}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      out.push(meta);
+    }
+    // **The best of the neighbours, not the first four.** Recommendations arrive in TMDB's own
+    // order, which is popularity, so the four would be the four most popular every time; the
+    // rating is the one ordering that says "worth pairing" rather than "well known".
+    out.sort((a, b) => Number(b.imdbRating || 0) - Number(a.imdbRating || 0));
+    list = out.slice(0, 4);
+  } catch {
+    list = [];
+  }
+
+  PAIRS.set(key, { list, expires: Date.now() + PAIR_TTL });
+  if (PAIRS.size > 200) PAIRS.delete(PAIRS.keys().next().value);
+  return list;
 }
 
 function parseCatalogPath(pathname) {
@@ -3069,6 +3147,17 @@ async function serveAddon(req, res, pathname, origin) {
     const id = art[2].replace(/^tmdb:/, "");
     const url = hasKey() ? await landscapeArt(art[1], id, language) : "";
     json(res, 200, { ok: Boolean(url), url }, 6 * 60 * 60);
+    return true;
+  }
+
+  // **What to watch alongside one title** (`/pair/movie/550.json`) — what Watch Along's
+  // *Find a pairing* asks for (see `pairings`).
+  const pairing = pathname.match(/^\/pair\/(movie|series)\/([\w:-]+)\.json$/);
+  if (pairing) {
+    const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+    const id = pairing[2].replace(/^tmdb:/, "");
+    const list = hasKey() ? await pairings(pairing[1], id, query.get("lang") || activeLanguage()) : [];
+    json(res, 200, { ok: list.length > 0, pairs: list }, 1800);
     return true;
   }
 

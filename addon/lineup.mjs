@@ -12,13 +12,14 @@
  * So the two rows are not only read, they are **written down**, and the dates they imply become
  * real:
  *
- * - **Leaving Soon** is a window, not a list: `within: 180` days back, `olderThan: 60`. A title
- *   in it is out of the far edge of that window on `release + 180`, which is exactly the day the
- *   row stops answering with it — so that is its **leaving date**, and it is derived from the
- *   row's own definition rather than invented here. On that day the title is **gone from the
- *   app**: every card, every row and the search drop it (the one exception is your own lists —
- *   see `hideGone`).
- * - **Arriving Soon** looks `future: 30` days ahead, and each title in it carries its own
+ * - **Leaving Soon** is a window, not a list: `within: CATALOG_DAYS` days back, `olderThan:
+ *   CATALOG_DAYS - SOON_DAYS` — the *last month* of a title's stay, so every title on the row
+ *   really is out within the month. A title in it is out of the far edge of that window on
+ *   `release + CATALOG_DAYS`, which is exactly the day the row stops answering with it — so that
+ *   is its **leaving date**, and it is derived from the row's own definition rather than invented
+ *   here. On that day the title is **gone from the app**: every card, every row and the search
+ *   drop it (the one exception is your own lists — see `hideGone`).
+ * - **Arriving Soon** looks `SOON_DAYS` days ahead, and each title in it carries its own
  *   release date, which is the day it lands. Until that day the title is **held off the shelves**
  *   — it is on the Updates card and the Upcoming card, both of which are *about* what is coming,
  *   and on no other row — and from that day on it is a title like any other, in whatever cards
@@ -48,6 +49,9 @@ const FILE = path.join(HERE, "lineup.json");
  * row's own comment points back at this one.
  */
 export const LEAVING_DAYS = 180;
+/** How near "soon" is, at both ends of the window — the row's `future: SOON_DAYS` and the month
+ *  of the staying window that Leaving Soon holds (`scripts/collections.mjs`). */
+export const SOON_DAYS = 30;
 
 /** The two rows that declare a date. The rest of the app only ever reads what they said. */
 const LEAVING_ROW = "Leaving Soon";
