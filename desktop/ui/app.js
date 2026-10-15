@@ -15152,7 +15152,7 @@ async function openPlayer(url, title, opts = {}) {
           // on the thing you are watching, and the drawer of other streams sits next
           // to them.
           el("button", {
-            class: "player-icon focusable", type: "button", id: "player-settings", title: "Options — providers, quality, audio & subtitles",
+            class: "player-icon focusable", type: "button", id: "player-settings", title: "Options — quality, audio & subtitles",
             onclick: () => {
               const opening = gearPanel.hidden;
               drawTracks();
