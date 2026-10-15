@@ -101,6 +101,21 @@ import { clearTmdbCache } from "./tmdb.mjs";
 import { calendarMonth } from "./calendar.mjs";
 import { liveChannels, liveGuide, liveStatus, liveCountries, countrySpellings } from "./live.mjs";
 
+/**
+ * **The two rows that carry a date, and how far past their own length to read for them.**
+ *
+ * `Leaving Soon` and `Arriving Soon` are the only rows whose membership is *gated* after TMDB
+ * answers: a title whose recorded departure has come is dropped from every row, and one you
+ * have already watched is dropped from a row that is not your own list. So the row that asked
+ * for its fifty came back with forty-seven — the shelf grew shorter as the days passed, which is
+ * exactly the "leaving 50 and arriving 50" the owner asked for going soft. The rows are read
+ * `LINEUP_OVER` titles deep now and cut back to their own length after the gates: the same window,
+ * the same order, with the titles the gates took replaced by the ones behind them.
+ */
+const LINEUP_ROWS = new Set(["Leaving Soon", "Arriving Soon"]);
+const LINEUP_OVER = 20;
+
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WATCHLIST_FILE = path.join(__dirname, "watchlist.json");
 
@@ -1354,7 +1369,10 @@ export async function catalogMetas(media, def, skip, opts = {}) {
   // row without its cap, and "End of catalog." arrives when TMDB has nothing left rather
   // than where the card stopped. Specs are rebuilt per request, so this adjusts this
   // request's copy and nobody else's.
-  const lifted = Boolean(opts.deep);
+  // **A top-up read is a deep read of the same row.** It wants the row past its card's own
+  // length for the same reason Explore does (see the note above), so it lifts the cap and draws
+  // the same pool — a second pool for the same titles would only be read twice.
+  const lifted = Boolean(opts.deep) || Boolean(opts.over);
   if (lifted) for (const spec of specs) if (spec.take) spec.take = undefined;
   // Key on the catalog's identity *and* its resolved entry — two definitions
   // must never share a pool just because one of them has no id.
@@ -3255,10 +3273,19 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     // A watchlist row and a custom row are the two places watched titles live, so they
     // are served whole; every other row drops them.
     const keepWatched = kind === "watchlist" || kind === "custom";
+    // **The two dated rows read past their own length** (`LINEUP_ROWS`, see the note on it):
+    // both of them lose titles to the gates below, and a reader that asked for fifty titles
+    // should get fifty. Only a plain card read tops up — an Explore page reads the row itself
+    // (`deep`) and a caller that names a `count` gets the window it asked for.
+    // A card's size lives on its **entry** (`curated(name, params, take)` in
+    // `scripts/collections.mjs`), not on the catalog that wraps it.
+    const lineupTake = Number(parsed.def?.take) || Number(parsed.def?.entry?.take) || 0;
+    const wanted = Number(params.get("count")) || 0;
+    const topUp = LINEUP_ROWS.has(parsed.def?.name) && lineupTake > 0 && !wanted && params.get("deep") !== "1";
     const metas = withoutWatched(
       parsed.shuffle
         ? await catalogShuffle(parsed.type, parsed.def, parsed.shuffle, { adult, language, sort })
-        : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: Number(params.get("count")) || 0, deep: params.get("deep") === "1" }),
+        : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: topUp ? lineupTake + LINEUP_OVER : wanted, over: topUp, deep: params.get("deep") === "1" }),
       keepWatched,
     );
     // **What is leaving and what has not arrived yet.** The two rows of the Updates card are
@@ -3269,6 +3296,8 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     // ride on the metas, so the card can wear them whatever row it was read from.
     noteLineup(parsed.def.name, metas);
     const shown = withDates(hideComing(hideGone(metas, keepWatched), cardKeyOfRow(parsed.def.id)));
+    // The row is its own length again: what the gates dropped is what the top-up replaced.
+    if (topUp) shown.length = Math.min(shown.length, lineupTake);
     // Better posters first (it may replace `poster`), then the chosen content
     // source (which owns the poster when it is TVDB), then extra metadata.
     await applyPosters(shown);

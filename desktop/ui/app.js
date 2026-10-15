@@ -651,8 +651,24 @@ const accentOf = (id) => {
 const AVATARS = ["person", "star", "heart", "bolt", "moon", "cat"];
 
 /** One avatar mark, by name. */
+/**
+ * **A face is a shape, not an outline.**
+ *
+ * Every mark below is drawn as a *filled* silhouette and carries `solid`, which is what makes
+ * it fill rather than stroke (see `.avatar-mark.solid`). They were hairline outlines on the
+ * disc — a head and a pair of shoulders drawn with a 3.4-unit pen — and a thin ring on a wide
+ * coloured disc is the shape of a *placeholder*, not of a portrait (the owner's "avatar again
+ * looks damn bad"): at 84px the pen was a twenty-fifth of the disc and the mark read as a
+ * generic "person" glyph rather than as anybody's face. The bust is one closed path — head,
+ * neck and shoulders — so it reads as a drawn portrait at any size, and the other five marks
+ * are the same kind of shape, so the picker is one set instead of two kinds of glyph.
+ */
+const BUST = "M24 10.4c-5.3 0-9.5 4.2-9.5 9.5 0 3.4 1.8 6.4 4.5 8.2-6.7 2.2-11.3 8.2-11.3 15.2 0 1.5 1.2 2.7 2.7 2.7h27.2c1.5 0 2.7-1.2 2.7-2.7 0-7-4.6-13-11.3-15.2 2.7-1.8 4.5-4.8 4.5-8.2 0-5.3-4.2-9.5-9.5-9.5z";
+/** The same bust with a head of hair over it — the one mark that is two silhouettes. */
+const HAIR = "M24 6.6c-7.7 0-13.4 5.5-13.4 14.1 0 2.4.5 4.5 1.4 6.2l3.4-1.4c-.6-1.3-.9-2.8-.9-4.5 0-5.9 3.9-9.4 9.5-9.4s9.5 3.5 9.5 9.4c0 1.7-.3 3.2-.9 4.5l3.4 1.4c.9-1.7 1.4-3.8 1.4-6.2C37.4 12.1 31.7 6.6 24 6.6z";
+
 function avatarMark(kind) {
-  const svg = (...paths) => svgNode("svg", { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" }, ...paths);
+  const svg = (...paths) => svgNode("svg", { class: "avatar-mark solid", viewBox: "0 0 48 48", "aria-hidden": "true" }, ...paths);
   switch (kind) {
     case "star":
       return svg(svgNode("path", { d: "M24 7l4.8 10.9 11.7 1.2-8.8 7.9 2.5 11.6L24 32.7 13.8 38.6l2.5-11.6-8.8-7.9 11.7-1.2z" }));
@@ -663,12 +679,16 @@ function avatarMark(kind) {
     case "moon":
       return svg(svgNode("path", { d: "M31 6a17 17 0 1 0 9.5 13.5A13 13 0 0 1 31 6z" }));
     case "cat":
+      // The eyes are **holes in the face**, not dots on it: the same path wound the other
+      // way, so `fill-rule: evenodd` cuts them out and the mark reads on any disc colour.
       return svg(
-        svgNode("path", { d: "M12.5 17.5L14.5 8l7 4.2a15 15 0 0 1 5 0l7-4.2 2 9.5a12.5 12.5 0 0 1 0 14 13.5 13.5 0 0 1-23 0z" }),
-        svgNode("path", { d: "M18.5 25h.01M29.5 25h.01" }),
+        svgNode("path", {
+          "fill-rule": "evenodd",
+          d: "M12.5 17.5L14.5 8l7 4.2a15 15 0 0 1 5 0l7-4.2 2 9.5a12.5 12.5 0 0 1 0 14 13.5 13.5 0 0 1-23 0zM21 25.4a1.9 1.9 0 1 1-3.8 0 1.9 1.9 0 0 1 3.8 0zM31.3 25.4a1.9 1.9 0 1 1-3.8 0 1.9 1.9 0 0 1 3.8 0z",
+        }),
       );
     default:
-      return svg(svgNode("circle", { cx: "24", cy: "17", r: "7.5" }), svgNode("path", { d: "M10 40c0-7.5 6.3-12 14-12s14 4.5 14 12" }));
+      return svg(svgNode("path", { d: BUST }));
   }
 }
 
@@ -2650,25 +2670,22 @@ function avatarNode(name) {
   if (name === PEOPLE[1].name) {
     return svgNode(
       "svg",
-      { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
-      svgNode("path", { d: "M15 21c-1.6-9.5 3.3-14 9-14s10.6 4.5 9 14" }),
-      svgNode("circle", { cx: "24", cy: "18.5", r: "7.5" }),
-      svgNode("path", { d: "M10 40c0-7.5 6.3-12 14-12s14 4.5 14 12" }),
+      { class: "avatar-mark solid", viewBox: "0 0 48 48", "aria-hidden": "true" },
+      svgNode("path", { d: HAIR }),
+      svgNode("path", { d: BUST }),
     );
   }
   if (name === PEOPLE[0].name) {
     return svgNode(
       "svg",
-      { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
-      svgNode("circle", { cx: "24", cy: "17.5", r: "7.5" }),
-      svgNode("path", { d: "M10 40c0-7.5 6.3-12 14-12s14 4.5 14 12" }),
+      { class: "avatar-mark solid", viewBox: "0 0 48 48", "aria-hidden": "true" },
+      svgNode("path", { d: BUST }),
     );
   }
   return svgNode(
     "svg",
-    { class: "avatar-mark", viewBox: "0 0 48 48", "aria-hidden": "true" },
-    svgNode("circle", { cx: "24", cy: "17", r: "7.5" }),
-    svgNode("path", { d: "M10 40c0-7.5 6.3-12 14-12s14 4.5 14 12" }),
+    { class: "avatar-mark solid", viewBox: "0 0 48 48", "aria-hidden": "true" },
+    svgNode("path", { d: BUST }),
   );
 }
 
@@ -15117,6 +15134,40 @@ async function openPlayer(url, title, opts = {}) {
   };
 
   /**
+   * **The list the player walks itself.** `opts.streams` is every stream the add-ons
+   * answered with, best fit first — and the ones a browser can hand to a player are the
+   * ones with a URL or a magnet (see `openSources`). The player used to open the best one
+   * and, if it would not open, say so: the Sources drawer had eighty rows and the report
+   * was "no title plays even though the sources are very much". A source that fails now
+   * costs itself and nothing more — the player moves to the next one, up to a handful of
+   * tries, and says which one it is on.
+   */
+  const sourcePool = (Array.isArray(opts?.streams) ? opts.streams : []).filter(
+    (s) => s && !isExternalStream(s) && (s.url || s.torrent),
+  );
+  const sourceTarget = (s) => (s?.torrent ? s.magnet : s?.url) || "";
+  const triedSources = new Set();
+  /** How many sources the player tries on its own before it tells you it cannot. */
+  const AUTO_SOURCE_TRIES = 6;
+
+  /**
+   * **The next source, tried by the player.** Returns false when there is nothing left to
+   * try, which is the only case that ends in a message you have to act on.
+   */
+  const nextSource = () => {
+    if (triedSources.size >= AUTO_SOURCE_TRIES) return false;
+    const next = sourcePool.find((s) => sourceTarget(s) && !triedSources.has(sourceTarget(s)));
+    if (!next) return false;
+    triedSources.add(sourceTarget(next));
+    console.log("[player] that source would not open — trying the next one", sourceTarget(next));
+    attach(next);
+    // Set **after** the call: `attach` clears the failure line as it starts, and the note
+    // belongs to the source being opened, not to the one being left.
+    sayError(`That source would not open — trying another one (${triedSources.size} of ${sourcePool.length})…`);
+    return true;
+  };
+
+  /**
    * **The one place a source becomes a picture.**
    *
    * The stream the player opened with and a source picked in the Sources drawer both
@@ -15135,6 +15186,7 @@ async function openPlayer(url, title, opts = {}) {
     if (!target) return;
     const seq = (playerSeq += 1);
     currentSource = target;
+    triedSources.add(target);
     clearPicture();
     // **The extracted URL, on the record.** When a stream will not play, the first
     // question is always *what was actually handed to the element* — and that answer
@@ -15201,7 +15253,15 @@ async function openPlayer(url, title, opts = {}) {
      */
     let throughProxy = Boolean(needsProxy);
     const retryThroughProxy = () => {
-      if (throughProxy || seq !== playerSeq || isUnplayableUrl(target)) return;
+      // A source you have already left must not answer for the one you are on.
+      if (seq !== playerSeq) return;
+      // **There is nothing left to do for this source.** Both the direct attempt and the
+      // proxy's have failed (or the address cannot be tried at all) — so the walk down the
+      // list happens here, before the player admits defeat.
+      if (throughProxy || isUnplayableUrl(target)) {
+        if (!nextSource()) sayError("Could not play this stream — no source of this title would open.");
+        return;
+      }
       throughProxy = true;
       sayError("");
       console.log("[player] direct playback failed — retrying through the app's own server", target);
@@ -15250,7 +15310,7 @@ async function openPlayer(url, title, opts = {}) {
         retryThroughProxy();
         return;
       }
-      sayError(`Could not play this stream — ${err.message}`);
+      if (!nextSource()) sayError(`Could not play this stream — ${err.message}`);
     }
   };
 

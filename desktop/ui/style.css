@@ -289,7 +289,13 @@ body {
    as a well rather than a hole, and leaves the mark dark and legible. */
 .profile-tile.active .avatar,
 .profile-grid .profile-tile.active .avatar {
-  background: rgba(12, 10, 6, 0.30);
+  /* **The disc is the plate, lifted — not a well sunk into it.** The chosen card's wash was
+     the accent *darkened* by 30% ink, and the mark on it is the ink (20,17,10): on a pink or
+     orange palette that is a near-black silhouette on a near-black disc — the owner's
+     "avatar again looks damn bad", said a second time about a glyph that was drawn and could
+     not be seen. A lift of white instead keeps the plate's own hue, and the ink mark stays
+     dark and legible on it on every palette the app ships. */
+  background: rgba(255, 255, 255, 0.34);
   color: #14110a;
   box-shadow: none;
 }
@@ -2830,6 +2836,19 @@ textarea:focus-visible {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* **A filled mark draws its own shape, so it needs no pen and more of the disc.** The
+   avatars are silhouettes now (`BUST`/`HAIR` in the app, and the picker's six), and a
+   silhouette carries its own weight where a hairline ring did not: it takes 82% of the
+   disc against the stroked marks' 72%, which is what makes an 84px avatar read as a face
+   rather than as a small glyph in the middle of a big circle. `evenodd` is here for the
+   one mark whose eyes are holes rather than dots. */
+.avatar-mark.solid {
+  width: 82%;
+  height: 82%;
+  fill: currentColor;
+  stroke: none;
+  fill-rule: evenodd;
+}
 /* The name and the Edit button share the row: the body takes the space, the button
    keeps its own width. */
 .current-profile-body { flex: 1; min-width: 0; }
@@ -4516,13 +4535,13 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
   color: var(--muted);
   cursor: pointer;
 }
-.avatar-pick .avatar-mark { width: 30px; height: 30px; stroke-width: 2.6; }
+.avatar-pick .avatar-mark { width: 34px; height: 34px; stroke-width: 2.6; }
 .avatar-pick:hover, .avatar-pick:focus-visible { color: var(--text); box-shadow: var(--ring-shadow); outline: none; }
 .avatar-pick.active { color: var(--fill); background: rgba(var(--fill-rgb), 0.16); }
 .avatar-pick.active:hover { box-shadow: var(--ring-shadow); }
 /* The small mark beside a name in the profile list. */
 .avatar.small { width: 38px; height: 38px; }
-.avatar.small .avatar-mark { width: 20px; height: 20px; stroke-width: 3.2; }
+.avatar.small .avatar-mark { width: 22px; height: 22px; stroke-width: 3.2; }
 
 /* The two modes, in Settings → Profile: the boot screen's tiles, laid out as a pair. */
 .mode-grid { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
