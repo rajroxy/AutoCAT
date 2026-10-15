@@ -3631,13 +3631,17 @@ select.player-rate {
 select.player-rate:hover { background-color: rgba(255, 255, 255, 0.16); }
 select.player-rate option { background: #14161c; color: var(--text); }
 
-/* The bars are drawn with the accent rather than left to the browser's own slider
-   colour, so the player is tinted by the same setting the rest of the app uses. */
-.player-seek { appearance: none; -webkit-appearance: none; background: transparent; }
-.player-seek::-webkit-slider-runnable-track,
-.player-seek::-webkit-slider-thumb,
-.player-seek::-moz-range-track,
-.player-seek::-moz-range-thumb,
+/* **The seek bar's rule is further down the sheet** — *"The player's seek bar is a bar with
+   its fill"* — where the track and the thumb are drawn in the accent. A stale copy of those
+   selectors stood here, and `: .player-sources` had been appended to the end of it, so the
+   drawer shared a selector list with four `::-webkit-`/`::-moz-` pseudo-elements. **One
+   pseudo-element a browser does not know makes the whole comma-separated list invalid**, and
+   an invalid list throws the rule away entire: in Chromium the drawer lost its `position`,
+   its height cap **and its scrolling** along with it, which is what left the panel sitting in
+   the flow and overflowing sideways over the picture. The list is gone; the drawer is its own
+   rule below.
+   (Nothing is lost by the removal: the bar's real treatment — the elapsed part painted in the
+   accent, a round accent thumb — is the later rule.) */
 
 /* The sources drawer sits over the video, so choosing one does not lose your place. */
 /*
@@ -5164,9 +5168,15 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
   box-shadow: none;
 }
 /* The chosen things — a ticked row, the open menu, the tile you are on — wear the same
-   colour at the same strength, so "hovered" and "chosen" are one look, not two. */
+   colour at the same strength, so "hovered" and "chosen" are one look, not two.
+   **The episode tile is not one of them.** The player's episode list rings the episode you are
+   on (`--mark-ring` in the ring's colour, see its own section) and never fills it: this list is
+   written later, so the tile was being filled as well and the ring was drawn on top of the wash
+   — the one the owner asked to be rid of (*"the cover should be selected only, and rings — no
+   fill on the full episode"*). A list of streams inside a drawer is a list of controls; an
+   episode you are *on* is content, and content rings. */
 :is(.option, .vis-option, .menu-item, .dropdown-item, .dropdown-btn, .profile-tile, .cal-cell,
-  .view-mark, .avatar-pick, .episode-item, .stream, .settings-tab).active,
+  .view-mark, .avatar-pick, .stream, .settings-tab).active,
 .options :is(.option, .vis-option):has(input:checked),
 .settings-pane .option-group .option:has(input:checked),
 .menu-item.active, .dropdown-btn[aria-expanded="true"] {
