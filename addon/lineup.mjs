@@ -38,21 +38,28 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// **One source of truth for the window** — see the note on `LEAVING_DAYS` below.
+import { CATALOG_DAYS, SERIES_CATALOG_DAYS, SOON_DAYS } from "../scripts/collections.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FILE = path.join(HERE, "lineup.json");
 
 /**
  * How long a title stays in the app — **the far edge of the Leaving Soon row's window**
- * (`within: { movie: 180, series: 365 }` in `scripts/collections.mjs`). Changing one without the
- * other would put the date on a card out of step with the row the title came off, so they are
- * named here and the row's own comment points back at this one. Per media type: a series is
- * carried twice as long as a film, because it arrives over months.
+ * (`within: { movie: 180, series: 365 }` in `scripts/collections.mjs`).
+ *
+ * **The numbers are read from there, not written again here.** They used to be a copy with a
+ * comment on each side pointing at the other, which is the arrangement that goes wrong quietly: the
+ * date on a card would drift out of step with the row the title came off. Per media type, because a
+ * series is carried twice as long as a film — it arrives over months.
  */
-export const LEAVING_DAYS = { movie: 180, series: 365 };
-/** How near "soon" is, at both ends of the window — the row's `future: SOON_DAYS` and the month
- *  of the staying window that Leaving Soon holds (`scripts/collections.mjs`). */
-export const SOON_DAYS = 30;
+export const LEAVING_DAYS = { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS };
+/**
+ * How near "soon" is, at **both** ends of the pair: the near-term window the Updates card's
+ * Arriving Soon row is a wave of (`addon/index.mjs`), the month of the staying window that Leaving
+ * Soon holds, and the day the **Upcoming** card starts (`after: SOON_DAYS + 1` in `UPCOMING_ROWS`).
+ */
+export { SOON_DAYS };
 
 /** The two rows that declare a date. The rest of the app only ever reads what they said. */
 const LEAVING_ROW = "Leaving Soon";
@@ -127,8 +134,15 @@ export function note(rowName, metas) {
   // is recorded (so the card can say so), and the next read drops it: from then on it is a title
   // like any other, which is the whole point of the arrival.
   if (arriving) {
+    // **The row's own window is the only thing that declares an arrival**, so an entry outside it is
+    // not this row's word any more. Two kinds of those exist: a date already behind us (the title
+    // landed, above), and a date **beyond the wave** — left there by the two shapes this row had
+    // before, which read the calendar as far out as two years. Measured: the Upcoming card's own
+    // first page was wearing `Arrives 15 Nov` on a title the row no longer declares, because an
+    // older read had written it. Pruned here, on the read that knows what the window is.
+    const lastDay = plusDays(now, SOON_DAYS);
     for (const [k, on] of Object.entries(bag)) {
-      if (on < now) {
+      if (on < now || on > lastDay) {
         delete bag[k];
         wrote = true;
       }

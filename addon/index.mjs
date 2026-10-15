@@ -28,6 +28,7 @@ import {
   REMOVED_COUNTRY_CODES,
   keywordVocab,
   localServices,
+  SOON_DAYS,
   title as collectionTitle,
 } from "../scripts/collections.mjs";
 import { get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
@@ -1355,81 +1356,106 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
 }
 
 /**
- * **What is arriving: your own list, read for dates — and nothing from the world's calendar.**
+ * **What is arriving: the app's own arrival wave — the next month, by the day it lands.**
  *
- * This row has been through three shapes and the owner has said no to two of them. It was the world's
- * upcoming releases (the Upcoming card's own list read twice), then **yours** alone *("arriving row is
- * empty")*, then yours **plus what is announced past the calendar's six months** — and that last one
- * came straight back: *"again you done same world upcoming release shit in arriving row shit"*. It is
- * the world's release calendar in every horizon, so **there is no world half any more, at any
- * distance, and there will not be one again.**
+ * This row has been through four shapes. It was the world's upcoming releases in date order (the
+ * Upcoming card's own first page, the same titles twice on one home screen), then that same pool
+ * most-popular-first, then **yours** alone — *"arriving row is empty"* came straight back at that one
+ * — and then yours plus everything announced past the calendar's six months, which was the world's
+ * calendar again, only further out: *"again you done same world upcoming release shit in arriving row
+ * shit"*.
  *
- * The row is **your own queue**, soonest known first:
+ * **The fifth word settles it: *"dont you know how xbox game pass works, same like that."*** Game
+ * Pass publishes no release calendar; it publishes a **service schedule**. Its "Coming to Game Pass"
+ * filter and its twice-monthly Xbox Wire posts give **day-level dates** for the titles joining the
+ * service — waves of roughly three to eight, looking about one to two weeks ahead (sometimes a
+ * month) — it says *"Available on day one with Game Pass!"* in words for the day-one ones, and its
+ * **"Leaving soon"** filter is the other end of that same schedule: titles exiting *"in the next two
+ * weeks"*. Most of what a wave holds came out years earlier; what is being announced is the
+ * **addition**, not the release.
  *
- *  - **What you planned** — every pin in the **Plan to Watch** state, and every title in your own
- *    **Library rows** (the Calendar's plan row among them).
- *  - Ordered by **the day the app knows about the title**: the ones whose release day is *still ahead*
- *    come first, nearest first, and the rest follow in your own order (newest added first). So a title
- *    you are genuinely waiting for leads the row, and a list you built months ago still fills it.
+ * So this row is the app's own arrival schedule, at the horizon its Leaving Soon half already uses:
+ * the titles landing over the next **`SOON_DAYS` days** (thirty), **ordered by the day they land** —
+ * nearest day first, most notable first within a day — each poster wearing its own date, and reading
+ * *Arrives today* on the day itself (`lineupTag` in `desktop/ui/app.js`). In this app a title joins
+ * on the day it is released, so the wave *is* release days; that is also why the row is not a
+ * calendar **as** a calendar: the pool it draws from is TMDB's most notable releases inside the
+ * window (`popularity.desc`, read 300 deep and kept for ten minutes), because in a month of releases
+ * the notability is what makes a wave a list rather than a dump — Game Pass has the same problem and
+ * answers it the same way.
  *
- * Nothing here is a query over what the world is releasing. **A date is a fact about the title, so it
- * is looked up once:** a pin stores only what the app draws, so a title with no stored day is asked of
- * TMDB — twelve at a time, the same way the episode rows fill their pool — and the answer is kept for
- * `ARRIVING_DATE_TTL_MS`. A title TMDB will not date is simply not *dated*, and it sits in your own
- * order rather than being dropped: a queue with no dates in it is still a queue.
- *
- * Follow nothing and file nothing and the row is empty — the one honest answer left, and the screen
- * says it quietly, the way the Watchlist and the Library do.
+ * **`SOON_DAYS` is one number for the whole pair, and the Upcoming card starts the day after this
+ * row ends** (`after: SOON_DAYS + 1` in `UPCOMING_ROWS`, `scripts/collections.mjs`): the two cards
+ * divide the calendar instead of both holding the near month, so no poster is on both — which was the
+ * owner's first complaint about this row. The `+ 1` is not decoration: a window that ends on day 30
+ * and another that begins on day 30 share that day, and the measured cost of it was three films and
+ * five series on both cards. `.patch/r57-arriving-check.mjs` reads both rows off the running
+ * server and fails if the two numbers ever drift apart.
  */
-const arrivingDates = new Map();
-const ARRIVING_DATE_TTL_MS = 6 * 60 * 60 * 1000;
-const ARRIVING_POOL_CAP = 500;
+const ARRIVING_POOL_PAGES = 15;
+const ARRIVING_POOL_TTL_MS = 10 * 60 * 1000;
+const arrivingPools = new Map();
 
-/** The key a title is known by — the same shape the stores use. */
-const arrivingKey = (m) => `${m?.type === "series" ? "series" : "movie"}:${String(m?.id || "").replace(/^tmdb:/, "")}`;
+/** The day `n` days from now, the way TMDB takes a date. */
+const dayIn = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
-/** **Your queue for one media type:** planned pins and Library rows, in your own order. */
-function queuedTitles(media) {
-  const out = [];
-  const seen = new Set();
-  for (const m of [
-    ...watchlistMetas("planned", media, 0, ARRIVING_POOL_CAP),
-    ...Object.keys(customKeys() || {}).flatMap((row) => customMetas(row, media, 0, ARRIVING_POOL_CAP)),
-  ]) {
-    const key = arrivingKey(m);
-    if (!m?.id || seen.has(key)) continue;
-    seen.add(key);
-    out.push(m);
+/**
+ * **The wave's pool: what is landing inside the window, most notable first.**
+ *
+ * Read a page at a time and kept for `ARRIVING_POOL_TTL_MS` — the same shape the episode rows use:
+ * a card reads one window of it, a reader scrolling the row asks for more, and a row that is
+ * scrolled does not re-ask TMDB for what it already has.
+ */
+async function arrivingPool(media, language) {
+  const key = `${media}:${language || ""}`;
+  let entry = arrivingPools.get(key);
+  if (!entry || Date.now() - entry.at > ARRIVING_POOL_TTL_MS) {
+    entry = { at: Date.now(), metas: [], pages: 0 };
+    arrivingPools.set(key, entry);
   }
-  return out;
+  if (entry.pages >= ARRIVING_POOL_PAGES) return entry.metas;
+  const field = media === "movie" ? "primary_release_date" : "first_air_date";
+  const seen = entry.seen || (entry.seen = new Set(entry.metas.map((m) => m.id)));
+  while (entry.pages < ARRIVING_POOL_PAGES) {
+    const res = await get(`/discover/${tmdbPath(media)}`, {
+      [`${field}.gte`]: dayIn(0),
+      [`${field}.lte`]: dayIn(SOON_DAYS),
+      sort_by: "popularity.desc",
+      page: entry.pages + 1,
+      language,
+    }).catch(() => null);
+    const items = res?.results || [];
+    entry.pages += 1;
+    if (items.length < 20) entry.pages = ARRIVING_POOL_PAGES;
+    for (const item of items) {
+      const meta = toMeta(item, media);
+      // **A page of a popularity order is not a stable thing to walk.** Two pages read a moment
+      // apart can hand back the same title — measured on the screen, one film sat at positions 38
+      // and 39 of the wave — so the pool is what it says it is, a set, and a title is taken once.
+      if (meta && !seen.has(meta.id)) {
+        seen.add(meta.id);
+        entry.metas.push(meta);
+      }
+    }
+  }
+  return entry.metas;
 }
 
-/** The day the app knows for a title, or "" — asked of TMDB once, then kept. */
-async function dateOf(m, media, language) {
-  const stored = /^\d{4}-\d{2}-\d{2}$/.test(String(m.releaseDate || "")) ? String(m.releaseDate) : "";
-  if (stored) return stored;
-  const key = arrivingKey(m);
-  const hit = arrivingDates.get(key);
-  if (hit && Date.now() - hit.at < ARRIVING_DATE_TTL_MS) return hit.date;
-  const detail = await get(`/${tmdbPath(media)}/${String(m.id).replace(/^tmdb:/, "")}`, { language }).catch(() => null);
-  const date = String(detail?.release_date || detail?.first_air_date || "");
-  arrivingDates.set(key, { at: Date.now(), date });
-  return date;
-}
-
+/**
+ * **The row itself: the wave, by the day it lands.**
+ *
+ * TMDB's own order (most notable first) is kept *within* a day — `sort` is stable and the metas do
+ * not carry a popularity of their own, so a day's titles keep the order they were read in — and
+ * `skip` walks the same wave when a reader scrolls, so page two continues the month rather than
+ * repeating the first window.
+ */
 async function arrivingMetas(media, skip, window, language, adult = false) {
-  const pool = stripAdult(queuedTitles(media), adult);
-  if (!pool.length) return [];
+  const pool = stripAdult(await arrivingPool(media, language), adult);
   const today = new Date().toISOString().slice(0, 10);
-  // **The dates are looked up for the whole queue, not just its first window**: the ones still ahead
-  // are the front of the row however deep they were filed in your list.
-  const dated = await mapLimit(pool, 12, async (m) => ({ m, date: await dateOf(m, media, language) }));
-  const ahead = dated
-    .filter((d) => d.date > today)
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .map((d) => ({ ...d.m, releaseDate: d.date }));
-  const rest = dated.filter((d) => !(d.date > today)).map((d) => d.m);
-  return [...ahead, ...rest].slice(skip, skip + window);
+  return pool
+    .filter((m) => String(m.releaseDate || "") >= today)
+    .sort((a, b) => String(a.releaseDate || "").localeCompare(String(b.releaseDate || "")))
+    .slice(skip, skip + window);
 }
 
 export async function catalogMetas(media, def, skip, opts = {}) {

@@ -1750,9 +1750,28 @@ function shortDay(iso) {
   return `${d.getUTCDate()} ${MONTH_SHORT[d.getUTCMonth()]}`;
 }
 
+/**
+ * **The day itself, in words when it is near — `today`, `tomorrow`, else nothing.**
+ *
+ * The Updates card's two rows are a schedule the way a subscription's own "coming soon" list is:
+ * day by day, and the nearest days are the whole point of reading it, so *"Arrives today"* is worth
+ * more than *"Arrives 15 Oct"* — a date the reader already knows. Everything further out keeps the
+ * short date. It is a word and not a countdown, and the sentences around it stay grammatical:
+ * `arrives today`, not `arrives on today` (`dayLabel` here, the tooltip on the title page).
+ */
+function dayWord(iso) {
+  const at = Date.parse(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(at)) return "";
+  const days = Math.round((at - Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)) / 864e5);
+  return days === 0 ? "today" : days === 1 ? "tomorrow" : "";
+}
+
+/** `today` / `tomorrow` / **16 Oct** — what a card or a button has room for. */
+const dayLabel = (iso) => dayWord(iso) || shortDay(iso);
+
 function lineupTag(m) {
-  const leaving = m?.leavingOn ? shortDay(m.leavingOn) : "";
-  const arriving = m?.arrivingOn ? shortDay(m.arrivingOn) : "";
+  const leaving = m?.leavingOn ? dayLabel(m.leavingOn) : "";
+  const arriving = m?.arrivingOn ? dayLabel(m.arrivingOn) : "";
   if (leaving) return el("span", { class: "lineup-tag leaving", text: `Leaves ${leaving}` });
   if (arriving) return el("span", { class: "lineup-tag arriving", text: `Arrives ${arriving}` });
   return null;
@@ -2076,9 +2095,11 @@ function noteForYouServed(id, metas) {
  * happens to hold nothing", which is a different thing.
  */
 function emptyRowText(catalog) {
-  // **The Arriving row is your own queue** — what you planned and filed — so it keeps quiet for the
-  // same reason the watchlist and the Library do (see the note above).
-  if (catalog.kind === "watchlist" || catalog.kind === "custom" || catalog.kind === "arriving") return "";
+  // **The Arriving row speaks again.** It held your own queue for a round, and a personal list that
+  // is short says nothing (the watchlist and the Library still do) — but the row is now the app's own
+  // arrival wave: it is read from TMDB over the next month, and an empty answer from *there* is a
+  // read that failed rather than a list you have not filled, which the line below says exactly.
+  if (catalog.kind === "watchlist" || catalog.kind === "custom") return "";
   return "No titles returned for this catalog.";
 }
 
@@ -6917,7 +6938,7 @@ async function renderTitle(type, id) {
             class: "btn primary play-btn focusable" + (notOutYet ? " pending" : ""),
             type: "button",
             id: "title-play",
-            text: notOutYet ? `Arriving ${shortDay(landDate)}` : "▶  Play",
+            text: notOutYet ? `Arriving ${dayLabel(landDate)}` : "▶  Play",
             title: notOutYet
               ? `${meta.name || "This title"} lands on ${landDate} — there is nothing to play yet`
               : "Choose which add-on plays this title",
@@ -6929,7 +6950,7 @@ async function renderTitle(type, id) {
             // where the player's own request is only a second try.
             onclick: () => {
               if (notOutYet) {
-                notify("Not out yet", `${meta.name || "This title"} arrives on ${shortDay(landDate)}. It becomes playable the day it lands.`);
+                notify("Not out yet", `${meta.name || "This title"} arrives ${dayWord(landDate) ? dayWord(landDate) : `on ${shortDay(landDate)}`}. It becomes playable the day it lands.`);
                 return;
               }
               if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { /* the overlay still fills the window */ });

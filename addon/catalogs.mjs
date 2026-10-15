@@ -225,7 +225,7 @@ async function specsFor(entry, media, opts = {}) {
     // naming `primary_release_date` or `first_air_date` itself, and the same row would then
     // be two different rows for a film and a show.
     case "curated": {
-      const { within, before, olderThan, future, between, ...rest } = entry.params || {};
+      const { within, before, olderThan, future, after, between, ...rest } = entry.params || {};
       const params = { ...rest };
       // **A stay that is not one number for every title.** These three may be written **per media
       // type** (`{ movie: 180, series: 365 }`) as well as one number for both, and a plain number
@@ -236,6 +236,7 @@ async function specsFor(entry, media, opts = {}) {
       const withinDays = days(within);
       const olderDays = days(olderThan);
       const futureDays = days(future);
+      const afterDays = days(after);
       // **A window with two ends, given as two days.** `within`, `olderThan`, `before` and
       // `future` each measure from today; a row whose name is a *season* is a stretch of the
       // calendar that is neither — "Summer" is three months, and it started before today or it
@@ -255,10 +256,15 @@ async function specsFor(entry, media, opts = {}) {
       if (params.sort_by === "date.asc" || params.sort_by === "date.desc") {
         params.sort_by = `${dateField(media)}.${params.sort_by.split(".")[1]}`;
       }
-      if (Number.isFinite(futureDays)) {
+      // **`future: N` is the window from today to N days out — and `after: M` pushes its near end
+      // out to M days.** The two are one window and are meant to be read together: the Upcoming
+      // card starts on the day the Updates card's Arriving Soon wave ends (`after: SOON_DAYS` in
+      // `scripts/collections.mjs`), so the same title is never on both cards. Without `after` the
+      // window still begins today, so every other row is untouched.
+      if (Number.isFinite(futureDays) || Number.isFinite(afterDays)) {
         const now = Date.now();
-        params[`${dateField(media)}.gte`] = iso(new Date(now));
-        params[`${dateField(media)}.lte`] = iso(new Date(now + futureDays * 864e5));
+        if (Number.isFinite(afterDays)) params[`${dateField(media)}.gte`] = iso(new Date(now + afterDays * 864e5));
+        if (Number.isFinite(futureDays)) params[`${dateField(media)}.lte`] = iso(new Date(now + futureDays * 864e5));
       }
       return [page(params, entry.take)];
     }

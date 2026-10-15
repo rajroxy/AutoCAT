@@ -22,9 +22,11 @@
  *                 airing_today | airing_this_week | on_the_air
  *   discover      value: latest | new
  *   curated       params: TMDB discover filters, written as they are sent —
- *                 plus `within` (days), `before` (year), `olderThan` (days) and
- *                 `between` (two ISO days: from and to), which are turned into
- *                 the release-date window for the row's own media type
+ *                 plus `within` (days), `before` (year), `olderThan` (days),
+ *                 `between` (two ISO days: from and to), and the pair that makes
+ *                 one window: `after` (days: starts it N days out) and `future`
+ *                 (days: ends it N days out) — all turned into the release-date
+ *                 window for the row's own media type
  *   genre         genre, sort?: "popular"
  *   decade        decade (e.g. 1950), sort?: "popular"
  *   genre-decade  genre, from
@@ -1435,13 +1437,18 @@ const TOP10 = 10;
 // `SOON_DAYS` left, which is why that row is **the last month of the stay and not the whole
 // back catalogue**. `addon/lineup.mjs` writes the same dates down against each title
 // (`LEAVING_DAYS` there is `CATALOG_DAYS` here).
-const CATALOG_DAYS = 180;
+export const CATALOG_DAYS = 180;
 // **A series stays twice as long as a film.** A film arrives complete and a series arrives an
 // episode at a time over months, so one number for both left the Leaving row half full of
 // half-watched shows. The stay is per media type now — and the *same* pair of numbers is in
 // `addon/lineup.mjs`, which is where the date on a title's card is written from.
-const SERIES_CATALOG_DAYS = 365;
-const SOON_DAYS = 30;
+export const SERIES_CATALOG_DAYS = 365;
+// **The one number the whole pair reads.** It is the *near* end of the Upcoming card's window, the
+// month the Arriving Soon row is a wave of, and the length of the Leaving Soon row — so it is
+// exported and imported (`addon/index.mjs`, `addon/lineup.mjs`) rather than written down twice,
+// and `.patch/r57-arriving-check.mjs` reads both rows off the running server and fails if the two
+// ends ever drift apart.
+export const SOON_DAYS = 30;
 // **Fifty either way.** Both rows of the Updates card are fifty titles: a warning you can read
 // and a promise you can read, rather than a shelf as long as its window happened to be.
 const UPDATES_TAKE = 50;
@@ -1452,15 +1459,25 @@ const TOP25 = 25;
 const both = (list) => ({ movie: list, show: list.map((e) => ({ ...e })) });
 /**
  * The Upcoming card's rows for one row type: the worldwide list first, then one per
- * country the Countries card publishes, each in arrival order from today forward.
+ * country the Countries card publishes, each in arrival order.
+ *
+ * **It starts the day after the Updates card's wave ends, and the two share no title.** `after` is the
+ * near end of the window and `future` the far one; the near end is **`SOON_DAYS + 1`**, because the
+ * wave's own window *includes* its last day (`future: SOON_DAYS` there ends on day 30, `after: 30`
+ * would begin on it again) — measured, that off-by-one put three films and five series on both cards,
+ * which is exactly the complaint this is here to answer: the owner's first word about the row was that
+ * it *was* this card's own first page (*"the arriving soon in update card should not connected to real
+ * world upcoming releases which is already in upcoming card"*). Game Pass draws the same line between
+ * its own two surfaces: the subscription's "Coming to Game Pass" schedule is what is landing now, the
+ * store's "coming soon" is everything announced past it.
  *
  * The first row is what the card's own **spotlight** frame reads (see `startSpotlight`),
  * so it is the worldwide one — "what is next", not "what is next in Japan".
  */
 const UPCOMING_ROWS = (type) => [
-  curated("Upcoming", { sort_by: "date.asc", future: 180 }),
+  curated("Upcoming", { sort_by: "date.asc", after: SOON_DAYS + 1, future: 180 }),
   ...countriesFor(type).map(([name, code]) =>
-    curated(`Upcoming in ${name}`, { with_origin_country: code, sort_by: "date.asc", future: 120 })),
+    curated(`Upcoming in ${name}`, { with_origin_country: code, sort_by: "date.asc", after: SOON_DAYS + 1, future: 120 })),
 ];
 const forBoth = (build) => ({ movie: build(MOVIE_GENRES), show: build(SHOW_GENRES) });
 
@@ -1513,9 +1530,10 @@ const decadeGenres = (type, list) =>
  *
  * **Read from today every time the card is reopened**, so next March the card is that year's
  * four seasons without anything being edited, and the rows are named for the season alone —
- * *Summer* is summer, not summer of one year. Every row is the **series side only** — a film
- * has no season, so this card publishes nothing at all for movies (see the card's own note) —
- * and none of them is capped, because a season is a window rather than a fixed list.
+ * *Summer* is summer, not summer of one year. **Both sides carry the five rows** — a film has no
+ * season, so the card was shows-only for a round, until the owner asked for it on the film tab too
+ * (*"movie tab me seasons card do aur contents bhi"*), and the row reads whichever date field the
+ * media type has. None of them is capped, because a season is a window rather than a fixed list.
  */
 // **Five, because the year has five here.** Spring, Summer, **Rainy** (the monsoon) and
 // **Fall**, then Winter — the owner's *"season me rainy aur fall bhi to aata hai"*: four rows
@@ -1809,8 +1827,9 @@ const buildCollections = (code = "") => {
     // built on, applied to what is coming rather than to what exists. The list is
     // `countriesFor`, the one function the Countries card, the search chips and the
     // continent rows all read, so the two cards can never disagree about which countries
-    // there are. `date.asc` + `future` is the row's own shorthand: nearest arrival first,
-    // from today to four months out, on the right date field for each row type.
+    // there are. `date.asc` + `after` + `future` is the row's own shorthand: nearest arrival
+    // first, from `SOON_DAYS` out to four months, on the right date field for each row type —
+    // the near month belongs to the Updates card (see `UPCOMING_ROWS`).
     catalogs: {
       movie: UPCOMING_ROWS("movie"),
       show: UPCOMING_ROWS("show"),
@@ -2042,24 +2061,19 @@ const buildCollections = (code = "") => {
         within: { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS },
         olderThan: { movie: CATALOG_DAYS - SOON_DAYS, series: SERIES_CATALOG_DAYS - SOON_DAYS },
       }, UPDATES_TAKE),
-      // **What is arriving is not the calendar — it is yours.**
-      //
-      // Read in release order over the next month, this row was the Upcoming card's own first page:
-      // the same titles, nearest first, twice on one home screen. Read in popularity order over the
-      // coming quarter it was still the same pool — the owner has said it twice now (*"the arriving
-      // soon in update card should not connected to real world upcoming releases which is already in
-      // upcoming card"*), and the numbers agree: measured on the day this was written, 19 of the
-      // row's 50 titles were also on the Upcoming card, and for **shows** the overlap is total —
-      // every announced series within the window is on that card, so subtracting it left the row
-      // with nothing at all.
-      //
-      // **And it is not a window over the world's releases — at any distance.** That was the row's
-      // first shape (the Upcoming card's own list read twice) and it was tried a second time as
-      // *"what is announced past the calendar's six months"*; both were refused, the second in as
-      // many words. So the row is **your own queue** now: the titles you planned and the ones you
-      // filed in your Library rows, read for their own release days — the ones still ahead first,
-      // nearest first, then the rest in your own order. A title on it arrives in the app on the day
-      // it lands, and its date is on the poster (see `arrivingMetas` in `addon/index.mjs`).
+      // **What is arriving is the app's own arrival wave — Game Pass's "Coming to Game Pass",
+      // read for this app.** Not a window over the world's releases *as a calendar*: the near
+      // month, ordered by the day each title lands, most notable first within a day, each poster
+      // wearing its own date. Read in date order over a month this row was the Upcoming card's own
+      // first page — the same titles, nearest first, twice on one home screen — and read in
+      // popularity order over a quarter it was the same pool again (*"again you done same world
+      // upcoming release shit in arriving row shit"*). The owner's ask is what settles it: *"dont
+      // you know how xbox game pass works, same like that."* Game Pass publishes no release
+      // calendar, it publishes a **service schedule** — day-level dates for what is joining the
+      // library, waves twice a month, the day-one ones marked, and *"leaving soon"* as the other
+      // end of the same schedule. So the pair is this card's two rows (see `arrivingMetas` in
+      // `addon/index.mjs`), the window is `SOON_DAYS` at both ends, and the Upcoming card starts
+      // on the day it ends — no poster on both cards.
       arriving("Arriving Soon", UPDATES_TAKE),
     ]),
   },
