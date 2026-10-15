@@ -380,7 +380,6 @@ body {
   cursor: pointer;
 }
 
-.tab[aria-selected="true"] { background: rgba(var(--fill-rgb), 0.16); color: #fff; }
 
 /* Inside a card the bar's label is **the name of the screen**, not one tab of
    several: it reads a touch larger and heavier than Home does, and it is not a
@@ -3544,7 +3543,15 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   background: rgba(255, 255, 255, 0.09);
   color: var(--text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
 }
-.player-icon:hover, .player-icon:focus-visible { background: rgba(var(--hover-rgb), 0.22); }
+/* **Every other control takes the accent when you point at it** — the owner's "sound button pe
+   toh accent hi nahi aaya hover pe": one wash of the app's own colour, the same strength the rest
+   of the app's controls use, instead of a neutral grey that read as nothing happening. */
+.player-icon:hover, .player-icon:focus-visible {
+  background: rgba(var(--fill-rgb), 0.30);
+  color: #fff;
+  box-shadow: none;
+}
+.player-icon.muted:hover, .player-icon.muted:focus-visible { color: #fff; }
 /* **Play is the app's own control, like the Home tab is.** It wore the same neutral plate as the
    rest of the strip, so the one button the bar exists for looked like its neighbours — it is the
    accent now, with ink on it, exactly like the chosen pill and the Home tab. And like every other
@@ -3557,7 +3564,10 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 .player-icon.play:hover, .player-icon.play:focus-visible {
   background: var(--fill);
   color: #14110a;
-  box-shadow: var(--ring-shadow);
+  /* **A ring you can actually see.** An accent ring on an accent button is invisible — that is
+     the "play button pe ring pata bhi nahi chal raha hai" report — so the ring on this one is
+     the ink colour lifted, which reads on the fill on every palette. */
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55);
 }
 /* A drawn mark, on the same stroked grid as the top bar's icons. */
 /* **The percentage, faint in the corner.** A reading rather than a control: the app's own
@@ -3639,7 +3649,18 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   font-weight: 700;
   cursor: pointer;
 }
-.player-vol-btn:hover, .player-vol-value:hover { background: rgba(255, 255, 255, 0.14); }
+/* **The sound box takes the accent, and so does the box itself.** The three marks in it
+   answered the cursor with a neutral grey wash — the one control in the bar that did nothing
+   the others do, which is the owner's *"sound button pe toh accent hi nahi aaya hover pe"*. It
+   is the same wash every other control in the bar takes (`rgba(fill, 0.30)` with white ink),
+   and the **box** lights as well, so pointing anywhere at the volume reads as one control
+   answering rather than as a bare plate with a lit mark inside it. A mark at its own end
+   (the `−` at zero, the `+` at full) stays dim: it is disabled, and a disabled control that
+   lights up under the cursor is a lie about what it will do. */
+.player-vol-btn:hover, .player-vol-value:hover,
+.player-vol:is(:hover, :focus-within) { background: rgba(var(--fill-rgb), 0.30); }
+.player-vol-btn:hover, .player-vol-value:hover { color: #fff; }
+.player-vol-btn[disabled]:hover { background: transparent; color: var(--text); }
 .player-vol-btn[disabled] { opacity: 0.35; cursor: default; }
 /* The figure wears the same chip as the two marks; only its colour and its figures are
    its own. */
@@ -3791,7 +3812,10 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.player-loading-title { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+/* **The name is a name, not a headline.** At 18px on the black splash it read as a title card
+   for a screen that is only saying it is looking ("finding sources ki jagah itna bada text"); it
+   sits at the app's body size, and the line under it stays short. */
+.player-loading-title { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
 
 /* The rate dropdown is one of the app's own fields, tinted with the accent. */
 select.player-rate {
@@ -3929,6 +3953,22 @@ select.player-rate option { background: #14161c; color: var(--text); }
    longest string in it. */
 .stream-name, .stream-detail, .drawer-addon, .player-note { overflow-wrap: anywhere; }
 .loading-player { justify-content: center; align-items: center; }
+
+/* **The way out of the finding-sources panel wears a plate.** Its button was `.btn.subtle` —
+   a 5% wash under a hairline, which on the black splash is very nearly nothing: the owner's
+   *"wo button ke background me box bhi nahi banaya up down button ki tarah"*. It is the same
+   control the rest of the app's small plates are (the 9% wash the player's own chips wear),
+   so the one button on that screen reads as a button. */
+.loading-player .btn,
+.loading-player .btn.subtle {
+  background: rgba(255, 255, 255, 0.09);
+  border: 0;
+  color: var(--text);
+}
+.loading-player .btn:hover,
+.loading-player .btn:focus-visible,
+.loading-player .btn.subtle:hover,
+.loading-player .btn.subtle:focus-visible { background: rgba(var(--fill-rgb), 0.30); color: #fff; }
 
 /* ------------------------------------------------------------------ selects */
 
@@ -6506,3 +6546,42 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
 .icon-box.card-for-you:is(:hover, :focus-visible, :has(:focus-visible)),
 .icon-box.card-spotlight:is(:hover, :focus-visible, :has(:focus-visible)),
 .icon-box.card-wide:is(:hover, :focus-visible, :has(:focus-visible)) { box-shadow: none; }
+
+
+/* ============================================================================
+   **Home is a label, not a pill.**
+   ----------------------------------------------------------------------------
+   Every other screen names itself after the back arrow — plain type in the top
+   bar, no plate — and Home was the one that wore a filled accent pill and, under
+   the cursor, the app's ring: the owner's *"home pe ring hata do and accent bhi,
+   same like other label after back arrow hai na waise hi yaha hme label bhi
+   rahega"*. It keeps its press (Home still refreshes) and keeps its name; the
+   costume goes.
+
+   It sits at the **end** of the sheet on purpose: the sheet's own
+   `.tab[aria-selected="true"]:is(:hover, :focus-visible, …)` block has the same
+   specificity as this one and fills a chosen tab on hover, and a rule of equal
+   weight only wins when it comes later — which is why the first attempt at this
+   (higher up the file) measured accent-on-hover in the running app.
+   ============================================================================ */
+/* **The `html` in front and the `!important` on the ink are load-bearing.** The sheet's
+   own chosen-tab rule marks its text with `!important` (it is written to sit on the accent
+   fill), so a plain override left the Home label in that dark ink **on a transparent
+   background** — a name that is not there, which is the other half of the report. Two
+   declarations of equal weight are decided by order, and an important one is not, so these
+   are stated with the ancestor for weight and the ink as important. */
+html .tab.tab-home,
+html .tab.tab-home[aria-selected="true"],
+html .tab.tab-home:hover,
+html .tab.tab-home:focus-visible,
+html .tab.tab-home:focus,
+html .tab.tab-home:is(:hover, :focus-visible, :has(:focus-visible)) {
+  background: transparent !important;
+  color: var(--text) !important;
+  font-weight: 700;
+  box-shadow: none !important;
+  outline: none;
+  filter: none;
+  padding: 9px 4px;
+}
+html .tab.tab-home { font-size: 16px; letter-spacing: -0.01em; }

@@ -163,6 +163,25 @@ const writeAccounts = (list) => {
 const publicAccount = (a) => ({ id: a.id, name: a.name, email: a.email || "", picture: a.picture || "", provider: "local" });
 
 /** Every local account filed under one profile. */
+/**
+ * **Every profile starts with one account, and it is named.**
+ *
+ * The owner's ask: *"profile settings me pehla account default hoga aur pehle se bana milega —
+ * pehle ka naam hoga male profile wale me adam and female profile wale account settings me eve"*.
+ * A fresh install used to open Settings → Profile on an empty account list with a Name field in
+ * it, so there was nothing to be signed in *as* until you had typed one — and the app is built
+ * around a signed-in account (your pins, your Library, the pairing list). Each profile is given
+ * its account on first sight: **Adam** for the first, **Eve** for the second, on this machine,
+ * with no password and nothing sent anywhere. It is the same account the Name field would have
+ * made, made for you.
+ */
+export function ensureDefaultAccount(profile = "") {
+  const who = cleanProfile(profile);
+  if (readAccounts().some((a) => (a.profile || "you") === who)) return false;
+  signInLocal({ name: who === "female" ? "Eve" : "Adam", who: who === "you" ? "" : who });
+  return true;
+}
+
 export const localAccounts = (profile = "") => {
   const who = cleanScope(profile) || "you";
   return readAccounts().filter((a) => (a.profile || "you") === who).map(publicAccount);

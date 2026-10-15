@@ -1512,9 +1512,13 @@ const decadeGenres = (type, list) =>
  * has no season, so this card publishes nothing at all for movies (see the card's own note) —
  * and none of them is capped, because a season is a window rather than a fixed list.
  */
-const SEASON_NAMES = ["Spring", "Summer", "Autumn", "Winter"];
-// The month each season starts in, in the same order: March, June, September, December.
-const SEASON_FIRST_MONTH = [3, 6, 9, 12];
+// **Five, because the year has five here.** Spring, Summer, **Rainy** (the monsoon) and
+// **Fall**, then Winter — the owner's *"season me rainy aur fall bhi to aata hai"*: four rows
+// named after the West's year left the rains out entirely. The windows touch rather than
+// overlap: summer keeps June–August, the rain runs July–September, Fall is September–November.
+const SEASON_NAMES = ["Spring", "Summer", "Rainy", "Fall", "Winter"];
+// The month each season starts in, in the same order: March, June, July, September, December.
+const SEASON_FIRST_MONTH = [3, 6, 7, 9, 12];
 
 /** `YYYY-MM-DD` for the first of a numbered month. */
 const firstOfMonth = (year, month) => `${year}-${String(month).padStart(2, "0")}-01`;
@@ -1644,12 +1648,6 @@ const CARD_ORDER = [
   "discover-top-10",
   "discover",
   "for-you",
-  // **Updates is where the question is.** What is leaving and what is arriving sat with the
-  // Specialist shelf and the Upcoming card at the very bottom of Home, and the owner's report was
-  // *"where is updates card and leaving and arriving rows"* — a card nobody can find is a card
-  // that is not there. It follows For You, on the first screen, with Upcoming still last as
-  // asked; the OTT and specialist shelves carry on below it in their own order.
-  "updates",
   // **Seasons sits with the browsing cards.** It is a date card like Discover — what is
   // arriving, what is back — so it follows the two that ask the same question about the whole
   // catalogue, and it is only drawn on the Shows tab (see the card's own note).
@@ -1691,6 +1689,11 @@ const CARD_ORDER = [
   "custom",
   "specialist-top-10",
   "specialist",
+  // **Updates is the last card before Upcoming**, asked back by name: *"update wale card pe do
+  // poster hoga and ye last card hai upcoming card ke pehle"*. It closed the OTT block before this
+  // round and it closes it again — what is leaving and what is arriving is the last thing on the
+  // page before the card of what is next.
+  "updates",
   // **Upcoming is the last card on the page**, as asked, and it is drawn as a card of four
   // posters now rather than as one spotlighted still (see its own note).
   "upcoming",

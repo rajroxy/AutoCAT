@@ -87,7 +87,7 @@ import { handleProxy } from "./proxy.mjs";
 import { guardState } from "./guards.mjs";
 import { browserUnavailableReason } from "../scraper/tier3.js";
 import { handleTorrentStream, prepareTorrent, torrentStatus, torrentState } from "./torrent.mjs";
-import { authConfigured, authProviders, cleanProfile, clearCookie, finish, forgetLocal, localAccounts, localAccountFor, readSession, redirectUri, sessionCookie, signInLocal, signOut, startUrl, takeAdoption } from "./auth.mjs";
+import { authConfigured, authProviders, cleanProfile, clearCookie, finish, forgetLocal, localAccounts, localAccountFor, readSession, redirectUri, sessionCookie, signInLocal, signOut, startUrl, takeAdoption, ensureDefaultAccount } from "./auth.mjs";
 import { publicSites, addSite, updateSite, removeSite, detectSearchPattern, patternFromSample, addRepository, removeRepository, searchJob, startSearchOnPlay, listSites } from "./custom-sites.mjs";
 import { getPrefs, updatePrefs } from "./user-prefs.mjs";
 
@@ -1652,6 +1652,10 @@ const accountPayload = (req, origin) => {
   // so the names it lists are that profile's own accounts — the machine's single account
   // used to answer for both profiles, which is the bug this payload fixes.
   const profile = profileOf(req);
+  // **And it has its account before it is asked about one** (see `ensureDefaultAccount`):
+  // Adam on the first profile, Eve on the second, so Settings → Profile opens on an account
+  // rather than on an empty field.
+  ensureDefaultAccount(profile);
   return {
     profile,
     configured: authConfigured(),

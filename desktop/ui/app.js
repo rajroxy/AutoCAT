@@ -3322,14 +3322,12 @@ function drawTiles(strip, art, count, layout) {
         strip.classList.add("short");
         strip.style.setProperty("--slots", String(count));
       }
-      // **The date rides on the picture.** A title that is leaving or arriving wears its own
-      // pill in the picture's top-left corner, the way the Upcoming card's tiles do — the tile
-      // used to be a bare `<img>`, so the one thing the Updates card is about was nowhere on it.
-      strip.replaceChildren(...picked.map((m) => {
-        const img = artImage(m.poster || m.background, m, { class: "tile-art", alt: "", loading: "lazy" });
-        const tag = lineupTag(m);
-        return tag ? el("div", { class: "content-tile tagged" }, img, tag) : img;
-      }));
+      // **No chip on a card's own wall.** The date is drawn on the **title's poster** inside the
+      // card — the poster you press on the Updates page — and not on the little picture standing
+      // for the card on Home: the owner's *"update card ke poster pe chip kyu diya wo to update
+      // card ke andar title ke poster pe hoga na"*. A wall of three posters wearing three date
+      // pills also read as a wall of warnings rather than as a shelf.
+      strip.replaceChildren(...picked.map((m) => artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" })));
     }
   }
   strip.classList.add("filled");
@@ -3503,8 +3501,13 @@ async function fillFrame(strip, job, cats, from) {
   if (cats.some((cat) => cat.kind === "watchlist")) {
     const pins = await watchlistArt(job.row);
     if (pins.length) {
-      contentDrawn.set(job.key, pins);
-      if (strip.isConnected) drawTiles(strip, pins, job.count, job.layout);
+      // **A wall of one is not a wall.** With a single pin the card drew a single poster and the
+      // owner read it as a card that had lost one ("why watchlist card pe ek poster kar diye do ki
+      // jaga") — so the slots your own pins leave empty are filled from the card's own rows
+      // (Watching, then Plan to Watch), which is still *your* list, only wider.
+      const art = pins.length < job.count ? [...pins, ...(await rowArt(cats, job.count - pins.length, pins))] : pins;
+      contentDrawn.set(job.key, art);
+      if (strip.isConnected) drawTiles(strip, art, job.count, job.layout);
       return;
     }
   }
@@ -3536,6 +3539,33 @@ async function fillFrame(strip, job, cats, from) {
  * row holds none, **every** pin is used instead: an empty frame is a worse answer
  * than a poster from the other row, and it is the one the card kept giving.
  */
+/**
+ * **Posters from a card's own rows, for the slots your pins do not fill.**
+ *
+ * Reads the first rows that answer, skipping anything already on the wall, and stops as soon as
+ * it has enough — so a Watchlist holding one title still draws the two-poster wall its card is
+ * shaped for, out of the rows that card publishes.
+ */
+async function rowArt(cats, need, have) {
+  const seen = new Set(have.map((m) => String(m?.id || "")).filter(Boolean));
+  const out = [];
+  for (const cat of cats.slice(0, CONTENT_ROW_TRIES)) {
+    try {
+      const metas = await fetchCatalog(cat, 0, Math.max(need * 2, 6));
+      for (const m of metas || []) {
+        const id = String(m?.id || "");
+        if (!m || !id || seen.has(id) || !(m.poster || m.background)) continue;
+        seen.add(id);
+        out.push(m);
+        if (out.length >= need) return out;
+      }
+    } catch {
+      /* the next row */
+    }
+  }
+  return out;
+}
+
 async function watchlistArt(row) {
   let payload;
   try {
@@ -3546,10 +3576,13 @@ async function watchlistArt(row) {
     return [];
   }
   const items = (payload?.items || []).filter((i) => i && (i.poster || i.background));
-  const forRow = items.filter((i) => (row === "movie" ? i.type === "movie" : i.type === "series"));
-  const use = forRow.length ? forRow : items;
+  // **Your list is not per media type.** The wall drew only the titles of the tab you were on,
+  // so a list holding one film and one series drew **one** poster — the owner's *"why watchlist
+  // card pe ek poster kar diye do ki jaga"*. The tab's own titles still lead (the Movies card is
+  // your films first) and the other row's pins follow, so the wall is as full as your list is.
+  const here = (i) => ((row === "movie" ? i.type === "movie" : i.type === "series") ? 0 : 1);
   const rank = (i) => (i.state === "watching" ? 0 : i.state === "planned" ? 1 : 2);
-  return [...use].sort((a, b) => rank(a) - rank(b));
+  return [...items].sort((a, b) => here(a) - here(b) || rank(a) - rank(b));
 }
 
 /**
@@ -4276,6 +4309,11 @@ function iconBox(c, row) {
   // as "what you are watching"), and Upcoming holds its **two** poster cards. The banner
   // is not one of these: it draws a **single** tile across the whole frame.
   const mine = r.catalogs.some((cat) => cat.kind === "watchlist" || cat.kind === "custom");
+  // **Two on your own shelves' neighbours, three on the walls that are walls.** The owner's
+  // sizes, said out loud: the Watchlist and the **Updates** card hold **two** posters, the
+  // **Library** (the Custom card) holds **three**, and every other card holds three — a card of
+  // one poster reads as a card with a hole in it, which is what the Watchlist card looked like.
+  const twoTiles = c.key === "watchlist" || c.key === "updates";
   // **The spotlight card** (Upcoming). Its frame holds **one** still, and that still
   // changes every ten seconds the way the hero banner's does — so a card that is a
   // glance at what is coming is a window rather than a shelf of posters. It has
@@ -4286,7 +4324,7 @@ function iconBox(c, row) {
   // long" asks for — the row of what is next, at the width of the row above it (see `card-wide`
   // in the sheet and the card's own note in `scripts/collections.mjs`).
   const wide = Boolean(c.wide);
-  const tiles = wide ? 4 : spotlight || mine ? 2 : 3;
+  const tiles = wide ? 4 : spotlight || twoTiles ? 2 : 3;
   // The frame is filled by `startSpotlight`, not by the poster wall: the Upcoming
   // card is **two poster cards**, each carrying its own title and release date.
   const strip = contentStrip(c, row, tiles);
@@ -11754,7 +11792,7 @@ function renderTabs() {
   } else if (parsed.view === "home") {
     children.push(
       el("button", {
-        class: "tab focusable",
+        class: "tab tab-home focusable",
         type: "button",
         role: "tab",
         "aria-selected": "true",
@@ -14595,6 +14633,8 @@ async function openPlayer(url, title, opts = {}) {
   const gearPanel = el("aside", { class: "player-settings-menu", hidden: true });
 
   const trackLabel = (t, i) => `${t.name || t.label || t.lang || t.language || `Track ${i + 1}`}${t.forced ? " (forced)" : ""}`;
+  /** Said once, so the audio and the subtitle sections agree about an empty stream. */
+  const this_stream_has_no_subs = "This stream carries no subtitles.";
 
   /**
    * **The subtitle services: the subtitles this stream does not carry.**
@@ -14925,25 +14965,7 @@ async function openPlayer(url, title, opts = {}) {
       await attach(x);
       if (!drawer.hidden) drawSources(shown, currentSource);
     };
-    // One row per provider, the stream that provider serves that fits the ceiling
-    // best — pressing it switches to that one.
-    const byProvider = new Map();
-    for (const x of mergeable) {
-      const key = providerOf(x);
-      const held = byProvider.get(key);
-      if (!held || sizeOf(x) > sizeOf(held)) byProvider.set(key, x);
-    }
     const here = mergeable.find((x) => (x.torrent ? x.magnet : x.url) === currentSource);
-    const providerRows = [...byProvider.entries()].map(([name, x]) => {
-      const active = (x.torrent ? x.magnet : x.url) === currentSource;
-      const count = mergeable.filter((y) => providerOf(y) === name).length;
-      return el("button", {
-        class: `stream focusable${active ? " active" : ""}`,
-        type: "button",
-        text: `${name}${count > 1 ? ` · ${count}` : ""}`,
-        onclick: () => pick(x),
-      });
-    });
     // One row per height the list actually offers, tallest first, plus Auto.
     const heights = [...new Set(mergeable.map(sizeOf).filter(Boolean))].sort((a, b) => b - a);
     const ceiling = Number(state.prefs?.quality || 0);
@@ -14965,22 +14987,49 @@ async function openPlayer(url, title, opts = {}) {
       })),
     ];
 
+    /**
+     * **The languages these sources carry.** Stremio and Nuvio list the audio and subtitle
+     * languages of the streams on offer; this is the same reading, taken from what the add-ons
+     * themselves print (`"Hindi Dubbed"`, `"English + Tamil"`, `"ESubs"`) — the words a
+     * provider puts in the title are the only track list a plain HTTP source has. Pressing one
+     * plays the best stream that carries it, which is what pressing a language does in Stremio.
+     */
+    const LANGS = [
+      ["hindi", "Hindi"], ["english", "English"], ["tamil", "Tamil"], ["telugu", "Telugu"],
+      ["malayalam", "Malayalam"], ["kannada", "Kannada"], ["bengali", "Bengali"], ["marathi", "Marathi"],
+      ["punjabi", "Punjabi"], ["urdu", "Urdu"], ["spanish", "Spanish"], ["french", "French"],
+      ["german", "German"], ["italian", "Italian"], ["portuguese", "Portuguese"], ["russian", "Russian"],
+      ["arabic", "Arabic"], ["japanese", "Japanese"], ["korean", "Korean"], ["chinese", "Chinese"],
+      ["dual audio", "Dual audio"],
+    ];
+    const sourceText = (x) => `${x.name || ""} ${x.title || ""} ${x.description || ""} ${x.quality || ""}`.toLowerCase();
+    const carries = (key) => mergeable.filter((x) => sourceText(x).includes(key));
+    const langRows = LANGS.filter(([key]) => carries(key).length)
+      .map(([key, name]) => el("button", {
+        class: "stream focusable",
+        type: "button",
+        text: `${name} · ${carries(key).length}`,
+        onclick: () => pick(carries(key)[0]),
+      }));
+    // A subtitle language is the same reading by a different name: the sources that say "subs".
+    const subKeys = LANGS.filter(([key]) => key !== "dual audio" && mergeable.some((x) => /sub|srt/i.test(sourceText(x)) && sourceText(x).includes(key)))
+      .map(([key, name]) => el("button", {
+        class: "stream focusable",
+        type: "button",
+        text: name,
+        onclick: () => pick(mergeable.find((x) => /sub|srt/i.test(sourceText(x)) && sourceText(x).includes(key))),
+      }));
+
     // **The children are filtered.** `replaceChildren` prints anything that is not a
     // node, so a `null` section would come out as the word "null" in the panel.
     gearPanel.replaceChildren(...[
       // The panel's own name — the gear is labelled **Options**.
       el("p", { class: "player-options-head", text: "Options" }),
-      // **The providers, where Stremio and Nuvio put them.** This list was taken out once on
-      // the argument that it repeated the Sources drawer; the owner's answer is that the Options
-      // popup is where he goes to choose *where the picture comes from* — `"player option popup
-      // me provider stream ka option nahi aata hai jaise stremio ya nuvio me aata hai"`. One row
-      // per **provider** (the add-on or scraper that answered), the best stream it offers at the
-      // chosen ceiling, the count beside it, and a press switches the picture to it — the stream
-      // list itself stays one press away in Sources.
-      providerRows.length
-        ? el("h3", { class: "row-head", text: "Providers" })
-        : null,
-      providerRows.length ? el("div", { class: "stream-list" }, ...providerRows) : null,
+      // **No Providers list — this popup is the stream's own options.** It was asked for once and
+      // put back, and the owner's answer settled it: *"provider kyu diya hai option popup me
+      // baddimag, kabhi dekha nahi hai stremio ya nuvio ka jo audio and subtitle option dete hai"*.
+      // Stremio and Nuvio show **quality, audio and subtitle** here — what the sources on offer
+      // carry — not a list of who answered. The streams themselves stay one press away in Sources.
       heights.length
         ? el("h3", { class: "row-head", text: "Resolution" })
         : null,
@@ -14989,12 +15038,18 @@ async function openPlayer(url, title, opts = {}) {
         ? el("p", { class: "option-desc", text: `Playing from ${label(here)}${sizeOf(here) ? ` at ${sizeOf(here)}p` : ""}.` })
         : null,
       el("h3", { class: "row-head", text: "Subtitles" }),
+      subKeys.length ? el("div", { class: "stream-list" }, ...subKeys) : null,
       el("div", { class: "stream-list" },
-        ...(subs.length ? subs : [el("p", { class: "empty", text: "This stream carries no subtitles." })]),
+        ...(subs.length ? subs : [el("p", { class: "empty", text: this_stream_has_no_subs })]),
       ),
+      // **One Audio section, the languages first.** The languages the sources name (what
+      // Stremio and Nuvio list) are the first rows, then the tracks this particular stream
+      // carries — so the panel has the three sections a player's options are meant to have:
+      // **Resolution, Audio, Subtitles**, and no second heading for the same thing.
       el("h3", { class: "row-head", text: "Audio" }),
       el("div", { class: "stream-list" },
-        ...(audios.length ? audios : [el("p", { class: "empty", text: audioNote })]),
+        ...langRows,
+        ...(audios.length ? audios : (langRows.length ? [] : [el("p", { class: "empty", text: audioNote })])),
       ),
       // **No Subtitle services list here.** The option panel is the picture and its own
       // tracks; a service search for the title you are watching is a Settings → Subtitles
@@ -15396,7 +15451,7 @@ async function openSources(meta) {
     el("div", { class: "player-empty-body" },
       el("span", { class: "player-spinner", "aria-hidden": "true" }),
       el("p", { class: "player-loading-title", text: meta.name || "Finding sources" }),
-      el("p", { class: "player-note", text: "Asking every add-on and scraper — a title with many sources can take a minute." }),
+      el("p", { class: "player-note", text: "Finding sources…" }),
       el("button", { class: "btn subtle focusable", type: "button", text: "Close", onclick: () => overlay.remove() }),
     ),
   );
