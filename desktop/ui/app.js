@@ -3388,14 +3388,16 @@ function drawTiles(strip, art, count, layout) {
  * your titles" when they are nobody's. An empty card now shows the shape of what
  * would be there and says nothing else.
  */
-function drawEmptyTiles(strip) {
+function drawEmptyTiles(strip, count) {
   if (!strip.isConnected || strip.classList.contains("filled")) return;
-  // **A card with nothing to show draws no boxes.** A row that answered with nothing left
-  // three empty plates on the frame, which on a dark card is three dark rectangles — an empty
-  // catalog that looked like a broken one. The frame is the app's own flat panel (the strip
-  // stays `art-blank`), and the card's name is under it either way.
-  strip.replaceChildren();
-  strip.classList.add("filled");
+  // **A card keeps its shape even when it holds nothing.** The wall draws the number of slots it
+  // was given, empty ones included — the owner's *"jitna poster maine bola hai wo hoga hi, chahe
+  // bhale hi empty ho"* — so a Watchlist with nothing in it is still the two-poster wall it was
+  // designed as, in the app's own empty plate. A card that drew nothing at all read as a card
+  // that had lost its posters; the plates say "nothing here yet" without pretending to hold
+  // titles. The strip is *not* marked filled: the frame keeps its flat panel behind them.
+  const slots = Number(count) || 0;
+  strip.replaceChildren(...Array.from({ length: slots }, () => el("div", { class: "content-tile blank" })));
 }
 
 /**
@@ -3621,9 +3623,14 @@ async function watchlistArt(row) {
   // so a list holding one film and one series drew **one** poster — the owner's *"why watchlist
   // card pe ek poster kar diye do ki jaga"*. The tab's own titles still lead (the Movies card is
   // your films first) and the other row's pins follow, so the wall is as full as your list is.
-  const here = (i) => ((row === "movie" ? i.type === "movie" : i.type === "series") ? 0 : 1);
+  // **What you are watching leads the wall.** The card's first tile is the landscape
+  // "Continue watching" frame (see `drawTiles`), and it was showing whichever pin the *tab's*
+  // media type put first — a planned film ahead of the series you are in the middle of — so the
+  // frame carried a title nobody is watching. The watch state comes first, then the tab's own
+  // titles, so the Movies card still leads with your films when nothing is being watched.
   const rank = (i) => (i.state === "watching" ? 0 : i.state === "planned" ? 1 : 2);
-  return [...items].sort((a, b) => here(a) - here(b) || rank(a) - rank(b));
+  const here = (i) => ((row === "movie" ? i.type === "movie" : i.type === "series") ? 0 : 1);
+  return [...items].sort((a, b) => rank(a) - rank(b) || here(a) - here(b));
 }
 
 /**
