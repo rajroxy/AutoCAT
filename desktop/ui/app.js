@@ -3331,14 +3331,22 @@ function contentStrip(card, row, count, layout) {
 }
 
 /**
- * Fill the frames on the screen — **the ones in front of you, and the ones arriving**.
+ * Fill every frame on the screen.
  *
  * Runs once a screen has been drawn, so the frames exist and the pictures have
  * somewhere to land, and it draws from the per-launch cache first — so a redraw
  * (the banner's ten-second move, or coming back to Home) reuses one draw instead
  * of asking again. Three are in flight at a time, so opening Home is not twenty
- * catalog calls at once, and a frame **below the fold waits** until it is nearly in
- * view instead of being read with the rest (see the note on the queue below).
+ * catalog calls at once.
+ *
+ * **Every card, not only the ones in view — measured, and deliberately.** Reading a
+ * frame when it comes near the screen (the way a card's own rows do in `lazyStrip`)
+ * was tried and backed out: Home is about two screens tall at 1080p, so a margin wide
+ * enough to have the posters in place before a card arrives covers the whole page
+ * anyway — it saved **one** catalog read out of eighteen and left every card below
+ * the fold sitting as a flat plate until it was scrolled to, because a card with no
+ * titles yet draws no cover (`art-blank`, see `iconBox`). The whole launch is one
+ * read per card, which is the cost `CONTENT_ROW_TRIES` already bounds.
  */
 function hydrateContent() {
   for (const strip of document.querySelectorAll(".content-strip")) {
@@ -3363,32 +3371,7 @@ function hydrateContent() {
       drawEmptyTiles(strip, job.count);
       continue;
     }
-    // **A card nobody has scrolled to is not read.** Home is a page of twenty-odd cards, and
-    // every one of them used to ask for its titles the moment the screen was drawn — twenty-odd
-    // catalog reads for the four or five rows a person can actually see, and the same again the
-    // moment the pointer moved to Shows. A frame is read when it comes **near the screen** now
-    // (600px, the same margin a card's own rows use in `lazyStrip`), so a launch reads what is in
-    // front of you and the rest follows as you walk down the page.
-    //
-    // The frame keeps its shape while it waits: the strip is drawn empty (`.content-strip:empty`
-    // draws nothing at all, so the card shows its own cover art), and the posters land over it
-    // when the card arrives — the same two-step the cards have always had.
-    if (typeof IntersectionObserver !== "function") {
-      contentJobs.push({ strip, job, cats });
-      continue;
-    }
-    // **The frame is watched, not the strip.** An empty strip is `display: none`
-    // (`.content-strip:empty`), and an element with no box never intersects anything — so
-    // watching the strip means watching the one node on the screen that cannot be seen. The
-    // frame around it has the card's size whatever the strip is doing.
-    const frame = strip.parentElement || strip;
-    const watch = new IntersectionObserver((entries) => {
-      if (!entries.some((e) => e.isIntersecting)) return;
-      watch.disconnect();
-      contentJobs.push({ strip, job, cats });
-      pumpContent();
-    }, { rootMargin: "600px" });
-    watch.observe(frame);
+    contentJobs.push({ strip, job, cats });
   }
   pumpContent();
 }
