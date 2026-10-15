@@ -256,11 +256,10 @@ async function specsFor(entry, media, opts = {}) {
       if (params.sort_by === "date.asc" || params.sort_by === "date.desc") {
         params.sort_by = `${dateField(media)}.${params.sort_by.split(".")[1]}`;
       }
-      // **`future: N` is the window from today to N days out — and `after: M` pushes its near end
-      // out to M days.** The two are one window and are meant to be read together: the Upcoming
-      // card starts on the day the Updates card's Arriving Soon wave ends (`after: SOON_DAYS` in
-      // `scripts/collections.mjs`), so the same title is never on both cards. Without `after` the
-      // window still begins today, so every other row is untouched.
+      // **`future: N` is the window from today to N days out; `after: M` moves its near end out to
+      // M days.** `after: 1` is "not today" — the Upcoming card is the titles that have *not*
+      // landed, and a title landing today has landed (`scripts/collections.mjs`). Measured without
+      // it, thirteen titles sat on the Upcoming card and the Updates card's Arriving row at once.
       if (Number.isFinite(futureDays) || Number.isFinite(afterDays)) {
         const now = Date.now();
         if (Number.isFinite(afterDays)) params[`${dateField(media)}.gte`] = iso(new Date(now + afterDays * 864e5));

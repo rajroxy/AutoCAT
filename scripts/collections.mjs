@@ -23,10 +23,9 @@
  *   discover      value: latest | new
  *   curated       params: TMDB discover filters, written as they are sent —
  *                 plus `within` (days), `before` (year), `olderThan` (days),
- *                 `between` (two ISO days: from and to), and the pair that makes
- *                 one window: `after` (days: starts it N days out) and `future`
- *                 (days: ends it N days out) — all turned into the release-date
- *                 window for the row's own media type
+ *                 `between` (two ISO days: from and to), `future` (days: the
+ *                 window's far end) and `after` (days: its near end) — all turned
+ *                 into the release-date window for the row's own media type
  *   genre         genre, sort?: "popular"
  *   decade        decade (e.g. 1950), sort?: "popular"
  *   genre-decade  genre, from
@@ -1443,11 +1442,11 @@ export const CATALOG_DAYS = 180;
 // half-watched shows. The stay is per media type now — and the *same* pair of numbers is in
 // `addon/lineup.mjs`, which is where the date on a title's card is written from.
 export const SERIES_CATALOG_DAYS = 365;
-// **The one number the whole pair reads.** It is the *near* end of the Upcoming card's window, the
-// month the Arriving Soon row is a wave of, and the length of the Leaving Soon row — so it is
-// exported and imported (`addon/index.mjs`, `addon/lineup.mjs`) rather than written down twice,
-// and `.patch/r57-arriving-check.mjs` reads both rows off the running server and fails if the two
-// ends ever drift apart.
+// **The one number the whole pair reads: "soon" is a month at both ends of a title's stay.** The
+// Arriving Soon row holds the **first** month of it (what has landed), the Leaving Soon row the
+// **last** month of it (what is going) — so it is exported and imported (`addon/index.mjs`,
+// `addon/lineup.mjs`) rather than written down twice, and `.patch/r57-arriving-check.mjs` reads
+// both rows off the running server and fails if either end ever drifts.
 export const SOON_DAYS = 30;
 // **Fifty either way.** Both rows of the Updates card are fifty titles: a warning you can read
 // and a promise you can read, rather than a shelf as long as its window happened to be.
@@ -1461,23 +1460,24 @@ const both = (list) => ({ movie: list, show: list.map((e) => ({ ...e })) });
  * The Upcoming card's rows for one row type: the worldwide list first, then one per
  * country the Countries card publishes, each in arrival order.
  *
- * **It starts the day after the Updates card's wave ends, and the two share no title.** `after` is the
- * near end of the window and `future` the far one; the near end is **`SOON_DAYS + 1`**, because the
- * wave's own window *includes* its last day (`future: SOON_DAYS` there ends on day 30, `after: 30`
- * would begin on it again) — measured, that off-by-one put three films and five series on both cards,
- * which is exactly the complaint this is here to answer: the owner's first word about the row was that
- * it *was* this card's own first page (*"the arriving soon in update card should not connected to real
- * world upcoming releases which is already in upcoming card"*). Game Pass draws the same line between
- * its own two surfaces: the subscription's "Coming to Game Pass" schedule is what is landing now, the
- * store's "coming soon" is everything announced past it.
+ * **It is the whole of the unreleased calendar, and the Updates card's Arriving row is the month that
+ * has already landed** — so the two cannot share a title, by construction rather than by a boundary
+ * someone has to keep in step. A window of this card was given to that row for a round (`after:
+ * SOON_DAYS`) while the row was a wave of *upcoming* titles, and the owner's answer was *"its showing
+ * upcoming titles in arriving in card"*: the titles that have not landed are **this** card's subject
+ * and nothing else's.
+ *
+ * **The near end is tomorrow, not today** (`after: 1`): a title whose day is today has arrived — it
+ * is on the Updates card's Arriving row, and it is playable — so this card is strictly about days
+ * that have not happened. Measured with the near end at today, thirteen titles were on both cards.
  *
  * The first row is what the card's own **spotlight** frame reads (see `startSpotlight`),
  * so it is the worldwide one — "what is next", not "what is next in Japan".
  */
 const UPCOMING_ROWS = (type) => [
-  curated("Upcoming", { sort_by: "date.asc", after: SOON_DAYS + 1, future: 180 }),
+  curated("Upcoming", { sort_by: "date.asc", after: 1, future: 180 }),
   ...countriesFor(type).map(([name, code]) =>
-    curated(`Upcoming in ${name}`, { with_origin_country: code, sort_by: "date.asc", after: SOON_DAYS + 1, future: 120 })),
+    curated(`Upcoming in ${name}`, { with_origin_country: code, sort_by: "date.asc", after: 1, future: 120 })),
 ];
 const forBoth = (build) => ({ movie: build(MOVIE_GENRES), show: build(SHOW_GENRES) });
 
@@ -1827,9 +1827,9 @@ const buildCollections = (code = "") => {
     // built on, applied to what is coming rather than to what exists. The list is
     // `countriesFor`, the one function the Countries card, the search chips and the
     // continent rows all read, so the two cards can never disagree about which countries
-    // there are. `date.asc` + `after` + `future` is the row's own shorthand: nearest arrival
-    // first, from `SOON_DAYS` out to four months, on the right date field for each row type —
-    // the near month belongs to the Updates card (see `UPCOMING_ROWS`).
+    // there are. `date.asc` + `after` + `future` is the row's own shorthand: nearest arrival first,
+    // from tomorrow to four months out, on the right date field for each row type — all of the
+    // unreleased calendar, because it is this card's subject and no one else's.
     catalogs: {
       movie: UPCOMING_ROWS("movie"),
       show: UPCOMING_ROWS("show"),
@@ -2061,19 +2061,17 @@ const buildCollections = (code = "") => {
         within: { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS },
         olderThan: { movie: CATALOG_DAYS - SOON_DAYS, series: SERIES_CATALOG_DAYS - SOON_DAYS },
       }, UPDATES_TAKE),
-      // **What is arriving is the app's own arrival wave — Game Pass's "Coming to Game Pass",
-      // read for this app.** Not a window over the world's releases *as a calendar*: the near
-      // month, ordered by the day each title lands, most notable first within a day, each poster
-      // wearing its own date. Read in date order over a month this row was the Upcoming card's own
-      // first page — the same titles, nearest first, twice on one home screen — and read in
-      // popularity order over a quarter it was the same pool again (*"again you done same world
-      // upcoming release shit in arriving row shit"*). The owner's ask is what settles it: *"dont
-      // you know how xbox game pass works, same like that."* Game Pass publishes no release
-      // calendar, it publishes a **service schedule** — day-level dates for what is joining the
-      // library, waves twice a month, the day-one ones marked, and *"leaving soon"* as the other
-      // end of the same schedule. So the pair is this card's two rows (see `arrivingMetas` in
-      // `addon/index.mjs`), the window is `SOON_DAYS` at both ends, and the Upcoming card starts
-      // on the day it ends — no poster on both cards.
+      // **What has arrived in the app — the first month of a title's stay, and never a title that
+      // is still to come.** Every shape this row had before showed **unreleased** titles — the
+      // calendar's next month, then a quarter of it in popularity order, then a Game-Pass-shaped
+      // wave of the next thirty days — and the owner said no to all of them the same way:
+      // *"the arriving soon in update card should not connected to real world upcoming releases
+      // which is already in upcoming card"*, *"again you done same world upcoming release shit in
+      // arriving row shit"*, and finally *"its showing upcoming titles in arriving in card"*.
+      // Unreleased titles are the **Upcoming** card's subject, whole; this row is the other end of
+      // the app's own window — what has landed over the last `SOON_DAYS` days, newest first, each
+      // poster wearing the day it arrived (`New today`). Leave-it-empty and it is a real answer:
+      // a quiet month is a quiet row, and the screen says nothing rather than apologising (`emptyRowText`).
       arriving("Arriving Soon", UPDATES_TAKE),
     ]),
   },

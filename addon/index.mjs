@@ -1356,41 +1356,33 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
 }
 
 /**
- * **What is arriving: the app's own arrival wave — the next month, by the day it lands.**
+ * **What is arriving: the month that has landed in the app — and never a title that is still to come.**
  *
- * This row has been through four shapes. It was the world's upcoming releases in date order (the
- * Upcoming card's own first page, the same titles twice on one home screen), then that same pool
- * most-popular-first, then **yours** alone — *"arriving row is empty"* came straight back at that one
- * — and then yours plus everything announced past the calendar's six months, which was the world's
- * calendar again, only further out: *"again you done same world upcoming release shit in arriving row
- * shit"*.
+ * The row has been through four shapes and every one of them showed **unreleased** titles, which is
+ * the thing the owner has said no to from the start: *"the arriving soon in update card should not
+ * connected to real world upcoming releases which is already in upcoming card"*, and, when a further
+ * window of them appeared, *"again you done same world upcoming release shit in arriving row shit"*.
+ * The last shape was a Game Pass-shaped wave of the next thirty days — day-dated, most notable first,
+ * `Arrives today` on the day itself — and it came back as **"its showing upcoming titles in arriving
+ * in update card"**, which is exactly what it was: every title on it was a film or a series that had
+ * not come out yet. *Upcoming* is the **Upcoming** card's whole subject, and this row was still
+ * feeding from it.
  *
- * **The fifth word settles it: *"dont you know how xbox game pass works, same like that."*** Game
- * Pass publishes no release calendar; it publishes a **service schedule**. Its "Coming to Game Pass"
- * filter and its twice-monthly Xbox Wire posts give **day-level dates** for the titles joining the
- * service — waves of roughly three to eight, looking about one to two weeks ahead (sometimes a
- * month) — it says *"Available on day one with Game Pass!"* in words for the day-one ones, and its
- * **"Leaving soon"** filter is the other end of that same schedule: titles exiting *"in the next two
- * weeks"*. Most of what a wave holds came out years earlier; what is being announced is the
- * **addition**, not the release.
+ * **So this row holds nothing that has not landed.** The app's own rule is that a title is in the app
+ * from the day it is released (`CATALOG_DAYS`: 180 for a film, 365 for a series, then it leaves), and
+ * the Updates card is the two ends of that stay:
  *
- * So this row is the app's own arrival schedule, at the horizon its Leaving Soon half already uses:
- * the titles landing over the next **`SOON_DAYS` days** (thirty), **ordered by the day they land** —
- * nearest day first, most notable first within a day — each poster wearing its own date, and reading
- * *Arrives today* on the day itself (`lineupTag` in `desktop/ui/app.js`). In this app a title joins
- * on the day it is released, so the wave *is* release days; that is also why the row is not a
- * calendar **as** a calendar: the pool it draws from is TMDB's most notable releases inside the
- * window (`popularity.desc`, read 300 deep and kept for ten minutes), because in a month of releases
- * the notability is what makes a wave a list rather than a dump — Game Pass has the same problem and
- * answers it the same way.
+ *   - **Arriving Soon** — the **first month of it**: the titles that have arrived in the app over the
+ *     last `SOON_DAYS` days, **newest first**, each poster wearing the day it landed (`New today` on
+ *     the day itself). Every one of them is playable, which is what "arrived" means here.
+ *   - **Leaving Soon** — the **last month of it**, as before.
  *
- * **`SOON_DAYS` is one number for the whole pair, and the Upcoming card starts the day after this
- * row ends** (`after: SOON_DAYS + 1` in `UPCOMING_ROWS`, `scripts/collections.mjs`): the two cards
- * divide the calendar instead of both holding the near month, so no poster is on both — which was the
- * owner's first complaint about this row. The `+ 1` is not decoration: a window that ends on day 30
- * and another that begins on day 30 share that day, and the measured cost of it was three films and
- * five series on both cards. `.patch/r57-arriving-check.mjs` reads both rows off the running
- * server and fails if the two numbers ever drift apart.
+ * Nothing on it is *upcoming*: the pool is TMDB's releases **up to today** (`popularity.desc` inside
+ * the window for notability — in a month of releases that is what makes a list rather than a dump —
+ * then presented by the day, nearest first), and `.patch/r57-arriving-check.mjs` fails if a single
+ * title on the row has a release day in the future. The unreleased calendar is the Upcoming card's,
+ * all of it, undivided — no window is taken away from it — and the two rows cannot share a title
+ * because one holds days that have been and the other days that have not.
  */
 const ARRIVING_POOL_PAGES = 15;
 const ARRIVING_POOL_TTL_MS = 10 * 60 * 1000;
@@ -1400,7 +1392,7 @@ const arrivingPools = new Map();
 const dayIn = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
 /**
- * **The wave's pool: what is landing inside the window, most notable first.**
+ * **The pool: what has landed inside the window, most notable first.**
  *
  * Read a page at a time and kept for `ARRIVING_POOL_TTL_MS` — the same shape the episode rows use:
  * a card reads one window of it, a reader scrolling the row asks for more, and a row that is
@@ -1418,8 +1410,11 @@ async function arrivingPool(media, language) {
   const seen = entry.seen || (entry.seen = new Set(entry.metas.map((m) => m.id)));
   while (entry.pages < ARRIVING_POOL_PAGES) {
     const res = await get(`/discover/${tmdbPath(media)}`, {
-      [`${field}.gte`]: dayIn(0),
-      [`${field}.lte`]: dayIn(SOON_DAYS),
+      // **The window ends today, not in a month's time.** A page of a popularity order is not a
+      // stable thing to walk either: two pages read a moment apart can hand back the same title
+      // (measured on the screen, one film sat at positions 38 and 39), so the pool is a set.
+      [`${field}.gte`]: dayIn(-SOON_DAYS),
+      [`${field}.lte`]: dayIn(0),
       sort_by: "popularity.desc",
       page: entry.pages + 1,
       language,
@@ -1429,9 +1424,6 @@ async function arrivingPool(media, language) {
     if (items.length < 20) entry.pages = ARRIVING_POOL_PAGES;
     for (const item of items) {
       const meta = toMeta(item, media);
-      // **A page of a popularity order is not a stable thing to walk.** Two pages read a moment
-      // apart can hand back the same title — measured on the screen, one film sat at positions 38
-      // and 39 of the wave — so the pool is what it says it is, a set, and a title is taken once.
       if (meta && !seen.has(meta.id)) {
         seen.add(meta.id);
         entry.metas.push(meta);
@@ -1442,19 +1434,20 @@ async function arrivingPool(media, language) {
 }
 
 /**
- * **The row itself: the wave, by the day it lands.**
+ * **The row itself: what has landed, newest first.**
  *
- * TMDB's own order (most notable first) is kept *within* a day — `sort` is stable and the metas do
- * not carry a popularity of their own, so a day's titles keep the order they were read in — and
- * `skip` walks the same wave when a reader scrolls, so page two continues the month rather than
- * repeating the first window.
+ * Ordered by the day each title arrived in the app, today at the front. TMDB's own order (most
+ * notable first) is kept *within* a day — `sort` is stable and the metas carry no popularity of
+ * their own — and `skip` walks the same month when a reader scrolls, so page two continues it
+ * rather than repeating the first window.
  */
 async function arrivingMetas(media, skip, window, language, adult = false) {
   const pool = stripAdult(await arrivingPool(media, language), adult);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dayIn(0);
+  const first = dayIn(-SOON_DAYS);
   return pool
-    .filter((m) => String(m.releaseDate || "") >= today)
-    .sort((a, b) => String(a.releaseDate || "").localeCompare(String(b.releaseDate || "")))
+    .filter((m) => String(m.releaseDate || "") >= first && String(m.releaseDate || "") <= today)
+    .sort((a, b) => String(b.releaseDate || "").localeCompare(String(a.releaseDate || "")))
     .slice(skip, skip + window);
 }
 

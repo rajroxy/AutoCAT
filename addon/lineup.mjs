@@ -55,9 +55,9 @@ const FILE = path.join(HERE, "lineup.json");
  */
 export const LEAVING_DAYS = { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS };
 /**
- * How near "soon" is, at **both** ends of the pair: the near-term window the Updates card's
- * Arriving Soon row is a wave of (`addon/index.mjs`), the month of the staying window that Leaving
- * Soon holds, and the day the **Upcoming** card starts (`after: SOON_DAYS + 1` in `UPCOMING_ROWS`).
+ * How near "soon" is, at **both** ends of the pair: the **first** month of a title's stay, which the
+ * Updates card's Arriving Soon row holds (what has landed, newest first — see `arrivingMetas` in
+ * `addon/index.mjs`), and the **last** month of it, which Leaving Soon holds.
  */
 export { SOON_DAYS };
 
@@ -135,14 +135,14 @@ export function note(rowName, metas) {
   // like any other, which is the whole point of the arrival.
   if (arriving) {
     // **The row's own window is the only thing that declares an arrival**, so an entry outside it is
-    // not this row's word any more. Two kinds of those exist: a date already behind us (the title
-    // landed, above), and a date **beyond the wave** — left there by the two shapes this row had
-    // before, which read the calendar as far out as two years. Measured: the Upcoming card's own
-    // first page was wearing `Arrives 15 Nov` on a title the row no longer declares, because an
-    // older read had written it. Pruned here, on the read that knows what the window is.
-    const lastDay = plusDays(now, SOON_DAYS);
+    // not this row's word any more. The window is the **landed** month: `now - SOON_DAYS … now`. Any
+    // date outside it is left over from a shape this row had before — the versions that read the
+    // calendar months and years ahead — and those entries were still drawing `Arrives 15 Nov` on the
+    // Upcoming card's own first page after the row had stopped declaring anything about them. Pruned
+    // here, on the read that knows what the window is.
+    const firstDay = plusDays(now, -SOON_DAYS);
     for (const [k, on] of Object.entries(bag)) {
-      if (on < now || on > lastDay) {
+      if (on < firstDay || on > now) {
         delete bag[k];
         wrote = true;
       }
@@ -164,7 +164,10 @@ export function note(rowName, metas) {
     // leaving dates.
     const stay = LEAVING_DAYS[key.startsWith("series:") ? "series" : "movie"];
     const date = arriving ? landed : plusDays(landed, stay);
-    if (arriving && date < now) continue;
+    // **An arrival that is not inside the row's own month is not this row's word.** The row holds
+    // what has landed over the last `SOON_DAYS` days; anything older has been in the app long
+    // enough to be a title like any other, and anything ahead of today is the Upcoming card's.
+    if (arriving && (date > now || date < plusDays(now, -SOON_DAYS))) continue;
     if (arriving && bag[key]) continue;
     if (bag[key] === date) continue;
     bag[key] = date;
@@ -195,9 +198,18 @@ export const hasLeft = (m) => {
  */
 export const isLeaving = (m) => Boolean(leavingOn(m));
 
-/** Has it landed yet? (Only titles with a recorded arrival are ever held back.) */
+/**
+ * **Has it landed yet? — the title's own release day, not a note about it.**
+ *
+ * This used to read the store's arrival record, because the row that named titles as arriving was
+ * the Updates card's Arriving Soon row and that row carried the future days. It does not any more:
+ * that row holds the month that has **landed** (the owner's complaint — *"its showing upcoming
+ * titles in arriving in card"* — is what moved it), so the one fact that says a title is still to
+ * come is the title's own day, which every meta already carries. A stronger answer than the store's:
+ * it holds for a title whose row was never read at all.
+ */
 export const isComing = (m) => {
-  const at = arrivingOn(m);
+  const at = isDay(m?.releaseDate) ? m.releaseDate : "";
   return Boolean(at) && at > today();
 };
 
@@ -263,7 +275,11 @@ export function payload() {
   const rows = (bag) => Object.entries(bag).map(([key, on]) => ({ key, on, type: key.split(":")[0] }));
   return {
     leaving: rows(all.leaving).sort((a, b) => a.on.localeCompare(b.on)),
-    arriving: rows(all.arriving).filter((r) => r.on > now).sort((a, b) => a.on.localeCompare(b.on)),
+    // The landed month, newest first — see `note`: the arriving row is what has arrived, not what is
+    // on its way.
+    arriving: rows(all.arriving)
+      .filter((r) => r.on <= now && r.on > plusDays(now, -SOON_DAYS))
+      .sort((a, b) => b.on.localeCompare(a.on)),
     today: now,
     leavingDays: LEAVING_DAYS,
   };

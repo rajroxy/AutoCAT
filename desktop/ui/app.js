@@ -1773,7 +1773,16 @@ function lineupTag(m) {
   const leaving = m?.leavingOn ? dayLabel(m.leavingOn) : "";
   const arriving = m?.arrivingOn ? dayLabel(m.arrivingOn) : "";
   if (leaving) return el("span", { class: "lineup-tag leaving", text: `Leaves ${leaving}` });
-  if (arriving) return el("span", { class: "lineup-tag arriving", text: `Arrives ${arriving}` });
+  if (arriving) {
+    // **A day that has been is `New`, a day that has not is `Arrives`.** The Updates card's pair is
+    // the two ends of a title's stay in the app: Arriving Soon holds the month that has **landed**
+    // (so its posters say `New today` / `New 3 Nov` — every one of them is playable), and Leaving
+    // Soon holds the month it is going (`Leaves 3 Nov`). A future day still reads `Arrives`, which is
+    // the Upcoming card's language and the title page's, where a title that has not landed says the
+    // day it lands.
+    const came = String(m.arrivingOn || "") <= new Date().toISOString().slice(0, 10);
+    return el("span", { class: "lineup-tag arriving", text: `${came ? "New" : "Arrives"} ${arriving}` });
+  }
   return null;
 }
 

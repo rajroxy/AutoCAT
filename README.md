@@ -71,31 +71,28 @@ app carries it for a fixed stay: **180 days for a film, 365 for a series** — a
 arrives an episode at a time over months, a film arrives complete. The stay is per title,
 not one number for everything, and the leaving date is `release + stay` for that title.
 
-The **Updates** card is the two ends of that window, and it is a **schedule** rather than a calendar —
-the way a subscription's own "coming soon" and "leaving soon" lists are:
+The **Updates** card is the two ends of that window — **what has arrived this month, and what goes
+next month**:
 
 | Row | What it is |
 |---|---|
-| **Leaving Soon** | the last 30 days of the stay — everything on it is out of the app within a month, and its leaving date is on the poster |
-| **Arriving Soon** | the month's arrival wave: the titles landing in the app over the next **30 days**, in the order they land, the most notable first within a day, each poster wearing its own date — `Arrives today` on the day itself |
+| **Arriving Soon** | the **first 30 days of the stay**: the titles that have arrived in the app over the last month, **newest first**, each poster wearing the day it landed — `New today` on the day itself. Every one of them is playable |
+| **Leaving Soon** | the **last 30 days of the stay** — everything on it is out of the app within a month, and its leaving date is on the poster |
 
-**Game Pass is the model, and it is a service schedule rather than a release calendar.** Xbox's
-"Coming to Game Pass" list is not a calendar of game releases: it is day-level dates for what is
-joining the *library* (waves announced twice a month, a few titles each, the day-one ones marked in
-words), and its "Leaving soon" filter is the other end of the same schedule — titles exiting *"in the
-next two weeks"*. In this app a title joins on the day it is released, so the wave *is* release days —
-but the row is read as a schedule: ordered **by the day it lands**, most notable first within a day,
-and drawn from TMDB's most popular releases inside the window, because in a month of releases the
-notability is what makes a wave a list rather than a dump.
+**Nothing on the Arriving row is *upcoming*.** That distinction is the whole history of this row: it
+has been the calendar's next month, a quarter of it in popularity order, a Game Pass-shaped wave of
+the next thirty days with day-level dates, and every one of those was refused in the same words —
+*"the arriving soon in update card should not connected to real world upcoming releases which is
+already in upcoming card"*, and finally *"its showing upcoming titles in arriving in card"*. Titles
+that have not come out are the **Upcoming** card's subject, whole, and this card is the app's own
+window: a title is in it from the day it is released, so "arriving" here means what has just landed.
 
-**The two cards divide the calendar, so no poster is on both.** `SOON_DAYS` (30, in
-`scripts/collections.mjs`, one number read by both rows) is the near end of the Upcoming card's window
-as well: `after: SOON_DAYS + 1` in `UPCOMING_ROWS` means the Upcoming card starts the day after the
-wave ends — the `+ 1` because a window that ends on day 30 and another that begins on day 30 share
-that day, which measured as three films and five series on both cards. That is the answer to the first
-thing said about this row — that it *was* the Upcoming card's first page, the same titles twice on one
-home screen — and it holds by construction: the two rows cannot share a title, and a check reads both
-off the running server and fails if the boundary ever moves on one side only.
+The two cards therefore cannot share a title, and it is by construction rather than by a boundary
+someone has to keep in step: `after: 1` in `UPCOMING_ROWS` means the Upcoming card begins **tomorrow**
+— a title whose day is today has arrived, is on the Updates card and is playable — so one row holds
+days that have been and the other holds days that have not. Measured with the near end at today,
+thirteen titles sat on both cards at once; the check that reads both rows off the running server now
+fails if a single title is on both.
 
 The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored) and
 put on the title's own card — a title on the Arriving Soon row is one the rest of the app now knows
