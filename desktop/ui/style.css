@@ -6424,14 +6424,25 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    box now, in the **Ring** colour with the page's hair outside it, exactly the way a poster
    and a plate are marked, and it is drawn *inside* the frame so the card's `overflow: hidden`
    can never clip it. */
-/* **No ring on a card, ever — not even after a press.** The card drew an inset accent ring under
-   the cursor and, through `:focus-within`, while the artwork button inside it held focus: press a
-   card (For You, say) and the ring stayed on it, the owner's *"phir se wo bada wala selection ring
-   aa gaya for you pe click karne ke baad"*. A card is a shelf: it lifts and it lights, and its
-   pictures are what tells you where you are. The ring belongs to the plates and posters that are
-   targets, not to the frame around them. */
-.icon-box:hover, .icon-box:focus-within, .icon-box:focus-visible { box-shadow: none; }
-.icon-box:hover::after, .icon-box:focus-within::after, .icon-box::after { content: none; }
+/* **The card's own ring stays; the *selection* ring does not.** Both live in `::after` on the
+   card, which is why taking one out took both: the ring the owner wanted gone is the one that
+   arrives on a **press** — the card's artwork button keeps focus afterwards, so `:focus-within`
+   drew the step-and-a-ring a second time, over the whole card, and it stayed there
+   ("phir se wo bada wala selection ring aa gaya for you pe click karne ke baad"). Under the
+   cursor, each card still rings the way it always did ("why removed rings from the individual
+   cards"). */
+.icon-box:hover { box-shadow: none; }
+.icon-box:hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
+    inset 0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring, var(--fill));
+}
+.icon-box:focus-within, .icon-box:focus-visible { box-shadow: none; }
+.icon-box:focus-within::after, .icon-box:focus-visible::after { content: none; }
 
 /* **The order dropdown lines up with the grid it orders.** It sat at the page's right edge,
    which is the **alphabet rail's** column, so it floated between the rail and the posters
@@ -6638,7 +6649,9 @@ html .tab.tab-home {
 .content-strip.upnext-strip { align-items: stretch; }
 .upnext-tile {
   position: relative;
-  flex: 2 1 0;
+  /* The whole wall, so the frame is the card's own landscape shape rather than a square half of
+     it — see `drawTiles`. */
+  flex: 1 1 100%;
   min-width: 0;
   height: 100%;
   border-radius: 10px;
@@ -6687,36 +6700,3 @@ html .tab.tab-home {
   padding: 9px 10px;
 }
 .player-options-grid .empty { grid-column: 1 / -1; }
-
-/* ============================================================================
-   **One inner box, everywhere in Settings.**
-   ----------------------------------------------------------------------------
-   The panes had grown four looks for the same thing: a provider box on `--panel`,
-   an option row on `--panel`, an add-on row on `--panel-2`, and the older
-   `.setting` rows on nothing at all — transparent, no radius, sitting straight on
-   the pane. The owner's ask is that every option in Settings looks like the app
-   ("settings ke sare options app style ke sath match hone chahiye"), and the app's
-   own inner plate is `--panel` at the app's radius with its own padding. So this
-   is the one rule that says it, at the end of the sheet where nothing outranks it:
-   a box is `--panel`, a 12px corner, and 12/14 padding — whatever pane it is in.
-   ============================================================================ */
-.settings-pane .provider,
-.settings-pane .option,
-.settings-pane .option-group .option,
-.settings-pane .setting,
-.settings-pane .site-row,
-.settings-pane .option-group > .site-row,
-.settings-pane .sources .source,
-.settings-pane .source,
-.sources .source,
-.settings-pane .option-group .provider {
-  background: var(--panel);
-  border: 0;
-  border-radius: 12px;
-}
-/* The add-on rows are `.source.provider` **inside an `.option-group`**, which the sheet already
-   had a rule for — a rule with one more name on it than the box rules above, so it won. It is
-   said here at that same weight, later, which is all it takes. */
-.settings-pane .option-group .sources .source { background: var(--panel); }
-.settings-pane .setting { padding: 12px 14px; }
-.settings-pane .source { padding: 12px 14px; }

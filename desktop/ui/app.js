@@ -1248,6 +1248,11 @@ function applyCustomRows(payload) {
 const rowKey = () => state.row;
 const apiType = () => state.row;
 const setRow = (row) => {
+  // **Pressing the switch you are already on does nothing.** Rows are dealt again when you move
+  // from Movies to Shows — and pressing Movies while Movies is on re-dealt the whole home screen,
+  // which read as a refresh nobody asked for ("there should be no refresh on clicking again on move
+  // and show buttons").
+  if (state.row === row) return;
   state.row = row;
   localStorage.setItem(KEY.row, row);
   // **A row switch is a new screen, walls and all.** A card's own pictures are read once per
@@ -3307,19 +3312,18 @@ function drawTiles(strip, art, count, layout) {
     // it is on the art itself.
     const upNext = layout !== "backdrop" && picked.some((m) => m && m.state === "watching");
     if (upNext) {
-      const [head, ...rest] = picked;
-      const slots = [];
-      if (head) {
-        slots.push(el("div", { class: "upnext-tile" },
-          artImage(backdropOf(head) || heroImage(head) || head.poster || "", head, { class: "upnext-art", alt: "", loading: "lazy" }),
-          el("span", { class: "upnext-tag", text: head.state === "watching" ? "Continue watching" : "Up Next" }),
-          el("span", { class: "upnext-name", text: head.name || head.title || "" }),
-        ));
-      }
-      for (const m of rest) slots.push(artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" }));
-      while (slots.length < count) slots.push(el("div", { class: "content-tile blank" }));
+      const head = picked.find((m) => m && m.state === "watching") || picked[0];
+      // **The Continue-watching frame gets the whole wall.** A poster-sized slot in a card that is
+      // only 1.6:1 wide is a square, not a landscape — which is exactly what the owner saw
+      // ("continue watching is not landscape"). Trakt and Stremio give this tile the full width of
+      // its card, and that is what it takes here: one landscape frame across the card, with the
+      // title's state in the corner and its name on the picture.
       strip.classList.add("upnext-strip");
-      strip.replaceChildren(...slots);
+      strip.replaceChildren(el("div", { class: "upnext-tile" },
+        artImage(backdropOf(head) || heroImage(head) || head.poster || "", head, { class: "upnext-art", alt: "", loading: "lazy" }),
+        el("span", { class: "upnext-tag", text: head.state === "watching" ? "Continue watching" : "Up Next" }),
+        el("span", { class: "upnext-name", text: head.name || head.title || "" }),
+      ));
     } else if (wideCard) {
       const tiles = picked.map((m) => {
         const tile = spotlightTile();
@@ -4480,17 +4484,12 @@ function collectionGrid(row) {
 function rowSwitch(scope = "home") {
   const mine = scope === "home" ? state.row : rowScope(scope);
   const pick = (value) => {
-    // **A press on the plate you are standing on is the app's refresh.** Home and the chosen
-    // Movies / Shows pill are the two controls that say which half of the catalogs is on
-    // screen, and the ask was a *catalog* refresh on both: pressing the one you are already
-    // on re-reads the rows from the server (`refreshNow`) instead of doing nothing.
-    if (mine === value) {
-      // **Only Home's own switch refreshes.** The same plate on Search and the Calendar says
-      // which half *that* screen is reading, and both screens re-read their own way (Enter, a
-      // new month) — a refresh there would be a redraw nobody asked for.
-      if (scope === "home") refreshNow();
-      return;
-    }
+    // **A press on the plate you are standing on does nothing at all.** It used to re-read the
+    // whole screen, which the owner has now taken back: *"there should be no refresh on clicking
+    // again on move and show buttons"*. Moving to the *other* plate still deals the cards again
+    // (below), and the **Home label** — a different control, further left — still refreshes the
+    // screen it names.
+    if (mine === value) return;
     if (scope === "home") setRow(value);
     else setRowScope(scope, value);
     state.order = {};
