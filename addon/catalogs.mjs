@@ -397,10 +397,9 @@ async function specsFor(entry, media, opts = {}) {
     case "watchlist":
       return [{ watchlist: entry.state || "planned" }];
 
-    // **The Updates card's Arriving row** — your own titles that have not landed yet (the handler
-    // reads your stores and asks each title for its own date), followed by what is announced past
-    // the Upcoming card's own horizon, so the row is never a second copy of that card and never
-    // empty either (see `arrivingMetas` in `addon/index.mjs`).
+    // **The Updates card's Arriving row** — your own queue: the titles you planned and the ones in
+    // your Library rows, read for their own dates, soonest known first. Not a TMDB query over what
+    // the world is releasing, in any window: see `arrivingMetas` in `addon/index.mjs`.
     case "arriving":
       return [{ arriving: true }];
 

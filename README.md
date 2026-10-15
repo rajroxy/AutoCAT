@@ -77,15 +77,16 @@ other end yours:
 | Row | What it is |
 |---|---|
 | **Leaving Soon** | the last 30 days of the stay — everything on it is out of the app within a month, and its leaving date is on the poster |
-| **Arriving Soon** | two halves, neither of them on the Upcoming card: **what you are waiting for** (every title you pinned, filed in a Library row or planned on the calendar whose own release day is still ahead, nearest first, leading the row), then **what is announced past that card's own six months** |
+| **Arriving Soon** | **yours**: every title you put in **Plan to Watch** and every title in your own **Library rows** (the Calendar's plan row among them), read for their own release days — the ones still ahead first, nearest first, then the rest in your own order |
 
-The world's upcoming releases are the **Upcoming** card's own subject, and this row used to be the
-same pool read twice. **Measured:** that card's rows are `date.asc` windows of 180 days (120 per
-country), holding **3,260 films and 444 series** when read to the end — and every film of the next
-90 days and every series of the next 120, most popular first, is already on it (**60 of 60**, both
-media). Inside six months the calendar is the calendar, so the row asks the questions that are left:
-what you are waiting for, and what has been announced past the calendar's reach. Its earliest titles
-are therefore six months out, each wearing its own date.
+The world's upcoming releases are the **Upcoming** card's own subject, and this row was the same pool
+read twice. It is not a window over the world's releases now, **at any distance**: the near window
+was the Upcoming card's own list (that card's rows are `date.asc` windows of 180 days and hold 3,260
+films / 444 series, and every popular upcoming film of the next 90 days and series of the next 120 is
+already on it — 60 of 60 either way), and the far window past its six months was the same calendar
+further out, which is not what an Updates card should be. So the row answers the only question left
+that is not the calendar's: *what are you waiting for*. Follow and file nothing and it is empty, and
+it says so quietly, as your own lists do.
 
 The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored) and
 put on the title's own card — a title on the Arriving Soon row is one the rest of the app now knows

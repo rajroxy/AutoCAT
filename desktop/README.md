@@ -207,8 +207,8 @@ inset ring the card used to wear was painted *under* the poster wall that fills 
 why pointing at a card showed nothing.
 
 **An empty row keeps the height of a row.** A row that came back with nothing holds one
-line of text where a shelf of posters stood — and a watchlist row says nothing at all — so
-the card collapsed to its heading. The strip has a floor of one poster row now
+line of text where a shelf of posters stood — a watchlist row, the Library and the Updates
+card's Arriving row (your own queue) say nothing at all — so the card collapsed to its heading. The strip has a floor of one poster row now
 (`.strip { min-height }`, the same `--poster-w` sum the placeholders use), and a filled row
 is taller than the floor, so nothing moves on a row with titles in it.
 

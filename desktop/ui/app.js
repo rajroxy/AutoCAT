@@ -2076,10 +2076,9 @@ function noteForYouServed(id, metas) {
  * happens to hold nothing", which is a different thing.
  */
 function emptyRowText(catalog) {
-  if (catalog.kind === "watchlist" || catalog.kind === "custom") return "";
-  // **The Arriving row is not one of them.** It is filled from your own lists *and* from what is
-  // announced past the calendar's own six months, so an empty one is a read that failed rather than
-  // an answer — and the plain line below is the honest thing to say about that.
+  // **The Arriving row is your own queue** — what you planned and filed — so it keeps quiet for the
+  // same reason the watchlist and the Library do (see the note above).
+  if (catalog.kind === "watchlist" || catalog.kind === "custom" || catalog.kind === "arriving") return "";
   return "No titles returned for this catalog.";
 }
 
