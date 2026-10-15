@@ -1924,7 +1924,17 @@ const channelResolution = (name = "") => {
 
 const posterFallback = (name) => el("div", { class: "poster-fallback", text: initialsOf(name).toUpperCase() });
 
-async function fetchCatalog(catalog, skip = 0, count = 0) {
+/**
+ * One window of one catalog row.
+ *
+ * **`deep` says the reader is scrolling the row itself.** A `take` on the server is the
+ * size of the *card* (the ◆ Top 10 rows are ten titles, and the card draws six posters
+ * beside them), so the card's own wall reads with it and an **Explore page** reads past
+ * it — otherwise a row with thousands of titles answered "End of catalog." at the
+ * number its card wanted (`deep` in `catalogMetas`). Only Explore sets it, and a row
+ * whose *name* is the number keeps its cap wherever it is read.
+ */
+async function fetchCatalog(catalog, skip = 0, count = 0, deep = false) {
   const suffix = skip ? `/skip=${skip}` : "";
   const stateful = catalog.kind === "watchlist" || catalog.kind === "custom";
   // **The query is built here, not by string-glueing.** `count` asks for several
@@ -1936,6 +1946,8 @@ async function fetchCatalog(catalog, skip = 0, count = 0) {
   if (state.language) params.set("lang", state.language);
   if (state.gen) params.set("gen", String(state.gen));
   if (count) params.set("count", String(count));
+  // The row itself, not the card's wall (see this function's own note).
+  if (deep) params.set("deep", "1");
   // **The OTT rows' own order.** Only those cards set it (see `render`), so this is a
   // no-op on every other row, and the server ignores a value it does not know.
   if (activeOttSort) params.set("sort", activeOttSort);
@@ -3224,21 +3236,60 @@ function drawTiles(strip, art, count, layout) {
       }
     }
     const picked = art.slice(start, start + count);
-    // **A wide slot takes wide artwork.** Upcoming's four slots are 16:9 (the card is four cards
-    // long and keeps its neighbours' height), so a 2:3 poster would have to be cut down to a band
-    // to fill one — the same reason the banner and the old spotlight frame read a backdrop first
-    // (`spotlightArt`). A title with no backdrop still falls back to its poster.
+    // **A wide card draws the app's own tile.** Upcoming's four slots are the same
+    // `.spotlight-tile` the live home's window is made of: a landscape picture, the date it
+    // lands across the top in a pill, and its name under that. It drew a bare `<img>` for a
+    // round, which is what took the top-left chip off the poster — the pill and the name are
+    // drawn by the tile's **frame**, so a picture drawn without the frame has no chip to draw
+    // (`spotlightTile`).
+    //
+    // **Wide artwork, in a wide slot.** A 2:3 poster in a 16:9 slot is a band cut through the
+    // middle of itself, so the picture is the title's wide one — and its *landscape poster*
+    // where TMDB has one, which is the picture the name is printed on (`landscapePoster`).
     const wideCard = count >= 4;
-    strip.replaceChildren(
-      ...picked.map((m) =>
-        artImage(wideCard ? (m.background || m.poster) : (m.poster || m.background), m, { class: "content-tile", alt: "", loading: "lazy" }),
-      ),
-      // **Every slot is drawn, however few titles answered.** One pin used to be laid
-      // in as a single tile, and `flex: 1` then stretched it across the whole frame —
-      // so the Watchlist read as one big poster instead of as the two-poster wall it
-      // is. The slots with no title behind them stay the card's own panel.
-      ...Array.from({ length: Math.max(0, count - picked.length) }, () => el("div", { class: "content-tile blank" })),
-    );
+    if (wideCard) {
+      const tiles = picked.map((m) => {
+        const tile = spotlightTile();
+        fillSpotlightTile(tile, m);
+        // **A title with no wide picture wears its poster whole.** Two thirds of a global
+        // Upcoming row is small new films whose only artwork is a 2:3 poster (a slow film
+        // from Jakarta has no key art the week it opens), and a 2:3 poster cut into a 16:9
+        // slot is a slice of a face with its title cropped mid-line — the picture this card
+        // was complained about. A title that has *no* backdrop at all is one of those, and it
+        // is the poster **whole** over a blurred copy of itself, which is the same treatment
+        // the title page gives a poster it has nothing wide to show (see `.portrait` in the
+        // sheet). The read below replaces this the moment a real wide picture answers.
+        if (!backdropOf(m)) portraitTile(tile, m);
+        return tile;
+      });
+      // **Every slot is drawn, however few titles answered** (see below) — a slot with no
+      // title behind it is the card's own plate at the same width, so the row keeps its shape.
+      const blanks = Array.from({ length: Math.max(0, count - tiles.length) }, () => el("figure", { class: "spotlight-tile blank" }));
+      strip.replaceChildren(el("div", { class: "spotlight-track" }, ...tiles, ...blanks));
+      // **The title's wide poster arrives after the card does.** The card is never waiting on
+      // four extra reads to show a picture — it draws on the artwork it already has, and each
+      // slot swaps when its own read answers. `putSpotlightArt` waits for the incoming file
+      // before drawing it, so a swap is one picture replacing another, never a blank frame.
+      for (const [i, m] of picked.entries()) {
+        landscapePoster(m).then((url) => {
+          const img = tiles[i]?.querySelector(".spotlight-tile-art");
+          if (!url || !img) return;
+          // A wide picture for a tile that was wearing a whole poster: it is not a portrait
+          // any more, so the class goes with the poster that needed it.
+          tiles[i].classList.remove("portrait");
+          putSpotlightArt(img, url, m.posterBackup || "");
+        });
+      }
+    } else {
+      strip.replaceChildren(
+        ...picked.map((m) => artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" })),
+        // **Every slot is drawn, however few titles answered.** One pin used to be laid
+        // in as a single tile, and `flex: 1` then stretched it across the whole frame —
+        // so the Watchlist read as one big poster instead of as the two-poster wall it
+        // is. The slots with no title behind them stay the card's own panel.
+        ...Array.from({ length: Math.max(0, count - picked.length) }, () => el("div", { class: "content-tile blank" })),
+      );
+    }
   }
   strip.classList.add("filled");
   // `closest` and not `parentElement`: the frame is whichever artwork container
@@ -3708,6 +3759,50 @@ let spotlightRun = 0;
  */
 function spotlightArt(m) {
   return backdropOf(m) || heroImage(m) || posterOf(m) || "";
+}
+
+/**
+ * **Only the portrait exists: draw it whole, over a blurred copy of itself.**
+ *
+ * The same treatment the title page gives a poster it has nothing wide to show — the tile's
+ * own `--poster` is painted large, blurred and darkened behind the artwork, and the artwork
+ * sits inside it uncropped (see `.portrait` in the sheet).
+ */
+function portraitTile(tile, m) {
+  const art = posterOf(m);
+  tile.classList.add("portrait");
+  if (art) tile.style.setProperty("--poster", `url("${art}")`);
+}
+
+/**
+ * **A title's wide poster: the landscape picture with its name on it.**
+ *
+ * The wide tiles are 16:9, so the picture in one has to be landscape — a 2:3 poster in a
+ * 16:9 slot is a band cut through the middle of it, which is what left "THE DWELLER ON THE…"
+ * hanging off the edge of its own name. Landscape alone is not enough either: the wide shot
+ * a row arrives with (`m.background`) is whichever still the title was catalogued with, and
+ * the picture a poster is *printed on* — the title treatment, name and all — is a different
+ * wide image in the same list. The addon picks that one (`/landscape/…`, see `landscapeArt`
+ * there); this is the read, once per title per launch, and an empty answer means the card
+ * keeps the picture it already has.
+ */
+const landscapePosters = new Map();
+async function landscapePoster(m) {
+  // The app's own ids carry their source (`tmdb:550`); the route wants the number.
+  const path = `${m.type === "movie" ? "movie" : "series"}/${encodeURIComponent(String(m.id || "").replace(/^tmdb:/, ""))}`;
+  if (landscapePosters.has(path)) return landscapePosters.get(path);
+  let url = "";
+  try {
+    const params = new URLSearchParams();
+    if (state.language) params.set("lang", state.language);
+    const query = params.toString();
+    const res = await get(`/landscape/${path}.json${query ? `?${query}` : ""}`);
+    url = String(res?.url || "");
+  } catch {
+    url = "";
+  }
+  landscapePosters.set(path, url);
+  return url;
 }
 
 /**
@@ -4650,7 +4745,7 @@ function renderExplore(key, id) {
     }
     busy = true;
     try {
-      const { metas } = await fetchCatalog(cat, skip, count);
+      const { metas } = await fetchCatalog(cat, skip, count, true);
       for (const m of metas) {
         const id = `${m.type || apiType()}:${m.id}`;
         if (seenIds.has(id)) continue;

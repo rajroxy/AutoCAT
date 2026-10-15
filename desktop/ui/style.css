@@ -500,7 +500,8 @@ body {
    own title and the date it lands over a bottom gradient.
    (`card-spotlight` is the live home's window; `card-wide` is the Movies home's Upcoming, which
    is a card like any other and simply four of them long — so it keeps its hover lift and its
-   door, and only the frame's width and the count of its tiles change.) */
+   door, and draws these same tiles: the four slots are the size of the row above it, and each
+   one wears its date and its name because the tile's frame draws them, not the picture.) */
 .spotlight-tile {
   position: relative;
   flex: 0 0 calc(25% - 8px);
@@ -511,10 +512,23 @@ body {
   overflow: hidden;
   background: var(--panel-2);
 }
-/* **The pair shifts, it does not animate.** A cycle moves the right-hand poster into the
-   left slot, drops the left-hand one, and brings the next title in on the right — so one
-   poster changes per cycle and nothing moves on screen. */
-.icon-box.card-spotlight .content-strip { display: block; }
+/* **Either wide card is a track of tiles, not a wall of posters.** The live home's window
+   shifts a pair of tiles without animating (a cycle moves the right-hand one into the left
+   slot, drops the left-hand one, and brings the next title in on the right — one poster
+   changes per cycle and nothing moves on screen); the Movies home's Upcoming lays four out
+   and leaves them. Both draw the same `spotlight-tile`, which carries its own frame, and
+   the frame is what draws the date chip and the title (see `drawTiles` in app.js). */
+.icon-box.card-spotlight .content-strip,
+.icon-box.card-wide .content-strip { display: block; }
+/* **Four 16:9 tiles, and the gaps are the ones between cards.** The wall every other card
+   wears insets its posters 10px inside the frame; Upcoming's four tiles **are** the frame, so
+   they start at its edge and stand 18px apart — the grid's own gap. That is what makes a tile
+   the 16:9 shape its artwork already is: (1196 − 3×18) / 4 = 285.5 by the frame's 161. Inset
+   by 10px with 10px gaps the same four came out 286 by 141 — a 2.03:1 slot, which crops a
+   sixteenth off the top and bottom of every poster put in it, and did. */
+.icon-box.card-wide .content-strip { inset: 0; }
+.icon-box.card-wide .spotlight-track { gap: 18px; }
+.icon-box.card-wide .spotlight-tile { flex: 1 1 0; }
 .spotlight-track {
   display: flex;
   gap: 10px;
@@ -549,6 +563,21 @@ body {
    element is taken out of the layout until there is a picture for it (`putSpotlightArt`
    clears `blank`, and the tile is the app's own flat plate again). */
 .spotlight-tile-art.blank { background: transparent; display: none; }
+/* **A title whose only artwork is a portrait poster wears it whole.** A 2:3 poster cut into a
+   16:9 slot is a band through the middle of itself — the picture's own name cropped off the
+   edge of the tile — so a tile with nothing wide to show puts its poster in **contained**, and
+   behind it the same poster large, blurred and darkened, which is the treatment the title page
+   already gives a poster with nothing wide to show. (`--poster` is set by `portraitTile`.) */
+.spotlight-tile.portrait .spotlight-tile-art { object-fit: contain; object-position: 50% 50%; }
+.spotlight-tile.portrait::before {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  background-image: var(--poster, none);
+  background-size: cover;
+  background-position: 50% 40%;
+  filter: blur(16px) brightness(0.55) saturate(1.05);
+}
 /* The tag and the name are **drawn on the frame**, the way the tagged artwork draws
    them: a pill across the top, the title under it at the bottom. */
 .spotlight-frame {

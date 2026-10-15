@@ -1347,13 +1347,22 @@ export async function catalogMetas(media, def, skip, opts = {}) {
   // titles now simply gets them.
   const window = Math.max(1, Number(opts.count) || ROW_CHUNK);
   const specs = def.entry ? await catalogSpecs(def.entry, media, opts) : [];
+  // **An Explore page reads a row to its end, whatever its card is called.** A `take` is
+  // the size of a *card* — the ◆ Top 10 rows are ten titles on the wall they were published
+  // for, and every other capped row was capped for its wall's sake too — so a reader who
+  // says it is scrolling the row itself (`deep`, which only the Explore page sets) gets the
+  // row without its cap, and "End of catalog." arrives when TMDB has nothing left rather
+  // than where the card stopped. Specs are rebuilt per request, so this adjusts this
+  // request's copy and nobody else's.
+  const lifted = Boolean(opts.deep);
+  if (lifted) for (const spec of specs) if (spec.take) spec.take = undefined;
   // Key on the catalog's identity *and* its resolved entry — two definitions
   // must never share a pool just because one of them has no id.
   const identity = def.id ?? JSON.stringify(def.entry ?? def);
   const language = opts.language || activeLanguage();
   // See `catalogShuffle`: the sort is part of the pool identity, so switching the
   // OTT dropdown cannot be answered from the other order's pool.
-  const key = `${media}:${identity}:${opts.adult ? "a" : "s"}:${language}:${opts.sort || ""}`;
+  const key = `${media}:${identity}:${opts.adult ? "a" : "s"}:${language}:${opts.sort || ""}${lifted ? ":deep" : ""}`;
 
   if (specs.length === 1 && specs[0].episodes) {
     return stripAdult(await episodesMetas(media, specs[0].episodes, skip, language, Boolean(opts.adult), window), Boolean(opts.adult));
@@ -1396,6 +1405,61 @@ export async function catalogMetas(media, def, skip, opts = {}) {
     return stripAdult(dealForYou(entry, pool, media, def, skip, window, exclude, open), Boolean(opts.adult));
   }
   return stripAdult(pool.slice(skip, skip + window), Boolean(opts.adult));
+}
+
+/* ------------------------------------------------- the wide title artwork */
+
+/**
+ * **A title's landscape poster**: the wide picture its name is printed on.
+ *
+ * The wide tiles are 16:9, so what goes in one has to be landscape, and a *named* wide
+ * picture rather than any wide picture: TMDB's own `backdrop_path` — the shot a row
+ * arrives with — is whichever still the title was catalogued with, which is why the
+ * Upcoming card could show four film stills and no title between them.
+ *
+ * A title's images are one list (`/{movie|tv}/{id}/images`), and the difference between a
+ * still and a title treatment is **the language**: TMDB leaves `iso_639_1` null on a
+ * picture with no text in it and fills it in on the ones that carry their own name. So the
+ * order here is this app's language first, then any language at all, then the plain wide
+ * shot — and an empty answer means the caller keeps what it already has.
+ *
+ * Cached for a day, because a title's artwork does not move and every draw of the card
+ * asks again.
+ */
+const LANDSCAPE_TTL = 24 * 60 * 60 * 1000;
+const landscapeArts = new Map();
+
+async function landscapeArt(media, id, language) {
+  const key = `${media}:${id}:${language}`;
+  const hit = landscapeArts.get(key);
+  if (hit && hit.expires > Date.now()) return hit.url;
+
+  let url = "";
+  try {
+    const short = String(language || "en").slice(0, 2).toLowerCase();
+    const images = await get(`/${tmdbPath(media)}/${id}/images`, {
+      include_image_language: `${short},null`,
+    });
+    // **The best of a list, not the first.** A title can carry twenty wide pictures, and
+    // the one a person recognizes is the one other people kept using — TMDB's own vote
+    // is the only ordering there is, and width breaks a tie.
+    const by = (a, b) => (b.vote_average || 0) - (a.vote_average || 0) || (b.width || 0) - (a.width || 0);
+    const wide = (images?.backdrops || []).filter((b) => b?.file_path);
+    const named = wide.filter((b) => b.iso_639_1);
+    const best =
+      named.filter((b) => String(b.iso_639_1).toLowerCase() === short).sort(by)[0] ||
+      [...named].sort(by)[0] ||
+      [...wide].sort(by)[0];
+    if (best) url = `${IMG}/w1280${best.file_path}`;
+  } catch {
+    // An old title with no image list, or a blip: no answer, and the card keeps the wide
+    // shot the row served it — the tile is never left empty because of this call.
+    url = "";
+  }
+
+  landscapeArts.set(key, { url, expires: Date.now() + LANDSCAPE_TTL });
+  if (landscapeArts.size > 400) landscapeArts.delete(landscapeArts.keys().next().value);
+  return url;
 }
 
 function parseCatalogPath(pathname) {
@@ -2993,6 +3057,21 @@ async function serveAddon(req, res, pathname, origin) {
   if (pathname.startsWith("/catalog/") && !providerListsReady()) {
     await primeRegionProviders().catch(() => {});
   }
+  // **The wide title artwork for one title** (`/landscape/movie/550.json`), asked for by
+  // the Upcoming card's four tiles (see `landscapeArt`). An empty `url` is a clean answer,
+  // not an error: the caller already has a wide shot and keeps it.
+  // The id is the one the app carries (`tmdb:550`), and a bare number is the same title.
+  const art = pathname.match(/^\/landscape\/(movie|series)\/([\w:-]+)\.json$/);
+  if (art) {
+    // This runs above the catalog handler's own query object, so it reads its own.
+    const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+    const language = query.get("lang") || activeLanguage();
+    const id = art[2].replace(/^tmdb:/, "");
+    const url = hasKey() ? await landscapeArt(art[1], id, language) : "";
+    json(res, 200, { ok: Boolean(url), url }, 6 * 60 * 60);
+    return true;
+  }
+
   const parsed = parseCatalogPath(pathname);
   if (!parsed) return pathname.startsWith("/catalog/") ? (json(res, 404, { metas: [] }), true) : false;
   // A retired or unknown catalog id is a 404, not a crash: the id is matched by
@@ -3045,7 +3124,7 @@ async function serveAddon(req, res, pathname, origin) {
     const metas = withoutWatched(
       parsed.shuffle
         ? await catalogShuffle(parsed.type, parsed.def, parsed.shuffle, { adult, language, sort })
-        : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: Number(params.get("count")) || 0 }),
+        : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: Number(params.get("count")) || 0, deep: params.get("deep") === "1" }),
       keepWatched,
     );
     // **What is leaving and what has not arrived yet.** The two rows of the Updates card are

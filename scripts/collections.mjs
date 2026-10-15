@@ -22,8 +22,9 @@
  *                 airing_today | airing_this_week | on_the_air
  *   discover      value: latest | new
  *   curated       params: TMDB discover filters, written as they are sent —
- *                 plus `within` (days) and `before` (year), which are turned
- *                 into the release-date window for the row's own media type
+ *                 plus `within` (days), `before` (year), `olderThan` (days) and
+ *                 `between` (two ISO days: from and to), which are turned into
+ *                 the release-date window for the row's own media type
  *   genre         genre, sort?: "popular"
  *   decade        decade (e.g. 1950), sort?: "popular"
  *   genre-decade  genre, from
@@ -37,7 +38,9 @@
  *
  *   `take` caps how many titles a catalog keeps. It is only used where the name
  *   promises a fixed size (a ◆ Top 10 really is ten titles) — anywhere else it
- *   is left off, because a capped row is a row that stops scrolling.
+ *   is left off, because a capped row is a row that stops scrolling: the cap
+ *   belongs to the card's wall, and an Explore page reads every row to the end
+ *   (see `deep` in `catalogMetas`).
  *
  * NOTE on symbols: covers render with the bundled Inter fonts and system fonts
  * are disabled, so a glyph Inter lacks renders as a box. `✦` and `➜` are NOT in
@@ -1471,32 +1474,56 @@ const decadeGenres = (type, list) =>
  * title the name describes — the best reviewed of the widely seen — and says so.
  */
 /**
- * **The Seasons card: what is starting, what is back, and what is finished.**
+ * **The Seasons card: the year's four seasons, in the order they come.**
  *
  * A show is not one date the way a film is — it is a first season, then a new one every year
- * or two — so "what is out" is not the question this card asks. Its three rows ask it as a
- * viewer does: what is arriving, what has come back on the air, and what has every one of its
- * seasons out already. Every row is the series side only (see the card's own note), and every
- * one of them is a date window read from **today**, so the card says something different next
- * month without anything being edited.
+ * or two — so "what is out" is not the question this card asks. It asks the question a season
+ * name asks: *what started this summer?* Its four rows **are** the four seasons, in the order
+ * the year runs them — Spring, Summer, Autumn, Winter — and each row is the window of dates
+ * that season covers rather than a popularity guess, which is what makes the row and its name
+ * the same thing.
+ *
+ * The months are the **meteorological** seasons (March–May, June–August, September–November,
+ * December–February), which are the ones the words mean wherever the app is read: a calendar
+ * season would make "Summer" three weeks of June. Winter is the one that crosses the year, so
+ * its window runs from December of this cycle into February of the next.
+ *
+ * **Read from today every time the card is reopened**, so next March the card is that year's
+ * four seasons without anything being edited. Every row is the **series side only** — a film
+ * has no season, so this card publishes nothing at all for movies (see the card's own note) —
+ * and none of them is capped, because a season is a window rather than a fixed list.
  */
-const seasonsRows = () => [
-  // What starts soonest is first: `date.asc` with a `future` window is the row's own shorthand
-  // for "from today to N days out", on whichever date field the media type uses (see
-  // `catalogSpecs`).
-  curated("Premiering Soon", { sort_by: "date.asc", future: 45, "vote_count.gte": 0 }, 120),
-  // What has just started. A month back is the window a viewer means by "new", and popularity
-  // is the order because nobody knows the name of a show from three weeks ago yet.
-  curated("New This Month", { sort_by: "popularity.desc", within: 31, "vote_count.gte": 0 }, 120),
-  // **A show that is on the air is a show that has come back.** TMDB's own `on_the_air` is
-  // "episodes airing in the next seven days", which is exactly a returning season or a new run
-  // of episodes — the one thing about a show a film's date cannot say.
-  preset("Back on Air", "on_the_air", 120),
-  // **Every season out.** A show that has ended has all of itself to watch, which is the question
-  // you ask right before starting one; the vote floor is what keeps the list to shows people
-  // finished.
-  curated("Every Season Out", { with_status: "3", sort_by: "vote_average.desc", "vote_count.gte": 300 }, 120),
-];
+const SEASON_NAMES = ["Spring", "Summer", "Autumn", "Winter"];
+// The month each season starts in, in the same order: March, June, September, December.
+const SEASON_FIRST_MONTH = [3, 6, 9, 12];
+
+/** `YYYY-MM-DD` for the first of a numbered month. */
+const firstOfMonth = (year, month) => `${year}-${String(month).padStart(2, "0")}-01`;
+
+/** The last day of a numbered month, read in UTC so no time zone can shift it a day. */
+const lastOfMonth = (year, month) => {
+  const last = new Date(Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 0));
+  const mm = String(last.getUTCMonth() + 1).padStart(2, "0");
+  return `${last.getUTCFullYear()}-${mm}-${String(last.getUTCDate()).padStart(2, "0")}`;
+};
+
+const seasonsRows = () => {
+  const year = new Date().getUTCFullYear();
+  return SEASON_NAMES.map((name, i) => {
+    const endMonth = SEASON_FIRST_MONTH[i] + 2;
+    // `between` is the row's own shorthand for "first aired from this day to that day", on
+    // whichever date field the media type uses (see `catalogSpecs`). The year rides in the
+    // name because a season name alone does not say which year's.
+    const between = [
+      firstOfMonth(year, SEASON_FIRST_MONTH[i]),
+      lastOfMonth(endMonth > 12 ? year + 1 : year, endMonth > 12 ? endMonth - 12 : endMonth),
+    ];
+    // Popularity is the order: what a season is worth watching is what people watched, and a
+    // window that has not happened yet still fills (TMDB gives an unreleased title a
+    // popularity of its own), so a row reads on both sides of today.
+    return curated(`${name} ${year}`, { between, sort_by: "popularity.desc", "vote_count.gte": 0 });
+  });
+};
 
 const discoverRows = () => ({
   // -- Discover, films: what a festival, a craft and a flop look like -----------------------

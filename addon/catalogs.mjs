@@ -225,8 +225,17 @@ async function specsFor(entry, media, opts = {}) {
     // naming `primary_release_date` or `first_air_date` itself, and the same row would then
     // be two different rows for a film and a show.
     case "curated": {
-      const { within, before, olderThan, future, ...rest } = entry.params || {};
+      const { within, before, olderThan, future, between, ...rest } = entry.params || {};
       const params = { ...rest };
+      // **A window with two ends, given as two days.** `within`, `olderThan`, `before` and
+      // `future` each measure from today; a row whose name is a *season* is a stretch of the
+      // calendar that is neither — "Summer" is three months, and it started before today or it
+      // has not started yet, depending on when the card is opened. Both ends are turned into the
+      // row's own date field here, so the season is one window for a film and for a show.
+      if (Array.isArray(between) && between.length === 2) {
+        params[`${dateField(media)}.gte`] = String(between[0]);
+        params[`${dateField(media)}.lte`] = String(between[1]);
+      }
       if (Number.isFinite(within)) params[`${dateField(media)}.gte`] = iso(new Date(Date.now() - within * 864e5));
       if (Number.isFinite(olderThan)) params[`${dateField(media)}.lte`] = iso(new Date(Date.now() - olderThan * 864e5));
       if (Number.isFinite(before)) params[`${dateField(media)}.lte`] = `${before}-12-31`;
