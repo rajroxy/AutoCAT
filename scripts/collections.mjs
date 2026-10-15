@@ -1810,10 +1810,13 @@ const buildCollections = (code = "") => {
     key: "seasons",
     lines: ["Seasons"],
     scene: "seasons",
-    // **A shows-only card.** Every row is about a season, and a film does not have one, so the
-    // movie side publishes nothing at all — the app draws a card only where it has rows
-    // (`cardsForRow` in app.js), which means this one is simply not on the Movies tab.
-    catalogs: { show: seasonsRows() },
+    // **A card on both sides.** Every row is a season of the year read through whichever date
+    // field the media type has (`between` in `catalogs.mjs`) — a series' first airing then, a
+    // film's release now — so the four rows are the same four and both tabs have them. It
+    // published shows only for a round, on the reasoning that a film has no season; the owner's
+    // ask was *"movie tab me seasons card do aur contents bhi"* — a card is worth having on the
+    // tab that opens on it, and the rows behind it answer either way.
+    catalogs: { movie: seasonsRows(), show: seasonsRows() },
   },
   {
     key: "discover",

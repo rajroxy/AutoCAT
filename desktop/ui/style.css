@@ -537,6 +537,19 @@ body {
    home's Upcoming and the Movies home's own, which is the same glance at what is coming. */
 .icon-box.card-spotlight:hover,
 .icon-box.card-wide:hover { transform: none; }
+/* **The two glance cards wear no ring and hide no label.** Neither the spotlight card nor the
+   wide Upcoming card is a door (nothing on them is a control), so a ring on them said "press
+   me" about a picture. And on hover the label under the frame used to fade — leaving the card's
+   own name as the one thing you could not read — so it is held at full strength. */
+.icon-box.card-spotlight,
+.icon-box.card-wide,
+.icon-box.card-spotlight *,
+.icon-box.card-wide * {
+  box-shadow: none !important;
+  outline: none !important;
+}
+.icon-box.card-spotlight .icon-meta,
+.icon-box.card-wide .icon-meta { opacity: 1 !important; }
 /* **A window, not a door** — so no hand over it, the same way a poster is not promising
    anything until it has one. */
 .icon-box.card-spotlight, .icon-box.card-spotlight .icon-wrap,
@@ -3531,8 +3544,39 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   background: rgba(255, 255, 255, 0.09);
   color: var(--text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
 }
-.player-icon:hover, .player-icon:focus-visible { background: rgba(255, 255, 255, 0.16); }
+.player-icon:hover, .player-icon:focus-visible { background: rgba(var(--hover-rgb), 0.22); }
+/* **Play is the app's own control, like the Home tab is.** It wore the same neutral plate as the
+   rest of the strip, so the one button the bar exists for looked like its neighbours — it is the
+   accent now, with ink on it, exactly like the chosen pill and the Home tab. And like every other
+   control in this app it answers the cursor with the **ring** rather than with a second fill. */
+.player-icon.play {
+  background: var(--fill);
+  color: #14110a;
+  box-shadow: none;
+}
+.player-icon.play:hover, .player-icon.play:focus-visible {
+  background: var(--fill);
+  color: #14110a;
+  box-shadow: var(--ring-shadow);
+}
 /* A drawn mark, on the same stroked grid as the top bar's icons. */
+/* **The percentage, faint in the corner.** A reading rather than a control: the app's own
+   plate at low strength, small type, and out of the way of the picture. */
+.player-progress {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 3;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: rgba(11, 11, 11, 0.55);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+.player-progress[hidden] { display: none; }
 .player-glyph { display: inline-flex; align-items: center; justify-content: center; }
 .player-glyph svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -4620,7 +4664,30 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
    is the same small square everywhere: a chevron to fold, or an arrow to move the entry one
    place in its list. */
 .vis-card.vis-tab { padding: 6px 12px 12px; }
-.vis-btn { font-size: 13px; }
+/* **A small button looks like a small button.** The fold caret and the move arrows were bare
+   glyphs on the panel — the screenshot the owner sent shows three arrow pairs floating with no
+   plate under them, which reads as decoration rather than as controls you can press. They wear
+   the same 30px rounded plate as the fold, at the app's own faint fill, and take the hover fill
+   and the ring the rest of the app's buttons take. */
+.vis-btn {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.vis-btn:hover, .vis-btn:focus-visible {
+  background: rgba(var(--hover-rgb), 0.22);
+  color: var(--text);
+  outline: none;
+  box-shadow: none;
+}
+.vis-btn.dead { background: transparent; }
 .vis-btn.dead { opacity: 0.3; cursor: default; pointer-events: none; }
 .vis-leaf { display: flex; align-items: center; gap: 8px; }
 .vis-leaf .vis-option { flex: 1; min-width: 0; }

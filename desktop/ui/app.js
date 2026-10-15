@@ -1312,6 +1312,14 @@ const titleOf = (c, row = rowKey()) => c?.[row]?.title || c?.title || "";
  */
 const GET_TIMEOUT_MS = Number(globalThis.AUTOCAT_GET_TIMEOUT_MS) || 25000;
 /**
+ * **The sources read is not like the others.** `/streams/…` is the one request that fans out to
+ * every add-on and scraper the machine has and waits for all of them; the app's own 25-second
+ * ceiling cut it off mid-answer — the reported *"Could not read the streams — the app server did
+ * not answer in 25s"* on a title whose sources were on their way. It gets a minute and a half,
+ * and the panel says which kind of waiting this is.
+ */
+const STREAMS_TIMEOUT_MS = Number(globalThis.AUTOCAT_STREAMS_TIMEOUT_MS) || 90000;
+/**
  * **Every request says which profile it is for.**
  *
  * The watchlist and the Library are stored on the server, and they were one store for the
@@ -4400,6 +4408,15 @@ function rowSwitch(scope = "home") {
     if (scope === "home") setRow(value);
     else setRowScope(scope, value);
     state.order = {};
+    // **A different row is a different shelf, so it is dealt again.** Switching Movies → Shows
+    // redrew the screen out of the **same per-launch draws** — the windows moved with the cards
+    // and the pictures came back identical — which is the owner's *"no catalogs titles refresh
+    // when click on movie or shows button"*. This is the same re-deal the Home tab's own press
+    // does (see `refreshNow`): a new seed, new windows, and the per-launch picture cache dropped.
+    LAUNCH_SEED = Math.floor(Math.random() * 1e9);
+    clearTileWindows();
+    contentDrawn.clear();
+    state.gen = Date.now();
     render();
   };
   return el(
@@ -7099,7 +7116,6 @@ async function renderSeason(showId, seasonNumber) {
                 m.poster
                   ? el("img", { src: m.poster, alt: "", loading: "lazy" })
                   : el("div", { class: "ep-still-empty", text: "No still" }),
-                el("span", { class: "ep-play", "aria-hidden": "true", text: "▶" }),
               ),
               el("span", { class: "ep-card-num", text: `Episode ${m.episode || ""}`.trim() }),
               el("span", { class: "ep-card-title", text: episodeTitle(m) }),
@@ -7896,7 +7912,7 @@ function libraryButton(item) {
   const setAt = (value) => { libraryWalk = { key: walkKey, at: value }; at = value; };
   const label = el("span", { class: "library-label" });
   const btn = el("button", {
-    class: "btn focusable",
+    class: "btn pin library focusable",
     type: "button",
     id: "library-add",
     "aria-expanded": "false",
@@ -9588,12 +9604,14 @@ function paneProfile() {
     // separate, each keeps its own keys, add-ons, Debrid account, playlists, playback and
     // layout (and the mode switch carries what you are looking at across, once). Unified,
     // they are one app again — the way this install worked before the split.
+    // **There is no Unified any more.** Two modes that can be one app and two apps by a switch
+    // was a question the owner did not want asked: VOD and IPTV are **two modes**, each with its
+    // own keys, add-ons, Debrid, playlists, playback and layout, and the switch that made them
+    // one is deleted rather than restated. The pane still says which store it is writing to.
     groupHead("Modes"),
-    radioRow(settingsUnified(), "modes", "Unified", "VOD and IPTV share one set of settings — the app the install always had.", () => {
-      if (!settingsUnified()) setUnified(true);
-    }),
-    radioRow(!settingsUnified(), "modes", "Separate", "Each mode keeps its own: keys, add-ons, Debrid, playlists, playback and layout. Switching carries the settings you are looking at across, once.", () => {
-      if (settingsUnified()) setUnified(false);
+    el("p", {
+      class: "option-desc",
+      text: "Each mode keeps its own: keys, add-ons, Debrid, playlists, playback and layout.",
     }),
     // **Which store you are editing, said out loud.** Two modes with two sets of settings
     // look exactly like one set of settings until something says which one the pane is
@@ -14088,9 +14106,14 @@ async function openPlayer(url, title, opts = {}) {
   // shapes; the rest are one path each.
   const PLAY_MARK = () => [svgNode("path", { d: "M9 6.2v11.6L18.6 12z", fill: "currentColor", stroke: "none" })];
   const PAUSE_MARK = () => [svgNode("path", { d: "M9.5 6v12" }), svgNode("path", { d: "M14.5 6v12" })];
+  // **How far through you are, in the corner and out of the way.** A small translucent box at
+  // the player's top left: the percentage of the title watched, kept up to date by the same
+  // `timeupdate` the seek bar reads. It is deliberately faint — it is a reading, not a control —
+  // and it appears only once there is a duration to be a percentage of.
+  const progressBox = el("div", { class: "player-progress", hidden: true, text: "" });
   const playBtn = el(
     "button",
-    { class: "player-icon focusable", type: "button", title: "Play / pause",
+    { class: "player-icon play focusable", type: "button", title: "Play / pause",
       onclick: () => (video.paused ? video.play().catch(() => {}) : video.pause()) },
     playerGlyph(PAUSE_MARK()),
   );
@@ -14106,6 +14129,9 @@ async function openPlayer(url, title, opts = {}) {
     seek.style.setProperty("--played", d ? `${(video.currentTime / d) * 100}%` : "0%");
     clock.textContent = timecode(video.currentTime);
     total.textContent = d ? timecode(d) : "live";
+    // The reading in the corner: the same number the bar fills by, written down.
+    progressBox.textContent = d ? `${Math.min(100, Math.round((video.currentTime / d) * 100))}%` : "";
+    progressBox.hidden = !d;
     watchedPast(opts.meta, d ? video.currentTime / d : 0);
   });
   video.addEventListener("loadedmetadata", () => { total.textContent = video.duration ? timecode(video.duration) : "live"; });
@@ -14888,6 +14914,11 @@ async function openPlayer(url, title, opts = {}) {
       return hit[1] === "4k" || hit[1] === "uhd" ? 2160 : Number(hit[1]);
     };
     const label = (x) => x.name || x.source || x.title || "Stream";
+    // **The provider is the add-on, not the line of text it prints.** A Stremio stream's `name`
+    // is often the add-on *and* the quality (`"TorrentsDB\n2160p"`), which grouped into six
+    // "providers" that were one. The grouping key is the first line; the full label is still what
+    // the "Playing from …" line says.
+    const providerOf = (x) => String(label(x)).split("\n")[0].trim() || "Stream";
     const pick = async (x) => {
       if (!x) return;
       gearPanel.hidden = true;
@@ -14898,14 +14929,14 @@ async function openPlayer(url, title, opts = {}) {
     // best — pressing it switches to that one.
     const byProvider = new Map();
     for (const x of mergeable) {
-      const key = label(x);
+      const key = providerOf(x);
       const held = byProvider.get(key);
       if (!held || sizeOf(x) > sizeOf(held)) byProvider.set(key, x);
     }
     const here = mergeable.find((x) => (x.torrent ? x.magnet : x.url) === currentSource);
     const providerRows = [...byProvider.entries()].map(([name, x]) => {
       const active = (x.torrent ? x.magnet : x.url) === currentSource;
-      const count = mergeable.filter((y) => label(y) === name).length;
+      const count = mergeable.filter((y) => providerOf(y) === name).length;
       return el("button", {
         class: `stream focusable${active ? " active" : ""}`,
         type: "button",
@@ -14939,9 +14970,17 @@ async function openPlayer(url, title, opts = {}) {
     gearPanel.replaceChildren(...[
       // The panel's own name — the gear is labelled **Options**.
       el("p", { class: "player-options-head", text: "Options" }),
-      // **No Providers list here.** It repeated the Sources drawer one button away, and
-      // picking a provider in it only moved the playhead — the streams are what you
-      // choose between, and they live in Sources. Options is the picture and its tracks.
+      // **The providers, where Stremio and Nuvio put them.** This list was taken out once on
+      // the argument that it repeated the Sources drawer; the owner's answer is that the Options
+      // popup is where he goes to choose *where the picture comes from* — `"player option popup
+      // me provider stream ka option nahi aata hai jaise stremio ya nuvio me aata hai"`. One row
+      // per **provider** (the add-on or scraper that answered), the best stream it offers at the
+      // chosen ceiling, the count beside it, and a press switches the picture to it — the stream
+      // list itself stays one press away in Sources.
+      providerRows.length
+        ? el("h3", { class: "row-head", text: "Providers" })
+        : null,
+      providerRows.length ? el("div", { class: "stream-list" }, ...providerRows) : null,
       heights.length
         ? el("h3", { class: "row-head", text: "Resolution" })
         : null,
@@ -15116,7 +15155,7 @@ async function openPlayer(url, title, opts = {}) {
   // The failure line is **one element**, not one per attempt: switching sources
   // several times must not stack four copies of the same complaint.
   const errorNote = el("p", { class: "player-error", hidden: true });
-  node.append(errorNote);
+  node.append(errorNote, progressBox);
   const sayError = (text) => { errorNote.textContent = text || ""; errorNote.hidden = !text; };
 
   document.body.append(node);
@@ -15357,7 +15396,7 @@ async function openSources(meta) {
     el("div", { class: "player-empty-body" },
       el("span", { class: "player-spinner", "aria-hidden": "true" }),
       el("p", { class: "player-loading-title", text: meta.name || "Finding sources" }),
-      el("p", { class: "player-note", text: "Finding sources…" }),
+      el("p", { class: "player-note", text: "Asking every add-on and scraper — a title with many sources can take a minute." }),
       el("button", { class: "btn subtle focusable", type: "button", text: "Close", onclick: () => overlay.remove() }),
     ),
   );
@@ -15367,7 +15406,7 @@ async function openSources(meta) {
     // An episode's own streams: the add-on is asked for `<imdb>:<season>:<episode>`,
     // so a series that serves episodes returns the episode's hosts.
     const extra = meta.season && meta.episode ? `&season=${encodeURIComponent(meta.season)}&episode=${encodeURIComponent(meta.episode)}` : "";
-    payload = await get(`/streams/${media}/${encodeURIComponent(id)}.json?name=${encodeURIComponent(meta.name || "")}${extra}`);
+    payload = await get(`/streams/${media}/${encodeURIComponent(id)}.json?name=${encodeURIComponent(meta.name || "")}${extra}`, { timeoutMs: STREAMS_TIMEOUT_MS });
   } catch (err) {
     overlay.replaceChildren(
       el("div", { class: "player-empty-body" },
