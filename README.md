@@ -79,10 +79,17 @@ The **Updates** card is the two ends of that window, fifty titles either way:
 | **Arriving Soon** | what has not landed yet, read in popularity order over the coming quarter (three months for films, four for series), so it is *any* titles on their way rather than the twenty with the earliest release dates the calendar shows |
 
 The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored) and
-put on the title's own card. A title that has left is dropped from every row and the
-search — your own Watchlist and Library keep it, wearing the date it left. A title that
-has not arrived is held off the shelves and appears only on the two cards that are *about*
-what is coming.
+put on the title's own card.
+
+**Leaving and arriving are two different rules.** A title the Leaving Soon row has named is
+**out of the app from that moment** — dropped from every row, from the search and from the
+filters — and the two places it is still on screen are the Updates card that named it, wearing
+its leaving date, and your own Watchlist and Library, which are yours to keep. A title that has
+**not landed yet** is the other way round: it is *in* the app like any other — findable, in its
+genre, country and decade rows, in the filters — and the only thing it lacks is something to
+play, which its title page says (`Arriving 4 Nov` in place of Play). The one kind of row it
+waits off is the card whose rows claim a title is **on now** (Now Playing, Airing Today, On the
+Air), where TMDB's own pre-release windows would otherwise put the same poster twice.
 
 ## The player
 

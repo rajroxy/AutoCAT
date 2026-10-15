@@ -6636,11 +6636,13 @@ html .tab.tab-home:is(:hover, :focus-visible, :has(:focus-visible)) {
 html .tab.tab-home {
   font-size: 16px;
   letter-spacing: -0.01em;
-  /* **A label, so no hand.** The cursor was a pointing hand because the press refreshes the
-     screen; the owner's answer is that the name of the screen is a label and a label does not
-     promise anything ("home label pe cursor aana chahiye hover pe, hand nahi"). The press still
-     works. */
+  /* **A label, and only a label.** The cursor was a pointing hand because the press re-read the
+     screen; the owner's answer is that the name of the screen is a label and a label promises
+     nothing ("home label pe cursor aana chahiye hover pe, hand nahi"). The press has since gone
+     the same way — it reads as the page reloading ("why clicking on home is refreshing page") —
+     so there is no hand, no click and no focus stop left here: the tab is a `span`. */
   cursor: default;
+  user-select: none;
 }
 
 /* ============================================================================

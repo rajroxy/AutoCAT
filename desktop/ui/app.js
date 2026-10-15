@@ -4486,9 +4486,9 @@ function rowSwitch(scope = "home") {
   const pick = (value) => {
     // **A press on the plate you are standing on does nothing at all.** It used to re-read the
     // whole screen, which the owner has now taken back: *"there should be no refresh on clicking
-    // again on move and show buttons"*. Moving to the *other* plate still deals the cards again
-    // (below), and the **Home label** — a different control, further left — still refreshes the
-    // screen it names.
+    // again on move and show buttons"* — and the same rule has since taken the press off the
+    // **Home label** (see `renderTabs`), so no name of the screen you are on re-reads it. Moving
+    // to the *other* plate still deals the cards again (below).
     if (mine === value) return;
     if (scope === "home") setRow(value);
     else setRowScope(scope, value);
@@ -4496,8 +4496,8 @@ function rowSwitch(scope = "home") {
     // **A different row is a different shelf, so it is dealt again.** Switching Movies → Shows
     // redrew the screen out of the **same per-launch draws** — the windows moved with the cards
     // and the pictures came back identical — which is the owner's *"no catalogs titles refresh
-    // when click on movie or shows button"*. This is the same re-deal the Home tab's own press
-    // does (see `refreshNow`): a new seed, new windows, and the per-launch picture cache dropped.
+    // when click on movie or shows button"*. It is the same re-deal the app's own refresh does
+    // (see `refreshNow`): a new seed, new windows, and the per-launch picture cache dropped.
     LAUNCH_SEED = Math.floor(Math.random() * 1e9);
     clearTileWindows();
     contentDrawn.clear();
@@ -11838,20 +11838,17 @@ function renderTabs() {
     // plain text: no click, no focus stop, nothing to press.
     children.push(el("span", { class: "tab tab-title", text: label }));
   } else if (parsed.view === "home") {
-    children.push(
-      el("button", {
-        class: "tab tab-home focusable",
-        type: "button",
-        role: "tab",
-        "aria-selected": "true",
-        // **Home keeps its hand, because pressing it refreshes.** The tab says where you are,
-        // and the press that used to do nothing now re-reads the screen's catalogs
-        // (`refreshNow`) — the app's own refresh, on the plate that names the screen it
-        // refreshes. Anywhere else in the app it is still the way back Home.
-        text: "Home",
-        onclick: () => (parseHash().view === "home" ? refreshNow() : go("#/")),
-      }),
-    );
+    // **Home is a label, and now it behaves like one.**
+    //
+    // It was a button: pressing it re-read the screen's catalogs (`refreshNow`), which is why it
+    // wore a pointing hand. The hand went first (the owner: *"home label pe cursor aana chahiye
+    // hover pe, hand nahi"*), and the press has followed it, because a press that re-reads the
+    // whole screen under a plate that only says *where you are* reads as the page reloading —
+    // the owner's own words now: *"why clicking on home is refreshing page"*. So this is drawn the
+    // way the other screen names are drawn, as text: nothing to press, nothing to focus, and a
+    // press on Home cannot throw the page away. It only ever appears on Home, and leaving Home is
+    // the settings, search and calendar buttons beside it — each a door of its own.
+    children.push(el("span", { class: "tab tab-home", text: "Home" }));
   }
   tabs.replaceChildren(...children);
   // Nothing to draw (an Explore page, a title, settings) → the slot goes with the
