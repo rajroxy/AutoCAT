@@ -1171,9 +1171,11 @@ const ORIGINALS = VERIFIED.originals || {};
 // payload: `Watched` is a page of its own now (Settings → Content → Watched), and a row
 // the card does not draw is exactly what that needs.
 const watchlist = (name, state, offcard) => ({ name, kind: "watchlist", state, offcard: Boolean(offcard) });
-// **What *you* are waiting for.** Not a TMDB query: served from your own stores — every title you
-// pinned, the ones you filed in your own Library rows and your Calendar plans — and answered with
-// the ones whose own release day is still ahead. See `arrivingMetas` in `addon/index.mjs`.
+// **What is arriving.** Two halves, and neither is the Upcoming card's list: **yours** — every title
+// you pinned, the ones you filed in your own Library rows and your Calendar plans, answered for the
+// ones whose own release day is still ahead (nearest first, leading the row) — and then **what is
+// announced past that card's own horizon**, so the row is not empty for a profile that is waiting
+// for nothing. See `arrivingMetas` in `addon/index.mjs`.
 const arriving = (name, take) => ({ name, kind: "arriving", take });
 
 /**
@@ -2005,10 +2007,11 @@ const buildCollections = (code = "") => {
   // **Leaving Soon** is read from **today's date** every time the card is opened, so the card
   // moves on its own: it is the last `SOON_DAYS` of each title's own stay, recomputed per request
   // — which is what "leaving, from time to time" means here (see `specsFor` in `addon/catalogs.mjs`).
-  // **Arriving Soon** is the other end of the same question and is not a date range at all: it is
-  // **your** titles — your pins, your Library rows and your Calendar plans — read for the ones
-  // whose day is still ahead of us. Nothing about it is stored or scheduled either; it moves with
-  // your own lists instead of with the world's calendar.
+  // **Arriving Soon** is the other end of the same question and is not one date range either: what
+  // you are waiting for (your pins, your Library rows, your Calendar plans, read for the ones whose
+  // day is still ahead) leads it, and what is announced **past the Upcoming card's own six months**
+  // fills it — the one part of the world's calendar that card does not carry. Nothing about it is
+  // stored or scheduled; it moves with your own lists and with what has been announced.
   {
     key: "updates",
     lines: ["Updates"],
@@ -2053,13 +2056,16 @@ const buildCollections = (code = "") => {
       // every announced series within the window is on that card, so subtracting it left the row
       // with nothing at all.
       //
-      // So the question is asked from the other side. Not *what is the world releasing* — that is
-      // the Upcoming card's own job — but **what you are waiting for**: every title you pinned, the
-      // ones you filed in your own Library rows, and your Calendar plans, with the ones whose
-      // release day is still ahead on the row, nearest first. It cannot be a second copy of the
-      // calendar because it is not a list of the world's releases at all; it is your list, read for
-      // dates. Follow nothing that is coming and the row is empty — which is a real answer, the way
-      // the Watching row is empty until you watch something.
+      // So the row is asked from the other side, and it has **two halves**. First **what you are
+      // waiting for** — every title you pinned, the ones you filed in your own Library rows and your
+      // Calendar plans, answered for the ones whose release day is still ahead, nearest first — so
+      // the titles you chose lead the row. Then **what is announced past the Upcoming card's own
+      // horizon**: its rows are `future: 180` (see `UPCOMING_ROWS`), and measured, every film of the
+      // next 90 days and every series of the next 120, most popular first, is already on it (60 of 60
+      // either way) — so one day past its six months is the first day a row can be read without
+      // repeating it, and that half is what keeps the row from being empty for a profile that is
+      // waiting for nothing. Both have their dates on the poster; a title on the row arrives in the
+      // app on the day it lands (see `arrivingMetas` in `addon/index.mjs`).
       arriving("Arriving Soon", UPDATES_TAKE),
     ]),
   },

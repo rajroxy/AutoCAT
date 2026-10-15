@@ -2077,13 +2077,9 @@ function noteForYouServed(id, metas) {
  */
 function emptyRowText(catalog) {
   if (catalog.kind === "watchlist" || catalog.kind === "custom") return "";
-  // **Arriving is the one row that says where it is filled from**, because it is the only row on
-  // screen filled from *another screen*: there is no title in it to pin, so the way to fill it has
-  // to be said. Your own lists keep quiet (see the note above) — the buttons that fill those are
-  // on the title pages, and the rows are full of the titles they are about.
-  if (catalog.kind === "arriving") {
-    return "Nothing of yours is on its way — pin a title, or plan one on the calendar, and it appears here.";
-  }
+  // **The Arriving row is not one of them.** It is filled from your own lists *and* from what is
+  // announced past the calendar's own six months, so an empty one is a read that failed rather than
+  // an answer — and the plain line below is the honest thing to say about that.
   return "No titles returned for this catalog.";
 }
 

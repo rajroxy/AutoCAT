@@ -77,18 +77,19 @@ other end yours:
 | Row | What it is |
 |---|---|
 | **Leaving Soon** | the last 30 days of the stay — everything on it is out of the app within a month, and its leaving date is on the poster |
-| **Arriving Soon** | **yours**: every title you pinned, filed in a Library row or planned on the calendar whose own release day is still ahead, nearest first |
+| **Arriving Soon** | two halves, neither of them on the Upcoming card: **what you are waiting for** (every title you pinned, filed in a Library row or planned on the calendar whose own release day is still ahead, nearest first, leading the row), then **what is announced past that card's own six months** |
 
 The world's upcoming releases are the **Upcoming** card's own subject, and this row used to be the
-same pool read twice — measured, **19 of its 50** titles were on that card, and for **series** the
-overlap was total (that card carries every announced series, so nothing was left when the
-subtraction was tried). It asks a different question now: not *what is the world releasing* but
-*what are you waiting for*. It reads your lists, so following nothing that is coming leaves it
-empty — which is a real answer, and the row says so in place of its posters.
+same pool read twice. **Measured:** that card's rows are `date.asc` windows of 180 days (120 per
+country), holding **3,260 films and 444 series** when read to the end — and every film of the next
+90 days and every series of the next 120, most popular first, is already on it (**60 of 60**, both
+media). Inside six months the calendar is the calendar, so the row asks the questions that are left:
+what you are waiting for, and what has been announced past the calendar's reach. Its earliest titles
+are therefore six months out, each wearing its own date.
 
 The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored) and
-put on the title's own card — a title on your Arriving Soon row is one the rest of the app now
-knows is on its way, which is what keeps it off the rows that claim a title is on **now**.
+put on the title's own card — a title on the Arriving Soon row is one the rest of the app now knows
+is on its way, which is what keeps it off the rows that claim a title is on **now**.
 
 **Leaving and arriving are two different rules.** A title the Leaving Soon row has named is
 **out of the app from that moment** — dropped from every row, from the search and from the

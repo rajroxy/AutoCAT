@@ -1355,32 +1355,65 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
 }
 
 /**
- * **What you are waiting for: your own titles that have not landed yet.**
+ * **What is arriving: your own waiting list, and what is announced past the calendar's reach.**
  *
  * The Updates card's **Arriving Soon** row used to be read straight out of the world's upcoming
- * releases, which is the Upcoming card's own subject: measured on the day this was written, 19 of
- * its 50 titles were also on that card, and for **shows** the overlap is total — every announced
- * series within the window is on it, so subtracting it left this row with nothing at all. The
- * owner's words are plain: *"the arriving soon in update card should not connected to real world
- * upcoming releases which is already in upcoming card"*.
+ * releases, which is the Upcoming card's own subject — and the owner has said twice that it should
+ * not be (*"the arriving soon in update card should not connected to real world upcoming releases
+ * which is already in upcoming card"*). It was rebuilt as **your** list, and the next word back was
+ * the other complaint: *"arriving row is empty"*, because a profile that is waiting for nothing has
+ * nothing to put on it.
  *
- * So the row asks from the other side: **your** titles — every pin whatever state it is in, the
- * titles you filed in your own Library rows, and your Calendar plans — and answers with the ones
- * whose own release day is still ahead, nearest first. It cannot be a second copy of the calendar
- * because it is not a list of the world's releases at all; it is your list, read for dates.
+ * **Measured before this was written: there is no near-term world content to add.** The Upcoming
+ * card's own rows are `date.asc` windows — 180 days for its main row, 120 for each country row — and
+ * read to the end of every row it holds **3,260 films and 444 series**. Against that set, the
+ * world's upcoming for the next 90 days (films) and 120 days (series), most popular first, came back
+ * **60 of 60 already on the card for both media**: inside six months the calendar *is* the calendar,
+ * and anything this row showed from that window would be the same titles a second time.
  *
- * **A date is a fact about the title, so it is looked up once.** A pin stores only what the app
- * draws (a poster, a year), so a title without a stored day is asked of TMDB — twelve at a time, the
- * same way the episode rows fill their pool — and the answer is kept for `ARRIVING_DATE_TTL_MS`. A
- * title TMDB will not date is simply not on its way, and **an empty answer is a real answer**: follow
- * nothing that is coming and the row has nothing to say, exactly as the Watching row is empty until
- * something is watched.
+ * So the row has **two halves**, and neither is a title the calendar already holds:
+ *
+ *  1. **What you are waiting for** — every title you pinned, filed in your own Library rows or
+ *     planned on the calendar whose own release day is still ahead, nearest first. It **leads the
+ *     row**: what you chose comes before anything the app thought of. A pin stores only what the app
+ *     draws (a poster, a year), so a title with no stored day is asked of TMDB — twelve at a time,
+ *     the same way the episode rows fill their pool — and the answer is kept for
+ *     `ARRIVING_DATE_TTL_MS`. A title TMDB will not date is simply not on its way.
+ *  2. **What is announced past the calendar's own horizon** — `ARRIVING_FAR_FROM` days out and
+ *     beyond (181, one day past the widest row the Upcoming card publishes), most popular first, so
+ *     the row is never empty and nothing on it *can* be on that card. This is the half that answers
+ *     the row's own name for a profile that follows nothing yet: the announced features and series
+ *     the calendar's six months do not reach, which is a real answer and not a second copy.
+ *
+ * The dates ride on the metas either way, so the row wears them and the lineup writes them down
+ * (`noteLineup`): a title on this row arrives in the app on the day it lands, like every other.
  */
 const arrivingDates = new Map();
 const ARRIVING_DATE_TTL_MS = 6 * 60 * 60 * 1000;
 const ARRIVING_POOL_CAP = 500;
+/**
+ * **The day the Upcoming card stops, and where the announcements stop being worth showing.**
+ *
+ * Its widest row is `future: 180` (see `UPCOMING_ROWS` in `scripts/collections.mjs`), so **one day
+ * past that is the first day this row can be read without repeating the card** — the measurement in
+ * the note above is what says so, not a guess. `ARRIVING_FAR_TO` is two years, because a date that
+ * far out is an announcement rather than a release plan and the row should not carry it.
+ */
+const ARRIVING_FAR_FROM = 181;
+const ARRIVING_FAR_TO = 730;
+/** How deep the far half is read, in pages of twenty, and how long the read is kept. */
+const ARRIVING_FAR_PAGES = 25;
+const ARRIVING_FAR_TTL_MS = 10 * 60 * 1000;
+const farPools = new Map();
 
-async function arrivingMetas(media, window, language) {
+/** The day `n` days from now, the way TMDB takes a date. */
+const dayIn = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+
+/** The key a title is known by on either side of the row — the same shape the stores use. */
+const arrivingKey = (m) => `${m?.type === "series" ? "series" : "movie"}:${String(m?.id || "").replace(/^tmdb:/, "")}`;
+
+/** **Half one.** Your own titles that have not landed yet, nearest first. */
+async function waitingFor(media, count, language) {
   // Every title of yours, whatever it is filed under. The stores are small by nature, and the cap
   // is there so a list of a thousand pins cannot turn one row into a thousand lookups.
   const mine = [
@@ -1390,7 +1423,7 @@ async function arrivingMetas(media, window, language) {
   const seen = new Set();
   const pool = [];
   for (const m of mine) {
-    const key = `${m?.type === "series" ? "series" : "movie"}:${String(m?.id || "").replace(/^tmdb:/, "")}`;
+    const key = arrivingKey(m);
     if (!m?.id || seen.has(key)) continue;
     seen.add(key);
     pool.push(m);
@@ -1400,7 +1433,7 @@ async function arrivingMetas(media, window, language) {
   const endpoint = tmdbPath(media);
   const today = new Date().toISOString().slice(0, 10);
   const dated = await mapLimit(pool, 12, async (m) => {
-    const key = `${m.type === "series" ? "series" : "movie"}:${String(m.id).replace(/^tmdb:/, "")}`;
+    const key = arrivingKey(m);
     let date = /^\d{4}-\d{2}-\d{2}$/.test(String(m.releaseDate || "")) ? String(m.releaseDate) : "";
     if (!date) {
       const hit = arrivingDates.get(key);
@@ -1420,7 +1453,65 @@ async function arrivingMetas(media, window, language) {
   return dated
     .filter(Boolean)
     .sort((a, b) => String(a.releaseDate).localeCompare(String(b.releaseDate)))
-    .slice(0, window);
+    .slice(0, count);
+}
+
+/**
+ * **Half two.** What is announced past the Upcoming card's own horizon, most popular first.
+ *
+ * The pool is read a page at a time and **extended only as far as the reader asks** — a card reads
+ * one window, an Explore page scrolls the row and asks for more — then kept for
+ * `ARRIVING_FAR_TTL_MS`, so a row that is scrolled does not re-ask TMDB for what it already has.
+ */
+async function announcedBeyond(media, need, language) {
+  const key = `${media}:${language || ""}`;
+  let entry = farPools.get(key);
+  if (!entry || Date.now() - entry.at > ARRIVING_FAR_TTL_MS) {
+    entry = { at: Date.now(), metas: [], pages: 0 };
+    farPools.set(key, entry);
+  }
+  const field = media === "movie" ? "primary_release_date" : "first_air_date";
+  const wanted = Math.min(ARRIVING_FAR_PAGES, Math.ceil(Math.max(need, 20) / 20) + 1);
+  while (entry.pages < wanted && entry.metas.length < need) {
+    const res = await get(`/discover/${tmdbPath(media)}`, {
+      [`${field}.gte`]: dayIn(ARRIVING_FAR_FROM),
+      [`${field}.lte`]: dayIn(ARRIVING_FAR_TO),
+      sort_by: "popularity.desc",
+      page: entry.pages + 1,
+      language,
+    }).catch(() => null);
+    const items = res?.results || [];
+    if (!items.length) {
+      entry.pages = wanted;
+      break;
+    }
+    entry.pages += 1;
+    for (const item of items) {
+      const meta = toMeta(item, media);
+      if (meta) entry.metas.push(meta);
+    }
+    if (items.length < 20) break;
+  }
+  return entry.metas;
+}
+
+/**
+ * **The row itself: yours first, then what the calendar cannot hold** (see the note on the two
+ * halves above). `skip` is the reader's own window — a card's first page, or the next one when the
+ * row is scrolled — so paging walks the same two halves rather than handing back the first window.
+ */
+async function arrivingMetas(media, skip, window, language, adult = false) {
+  const mine = await waitingFor(media, skip + window, language);
+  const beyond = stripAdult(await announcedBeyond(media, skip + window, language), adult);
+  const seen = new Set();
+  const out = [];
+  for (const m of [...mine, ...beyond]) {
+    const key = arrivingKey(m);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(m);
+  }
+  return out.slice(skip, skip + window);
 }
 
 export async function catalogMetas(media, def, skip, opts = {}) {
@@ -1469,7 +1560,7 @@ export async function catalogMetas(media, def, skip, opts = {}) {
   // **Your own titles that have not landed yet** — the Updates card's Arriving row. Not a TMDB
   // query either: it reads your stores and dates them (see `arrivingMetas`).
   if (specs.length === 1 && specs[0].arriving) {
-    return arrivingMetas(media, window, language);
+    return arrivingMetas(media, skip, window, language, Boolean(opts.adult));
   }
 
   // A pool that only grows: page 2 continues where page 1 stopped, and repeat
