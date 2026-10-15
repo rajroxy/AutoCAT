@@ -1354,6 +1354,75 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
   return out;
 }
 
+/**
+ * **What you are waiting for: your own titles that have not landed yet.**
+ *
+ * The Updates card's **Arriving Soon** row used to be read straight out of the world's upcoming
+ * releases, which is the Upcoming card's own subject: measured on the day this was written, 19 of
+ * its 50 titles were also on that card, and for **shows** the overlap is total — every announced
+ * series within the window is on it, so subtracting it left this row with nothing at all. The
+ * owner's words are plain: *"the arriving soon in update card should not connected to real world
+ * upcoming releases which is already in upcoming card"*.
+ *
+ * So the row asks from the other side: **your** titles — every pin whatever state it is in, the
+ * titles you filed in your own Library rows, and your Calendar plans — and answers with the ones
+ * whose own release day is still ahead, nearest first. It cannot be a second copy of the calendar
+ * because it is not a list of the world's releases at all; it is your list, read for dates.
+ *
+ * **A date is a fact about the title, so it is looked up once.** A pin stores only what the app
+ * draws (a poster, a year), so a title without a stored day is asked of TMDB — twelve at a time, the
+ * same way the episode rows fill their pool — and the answer is kept for `ARRIVING_DATE_TTL_MS`. A
+ * title TMDB will not date is simply not on its way, and **an empty answer is a real answer**: follow
+ * nothing that is coming and the row has nothing to say, exactly as the Watching row is empty until
+ * something is watched.
+ */
+const arrivingDates = new Map();
+const ARRIVING_DATE_TTL_MS = 6 * 60 * 60 * 1000;
+const ARRIVING_POOL_CAP = 500;
+
+async function arrivingMetas(media, window, language) {
+  // Every title of yours, whatever it is filed under. The stores are small by nature, and the cap
+  // is there so a list of a thousand pins cannot turn one row into a thousand lookups.
+  const mine = [
+    ...watchlistMetas("", media, 0, ARRIVING_POOL_CAP),
+    ...Object.keys(customKeys() || {}).flatMap((row) => customMetas(row, media, 0, ARRIVING_POOL_CAP)),
+  ];
+  const seen = new Set();
+  const pool = [];
+  for (const m of mine) {
+    const key = `${m?.type === "series" ? "series" : "movie"}:${String(m?.id || "").replace(/^tmdb:/, "")}`;
+    if (!m?.id || seen.has(key)) continue;
+    seen.add(key);
+    pool.push(m);
+  }
+  if (!pool.length) return [];
+
+  const endpoint = tmdbPath(media);
+  const today = new Date().toISOString().slice(0, 10);
+  const dated = await mapLimit(pool, 12, async (m) => {
+    const key = `${m.type === "series" ? "series" : "movie"}:${String(m.id).replace(/^tmdb:/, "")}`;
+    let date = /^\d{4}-\d{2}-\d{2}$/.test(String(m.releaseDate || "")) ? String(m.releaseDate) : "";
+    if (!date) {
+      const hit = arrivingDates.get(key);
+      if (hit && Date.now() - hit.at < ARRIVING_DATE_TTL_MS) {
+        date = hit.date;
+      } else {
+        const detail = await get(`/${endpoint}/${String(m.id).replace(/^tmdb:/, "")}`, { language }).catch(() => null);
+        date = String(detail?.release_date || detail?.first_air_date || "");
+        arrivingDates.set(key, { at: Date.now(), date });
+      }
+    }
+    // **Still on its way** — and the date goes on the meta, so the row can wear it and the lineup
+    // can write it down (see `noteLineup`): a title you are waiting for arrives in the app on the
+    // day it lands, like every other title.
+    return date > today ? { ...m, releaseDate: date } : null;
+  });
+  return dated
+    .filter(Boolean)
+    .sort((a, b) => String(a.releaseDate).localeCompare(String(b.releaseDate)))
+    .slice(0, window);
+}
+
 export async function catalogMetas(media, def, skip, opts = {}) {
   // **How big a window one request hands back.** The default is one chunk, but a
   // caller filling out a whole letter (Explore's alphabet rail) can ask for several
@@ -1395,6 +1464,12 @@ export async function catalogMetas(media, def, skip, opts = {}) {
   // A custom row is served from the titles you put in it, the same way.
   if (specs.length === 1 && specs[0].custom) {
     return customMetas(specs[0].custom, media, skip, window);
+  }
+
+  // **Your own titles that have not landed yet** — the Updates card's Arriving row. Not a TMDB
+  // query either: it reads your stores and dates them (see `arrivingMetas`).
+  if (specs.length === 1 && specs[0].arriving) {
+    return arrivingMetas(media, window, language);
   }
 
   // A pool that only grows: page 2 continues where page 1 stopped, and repeat
@@ -3276,7 +3351,10 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     const kind = parsed.def.entry?.kind || "";
     // A watchlist row and a custom row are the two places watched titles live, so they
     // are served whole; every other row drops them.
-    const keepWatched = kind === "watchlist" || kind === "custom";
+    // **And the Arriving row is built out of your own lists** — a pin, a Library title, a Calendar
+    // plan — so the rule that keeps watched titles only in your lists would take back every single
+    // one of them and leave the row empty. It *is* one of those lists, so it is served whole too.
+    const keepWatched = kind === "watchlist" || kind === "custom" || kind === "arriving";
     // **The two dated rows read past their own length** (`LINEUP_ROWS`, see the note on it):
     // both of them lose titles to the gates below, and a reader that asked for fifty titles
     // should get fifty. Only a plain card read tops up — an Explore page reads the row itself
@@ -3324,7 +3402,10 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     // A **For You** row is rebuilt from your own titles on every request, so it is
     // uncacheable for the same reason: a 15-minute copy is what froze the card's wall
     // on the four picks the app happened to draw first.
-    const stateful = ["watchlist", "custom", "recommend"].includes(parsed.def.entry?.kind);
+    // **And the Arriving row is your own list too.** It is read out of your pins, your Library rows
+    // and your Calendar plans on every request, so a fifteen-minute copy of it would go on saying a
+    // title is coming after you had taken it off your list — the bug the watchlist row had.
+    const stateful = ["watchlist", "custom", "recommend", "arriving"].includes(parsed.def.entry?.kind);
     json(res, 200, { metas: shown }, parsed.shuffle || stateful ? 0 : 900);
   } catch (err) {
     console.error(`[addon] catalog ${parsed.type}/${parsed.def.id} failed:`, err.message);

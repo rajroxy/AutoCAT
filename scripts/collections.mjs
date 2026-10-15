@@ -1171,6 +1171,10 @@ const ORIGINALS = VERIFIED.originals || {};
 // payload: `Watched` is a page of its own now (Settings → Content → Watched), and a row
 // the card does not draw is exactly what that needs.
 const watchlist = (name, state, offcard) => ({ name, kind: "watchlist", state, offcard: Boolean(offcard) });
+// **What *you* are waiting for.** Not a TMDB query: served from your own stores — every title you
+// pinned, the ones you filed in your own Library rows and your Calendar plans — and answered with
+// the ones whose own release day is still ahead. See `arrivingMetas` in `addon/index.mjs`.
+const arriving = (name, take) => ({ name, kind: "arriving", take });
 
 /**
  * Keyword entries for one card, straight from the verified table.
@@ -1998,12 +2002,13 @@ const buildCollections = (code = "") => {
 
   // **Updates** — what is arriving, and what is on its way out.
   //
-  // Two rows, both read from **today's date** every time the card is opened, so the card
-  // moves on its own: `future: 30` is what arrives in the next month (nearest first), and
-  // `within: 180` + `olderThan: 60` is what arrived two to six months ago — the titles the
-  // app's own rolling *Latest / Newest / Trending* windows are about to drop. Neither row is
-  // stored or scheduled: the dates are recomputed on every request, which is what "arriving
-  // and leaving, from time to time" means here (see `specsFor` in `addon/catalogs.mjs`).
+  // **Leaving Soon** is read from **today's date** every time the card is opened, so the card
+  // moves on its own: it is the last `SOON_DAYS` of each title's own stay, recomputed per request
+  // — which is what "leaving, from time to time" means here (see `specsFor` in `addon/catalogs.mjs`).
+  // **Arriving Soon** is the other end of the same question and is not a date range at all: it is
+  // **your** titles — your pins, your Library rows and your Calendar plans — read for the ones
+  // whose day is still ahead of us. Nothing about it is stored or scheduled either; it moves with
+  // your own lists instead of with the world's calendar.
   {
     key: "updates",
     lines: ["Updates"],
@@ -2015,7 +2020,7 @@ const buildCollections = (code = "") => {
     //
     // **These two rows are the two ends of the app's own window on the catalogue** — what is
     // coming into it and what is going out of it — and they are read as such: a title in
-    // **Arriving Soon** has not landed yet and lands within `SOON_DAYS`, and a title in
+    // **Arriving Soon** has not landed yet and is one you are waiting for, and a title in
     // **Leaving Soon** landed `CATALOG_DAYS - SOON_DAYS` days ago and is gone from the app
     // within `SOON_DAYS` of that day (its release + `CATALOG_DAYS` — `LEAVING_DAYS` in
     // `addon/lineup.mjs`). Both dates are kept against the title and drawn on its card.
@@ -2037,19 +2042,25 @@ const buildCollections = (code = "") => {
         within: { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS },
         olderThan: { movie: CATALOG_DAYS - SOON_DAYS, series: SERIES_CATALOG_DAYS - SOON_DAYS },
       }, UPDATES_TAKE),
-      // **What is arriving is not the calendar.** Read in release order over the next month, this
-      // row was the Upcoming card's own first page: the same titles, nearest first, twice on one
-      // home screen. It is read in **popularity order over the coming quarter** instead — *any*
-      // titles that are on their way rather than the twenty with the earliest dates — so the two
-      // cards answer two different questions: what is next (Upcoming), and what is worth knowing
-      // is coming (here). A series is announced further out than a film, so its window is longer.
-      // **No vote floor on a title that has not come out.** A film that lands next month has
-      // almost no votes yet, so the twenty-vote floor every other row wears emptied this one
-      // completely — the arriving row answered with nothing at all.
-      curated("Arriving Soon", {
-        sort_by: "popularity.desc",
-        future: { movie: SOON_DAYS * 3, series: SOON_DAYS * 4 },
-      }, UPDATES_TAKE),
+      // **What is arriving is not the calendar — it is yours.**
+      //
+      // Read in release order over the next month, this row was the Upcoming card's own first page:
+      // the same titles, nearest first, twice on one home screen. Read in popularity order over the
+      // coming quarter it was still the same pool — the owner has said it twice now (*"the arriving
+      // soon in update card should not connected to real world upcoming releases which is already in
+      // upcoming card"*), and the numbers agree: measured on the day this was written, 19 of the
+      // row's 50 titles were also on the Upcoming card, and for **shows** the overlap is total —
+      // every announced series within the window is on that card, so subtracting it left the row
+      // with nothing at all.
+      //
+      // So the question is asked from the other side. Not *what is the world releasing* — that is
+      // the Upcoming card's own job — but **what you are waiting for**: every title you pinned, the
+      // ones you filed in your own Library rows, and your Calendar plans, with the ones whose
+      // release day is still ahead on the row, nearest first. It cannot be a second copy of the
+      // calendar because it is not a list of the world's releases at all; it is your list, read for
+      // dates. Follow nothing that is coming and the row is empty — which is a real answer, the way
+      // the Watching row is empty until you watch something.
+      arriving("Arriving Soon", UPDATES_TAKE),
     ]),
   },
 

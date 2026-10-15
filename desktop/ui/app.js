@@ -1986,7 +1986,10 @@ const posterFallback = (name) => el("div", { class: "poster-fallback", text: ini
  */
 async function fetchCatalog(catalog, skip = 0, count = 0, deep = false) {
   const suffix = skip ? `/skip=${skip}` : "";
-  const stateful = catalog.kind === "watchlist" || catalog.kind === "custom";
+  // **The Arriving row is your own list read for dates**, so it is read fresh like the pins are —
+  // a copy of it would keep a title on the row after you had taken it off your list.
+  const stateful =
+    catalog.kind === "watchlist" || catalog.kind === "custom" || catalog.kind === "arriving";
   // **The query is built here, not by string-glueing.** `count` asks for several
   // pages in one round trip (Explore uses it to fill a letter out), and a
   // stateful row still carries its cache-buster as a real parameter rather than as
@@ -2074,6 +2077,13 @@ function noteForYouServed(id, metas) {
  */
 function emptyRowText(catalog) {
   if (catalog.kind === "watchlist" || catalog.kind === "custom") return "";
+  // **Arriving is the one row that says where it is filled from**, because it is the only row on
+  // screen filled from *another screen*: there is no title in it to pin, so the way to fill it has
+  // to be said. Your own lists keep quiet (see the note above) — the buttons that fill those are
+  // on the title pages, and the rows are full of the titles they are about.
+  if (catalog.kind === "arriving") {
+    return "Nothing of yours is on its way — pin a title, or plan one on the calendar, and it appears here.";
+  }
   return "No titles returned for this catalog.";
 }
 
@@ -2118,7 +2128,10 @@ function ownedKeys() {
  * moment it is made — the two places it *does* belong are kept whole.
  */
 function hideOwned(metas, catalog) {
-  if (catalog && (catalog.kind === "watchlist" || catalog.kind === "custom")) return metas;
+  // **The Arriving row is *made* of your own titles** — a pin, a Library title, a Calendar plan —
+  // so hiding what you own would empty it on the client even when the server had answered with a
+  // full row. It is one of your lists, the way the watchlist and the Library are.
+  if (catalog && ["watchlist", "custom", "arriving"].includes(catalog.kind)) return metas;
   const owned = ownedKeys();
   if (!owned.size) return metas;
   return metas.filter((m) => !owned.has(watchKey(m)));

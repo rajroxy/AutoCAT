@@ -71,15 +71,24 @@ app carries it for a fixed stay: **180 days for a film, 365 for a series** — a
 arrives an episode at a time over months, a film arrives complete. The stay is per title,
 not one number for everything, and the leaving date is `release + stay` for that title.
 
-The **Updates** card is the two ends of that window, fifty titles either way:
+The **Updates** card is the two ends of that window — one end of it the world's calendar, the
+other end yours:
 
 | Row | What it is |
 |---|---|
 | **Leaving Soon** | the last 30 days of the stay — everything on it is out of the app within a month, and its leaving date is on the poster |
-| **Arriving Soon** | what has not landed yet, read in popularity order over the coming quarter (three months for films, four for series), so it is *any* titles on their way rather than the twenty with the earliest release dates the calendar shows |
+| **Arriving Soon** | **yours**: every title you pinned, filed in a Library row or planned on the calendar whose own release day is still ahead, nearest first |
+
+The world's upcoming releases are the **Upcoming** card's own subject, and this row used to be the
+same pool read twice — measured, **19 of its 50** titles were on that card, and for **series** the
+overlap was total (that card carries every announced series, so nothing was left when the
+subtraction was tried). It asks a different question now: not *what is the world releasing* but
+*what are you waiting for*. It reads your lists, so following nothing that is coming leaves it
+empty — which is a real answer, and the row says so in place of its posters.
 
 The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored) and
-put on the title's own card.
+put on the title's own card — a title on your Arriving Soon row is one the rest of the app now
+knows is on its way, which is what keeps it off the rows that claim a title is on **now**.
 
 **Leaving and arriving are two different rules.** A title the Leaving Soon row has named is
 **out of the app from that moment** — dropped from every row, from the search and from the

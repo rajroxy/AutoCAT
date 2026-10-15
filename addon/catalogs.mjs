@@ -397,6 +397,12 @@ async function specsFor(entry, media, opts = {}) {
     case "watchlist":
       return [{ watchlist: entry.state || "planned" }];
 
+    // **Your own titles that have not landed yet** — the Updates card's Arriving row. Also not a
+    // TMDB query: the handler reads your stores and asks each title for its own date
+    // (see `arrivingMetas` in `addon/index.mjs`).
+    case "arriving":
+      return [{ arriving: true }];
+
     // A custom row — the one you fill yourself. Same deal: served from the
     // stored titles, not from TMDB, but published and paged as a normal row.
     case "custom":
