@@ -6896,16 +6896,23 @@ async function renderTitle(type, id) {
   // artwork: Add to Library is a control you come back to while reading the page, and it was
   // only there while the top of the page was. The row is a sibling of the banner now, so it
   // can be `sticky` for the whole title (see `.title-actions-bar`).
+  // **A title that has not landed has nothing to play.** Arriving titles are in the app — they
+  // answer to search and sit in the card and the filters they belong to — so Play is here, but it
+  // says the day it lands instead of opening a picker that could only come back empty. The date is
+  // the title's own release day (`meta.releaseDate`), read off the same facts the page prints.
+  const landDate = /^\d{4}-\d{2}-\d{2}$/.test(String(meta.releaseDate || "")) ? String(meta.releaseDate) : "";
+  const notOutYet = Boolean(landDate) && landDate > new Date().toISOString().slice(0, 10);
   const actions = el(
     "div",
     { class: "title-actions title-actions-bar", id: "title-pins" },
           el("button", {
-            class: "btn primary play-btn focusable",
+            class: "btn primary play-btn focusable" + (notOutYet ? " pending" : ""),
             type: "button",
             id: "title-play",
-            text: "▶  Play",
-            // Play opens the add-on picker, so its tooltip says so.
-            title: "Choose which add-on plays this title",
+            text: notOutYet ? `Arriving ${shortDay(landDate)}` : "▶  Play",
+            title: notOutYet
+              ? `${meta.name || "This title"} lands on ${landDate} — there is nothing to play yet`
+              : "Choose which add-on plays this title",
             // **Full screen here, while the click is still a user gesture.** The player
             // asks for it too, but by then it has awaited a round of add-on calls and
             // browsers refuse a fullscreen request outside the gesture that asked for
@@ -6913,6 +6920,10 @@ async function renderTitle(type, id) {
             // did not. Asking now puts the app in fullscreen *before* the picture exists,
             // where the player's own request is only a second try.
             onclick: () => {
+              if (notOutYet) {
+                notify("Not out yet", `${meta.name || "This title"} arrives on ${shortDay(landDate)}. It becomes playable the day it lands.`);
+                return;
+              }
               if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { /* the overlay still fills the window */ });
               openSources(meta);
             },

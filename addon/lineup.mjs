@@ -58,8 +58,18 @@ export const SOON_DAYS = 30;
 const LEAVING_ROW = "Leaving Soon";
 const ARRIVING_ROW = "Arriving Soon";
 
-/** The rows of the two cards that are *about* what is coming — the ones nothing is held off. */
-const COMING_CARDS = new Set(["updates", "upcoming"]);
+/**
+ * **The one card whose rows are about *now*.** Now Playing, Airing Today and On the Air are not
+ * shelves of titles, they are statements about the calendar: something that lands tomorrow is not
+ * playing today. This is the only place a title that has not landed is still held back — everywhere
+ * else (search, the filters, every genre, country and decade row) arriving titles are in the app,
+ * which is what the owner asked for.
+ *
+ * It exists because TMDB's own now-playing list carries a day or two of pre-releases: a film
+ * releasing tomorrow is in both `now_playing` and the upcoming window, so without this the same
+ * poster would sit on the Arriving Soon row and the Now Playing row at once.
+ */
+const NOW_CARDS = new Set(["on-the-board"]);
 
 const day = (d) => `${d.toISOString().slice(0, 10)}`;
 const today = () => day(new Date());
@@ -161,6 +171,16 @@ export const hasLeft = (m) => {
   return Boolean(at) && at <= today();
 };
 
+/**
+ * **Is it leaving? (It has been named, whenever the day is.)**
+ *
+ * The shelf rule the owner settled on: a title the Leaving Soon row has named is **out of the app
+ * from that moment** — *"leaving soon titles will remove from app cards, search, filters, etc"* —
+ * while the row that named it still shows it, wearing the day it goes. `hasLeft` is the same
+ * question asked of the calendar and stays for the checks and the store's own report.
+ */
+export const isLeaving = (m) => Boolean(leavingOn(m));
+
 /** Has it landed yet? (Only titles with a recorded arrival are ever held back.) */
 export const isComing = (m) => {
   const at = arrivingOn(m);
@@ -177,24 +197,29 @@ export const isComing = (m) => {
  * left (`Leaves 3 Nov` — see `lineupTag` in the app), so the one place it is still on screen
  * says why.
  */
-export function hideGone(metas, keep = false) {
+export function hideGone(metas, keep = false, cardKey = "") {
   const list = Array.isArray(metas) ? metas : [];
-  if (keep || !list.length) return list;
-  const gone = list.filter((m) => hasLeft(m));
-  return gone.length ? list.filter((m) => !hasLeft(m)) : list;
+  // **The Updates card is where the leaving is announced, so its own rows are let through.**
+  // Everything else drops a title the moment the app has named it as leaving (`isLeaving`), which
+  // is the owner's rule: it is off the shelves, out of search and out of the filters, and the row
+  // that named it is the one place it is still on screen with its date.
+  if (keep || !list.length || String(cardKey || "") === "updates") return list;
+  const gone = list.filter((m) => isLeaving(m));
+  return gone.length ? list.filter((m) => !isLeaving(m)) : list;
 }
 
 /**
- * **Hold back what has not arrived.**
+ * **Hold back what has not landed — on the rows that are about now, and only those.**
  *
- * A title with an arrival date in front of it belongs on the two cards that are about what is
- * coming, and nowhere else yet: it must not turn up in a country row, a genre row or a decade
- * ladder while it is still only announced. `cardKey` is the card the row belongs to, so the
- * Updates and Upcoming rows are let through — they are the two whose whole point is the date.
+ * An arriving title used to be held off every row but the two cards about what is coming. The
+ * owner's rule is the opposite: it is *in* the app — searchable, filterable, sitting in whatever
+ * genre, country or decade row it belongs to — and the only thing it lacks is something to play.
+ * The single exception is a row that claims the title is on **now** (`NOW_CARDS`), where a film
+ * that lands tomorrow would be a plain lie; it joins those rows on the day it lands.
  */
-export function hideComing(metas, cardKey = "") {
+export function hideNotYet(metas, cardKey = "") {
   const list = Array.isArray(metas) ? metas : [];
-  if (!list.length || COMING_CARDS.has(String(cardKey || ""))) return list;
+  if (!list.length || !NOW_CARDS.has(String(cardKey || ""))) return list;
   const held = list.filter((m) => isComing(m));
   return held.length ? list.filter((m) => !isComing(m)) : list;
 }

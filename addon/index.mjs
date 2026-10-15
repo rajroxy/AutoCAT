@@ -48,7 +48,7 @@ import {
 import { activity as watchlistActivity } from "./watchlist.mjs";
 // **What has left and what has not arrived** — the dates the Updates card's two rows imply,
 // written down, and the two gates that act on them (see `addon/lineup.mjs`).
-import { cardKeyOfRow, hideComing, hideGone, note as noteLineup, payload as lineupPayload, withDates } from "./lineup.mjs";
+import { cardKeyOfRow, hideGone, hideNotYet, note as noteLineup, payload as lineupPayload, withDates } from "./lineup.mjs";
 import { end as partyEnd, join as partyJoin, leave as partyLeave, note as partyNote, start as partyStart, state as partyState } from "./party.mjs";
 import {
   DEFAULT_ROW,
@@ -3292,14 +3292,20 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
         : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: topUp ? lineupTake + LINEUP_OVER : wanted, over: topUp, deep: params.get("deep") === "1" }),
       keepWatched,
     );
-    // **What is leaving and what has not arrived yet.** The two rows of the Updates card are
-    // read for their dates before anything is filtered, so the promise they make is kept from
-    // the first time the card is opened; then a title that has left is dropped from every row
-    // (your own lists aside — see `hideGone`) and a title that has not landed yet is held off
-    // every row that is not one of the two "what is coming" cards (`hideComing`). The dates
-    // ride on the metas, so the card can wear them whatever row it was read from.
+    // **What is leaving, and what has not landed yet.** The two rows of the Updates card are read
+    // for their dates before anything is filtered, so the promise they make holds from the first
+    // time the card is opened; then a title the app has named as **leaving is dropped from every
+    // row** (your own lists and the Updates card itself aside — see `hideGone`).
+    //
+    // **A title that has not landed is a title like any other now.** It used to be held off every
+    // row that is not one of the two "what is coming" cards; the owner's word is that arriving
+    // titles are *in* the app — searchable, browsable, in whatever card and filter they belong to
+    // ("arriving soon will come in app search and filter ... full titles") — and the only thing
+    // they lack is something to play, which the title page says (`Arriving <date>`). The dates
+    // still ride on the metas, so a card can wear them whatever row it was read from.
     noteLineup(parsed.def.name, metas);
-    const shown = withDates(hideComing(hideGone(metas, keepWatched), cardKeyOfRow(parsed.def.id)));
+    const rowCard = cardKeyOfRow(parsed.def.id);
+    const shown = withDates(hideNotYet(hideGone(metas, keepWatched, rowCard), rowCard));
     // The row is its own length again: what the gates dropped is what the top-up replaced.
     if (topUp) shown.length = Math.min(shown.length, lineupTake);
     // Better posters first (it may replace `poster`), then the chosen content

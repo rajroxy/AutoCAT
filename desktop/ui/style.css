@@ -3520,6 +3520,11 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 /* The note the hero falls back to when nothing can play the title. */
 .title-source-note { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .play-btn.no-sources { background: rgba(255, 255, 255, 0.14); color: var(--text); }
+/* **A title that has not landed wears the date, not the Play red.** Same size, same place, so the
+   page does not jump the day it lands — but the primary colour is a promise of a picture, and there
+   is no picture yet. It takes the dim plate the other pending things use and reads `Arriving 4 Nov`. */
+.play-btn.pending { background: rgba(255, 255, 255, 0.08); color: var(--muted); box-shadow: none; }
+.play-btn.pending:hover { background: rgba(255, 255, 255, 0.13); color: var(--text); }
 
 /* ------------------------------------------------------------------- player */
 
