@@ -44,6 +44,12 @@ import {
   metasFor as watchlistMetas,
   watchedKeys,
 } from "./watchlist.mjs";
+// **The Activity screen's own read** — the watchlist store, read as a timeline (see `activity`).
+import { activity as watchlistActivity } from "./watchlist.mjs";
+// **What has left and what has not arrived** — the dates the Updates card's two rows imply,
+// written down, and the two gates that act on them (see `addon/lineup.mjs`).
+import { cardKeyOfRow, hideComing, hideGone, note as noteLineup, payload as lineupPayload, withDates } from "./lineup.mjs";
+import { end as partyEnd, join as partyJoin, leave as partyLeave, note as partyNote, start as partyStart, state as partyState } from "./party.mjs";
 import {
   DEFAULT_ROW,
   items as customItems,
@@ -631,7 +637,11 @@ function collectionsPayload(root) {
     // hero banner's, and no button in the frame, because the card is a glance rather
     // than a catalog to walk through.
     const spotlight = Boolean(c.spotlight);
-    return { key: c.key, title: label("movie"), divider: Boolean(c.divider), hidden, spotlight, movie: row("movie"), series: row("series") };
+    // `wide` is **four cards long** — the card spans four of its neighbours in the grid and
+    // holds four poster cards, so what is coming reads as a row of its own at the foot of the
+    // page instead of as one card by itself (see the Upcoming card in `scripts/collections.mjs`).
+    const wide = Boolean(c.wide);
+    return { key: c.key, title: label("movie"), divider: Boolean(c.divider), hidden, spotlight, wide, movie: row("movie"), series: row("series") };
   });
 }
 
@@ -2508,6 +2518,77 @@ async function serveAddon(req, res, pathname, origin) {
     return true;
   }
 
+  // **The lineup: what has left, and what has not landed yet.** The store behind the dates on
+  // the cards, readable on its own so the screen that shows it (and the checks) do not have to
+  // infer it from a row. Nothing here decides what a row shows — see `addon/lineup.mjs`.
+  if (pathname === "/lineup.json" || pathname === "/lineup") {
+    json(res, 200, { ok: true, ...lineupPayload() });
+    return true;
+  }
+
+  // **Activity: this profile's own list, read as a timeline.** One line per pinned title,
+  // newest first, straight out of the watchlist store (see `activity` in `watchlist.mjs`) --
+  // the screen is a *view* of what the app already keeps, not a second log to keep in step.
+  if (pathname === "/activity.json" || pathname === "/activity") {
+    // The scope is already set for this request (`handleAddon` did that before routing), so the
+    // store under `activity` is this profile's own; the only query this route reads is the cap.
+    const want = Number(new URL(req.url ?? "/", "http://localhost").searchParams.get("limit"));
+    json(res, 200, { ok: true, events: watchlistActivity(want || 80) });
+    return true;
+  }
+
+  // **Watch Along: the party around a title, and the talk about it.** A room is one code —
+  // started for a title, joined by whoever is watching too — and the notes under it are what
+  // the people watching said. Both are held in `party.json`, one file for the machine, because
+  // a code nobody else can find is not a party (see `addon/party.mjs`). The names on a note and
+  // on a join are read from the **profile's own account list**, never from the body: a request
+  // cannot sign its talk with a name it does not hold.
+  if (pathname === "/party.json" || pathname === "/party") {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "content-type",
+      });
+      res.end();
+      return true;
+    }
+    // The accounts of the profile asking — the people a party on this machine can be with.
+    const accountsIn = (profile) => {
+      try {
+        return localAccounts(cleanProfile(profile)).map((a) => ({ id: a.id, name: a.name }));
+      } catch {
+        return [];
+      }
+    };
+    if (req.method === "POST") {
+      try {
+        const body = await readBody(req);
+        const profile = cleanProfile(body.who);
+        const as = cleanScope(body.as);
+        const mine = accountsIn(profile);
+        const name = mine.find((a) => a.id === as)?.name || (as ? "" : "You") || "You";
+        const who = as || cleanScope(body.who) || "you";
+        const args = { key: body.key, title: body.item, who, name, text: body.text, code: body.code };
+        const out = body.action === "start" ? partyStart(args)
+          : body.action === "join" ? partyJoin(args)
+          : body.action === "leave" ? partyLeave(args)
+          : body.action === "end" ? partyEnd(args)
+          : body.action === "note" ? partyNote(args)
+          : { ok: false, text: `unknown action ${body.action}` };
+        json(res, out.ok ? 200 : 400, { ...out, accounts: mine, as });
+      } catch (err) {
+        json(res, 400, { ok: false, text: String(err?.message || err) });
+      }
+      return true;
+    }
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const who = cleanScope(url.searchParams.get("who"));
+    const found = partyState(url.searchParams.get("key") || "", url.searchParams.get("code") || "");
+    json(res, 200, { ...found, accounts: accountsIn(who), as: cleanScope(url.searchParams.get("as")) });
+    return true;
+  }
+
   // Custom rows: the titles you added yourself, after the watchlist states.
   if (pathname === "/customrows.json" || pathname === "/customrows") {
     if (req.method === "OPTIONS") {
@@ -2655,7 +2736,10 @@ async function serveAddon(req, res, pathname, origin) {
         : await browseTitles(filters, { adult, start });
       // **Search never shows a watched title**, and there is deliberately no filter to
       // bring them back: the Watched row on the Watchlist card is where they are.
-      const kept = withoutWatched(stripAdult(metas, adult));
+      // **Search drops what has left too.** A title the catalogue has taken off its shelves
+      // must not still be findable by name; a title that has not *arrived* stays findable (with
+      // its date on the card), because searching for what is coming is how you plan to watch it.
+      const kept = withDates(hideGone(withoutWatched(stripAdult(metas, adult))));
       metas.length = 0;
       metas.push(...kept);
       await applyPosters(metas);
@@ -2964,11 +3048,19 @@ async function serveAddon(req, res, pathname, origin) {
         : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: Number(params.get("count")) || 0 }),
       keepWatched,
     );
+    // **What is leaving and what has not arrived yet.** The two rows of the Updates card are
+    // read for their dates before anything is filtered, so the promise they make is kept from
+    // the first time the card is opened; then a title that has left is dropped from every row
+    // (your own lists aside — see `hideGone`) and a title that has not landed yet is held off
+    // every row that is not one of the two "what is coming" cards (`hideComing`). The dates
+    // ride on the metas, so the card can wear them whatever row it was read from.
+    noteLineup(parsed.def.name, metas);
+    const shown = withDates(hideComing(hideGone(metas, keepWatched), cardKeyOfRow(parsed.def.id)));
     // Better posters first (it may replace `poster`), then the chosen content
     // source (which owns the poster when it is TVDB), then extra metadata.
-    await applyPosters(metas);
-    await applyContentSource(metas);
-    await enrichRatings(metas);
+    await applyPosters(shown);
+    await applyContentSource(shown);
+    await enrichRatings(shown);
     // A shuffle is never cached: the whole point is that the same URL answers
     // with a different draw, so a copy in the browser would freeze the row.
     //
@@ -2981,7 +3073,7 @@ async function serveAddon(req, res, pathname, origin) {
     // uncacheable for the same reason: a 15-minute copy is what froze the card's wall
     // on the four picks the app happened to draw first.
     const stateful = ["watchlist", "custom", "recommend"].includes(parsed.def.entry?.kind);
-    json(res, 200, { metas }, parsed.shuffle || stateful ? 0 : 900);
+    json(res, 200, { metas: shown }, parsed.shuffle || stateful ? 0 : 900);
   } catch (err) {
     console.error(`[addon] catalog ${parsed.type}/${parsed.def.id} failed:`, err.message);
     json(res, 200, { metas: [] });

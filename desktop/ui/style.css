@@ -472,28 +472,38 @@ body {
 
 .icon-box:hover { transform: translateY(-3px); border-color: rgba(var(--hover-rgb), 0.45); }
 
-/* **The spotlight card.** One card is published with `spotlight` (Upcoming). It is
-   **two cards long** — `span 2` — so it sits in the row between your Watchlist and your
-   Custom card and the three of them fill it, and it is the **same height as its
-   neighbours**: `32 / 9` is exactly two 16:9 frames side by side. Its frame holds **two
-   poster cards** instead of a wall of four, and which two it holds changes every ten
-   seconds (see `startSpotlight`). Nothing in it is clickable, so it takes **no hover
-   lift** either: a card that rises under the cursor is promising a door, and this one
-   is a window on what is coming. */
-.icon-box.card-spotlight { grid-column: span 2; }
-.icons.rows .icon-box.card-spotlight { width: calc(600px + 18px); }
-.icon-box.card-spotlight .icon-wrap { aspect-ratio: 32 / 9; }
+/* **The live home's spotlight card** — its Upcoming, the one card published with `spotlight`.
+   It changes its still every ten seconds the way the banner does (see `startSpotlight`) and
+   nothing in it is clickable, so it takes **no hover lift** either: a card that rises under the
+   cursor is promising a door, and this one is a window on what is coming. It is **four cards
+   long** with four tiles in it, the same size and shape as the Movies home's own Upcoming. */
+/* **Four cards long.** A card spanning four of its neighbours must keep **their** height — a
+   one-card frame at this width would be four times as tall as the row it sits in, and `64 / 9`
+   (four 16:9 frames and no gaps) came out 8px taller than the cards beside it, because the three
+   18px gaps are width without height. The frame is four 16:9 tiles **and the three gaps between
+   them**: `(4w + 54) / (9w/16)`, which is ~7.45 whatever the column ends up being (it is 7.43 at
+   the row form's 300px and 7.45 at the grid's narrower columns), so one ratio holds for both.
+   `1200px + 54px` is that same sum for the row form of the grid (`iconBox` asks for one). */
+.icon-box.card-spotlight,
+.icon-box.card-wide { grid-column: span 4; }
+.icons.rows .icon-box.card-spotlight,
+.icons.rows .icon-box.card-wide { width: calc(1200px + 54px); }
+.icon-box.card-spotlight .icon-wrap,
+.icon-box.card-wide .icon-wrap { aspect-ratio: 745 / 100; }
 /* A card that rises under the cursor is promising a door, and this one is a window. */
 .icon-box.card-spotlight:hover { transform: none; }
 /* **A window, not a door** — so no hand over it, the same way a poster is not promising
    anything until it has one. */
 .icon-box.card-spotlight, .icon-box.card-spotlight .icon-wrap, .spotlight-tile { cursor: default; }
-/* **Two full posters inside the one card** — the same tiles the Watchlist and Custom
+/* **Four full posters inside the one card** — the same tiles the Watchlist and Custom
    cards hold, so a poster reads the way it does everywhere else in the app, with its
-   own title and the date it lands over a bottom gradient. */
+   own title and the date it lands over a bottom gradient.
+   (`card-spotlight` is the live home's window; `card-wide` is the Movies home's Upcoming, which
+   is a card like any other and simply four of them long — so it keeps its hover lift and its
+   door, and only the frame's width and the count of its tiles change.) */
 .spotlight-tile {
   position: relative;
-  flex: 0 0 calc(50% - 5px);
+  flex: 0 0 calc(25% - 8px);
   min-width: 0;
   height: 100%;
   margin: 0;
@@ -1988,6 +1998,26 @@ textarea:focus-visible {
 }
 .watch-tag.watched { background: rgba(143, 214, 148, 0.16); color: #8fd694; }
 
+/* **The day a title lands, or the day it goes.** The Updates card's two rows are the app's own
+   word on what is arriving and what is leaving, and the date rides on the title's card now — in
+   the same slot the watch state wears, under the artwork, because nothing is drawn over a poster.
+   Arriving is the good news and leaving is the deadline, so they are the two treatments the watch
+   state already taught the eye: the quiet fill for what is on its way in, and the warm one for
+   what you have to watch before it is gone. */
+.lineup-tag {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(143, 214, 148, 0.16);
+  color: #8fd694;
+}
+.lineup-tag.leaving { margin-left: 6px; background: rgba(var(--fill-rgb), 0.20); color: #e8dfc8; }
+
 /* ---------------------------------------------------------------------- AI */
 
 .ai-provider-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -3345,19 +3375,30 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   justify-content: space-between;
   gap: 14px;
   padding: 8px 12px;
-  border-radius: 14px;
-  background: rgba(14, 16, 21, 0.86);
+  /* **The bar is one of the app's own panels.** It was a black slab of its own making —
+     `rgba(14,16,21,.86)` at 14px corners — which read as a surface from another program sitting
+     over the picture. It wears the panel the whole app is built from (`--panel`), the app's own
+     radius, and the same hairline every card has. */
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius);
+  background: var(--panel);
   backdrop-filter: blur(12px);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
 }
 .player-group { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .player-group.end { justify-content: flex-end; flex: none; }
+/* **A control-bar chip is one of the app's buttons.** The chips were square-ish
+   (`border-radius: 9px`, no border, a 9% wash) while every button in the app is a pill with a
+   hairline over a 5% fill — so the player read as a control strip from somewhere else. Same
+   pill, same hairline, same fill, same hover: the bar is the app's own row of buttons now. */
 .player-icon {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 36px; height: 34px;
-  border: 0; border-radius: 9px; padding: 0 9px; background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 0 12px;
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
 }
+.player-icon:hover, .player-icon:focus-visible { border-color: rgba(var(--hover-rgb), 0.55); }
 /* A drawn mark, on the same stroked grid as the top bar's icons. */
 .player-glyph { display: inline-flex; align-items: center; justify-content: center; }
 .player-glyph svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
@@ -3482,7 +3523,9 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   max-height: 84vh;
   overflow-y: auto;
   padding: 34px 36px 30px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  /* **No outline.** The box drew a hairline round itself, which read as a second frame inside
+     the overlay's own dim: the panel's fill and its shadow already say where the box is. */
+  border: 0;
   border-radius: 24px;
   background: var(--panel);
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
@@ -3614,7 +3657,12 @@ select.player-rate option { background: #14161c; color: var(--text); }
 .player-sources {
   position: absolute; left: 14px; bottom: 96px; width: min(420px, 46%);
   max-height: min(62vh, 540px);
-  display: flex; flex-direction: column; gap: 10px; padding: 16px; overflow-y: auto;
+  /* **No sideways scroll.** One long stream name made the drawer wider than itself, so the whole
+     panel gained a horizontal scrollbar and every row inside it could be pushed out of view. The
+     panel scrolls one way — down — and a long name wraps inside its own row (`overflow-wrap`
+     below) instead of dragging the drawer sideways. */
+  display: flex; flex-direction: column; gap: 10px; padding: 16px;
+  overflow-y: auto; overflow-x: hidden;
   border-radius: 14px; background: rgba(8, 9, 13, 0.94); backdrop-filter: blur(8px);
   box-shadow: 0 -8px 34px rgba(0, 0, 0, 0.45);
 }
@@ -3653,7 +3701,8 @@ select.player-rate option { background: #14161c; color: var(--text); }
 .player-settings-menu {
   position: absolute; left: 14px; bottom: 96px; width: min(420px, 46%);
   max-height: min(62vh, 540px);
-  display: flex; flex-direction: column; gap: 8px; padding: 16px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px; padding: 16px;
+  overflow-y: auto; overflow-x: hidden;
   border-radius: 14px; background: rgba(8, 9, 13, 0.94); backdrop-filter: blur(8px);
   box-shadow: 0 -8px 34px rgba(0, 0, 0, 0.45);
 }
@@ -3675,8 +3724,16 @@ select.player-rate option { background: #14161c; color: var(--text); }
   background: rgba(255, 255, 255, 0.07); color: inherit; font: inherit; font-size: 13px;
   font-weight: 600; cursor: pointer;
 }
-.episode-item:hover, .episode-item:focus-visible { background: rgba(255, 255, 255, 0.14); }
-.episode-item.active { background: rgba(var(--fill-rgb), 0.24); }
+/* **An episode is marked with the ring, and never filled.** The tile took a wash under the
+   cursor and a stronger one when it was the episode playing, so the whole row went solid and the
+   episode you were on read as a button pressed down rather than as *this one*. It keeps its flat
+   panel now and answers with the app's own ring — the mark that means "you are here" everywhere
+   else (`--mark-ring` sizes it, and Settings → Interaction can switch it off with the rest). */
+.episode-item:hover, .episode-item:focus-visible,
+.episode-item.active, .episode-item.active:hover, .episode-item.active:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 var(--mark-ring, 2px) var(--ring);
+}
 
 .stream-list { display: flex; flex-direction: column; gap: 8px; }
 .stream {
@@ -3687,6 +3744,9 @@ select.player-rate option { background: #14161c; color: var(--text); }
 .stream.active { background: rgba(var(--fill-rgb), 0.24); }
 .stream-name { font-size: 13px; font-weight: 700; }
 .stream-detail { font-size: 11.5px; color: var(--muted); }
+/* A name longer than the drawer wraps inside it: the panel's width is the drawer's, not the
+   longest string in it. */
+.stream-name, .stream-detail, .drawer-addon, .player-note { overflow-wrap: anywhere; }
 .loading-player { justify-content: center; align-items: center; }
 
 /* ------------------------------------------------------------------ selects */
@@ -3742,6 +3802,27 @@ select.text-input option { background: #14161c; color: var(--text); }
 .poster-fallback + .poster-cap { position: static; padding: 9px 11px 12px; background: none; }
 .poster-fallback + .poster-cap .poster-name { color: var(--text); text-shadow: none; }
 .poster-fallback + .poster-cap .poster-sub { color: var(--muted); }
+
+/* ------------------------------------------------------------------ activity */
+
+/* **One line per pin, newest first.** The poster is a thumbnail (the same 2:3 the grids use,
+   at a third of the height), the name and where the title sits in your list follow it, and the
+   date is held at the far end so the column of dates reads as a timeline. */
+.activity-list { display: flex; flex-direction: column; gap: 8px; }
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.activity-poster { width: 34px; height: 51px; flex: none; border-radius: 6px; object-fit: cover; background: var(--panel-2); }
+.activity-initials { display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--muted); }
+.activity-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.activity-name { font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-sub { font-size: 12px; color: var(--muted); }
+.activity-when { margin-left: auto; flex: none; font-size: 12px; color: var(--muted); }
 
 /* ------------------------------------------------------------- dropdowns, again */
 
@@ -5926,10 +6007,16 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
 /* **A control answers with the Fill.** One rule for every control in the app — a button, a
    chip, a tab, a menu row, an option, a filter, a calendar cell — so no pane keeps a wash of
    its own. The colour is the **Fill** (Settings → Appearance → Fill), at the app's own
-   strength (`--mark-fill`, which the Fills & rings switch turns off). */
+   strength (`--mark-fill`, which the Fills & rings switch turns off).
+   **The episode row is not one of them** (the owner: *"the cover should be selected only, and
+   rings — no fill on the full episode"*). It was in this list, and this list is written **after**
+   the episode row's own section, so it won there: pointing at an episode filled the number, the
+   still, the title and the description at once, with the still's ring — the mark every other
+   piece of content wears — drawn on top of the wash. The row is a row: the cover answers the
+   cursor, the row does not. */
 :is(.btn, .settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .chip-more, .row-btn,
   .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
-  .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
+  .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .source-move,
   .rec-btn, .tag):is(:hover, :focus-visible, :has(:focus-visible)) {
   background-color: rgba(var(--hover-rgb), var(--mark-fill, 0.22));
 }
@@ -5939,7 +6026,7 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
    all; the deeper fill is what shows there. Written after the rule above, so it wins. */
 :is(.btn, .settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .chip-more, .row-btn,
   .tab, .icon-btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell, .site-row,
-  .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row, .source-move,
+  .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .source-move,
   .rec-btn, .tag):is(:focus-visible, :has(:focus-visible)) {
   background-color: rgba(var(--hover-rgb), var(--mark-fill-strong, 0.34));
   outline: none;
@@ -6061,3 +6148,53 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
   margin-right: 0;
   margin-bottom: 18px;
 }
+
+/* ============================================================================
+   **Watch Along — the party and the talk, in the Assistant's own box.**
+   ----------------------------------------------------------------------------
+   The overlay is the Assistant's shell (`.assistant-overlay` / `.assistant-card`), because both
+   are the same kind of thing: a box over the page that belongs to one title. What is added is
+   the two sections inside it — the room, and the discussion — and the code, which is read out
+   loud and is therefore the largest thing in the room.
+   ============================================================================ */
+.watch-along-card { width: min(640px, 94vw); max-height: 88vh; overflow: auto; }
+.watch-along-body { display: flex; flex-direction: column; gap: 18px; margin: 14px 0 4px; }
+.watch-along-section { display: flex; flex-direction: column; gap: 10px; }
+.watch-along-section + .watch-along-section { border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 16px; }
+.watch-along-head { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+/* **The code is the one thing on this screen you read out loud.** It is set larger than the
+   title, spaced so the letters do not run together, and given the plate the app's own marks
+   wear — and the copy button sits beside it, where the eye lands after reading it. */
+.party-plate { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.party-code {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--text);
+}
+.party-joiners { display: flex; flex-wrap: wrap; gap: 8px; }
+.party-joiner {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(var(--hover-rgb), 0.14);
+  color: var(--text);
+}
+.party-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* **The talk reads top down, newest first**, with the name over the words: who said it is the
+   line you scan for, and the time sits at the right of that line where it does not interrupt. */
+.party-notes { display: flex; flex-direction: column; gap: 10px; max-height: 240px; overflow: auto; }
+.party-note { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; }
+.party-note-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.party-note-name { font-size: 13px; font-weight: 800; color: var(--text); }
+.party-note-when { font-size: 11px; color: var(--muted); }
+.party-note-text { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
+
+/* **The Activity page.** The timeline on its own screen, in the page's column rather than in a
+   settings pane: the same rows, at the width a catalog's grid gets. */
+.activity-page { display: block; margin-top: 14px; }
+.activity-page .activity-list { max-width: 860px; }

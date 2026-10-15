@@ -58,6 +58,13 @@ addon/user-preferences.json
 # profile now (`watchlist.<who>.json`, `customrows.<who>.json`); the `.scope` marker records
 # which profile inherited the pre-scope file, so a second profile never copies the first's.
 addon/watchlist.*.json
+# **And the Watch Along store.** One file for the machine: a party's code has to be
+# findable from whatever profile or device is watching with you, so it is not per profile.
+addon/party.json
+# **And the lineup.** What the Updates card's two rows have said: which titles have left the
+# catalogue and when, and which have not landed yet. A fact about the catalogue, not about the
+# person reading it, so one file for the machine (see `addon/lineup.mjs`).
+addon/lineup.json
 addon/customrows.*.json
 addon/watchlist.scope
 addon/customrows.scope

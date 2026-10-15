@@ -1307,7 +1307,14 @@ const get = async (path, { timeoutMs = GET_TIMEOUT_MS } = {}) => {
   try {
     res = await fetch(API + withScope(path), { signal: AbortSignal.timeout(timeoutMs) });
   } catch (err) {
-    throw new Error(err?.name === "TimeoutError" ? `the app server did not answer in ${Math.round(timeoutMs / 1000)}s` : String(err?.message || err));
+    // **A request that ran out of time says so.** The abort is thrown by the timeout above, and
+    // the browsers word it differently -- Chrome's `TimeoutError` against the bare DOMException
+    // message *"The operation was aborted"* -- so an abort is read as what it is here rather
+    // than passed on as a sentence that names nothing.
+    const aborted = err?.name === "TimeoutError" || err?.name === "AbortError" || /aborted/i.test(String(err?.message || ""));
+    throw new Error(aborted
+      ? `the app server did not answer in ${Math.round(timeoutMs / 1000)}s`
+      : String(err?.message || err));
   }
   if (!res.ok) throw new Error(`${res.status} ${path}`);
   return res.json();
@@ -1673,6 +1680,34 @@ let modalItem = null;
 let settingsNavScroll = 0;
 
 /** The state a pinned title is in, drawn on its watchlist row card. */
+/**
+ * **The day a title lands, or the day it leaves.** The other tag a poster card can wear.
+ *
+ * The Updates card's two rows are the app's own word on what is on its way in and what is on its
+ * way out, and until now that word was only in the row's title: a title on the wall looked the
+ * same whether it arrived next Tuesday or left on Friday. The date is drawn on the card itself
+ * now — under the artwork, in the slot the watch state wears, because a poster is its picture and
+ * nothing is drawn *over* one (`posterCard` says so) — and it is the date the server recorded
+ * (`addon/lineup.mjs`), never a guess made here.
+ */
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** `2026-11-03` as **3 Nov** — what a date on a card has room for. */
+function shortDay(iso) {
+  const at = Date.parse(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(at)) return "";
+  const d = new Date(at);
+  return `${d.getUTCDate()} ${MONTH_SHORT[d.getUTCMonth()]}`;
+}
+
+function lineupTag(m) {
+  const leaving = m?.leavingOn ? shortDay(m.leavingOn) : "";
+  const arriving = m?.arrivingOn ? shortDay(m.arrivingOn) : "";
+  if (leaving) return el("span", { class: "lineup-tag leaving", text: `Leaves ${leaving}` });
+  if (arriving) return el("span", { class: "lineup-tag arriving", text: `Arrives ${arriving}` });
+  return null;
+}
+
 function watchTag(m) {
   const label = WATCH_STATES.find(([id]) => id === m.state)?.[1];
   return label ? el("span", { class: `watch-tag ${m.state}`, text: label }) : null;
@@ -1854,6 +1889,7 @@ function posterCard(m, opts = {}) {
     // The `caption` option is kept so callers that pass it still mean what they say,
     // it simply has nothing left to switch on.
     opts.watch ? watchTag(m) : null,
+    lineupTag(m),
   );
 }
 
@@ -2338,6 +2374,11 @@ function parseHash() {
       id: decodeURIComponent(id || ""),
       extra: decodeURIComponent(extra || ""),
       type: query.get("type") || "",
+      // **The name the list is *of*.** A person, a studio and a network are ids in the route
+      // (`l/person/525`), and the bar had nothing to write after its rule — so the screen that
+      // is *about* Christopher Nolan said nothing about him. The link that knows the name hands
+      // it over, and a list opened without one simply shows no label, as before.
+      name: query.get("name") || "",
     };
   }
   if (hash.startsWith("channel/")) return { view: "channel", id: decodeURIComponent(hash.slice(8)) };
@@ -2352,6 +2393,9 @@ function parseHash() {
   if (hash === "modes") return { view: "home" };
   if (hash === "signin") return { view: "signin" };
   if (hash === "calendar") return { view: "calendar" };
+  // **Your own history is a page.** It is offered in Settings → Content under Watched, and it
+  // opens here, so Back returns to Settings and the address can be kept.
+  if (hash === "activity") return { view: "activity" };
   if (hash === "search") return { view: "search" };
   if (hash === "settings") return { view: "settings" };
   return { view: "home" };
@@ -2437,7 +2481,7 @@ const cardsForRow = (row) =>
 
 /** A card's catalog rows on one tab, in the order they were put in. */
 const catsForCard = (card, row) =>
-  dealtRows(card, orderedBy(card[row]?.catalogs || [], visFor().order?.catalogs?.[card.key]?.[row], (c) => c.id), row);
+  orderedBy(card[row]?.catalogs || [], visFor().order?.catalogs?.[card.key]?.[row], (c) => c.id);
 
 /** Move a card one place inside its tab. */
 function moveVisCard(row, key, delta) {
@@ -2477,48 +2521,21 @@ function orderedCatalogsRaw(card) {
 /* ------------------------------------------------ a refresh deals the rows again */
 
 /**
- * **A refresh deals a card's rows again.**
+ * **A refresh deals a card's rows *contents*, and leaves the rows themselves where they are.**
  *
- * The rows were re-read on a refresh but always drawn in the same order with the same names, so
- * a card that is a set of shelves (Discover, Genres, the OTT cards) looked identical after one —
- * the owner's "rows dobara padhi jaati hain par kuch badalta nahi". The rows of those cards are
- * **shuffled per refresh** now: press Refresh (or the Home plate) and the shelves come back in a
- * new order.
+ * Two different things were being called "the rows". A card's **shelves** — its catalogs, in the
+ * order the card names them — are the card's own map: Discover's seven orders, Genres' list, a
+ * country card's ladder. Their **contents** are the titles drawn out of each shelf. A refresh
+ * was reshuffling the shelves, which moved "Newest" above "Oldest" and put a country's rows in a
+ * different order every press — a card's shape changing under the reader, for a "refresh" that
+ * is about the *titles*. (The owner: *"row contents should refresh, not catalog row"*.)
  *
- * Four cards keep their order, because there the order *is* the meaning: **For You** (your own
- * titles are the point of it, and its rows are re-dealt by the server every open), **Watchlist**
- * (Watching, then Plan to Watch, then Watched), the **Library** (the rows you filled yourself,
- * in the order you put them in), and **Updates** (what is arriving, nearest first, then what is
- * leaving).
+ * So the shelves keep the order they are declared in, and what a refresh deals is the titles:
+ * every draw window is re-seeded and every card re-reads its own pictures (`LAUNCH_SEED`,
+ * `clearTileWindows`, `contentDrawn` in `refreshNow`), so the posters inside the rows change
+ * while the rows stay put.
  */
-let rowDeal = 0;
-const rowDeals = new Map();
-const ROW_DEAL_KEEPS_ORDER = new Set(["for-you", "watchlist", "custom", "updates"]);
-
-function dealtRows(card, list, row = rowKey()) {
-  const rows = list || [];
-  if (rows.length < 2 || ROW_DEAL_KEEPS_ORDER.has(card.key)) return rows;
-  const key = `${rowDeal}:${card.key}:${row}`;
-  let order = rowDeals.get(key);
-  if (!order) {
-    order = rows.map((c) => c.id);
-    for (let i = order.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
-    }
-    rowDeals.set(key, order);
-    if (rowDeals.size > 80) rowDeals.delete(rowDeals.keys().next().value);
-  }
-  const byId = new Map(rows.map((c) => [c.id, c]));
-  const out = order.map((id) => byId.get(id)).filter(Boolean);
-  for (const c of rows) if (!order.includes(c.id)) out.push(c);
-  return out;
-}
-
-/** A card's rows, in the order this refresh dealt them. */
-function orderedCatalogs(card) {
-  return dealtRows(card, orderedCatalogsRaw(card), rowKey());
-}
+const orderedCatalogs = (card) => orderedCatalogsRaw(card);
 
 /* The drawn two-way arrows that used to sit inside the Shuffle button are gone with it:
    the word says what the control does, and it was the only icon in the app standing in for a
@@ -3207,9 +3224,14 @@ function drawTiles(strip, art, count, layout) {
       }
     }
     const picked = art.slice(start, start + count);
+    // **A wide slot takes wide artwork.** Upcoming's four slots are 16:9 (the card is four cards
+    // long and keeps its neighbours' height), so a 2:3 poster would have to be cut down to a band
+    // to fill one — the same reason the banner and the old spotlight frame read a backdrop first
+    // (`spotlightArt`). A title with no backdrop still falls back to its poster.
+    const wideCard = count >= 4;
     strip.replaceChildren(
       ...picked.map((m) =>
-        artImage(m.poster || m.background, m, { class: "content-tile", alt: "", loading: "lazy" }),
+        artImage(wideCard ? (m.background || m.poster) : (m.poster || m.background), m, { class: "content-tile", alt: "", loading: "lazy" }),
       ),
       // **Every slot is drawn, however few titles answered.** One pin used to be laid
       // in as a single tile, and `flex: 1` then stretched it across the whole frame —
@@ -3309,13 +3331,14 @@ function contentStrip(card, row, count, layout) {
 }
 
 /**
- * Fill every frame on the screen.
+ * Fill the frames on the screen — **the ones in front of you, and the ones arriving**.
  *
  * Runs once a screen has been drawn, so the frames exist and the pictures have
  * somewhere to land, and it draws from the per-launch cache first — so a redraw
  * (the banner's ten-second move, or coming back to Home) reuses one draw instead
  * of asking again. Three are in flight at a time, so opening Home is not twenty
- * catalog calls at once.
+ * catalog calls at once, and a frame **below the fold waits** until it is nearly in
+ * view instead of being read with the rest (see the note on the queue below).
  */
 function hydrateContent() {
   for (const strip of document.querySelectorAll(".content-strip")) {
@@ -3340,7 +3363,32 @@ function hydrateContent() {
       drawEmptyTiles(strip, job.count);
       continue;
     }
-    contentJobs.push({ strip, job, cats });
+    // **A card nobody has scrolled to is not read.** Home is a page of twenty-odd cards, and
+    // every one of them used to ask for its titles the moment the screen was drawn — twenty-odd
+    // catalog reads for the four or five rows a person can actually see, and the same again the
+    // moment the pointer moved to Shows. A frame is read when it comes **near the screen** now
+    // (600px, the same margin a card's own rows use in `lazyStrip`), so a launch reads what is in
+    // front of you and the rest follows as you walk down the page.
+    //
+    // The frame keeps its shape while it waits: the strip is drawn empty (`.content-strip:empty`
+    // draws nothing at all, so the card shows its own cover art), and the posters land over it
+    // when the card arrives — the same two-step the cards have always had.
+    if (typeof IntersectionObserver !== "function") {
+      contentJobs.push({ strip, job, cats });
+      continue;
+    }
+    // **The frame is watched, not the strip.** An empty strip is `display: none`
+    // (`.content-strip:empty`), and an element with no box never intersects anything — so
+    // watching the strip means watching the one node on the screen that cannot be seen. The
+    // frame around it has the card's size whatever the strip is doing.
+    const frame = strip.parentElement || strip;
+    const watch = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      watch.disconnect();
+      contentJobs.push({ strip, job, cats });
+      pumpContent();
+    }, { rootMargin: "600px" });
+    watch.observe(frame);
   }
   pumpContent();
 }
@@ -3967,10 +4015,11 @@ async function refreshNow() {
   LAUNCH_SEED = Math.floor(Math.random() * 1e9);
   clearTileWindows();
   contentDrawn.clear();
-  // **And the shelves are dealt again.** A card's rows come back in a new order (see
-  // `dealtRows`), which is the half of a refresh you can see on the page itself.
-  rowDeal += 1;
-  rowDeals.clear();
+  // **And the titles are dealt again, inside the shelves.** The rows keep their order; what
+  // changes is what is drawn in them (the seed above and the windows below), which is the half
+  // of a refresh you can see on the page itself.
+  // The Activity read goes with it, so the timeline is re-read rather than re-drawn.
+  activityCache = null;
   // The sample rows on an Explore page are a draw of their own, so a refresh deals them
   // again too (see `shuffledSamples`) — a refresh that left the same twelve on top was a
   // refresh that only half happened.
@@ -4122,7 +4171,12 @@ function iconBox(c, row) {
   // glance at what is coming is a window rather than a shelf of posters. It has
   // **no artwork button**: nothing about it is clickable.
   const spotlight = Boolean(c.spotlight);
-  const tiles = spotlight || mine ? 2 : 3;
+  // **A card that is four cards long holds four poster cards.** Upcoming is the one: it is drawn
+  // as wide as four of its neighbours and its frame carries four tiles, which is what "four card
+  // long" asks for — the row of what is next, at the width of the row above it (see `card-wide`
+  // in the sheet and the card's own note in `scripts/collections.mjs`).
+  const wide = Boolean(c.wide);
+  const tiles = wide ? 4 : spotlight || mine ? 2 : 3;
   // The frame is filled by `startSpotlight`, not by the poster wall: the Upcoming
   // card is **two poster cards**, each carrying its own title and release date.
   const strip = contentStrip(c, row, tiles);
@@ -4133,7 +4187,7 @@ function iconBox(c, row) {
   return el(
     "div",
     {
-      class: `icon-box${spotlight ? " card-spotlight" : ""}`,
+      class: `icon-box${spotlight ? " card-spotlight" : ""}${wide ? " card-wide" : ""}`,
       // The tile says what it holds before it is opened (Settings → Animation →
       // Hover previews → Catalog tiles).
       "data-preview": name,
@@ -4291,7 +4345,7 @@ function voicePad() {
       id: "voice-pad",
       // **The label says what pressing it does.** It was *Speak* — a word for one of the two
       // things the box takes (you can type into it, and it answers) — and the owner asked for
-      // a better one. *Ask AI* is the app's own name for this box everywhere else.
+      // a better one. *Ask Assistant* is the app's own name for this box everywhere else.
       title: "Ask Assistant — say or type what you want to watch",
       "aria-label": "Ask Assistant — say or type what you want to watch",
       // **The pad opens the box, and the box listens.** It used to start the listener
@@ -6656,17 +6710,18 @@ async function renderTitle(type, id) {
             onclick: () => openAssistant({ ...meta, description: meta.description || (data.tagline || "") }),
           }),
           ...pinButtons(meta),
-          // **Watch Along sits at the right end of the row.** The owner asked for it beside
-          // Play: it is the same question Play answers — *what do I put on* — read as a
-          // companion question ("what do I put on *with* this"), so it opens the Assistant on
-          // the pair question rather than starting a second, empty screen.
+          // **Watch Along sits at the right end of the row.** The owner asked for it beside Play,
+          // and it opens the **party**: a room with a code to hand to whoever is watching with
+          // you, and the discussion under it. The pair question it used to open is still there,
+          // one press in (`Find a pairing`), because "what do I put on *with* this" is what the
+          // evening is for.
           el("button", {
             class: "btn focusable watch-along-btn",
             type: "button",
             id: "title-watch-along",
             text: "Watch Along",
             title: "Find one title to watch alongside this",
-            onclick: () => openAssistant(meta, { question: `What should I watch in a pair with ${meta.name || "this one"}? Name one title to pair it with, and why, in two lines.` }),
+            onclick: () => openWatchAlong(meta),
           }),
   );
   const node = el(
@@ -7089,6 +7144,175 @@ const listQuery = (type) => `?type=${encodeURIComponent(type)}${state.safe ? "" 
  * thing you read, not a thing you reach for beside Play. Esc, the backdrop and the Close
  * button all put it away, and nothing navigates.
  */
+/**
+ * **Watch Along — the party around this title, and the talk about it.**
+ *
+ * Two things a title can be watched *with* someone: the moment you both sit down to it — a
+ * **watch party** — and what you said about it — the **discussion**. The button on the title
+ * page opens both, because they are the same evening: one section says who is in and reads out
+ * the code, the other keeps what the people watching said.
+ *
+ * **The room is a code, and the code is the door.** Starting a party asks the server for one
+ * (see `/party.json` and `addon/party.mjs`), and anyone who can reach this app can open that
+ * room with it — another profile on the same machine, a second screen on the same Wi-Fi. The
+ * joined list and the notes come back from the server, so the two of you are looking at the
+ * same room rather than at two copies of one.
+ *
+ * The assistant is still one press away: *Find a pairing* opens the same box the Watch Along
+ * button used to, asked the same question — what to put on *with* this.
+ */
+async function openWatchAlong(meta) {
+  const key = watchKey(meta);
+  const name = meta?.name || "this title";
+  const body = el("div", { class: "watch-along-body" });
+  const note = el("p", { class: "player-note", text: "" });
+  const overlay = el("div", { class: "assistant-overlay watch-along-overlay", role: "dialog", "aria-modal": "true", "aria-label": `Watch Along · ${name}` },
+    el("div", { class: "assistant-card watch-along-card" },
+      el("p", { class: "assistant-kicker", text: "Watch Along" }),
+      el("h2", { class: "assistant-title", text: name }),
+      el("p", { class: "option-desc", text: "Watch it with someone: start a party, hand them the code, and keep the talk about it in one place." }),
+      body,
+      note,
+      el("div", { class: "assistant-actions" },
+        el("button", {
+          class: "btn focusable",
+          type: "button",
+          id: "watch-along-pair",
+          text: "Find a pairing",
+          title: "Ask the assistant what to watch alongside this",
+          onclick: () => { close(); openAssistant(meta, { question: `What should I watch in a pair with ${name}? Name one title to pair it with, and why, in two lines.` }); },
+        }),
+        el("button", { class: "btn subtle focusable", type: "button", id: "watch-along-close", text: "Close", onclick: () => close() }),
+      ),
+    ),
+  );
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+  };
+  // Escape closes this box and nothing else: the app's own Escape means *go Home*, and this is
+  // registered in the capture phase so leaving the party cannot also leave the page.
+  const onKey = (e) => {
+    if (e.key !== "Escape") return;
+    e.stopPropagation();
+    close();
+  };
+  document.addEventListener("keydown", onKey, true);
+  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+
+  const ask = async (action, extra = {}) => {
+    note.textContent = "";
+    try {
+      const res = await post("/party.json", { action, key, item: meta, ...extra });
+      if (res && res.ok === false) note.textContent = res.text || "that did not work";
+      paint(res);
+    } catch (err) {
+      note.textContent = String(err?.message || err);
+    }
+  };
+
+  /** How long ago, in the units a person says it in. */
+  const when = (iso) => {
+    const at = Date.parse(iso);
+    if (!Number.isFinite(at)) return "";
+    const mins = Math.max(0, Math.round((Date.now() - at) / 60000));
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours} h ago`;
+    const days = Math.round(hours / 24);
+    return days < 30 ? `${days} d ago` : new Date(at).toISOString().slice(0, 10);
+  };
+
+  function paint(data) {
+    const room = data?.room || null;
+    const notes = Array.isArray(data?.notes) ? data.notes : [];
+    const mine = (data?.accounts || []).find((a) => a.id === (data?.as || ""))?.name || "You";
+    const iAmIn = Boolean(room && room.joined.some((j) => j.name === mine));
+
+    // ---- the party
+    const party = [el("p", { class: "watch-along-head", text: "Watch party" })];
+    if (!room) {
+      party.push(
+        el("p", { class: "option-desc", text: "One press starts the room and reads out its code. Whoever you are watching with opens Watch Along on the same title and joins with it — another profile on this machine, or a phone on the same Wi-Fi." }),
+        el("button", { class: "btn primary focusable", type: "button", id: "party-start", text: "Start a party", onclick: () => ask("start") }),
+      );
+    } else {
+      party.push(
+        el("div", { class: "party-plate" },
+          el("span", { class: "party-code", text: room.code }),
+          el("button", {
+            class: "btn focusable",
+            type: "button",
+            id: "party-copy",
+            text: "Copy code",
+            title: "Put the code on the clipboard",
+            onclick: async () => {
+              try {
+                await navigator.clipboard.writeText(room.code);
+                note.textContent = `Copied ${room.code}`;
+              } catch {
+                note.textContent = "This browser would not copy it — read it out loud";
+              }
+            },
+          }),
+        ),
+        el("p", { class: "option-desc", text: `${room.joined.length} ${room.joined.length === 1 ? "person is" : "people are"} in, since ${when(room.startedAt)}.` }),
+        el("div", { class: "party-joiners" },
+          ...room.joined.map((j) => el("span", { class: "party-joiner", text: j.name || "Someone" })),
+        ),
+        el("div", { class: "party-actions" },
+          el("button", {
+            class: `btn focusable${iAmIn ? " active" : ""}`,
+            type: "button",
+            id: "party-join",
+            text: iAmIn ? "I am watching" : "Join the party",
+            title: iAmIn ? "Take your name out of the room" : "Say you are watching too",
+            onclick: () => ask(iAmIn ? "leave" : "join"),
+          }),
+          el("button", { class: "btn subtle focusable", type: "button", id: "party-end", text: "End it for everyone", onclick: () => ask("end") }),
+        ),
+      );
+    }
+
+    // ---- the talk
+    const field = el("input", { class: "text-input focusable", type: "text", id: "party-note", placeholder: "What did you make of it?", maxlength: "600" });
+    const send = () => {
+      const text = field.value.trim();
+      if (!text) return;
+      field.value = "";
+      ask("note", { text });
+    };
+    field.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+    const talk = [
+      el("p", { class: "watch-along-head", text: "Discussion" }),
+      notes.length
+        ? el("div", { class: "party-notes" },
+            ...notes.slice().reverse().map((n) => el("div", { class: "party-note" },
+              el("div", { class: "party-note-head" },
+                el("span", { class: "party-note-name", text: n.name || "Someone" }),
+                el("span", { class: "party-note-when", text: when(n.at) }),
+              ),
+              el("p", { class: "party-note-text", text: n.text }),
+            )),
+          )
+        : el("p", { class: "option-desc", text: "Nothing said yet. What you write here stays with the title, so it is there the next time either of you opens it." }),
+      el("div", { class: "assistant-form" }, field,
+        el("button", { class: "btn primary focusable", type: "button", id: "party-send", text: "Send", onclick: send }),
+      ),
+    ];
+    body.replaceChildren(el("section", { class: "watch-along-section" }, ...party), el("section", { class: "watch-along-section" }, ...talk));
+  }
+
+  paint({ room: null, notes: [] });
+  document.body.append(overlay);
+  try {
+    paint(await get(`/party.json?key=${encodeURIComponent(key)}`));
+  } catch (err) {
+    note.textContent = String(err?.message || err);
+  }
+}
+
 async function openAssistant(meta, opts = {}) {
   // **One box, two doors.** *Ask Assistant* on a title page asks about that title; the Speak
   // pad on Home opens the **same box** with no title to ask about — the owner asked for it in
@@ -7469,6 +7693,12 @@ function libraryButton(item) {
   }, label);
   const insideRow = () => rows.find((row) => inCustomRow(item, row.id));
   const paint = () => {
+    // **A fill without a cursor is a fill nobody asked for.** The walk is put away the moment the
+    // pointer is not on the button — including when a redraw replaced the node the cursor was on,
+    // which took the browser's own `mouseleave` with it and left the button filled with nobody
+    // pointing at it. The label still says where the title is (`In Films ✓`); the *fill* is the
+    // answer to the cursor, and it is drawn only while the cursor is there.
+    if (at >= 0 && !over()) { setAt(-1); }
     const stop = at >= 0 ? stops[at] : null;
     const held = insideRow();
     if (stop) {
@@ -7478,7 +7708,7 @@ function libraryButton(item) {
       label.textContent = held ? `In ${held.name} \u2713` : "Add to Library";
     }
     btn.classList.toggle("armed", at >= 0);
-    btn.classList.toggle("active", Boolean(held));
+    btn.classList.toggle("active", over() && Boolean(held));
     btn.setAttribute("aria-expanded", at >= 0 ? "true" : "false");
     btn.title = at >= 0
       ? "Scroll or use left/right to walk your rows, then press to apply"
@@ -7521,17 +7751,24 @@ function libraryButton(item) {
     event.stopPropagation();
     step(event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
-  // **The cursor leaving the button puts the walk away.** Opening the walk fills the button
-  // (the owner's report: "why does Add to Library not lose its fill when the cursor leaves it"),
-  // because the walk stayed armed until a press applied it -- which is right for a wheel and
-  // for a remote, and wrong for a mouse that has moved somewhere else. Nothing is applied by
-  // leaving: the title is still where it was, and pressing the button again opens the walk
-  // again.
+  // **The cursor leaving the button puts the walk away, and takes the fill with it.** Opening
+  // the walk fills the button; leaving it empties the button again (the owner's report: "why
+  // does Add to Library not lose its fill when the cursor leaves it"), and so does pointing at
+  // the title's own row and walking away -- see `over()` and the two `mouseleave` branches.
   btn.addEventListener("mouseleave", () => {
-    if (at < 0) return;
+    // Nothing is applied by leaving: the title is still where it was, and pressing the button
+    // again opens the walk again.
+    if (at < 0) {
+      if (btn.classList.contains("active")) paint();
+      return;
+    }
     setAt(-1);
     paint();
   });
+  // **Whether the button is being pointed at — by the cursor or by the keyboard.** That is the
+  // one fact the fill is drawn from: a walk opened with the arrow keys is a walk the *keyboard*
+  // asked for, and the cursor is somewhere else entirely, so `:focus-visible` counts as "here".
+  const over = () => btn.matches(":hover, :focus-visible");
   paint();
   return el("div", { class: "library-pop" }, btn);
 }
@@ -7544,7 +7781,7 @@ const personNode = (p) =>
     // **No `title`.** The name is under the face; the tooltip repeated it over the
     // picture (see the note on `icon-art`). The accessible name says what pressing does.
     "aria-label": `${p.name} — open their credits`,
-    onclick: () => go(`#/l/person/${p.tmdbId}?type=${state.row}`),
+    onclick: () => go(`#/l/person/${p.tmdbId}?type=${state.row}&name=${encodeURIComponent(p.name || "")}`),
   },
     p.poster ? el("img", { class: "person-face", src: p.poster, alt: "", loading: "lazy" }) : el("span", { class: "person-face person-initials", text: initialsOf(p.name).toUpperCase() }),
     el("span", { class: "person-name", text: p.name }),
@@ -7609,7 +7846,7 @@ function companyCards(label, list, kind) {
         type: "button",
         // **No `title`.** `company-name` is drawn under the logo (see `icon-art`).
         "aria-label": `${c.name} — open its titles`,
-        onclick: () => go(`#/l/${kind}/${c.tmdbId}?type=${state.row}`),
+        onclick: () => go(`#/l/${kind}/${c.tmdbId}?type=${state.row}&name=${encodeURIComponent(c.name || "")}`),
       },
         el("span", { class: "company-logo-wrap" },
           c.logo
@@ -8947,7 +9184,7 @@ async function surpriseMe() {
 /**
  * **One of your own titles, at random.** The other half of *Surprise me*: where that one draws
  * from the app's rows, this draws from **yours** — the Library rows, or the Watchlist — and
- * opens the title page of whatever it lands on. It is the *action* the Ask AI box offers beside
+ * opens the title page of whatever it lands on. It is the *action* the Ask Assistant box offers beside
  * the questions: a press that goes somewhere, rather than a sentence that comes back.
  */
 async function openRandomFrom(kinds, label) {
@@ -9020,7 +9257,7 @@ async function aiIntent(text, picked) {
         // **Named, not anonymous.** The box says which model turned the sentence into the
         // search, so "Auto answered" is something you can see rather than assume.
         const label = state.ai?.providers?.[res.provider]?.label || res.provider || "";
-        notify("Ask AI", `${res.model || "auto"}${label ? ` · ${label}` : ""}`);
+        notify("Ask Assistant", `${res.model || "auto"}${label ? ` · ${label}` : ""}`);
         return to(res.query);
       }
     } catch {
@@ -9481,6 +9718,77 @@ const RATING_SERVICES = [
 ];
 
 /** Settings → Ratings: which services the title page reads, and MDBList's key. */
+/**
+ * **Activity — this profile's own list, read as a timeline.**
+ *
+ * The Library and the Watchlist say *where* a title is; this says *when* it got there and when
+ * it moved. Every line is from the watchlist store itself (see `activity` in
+ * `addon/watchlist.mjs`), so the screen cannot drift from the rows it describes: pin a title
+ * and its line is there, move it to Watched and the line moves up.
+ *
+ * **It is a page, not a pane, and it sits under Watched in Content.** Watched is the same kind
+ * of answer — a list of your own titles read on its own page (`#/x/watchlist/watched`) — so the
+ * two are offered in one place, one after the other, and both are opened the same way.
+ *
+ * **The read is cached for the visit.** Two draws of this screen (the page, and a redraw after
+ * a pin) must not mean two requests, and a Refresh drops the cache so the timeline is re-read
+ * rather than re-drawn.
+ */
+let activityCache = null;
+
+function activityEvents() {
+  if (!activityCache) {
+    activityCache = get("/activity.json?limit=200")
+      .then((res) => (Array.isArray(res?.events) ? res.events : []))
+      .catch(() => []);
+  }
+  return activityCache;
+}
+
+/** How long ago, in the units a person says it in. */
+function agoText(iso) {
+  const at = Date.parse(iso);
+  if (!Number.isFinite(at)) return "";
+  const mins = Math.max(0, Math.round((Date.now() - at) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days} d ago`;
+  return new Date(at).toISOString().slice(0, 10);
+}
+
+const ACTIVITY_LABEL = { planned: "Plan to Watch", watching: "Watching", watched: "Watched" };
+
+/** One line of the timeline — the same row on the page and anywhere else it is drawn. */
+function activityRows(events) {
+  return events.map((e) =>
+    el("div", { class: "activity-row", "data-key": e.key },
+      e.poster
+        ? el("img", { class: "activity-poster", src: e.poster, alt: "", loading: "lazy" })
+        : el("span", { class: "activity-poster activity-initials", text: initialsOf(e.name).toUpperCase() }),
+      el("div", { class: "activity-text" },
+        el("span", { class: "activity-name", text: e.name }),
+        el("span", { class: "activity-sub", text: `${e.type === "series" ? "Show" : "Film"} · ${ACTIVITY_LABEL[e.state] || e.state}` }),
+      ),
+      el("span", { class: "activity-when", text: agoText(e.at) }),
+    ),
+  );
+}
+
+/** Settings → Content → Activity: the page it opens, drawn full width like a catalog's. */
+async function renderActivityPage() {
+  const events = await activityEvents();
+  return [
+    el("h2", { class: "view-title", text: "Activity" }),
+    el("p", { class: "option-desc", text: "Everything you pinned, and when it moved — newest first." }),
+    events.length
+      ? el("div", { class: "activity-page" }, el("div", { class: "activity-list" }, ...activityRows(events)))
+      : el("p", { class: "empty", text: "Nothing yet. Pin a title, or start one, and its date is kept here." }),
+  ];
+}
+
 function paneRatings() {
   const source = state.ratings?.source || "free";
   const pick = ([id, label, desc]) =>
@@ -9741,14 +10049,14 @@ function paneAi() {
   };
   return [
     groupHead("Help me"),
-    toggleRow(state.ai.enabled, "Ask AI", "Turns on the assistant and its options.", (e) => {
+    toggleRow(state.ai.enabled, "Ask Assistant", "Turns on the assistant and its options.", (e) => {
       state.ai.enabled = e.target.checked;
       writeJSON(KEY.ai, state.ai);
       pushSettings({ ai: { enabled: state.ai.enabled } });
       render();
     }),
     // **Speak up — two microphones, two rooms.** One listens while you are browsing the
-    // app (the search box and the voice button read it), and one only inside the Ask AI
+    // app (the search box and the voice button read it), and one only inside the Ask Assistant
     // box. They are separate because the two are used differently: talking to the app is
     // a shortcut, talking to the assistant is a conversation.
     el("div", { class: "group-head" },
@@ -9759,7 +10067,7 @@ function paneAi() {
       speakSet("browse", e.target.checked);
       render();
     }),
-    toggleRow(state.speak?.ask !== false, "Speak up in the Ask AI box", "Listen only inside the Ask AI box, and nowhere else.", (e) => {
+    toggleRow(state.speak?.ask !== false, "Speak up in the Ask Assistant box", "Listen only inside the Ask Assistant box, and nowhere else.", (e) => {
       speakSet("ask", e.target.checked);
       render();
     }),
@@ -9835,24 +10143,37 @@ function paneContent() {
     // are on and what is queued; it is a list you go *to*, so it opens here — the same
     // endless grid a catalog gets on its own page (`#/x/watchlist/watched`).
     groupHead("Watched"),
+    pageRow("Watched titles", "Every title you have marked watched, in one grid — the same page a catalog gets.", "open-watched", "Open watched titles", "Every title marked Watched, newest first", () => watched && go(`#/x/watchlist/${encodeURIComponent(watched.id)}`)),
+    // **And Activity, straight after it.** Both are your own history read as a list of its own,
+    // so they are the same row twice — one behind Watched, one behind the dates.
+    groupHead("Activity"),
+    pageRow("Your activity", "What you pinned and when it moved — the Watchlist read as a timeline, newest first.", "open-activity", "Open activity", "What you pinned and when it moved", () => go("#/activity")),
+  ];
+}
+
+/**
+ * **A settings row that opens something.**
+ *
+ * Every other row on this screen is one of the app's own plates with its **name on the head line
+ * and what it means under it** (`radioRow`, `toggleRow`, a provider's `provider-head`), and the
+ * two rows that are a *page of your own* — Watched, and Activity beside it — were built the other
+ * way round: a description, then a title, then a small button inside the plate, which is a shape
+ * nothing else in the app wears. They are the app's row now: the name and the badge line where
+ * every other row puts them, the door at the end of that line, and the sentence underneath — so
+ * the pane reads as one list instead of two rows that came from somewhere else.
+ */
+function pageRow(title, desc, id, label, why, onClick) {
+  return el(
+    "div",
+    { class: "provider" },
     el(
       "div",
-      { class: "provider" },
-      el("p", {
-        class: "option-desc",
-        text: "Every title you have marked watched, in one grid — the same page a catalog gets.",
-      }),
-      el("p", { class: "option-title", text: "Watched titles" }),
-      el("button", {
-        class: "btn focusable",
-        type: "button",
-        id: "open-watched",
-        text: "Open watched titles",
-        title: "Every title marked Watched, newest first",
-        onclick: () => watched && go(`#/x/watchlist/${encodeURIComponent(watched.id)}`),
-      }),
+      { class: "provider-head" },
+      el("div", {}, el("span", { class: "option-title", text: title })),
+      el("button", { class: "btn focusable", type: "button", id, text: label, title: why, onclick: onClick }),
     ),
-  ];
+    el("p", { class: "option-desc", text: desc }),
+  );
 }
 
 /**
@@ -10856,7 +11177,7 @@ function renderRecordings() {
  *   becomes the box inside it — the Account shape. A provider whose name sits in a
  *   `provider-head` ("TMDB", "Real-Debrid", an AI provider) is a **row**: it stays inside the
  *   plate it was handed, a shade lighter than the plate holding it.
- * - **A run nobody named still gets its plate.** The metadata keys, the "Ask AI" switch and the
+ * - **A run nobody named still gets its plate.** The metadata keys, the "Ask Assistant" switch and the
  *   pickers sat on the page with no outer box at all; the box is the same one, with no label.
  */
 function optionGroups(items) {
@@ -10881,7 +11202,7 @@ function optionGroups(items) {
       return;
     }
     // **Every group is a plate, even one nobody named.** A run with no `.group-head` over it
-    // (the metadata keys, the "Ask AI" switch, the pickers) still gets the outer box the
+    // (the metadata keys, the "Ask Assistant" switch, the pickers) still gets the outer box the
     // named groups have, so no row is left sitting on the page on its own.
     out.push(el("div", { class: "option-group" }, label, ...nodes));
   };
@@ -11082,6 +11403,11 @@ function renderTabs() {
     label = "Search";
   } else if (parsed.view === "calendar") {
     label = "Calendar";
+  } else if (parsed.view === "list") {
+    // The crew, the studio or the network the page is about — see `parseHash`.
+    label = parsed.name || "";
+  } else if (parsed.view === "activity") {
+    label = "Activity";
   }
   // Built as a list and filtered rather than handed to `replaceChildren` directly:
   // that call stringifies a non-node, so a bare `null` in the arguments lands on the
@@ -11267,6 +11593,7 @@ async function render() {
   else if (view === "settings") nodes = renderSettings();
   else if (view === "search") nodes = liveProfile() ? renderLiveSearch() : renderSearch();
   else if (view === "calendar") nodes = renderCalendar();
+  else if (view === "activity") nodes = await renderActivityPage();
   // The second profile has its own Home — the channels, not the cards.
   else nodes = liveProfile() ? renderLiveHome() : renderHome();
   } catch (err) {
@@ -12083,13 +12410,16 @@ function guideCard(mode = "livetv") {
 function liveUpcomingCard(mode = "livetv") {
   if (!state.live.loaded && !state.live.loading) queueMicrotask(() => loadLive());
   if (!state.live.guide && !state.live.guideLoading) queueMicrotask(() => loadGuide());
+  // **Four, like the Movies home's Upcoming card.** The live card is the same card in the same
+  // frame (see the note above), and that frame is four cards long with four tiles in it — two
+  // tiles would leave half of it empty.
   const picks = [];
   for (const channel of liveChannelsShown(mode)) {
     const { next } = nowNext(channel, state.live.guide);
     if (next && next.title) picks.push({ channel, next });
-    if (picks.length === 2) break;
+    if (picks.length === 4) break;
   }
-  const tiles = Array.from({ length: 2 }, (_, i) => {
+  const tiles = Array.from({ length: 4 }, (_, i) => {
     const pick = picks[i];
     const tile = el("figure", { class: "spotlight-tile" },
       el("img", {

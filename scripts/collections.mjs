@@ -1581,9 +1581,16 @@ const top10Periods = (_suffix = " | Top 10") => [];
  * long it is, what it was made from) rather than down with the keyword cards.
  */
 const CARD_ORDER = [
-  // **Your own list leads, then the two Discover cards, then For You.** The order is the
-  // owner's own list of rows: the Watchlist is what you are watching, Discover Plus and
-  // Discover are the catalogue, and For You is what the app makes of the three.
+  // **The owner's own landmarks, in their own words**: *"pehle watchlist card, phir discovery
+  // plus, phir discover, phir for you, phir genre; uske baad continental & countries, uske baad
+  // season card ... specialist top 10 se pehle library card, specialist ke baad updates, aur
+  // sabse last me 4 poster wala upcoming card"*. Those landmarks hold in the list below:
+  //   Watchlist · Discover Plus · Discover · For You · Genres · (… ·) Continental & Countries ·
+  //   Seasons · (… ·) Library · Specialist | Top 10 · Specialist · Updates · Upcoming
+  // **Nothing was taken off Home to make them hold.** The cards between two landmarks — the
+  // decades ladder, the runtime/episode ladders, the keyword cards, the Domestic / International
+  // shelves — are drawn exactly as they were; a card is only ever hidden when that is asked for
+  // in so many words (`on-the-board`, `popular-by-genre` and the four beside them).
   "watchlist",
   "on-the-board",
   "discover-top-10",
@@ -1709,6 +1716,12 @@ const buildCollections = (code = "") => {
     key: "upcoming",
     lines: ["Upcoming"],
     scene: "on-the-board",
+    // **Four cards long.** The card sat alone in the last row of Home at one card's width, which
+    // read as a card that had been left over rather than as the foot of the page; the owner asked
+    // for it "four card long", so it spans four of its neighbours and holds four poster cards —
+    // the row of what is next, the same width as the four cards above it (`card-wide` in
+    // `desktop/ui/style.css`, `iconBox` in `desktop/ui/app.js`).
+    wide: true,
     // **A window on what is coming, not a shelf of four.** The app draws this card as a
     // **spotlight**: its frame holds **one** still, and that still changes every ten
     // seconds the way the hero banner's does — the next few things to arrive, shown one
@@ -1716,12 +1729,10 @@ const buildCollections = (code = "") => {
     // a time reads as "this is what is next".
     //
     // **It is a card of four posters now, not one still.** The spotlight frame held a single
-    // landscape picture that changed every ten seconds; the owner asked for the Upcoming card to
-    // be the four-poster card it is everywhere else, so the flag is off and it wears its own rows
-    // like every other card. It stays out of the hero rotation (`heroCandidates` names it): it is
-    // a glance at what is next, not a banner. It sits **between your Watchlist and your Custom row**, in the same row
-    // as both, so the three of them are your own corner of the page.
-    // (`spotlight` was here; the card draws as a normal card of four posters now.)
+    // landscape picture that changed every ten seconds; it holds four poster cards now (`wide`
+    // above), read from its own rows like every other card's wall. It stays out of the hero
+    // rotation (`heroCandidates` names it): it is a glance at what is next, not a banner.
+    // (`spotlight` was here; the card draws as the wide card of four posters now.)
     // **What is on its way, under your own list.** One row per row type: what is
     // coming to cinemas, and what airs next — sorted by the date it arrives, so the
     // nearest thing is the first thing, not the most popular thing.
@@ -1938,9 +1949,19 @@ const buildCollections = (code = "") => {
     key: "updates",
     lines: ["Updates"],
     scene: "on-the-board",
+    // **What is leaving leads, then what is arriving.** The card is read as a warning and a
+    // promise, and the warning is the one with a deadline: a title on its way out is one you
+    // have to watch *now*, so it is the first row on the card (the owner asked for it in that
+    // order: "there should be first leaving soon then arriving soon").
+    //
+    // **These two rows are the app's own word on what leaves and what arrives**, and they are
+    // read as such: `within: 180` is how long a title stays, so the day it falls out of this
+    // window (its release + 180 days — `LEAVING_DAYS` in `addon/lineup.mjs`) is the day it is
+    // gone from the app, and `future: 30` is the window whose release dates are the days the
+    // arriving titles land. Both dates are kept against the title and drawn on its card.
     catalogs: both([
-      curated("Arriving Soon", { sort_by: "date.asc", future: 30 }),
       curated("Leaving Soon", { sort_by: "popularity.desc", "vote_count.gte": 20, within: 180, olderThan: 60 }),
+      curated("Arriving Soon", { sort_by: "date.asc", future: 30 }),
     ]),
   },
 

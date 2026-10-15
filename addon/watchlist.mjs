@@ -187,6 +187,32 @@ export function unpin(item) {
   return { ok: true, removed, counts: counts() };
 }
 
+/**
+ * **The Activity screen's list: what this profile has pinned, newest first.**
+ *
+ * The store already keeps a date on every pin -- `addedAt` is when it went in, `updatedAt` is
+ * the last time its row changed -- so the history is not a second log to keep in step, it is
+ * this list read as a timeline. Only the fields the screen draws travel: a name, a poster, the
+ * row it is in, and when it last moved.
+ */
+export function activity(limit = 80) {
+  const out = [...load().values()]
+    .map((i) => ({
+      key: keyOf(i),
+      id: i.id,
+      type: i.type === "movie" ? "movie" : "series",
+      name: i.name || "Untitled",
+      poster: i.poster || "",
+      state: i.state || "",
+      addedAt: i.addedAt || "",
+      at: i.updatedAt || i.addedAt || "",
+    }))
+    .filter((i) => i.at)
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const want = Math.max(1, Math.min(400, Number(limit) || 80));
+  return out.slice(0, want);
+}
+
 /** The stored titles for one row, as catalog metas. */
 export function metasFor(state, type, skip = 0, limit = 40) {
   const items = list(state).filter((i) => i.type === type);
