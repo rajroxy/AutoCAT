@@ -43,12 +43,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FILE = path.join(HERE, "lineup.json");
 
 /**
- * How long a title stays after it is out — **the far edge of the Leaving Soon row's window**
- * (`within: 180` in `scripts/collections.mjs`). Changing one without the other would put the
- * date on a card out of step with the row the title came off, so they are named here and the
- * row's own comment points back at this one.
+ * How long a title stays in the app — **the far edge of the Leaving Soon row's window**
+ * (`within: { movie: 180, series: 365 }` in `scripts/collections.mjs`). Changing one without the
+ * other would put the date on a card out of step with the row the title came off, so they are
+ * named here and the row's own comment points back at this one. Per media type: a series is
+ * carried twice as long as a film, because it arrives over months.
  */
-export const LEAVING_DAYS = 180;
+export const LEAVING_DAYS = { movie: 180, series: 365 };
 /** How near "soon" is, at both ends of the window — the row's `future: SOON_DAYS` and the month
  *  of the staying window that Leaving Soon holds (`scripts/collections.mjs`). */
 export const SOON_DAYS = 30;
@@ -123,15 +124,25 @@ export function note(rowName, metas) {
       }
     }
   }
+  // **A leaving date is derived, and it is rewritten.** It is the release date plus the title's
+  // own stay, and both are facts about the title — so an entry written under an older stay cannot
+  // keep a series out of the app a year early for ever; the next read corrects it. The *arrival*
+  // date is a different thing (the day the row said it lands), and a later read of a wider window
+  // must not push it out, which is the guard further down.
   for (const m of list) {
     const key = keyOf(m);
-    if (!key.endsWith(":") && bag[key]) continue;
     const landed = releaseOf(m);
     if (!landed) continue;
     // A **leaving** date that is already behind us is not a warning, it is a tombstone — the
     // title is recorded so it can stay gone, and it is filtered out of the row it was read on.
-    const date = arriving ? landed : plusDays(landed, LEAVING_DAYS);
+    // **The stay belongs to the title's own kind**, not to the row: a series is carried for a
+    // year and a film for half of one, so two titles read on the same day carry two different
+    // leaving dates.
+    const stay = LEAVING_DAYS[key.startsWith("series:") ? "series" : "movie"];
+    const date = arriving ? landed : plusDays(landed, stay);
     if (arriving && date < now) continue;
+    if (arriving && bag[key]) continue;
+    if (bag[key] === date) continue;
     bag[key] = date;
     wrote = true;
   }

@@ -31,7 +31,7 @@ import {
   title as collectionTitle,
 } from "../scripts/collections.mjs";
 import { get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
-import { cleanScope, rescope, withScope } from "./scope.mjs";
+import { cleanScope, currentScope, rescope, withScope } from "./scope.mjs";
 import { askAI, askAbout, askTags, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
 import {
   STATES,
@@ -2679,6 +2679,50 @@ async function serveAddon(req, res, pathname, origin) {
     return true;
   }
 
+/**
+ * **Who can watch this with you.**
+ *
+ * A watch party pairs *people*, so this read answers with the **accounts on this machine** —
+ * which is what a profile is here — and what each of them has to do with *this* title. That
+ * second part comes from their own watchlist, read for their profile alone: `rescope` moves the
+ * work in hand onto another account's file (`AsyncLocalStorage`, so no other request can see it)
+ * and the store asks for its file at the moment it reads it.
+ *
+ * Nothing is invented. An account with nothing to do with the title says exactly that, and the
+ * room's code is what turns a person into a pairing.
+ */
+function watchersFor(media, id, { profile = "", as = "" } = {}) {
+  const key = `${media === "series" ? "series" : "movie"}:${String(id || "").replace(/^tmdb:/, "")}`;
+  let accounts = [];
+  try {
+    accounts = localAccounts(cleanProfile(profile)) || [];
+  } catch {
+    accounts = [];
+  }
+  const here = currentScope();
+  const out = [];
+  for (const account of accounts) {
+    const who = String(account?.id || "");
+    if (!who) continue;
+    let why = "On this machine — start the room and they join with its code.";
+    if (who === as) {
+      why = "The profile you are on — a party needs a second person, so this one is already in.";
+    } else {
+      try {
+        rescope(who);
+        const hit = watchlistList().find((it) => `${it?.type === "movie" ? "movie" : "series"}:${String(it?.id || "").replace(/^tmdb:/, "")}` === key);
+        if (hit) why = `${STATE_LABEL[hit.state] || "In their list"} — they already have this one.`;
+      } catch {
+        /* a profile with no store yet has nothing to say about the title */
+      } finally {
+        rescope(here);
+      }
+    }
+    out.push({ id: who, name: account.name || "Someone", why, you: who === as });
+  }
+  return out;
+}
+
   // **Watch Along: the party around a title, and the talk about it.** A room is one code —
   // started for a title, joined by whoever is watching too — and the notes under it are what
   // the people watching said. Both are held in `party.json`, one file for the machine, because
@@ -3150,14 +3194,15 @@ async function serveAddon(req, res, pathname, origin) {
     return true;
   }
 
-  // **What to watch alongside one title** (`/pair/movie/550.json`) — what Watch Along's
-  // *Find a pairing* asks for (see `pairings`).
+  // **Who can watch this with you** (`/pair/movie/550.json`) — what Watch Along's *Find a
+  // pairing* asks for. It answers with **people**, not with other titles: a watch party pairs
+  // two watchers (see `watchersFor`).
   const pairing = pathname.match(/^\/pair\/(movie|series)\/([\w:-]+)\.json$/);
   if (pairing) {
     const query = new URL(req.url ?? "/", "http://localhost").searchParams;
     const id = pairing[2].replace(/^tmdb:/, "");
-    const list = hasKey() ? await pairings(pairing[1], id, query.get("lang") || activeLanguage()) : [];
-    json(res, 200, { ok: list.length > 0, pairs: list }, 1800);
+    const people = watchersFor(pairing[1], id, { profile: query.get("who") || "", as: query.get("as") || "" });
+    json(res, 200, { ok: people.length > 0, people }, 1800);
     return true;
   }
 

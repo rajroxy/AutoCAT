@@ -1431,7 +1431,15 @@ const TOP10 = 10;
 // back catalogue**. `addon/lineup.mjs` writes the same dates down against each title
 // (`LEAVING_DAYS` there is `CATALOG_DAYS` here).
 const CATALOG_DAYS = 180;
+// **A series stays twice as long as a film.** A film arrives complete and a series arrives an
+// episode at a time over months, so one number for both left the Leaving row half full of
+// half-watched shows. The stay is per media type now — and the *same* pair of numbers is in
+// `addon/lineup.mjs`, which is where the date on a title's card is written from.
+const SERIES_CATALOG_DAYS = 365;
 const SOON_DAYS = 30;
+// **Fifty either way.** Both rows of the Updates card are fifty titles: a warning you can read
+// and a promise you can read, rather than a shelf as long as its window happened to be.
+const UPDATES_TAKE = 50;
 // **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide
 // card that is worth scrolling. Its card key stays `discover-top-10` — that is the
 // cover's filename (see the card's own entry for the name and its rows).
@@ -2008,13 +2016,29 @@ const buildCollections = (code = "") => {
     // rows, the on-the-board card or the Upcoming card — the catalogue's own two edges are the
     // whole of it.
     catalogs: both([
+      // **A film's last month and a series' last month, from stays of different lengths.** The
+      // film's stay is `CATALOG_DAYS`, a series' is `SERIES_CATALOG_DAYS`, and each row is the
+      // last `SOON_DAYS` of its own — so the dates on the card differ per title instead of every
+      // title on screen carrying the same one.
       curated("Leaving Soon", {
         sort_by: "popularity.desc",
         "vote_count.gte": 20,
-        within: CATALOG_DAYS,
-        olderThan: CATALOG_DAYS - SOON_DAYS,
-      }),
-      curated("Arriving Soon", { sort_by: "date.asc", future: SOON_DAYS }),
+        within: { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS },
+        olderThan: { movie: CATALOG_DAYS - SOON_DAYS, series: SERIES_CATALOG_DAYS - SOON_DAYS },
+      }, UPDATES_TAKE),
+      // **What is arriving is not the calendar.** Read in release order over the next month, this
+      // row was the Upcoming card's own first page: the same titles, nearest first, twice on one
+      // home screen. It is read in **popularity order over the coming quarter** instead — *any*
+      // titles that are on their way rather than the twenty with the earliest dates — so the two
+      // cards answer two different questions: what is next (Upcoming), and what is worth knowing
+      // is coming (here). A series is announced further out than a film, so its window is longer.
+      // **No vote floor on a title that has not come out.** A film that lands next month has
+      // almost no votes yet, so the twenty-vote floor every other row wears emptied this one
+      // completely — the arriving row answered with nothing at all.
+      curated("Arriving Soon", {
+        sort_by: "popularity.desc",
+        future: { movie: SOON_DAYS * 3, series: SOON_DAYS * 4 },
+      }, UPDATES_TAKE),
     ]),
   },
 

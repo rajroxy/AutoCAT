@@ -4250,7 +4250,7 @@ function iconBox(c, row) {
   return el(
     "div",
     {
-      class: `icon-box${spotlight ? " card-spotlight" : ""}${wide ? " card-wide" : ""}`,
+      class: `icon-box${spotlight ? " card-spotlight" : ""}${wide ? " card-wide" : ""}${c.key === "for-you" ? " card-for-you" : ""}`,
       // The tile says what it holds before it is opened (Settings → Animation →
       // Hover previews → Catalog tiles).
       "data-preview": name,
@@ -4312,7 +4312,17 @@ function collectionList(row = state.row) {
   // **The order is the one you put the cards in** (Settings → Profile → Edit), so a card
   // moved up in the editor is higher on Home too.
   const order = visFor().order?.cards?.[row];
-  return orderedBy(state.collections.filter((c) => !c.hidden && cardVisible(c)), order, (c) => c.key);
+  // **A card that publishes nothing for this tab is not a card of this tab.** Seasons are a
+  // show's and Runtime is a film's, and the switch already drops the other half in
+  // `scripts/collections.mjs` — but the grid filtered on the visibility switch alone, so the
+  // card was still drawn: an empty frame with a name on it, which is the reported "the Seasons
+  // card on Movies is empty". What a card *has* for this tab decides, the same way the hero and
+  // the card page already decide it.
+  return orderedBy(
+    state.collections.filter((c) => !c.hidden && cardVisible(c) && (c[row]?.catalogs || []).length),
+    order,
+    (c) => c.key,
+  );
 }
 
 /** The collection grid, with the vertical divider before the marked card. */
@@ -7223,11 +7233,13 @@ const listQuery = (type) => `?type=${encodeURIComponent(type)}${state.safe ? "" 
  * joined list and the notes come back from the server, so the two of you are looking at the
  * same room rather than at two copies of one.
  *
- * The assistant is still one press away — its button is its own — and *Find a pairing* now
- * answers the question itself, in this box, from the catalogue (see `pairingsFor`). It used to
- * open the assistant's box, which is a press that says "find" landing in a text field. (The
- * assistant box the Watch Along
- * button used to, asked the same question — what to put on *with* this.
+ * **A watch party, the way a watch party works.** This is the same shape as a party in Stremio
+ * or a call in Discord: a room, a code you read out, who is in it, and the talk underneath.
+ * *Find a pairing* pairs **people** — whoever else is set up on this machine and what they have
+ * to do with this title (see `watchersFor`) — and it opens the room for them or hands over its
+ * code. It used to answer with *other titles*, and the box used to carry an *Ask the assistant*
+ * button besides: this box is not a place to ask about the catalogue, and the assistant has a
+ * button of its own on the title page.
  */
 /**
  * **The pairing read**: TMDB's neighbours for one title, with the line saying why each is on
@@ -7235,7 +7247,19 @@ const listQuery = (type) => `?type=${encodeURIComponent(type)}${state.safe ? "" 
  * twice in a minute, and the answer does not move.
  */
 const pairCache = new Map();
-async function pairingsFor(meta) {
+/**
+ * **Who can watch this with you.**
+ *
+ * *Find a pairing* used to answer with **other titles** — TMDB's neighbours of the one on
+ * screen — which is the wrong question in a box that exists to watch something *with someone*:
+ * a title is what you watch, a person is who you watch it with, and a watch party is the two of
+ * you plus a code. So the read asks the server which **people** are set up on this machine
+ * (`GET /pair/<type>/<id>.json`, see `watchersFor` in `addon/index.mjs`) and what each of them
+ * has to do with this title: pinned it, is watching it, has finished it, or is simply on this
+ * machine and can join with the room's code. Cached for the visit, like every other read in
+ * this box.
+ */
+async function watchersFor(meta) {
   const path = `${meta?.type === "series" ? "series" : "movie"}/${encodeURIComponent(String(meta?.id || "").replace(/^tmdb:/, ""))}`;
   if (pairCache.has(path)) return pairCache.get(path);
   let list = [];
@@ -7244,7 +7268,7 @@ async function pairingsFor(meta) {
     if (state.language) params.set("lang", state.language);
     const query = params.toString();
     const res = await get(`/pair/${path}.json${query ? `?${query}` : ""}`);
-    list = Array.isArray(res?.pairs) ? res.pairs : [];
+    list = Array.isArray(res?.people) ? res.people : [];
   } catch {
     list = [];
   }
@@ -7259,35 +7283,53 @@ async function openWatchAlong(meta) {
   const note = el("p", { class: "player-note", text: "" });
   // The pairing lands **here**, under the party controls: it is a question about this title, and
   // this is the box that is about this title.
+  // **The room, as the last paint left it.** *Find a pairing* is answered from the people list,
+  // and what its rows do depends on whether a room is open — so the box keeps the latest state
+  // rather than the state it had when the button was drawn.
+  const latest = { room: null };
   const pairSection = el("section", { class: "watch-along-section pair-section", hidden: true });
   const fillPairing = async () => {
     pairSection.hidden = false;
     pairSection.replaceChildren(
-      el("p", { class: "watch-along-head", text: "Pair it with" }),
-      el("p", { class: "option-desc", text: "Looking through the catalogue…" }),
+      el("p", { class: "watch-along-head", text: "Watch with" }),
+      el("p", { class: "option-desc", text: "Looking for whoever else is watching…" }),
     );
-    const list = await pairingsFor(meta);
+    const list = await watchersFor(meta);
     pairSection.replaceChildren(
-      el("p", { class: "watch-along-head", text: "Pair it with" }),
+      el("p", { class: "watch-along-head", text: "Watch with" }),
       list.length
-        ? el("p", { class: "option-desc", text: "Titles TMDB keeps beside this one — press one to open it." })
-        : el("p", { class: "option-desc", text: "Nothing to pair it with: the catalogue has no neighbours for this title." }),
-      ...list.map((pair) =>
+        ? el("p", { class: "option-desc", text: latest.room
+            ? "The people on this machine. Press one and the room's code goes on the clipboard for them."
+            : "The people on this machine. Press one and the room opens for them — the code is what they join with." })
+        : el("p", { class: "option-desc", text: "Nobody else is set up on this machine yet. A second profile in Settings → Profiles is a second person to watch with." }),
+      ...list.map((person) =>
         el("button", {
-          class: "pair-row focusable",
+          class: `pair-row focusable${person.you ? " active" : ""}`,
           type: "button",
-          // A pairing is a door onto the title it names, so a press opens it and leaves the box.
-          onclick: () => {
-            close();
-            go(`#/t/${pair.type === "series" ? "series" : "movie"}/${String(pair.id || "").replace(/^tmdb:/, "")}`);
+          // **The press is an invitation, not a page.** A pairing is a person: it opens the room
+          // (or hands over the code of the one already open) and never navigates anywhere.
+          onclick: async () => {
+            if (!latest.room) {
+              note.textContent = `Opening the room for ${person.name}…`;
+              await ask("start");
+              note.textContent = latest.room
+                ? `${person.name}: the code is ${latest.room.code} — they open Watch Along on this title and join with it.`
+                : note.textContent;
+              return;
+            }
+            const line = `${person.name} — ${person.why || "on this machine"}`;
+            try {
+              await navigator.clipboard.writeText(latest.room.code);
+              note.textContent = `${line}. Code ${latest.room.code} copied.`;
+            } catch {
+              note.textContent = `${line}. The code is ${latest.room.code} — read it out.`;
+            }
           },
         },
-          pair.poster
-            ? el("img", { class: "pair-poster", src: pair.poster, alt: "", loading: "lazy" })
-            : el("span", { class: "pair-poster pair-initials", text: initialsOf(pair.name).toUpperCase() }),
+          el("span", { class: "pair-poster pair-initials", text: initialsOf(person.name || "?").toUpperCase() }),
           el("span", { class: "pair-text" },
-            el("span", { class: "pair-name", text: pair.name }),
-            el("span", { class: "pair-why", text: pair.pairWhy || "" }),
+            el("span", { class: "pair-name", text: person.you ? `${person.name} (you)` : person.name }),
+            el("span", { class: "pair-why", text: person.why || "" }),
           ),
         ),
       ),
@@ -7307,16 +7349,8 @@ async function openWatchAlong(meta) {
           type: "button",
           id: "watch-along-pair",
           text: "Find a pairing",
-          title: "Find a title to watch alongside this one",
+          title: "Find someone to watch this with",
           onclick: () => fillPairing(),
-        }),
-        el("button", {
-          class: "btn subtle focusable",
-          type: "button",
-          id: "watch-along-ask",
-          text: "Ask the assistant",
-          title: "Ask the assistant what to watch alongside this",
-          onclick: () => { close(); openAssistant(meta, { question: `What should I watch in a pair with ${name}? Name one title to pair it with, and why, in two lines.` }); },
         }),
         el("button", { class: "btn subtle focusable", type: "button", id: "watch-along-close", text: "Close", onclick: () => close() }),
       ),
@@ -7362,6 +7396,7 @@ async function openWatchAlong(meta) {
 
   function paint(data) {
     const room = data?.room || null;
+    latest.room = room;
     const notes = Array.isArray(data?.notes) ? data.notes : [];
     const mine = (data?.accounts || []).find((a) => a.id === (data?.as || ""))?.name || "You";
     const iAmIn = Boolean(room && room.joined.some((j) => j.name === mine));
@@ -8212,7 +8247,7 @@ function openTrailer(t) {
     const total = ytPlayer.getDuration?.() || 0;
     if (!dragging && total) {
       seek.value = String(Math.round((now / total) * 1000));
-      seek.style.setProperty("--fill", `${(now / total) * 100}%`);
+      seek.style.setProperty("--played", `${(now / total) * 100}%`);
     }
     clock.textContent = `${mmss(now)} / ${mmss(total)}`;
     const playing = ytPlayer.getPlayerState?.() === 1;
@@ -8255,7 +8290,7 @@ function openTrailer(t) {
   playBtn.addEventListener("click", toggle);
   seek.addEventListener("input", () => {
     dragging = true;
-    seek.style.setProperty("--fill", `${Number(seek.value) / 10}%`);
+    seek.style.setProperty("--played", `${Number(seek.value) / 10}%`);
   });
   seek.addEventListener("change", () => {
     dragging = false;
@@ -14029,7 +14064,7 @@ async function openPlayer(url, title, opts = {}) {
     seek.value = d ? String(Math.round((video.currentTime / d) * 1000)) : "0";
     // The bar's own fill (see `.player-seek`): the elapsed part is painted in the accent,
     // so the bar reads as a bar rather than as a bare track with a dot on it.
-    seek.style.setProperty("--fill", d ? `${(video.currentTime / d) * 100}%` : "0%");
+    seek.style.setProperty("--played", d ? `${(video.currentTime / d) * 100}%` : "0%");
     clock.textContent = timecode(video.currentTime);
     total.textContent = d ? timecode(d) : "live";
     watchedPast(opts.meta, d ? video.currentTime / d : 0);
@@ -14037,7 +14072,7 @@ async function openPlayer(url, title, opts = {}) {
   video.addEventListener("loadedmetadata", () => { total.textContent = video.duration ? timecode(video.duration) : "live"; });
   seek.addEventListener("input", () => {
     const d = video.duration || 0;
-    seek.style.setProperty("--fill", `${Number(seek.value) / 10}%`);
+    seek.style.setProperty("--played", `${Number(seek.value) / 10}%`);
     if (d) video.currentTime = (Number(seek.value) / 1000) * d;
   });
 
@@ -15151,6 +15186,27 @@ async function openPlayer(url, title, opts = {}) {
       }, seq);
       return;
     }
+    /**
+     * **A stream that will not load gets a second try through this app's own server.**
+     *
+     * A host that serves its manifest to its own page and not to a player (no
+     * `Access-Control-Allow-Origin`, or a file that only answers a request carrying the site's
+     * own headers) is a stream this page can never open — the player sat on a black rectangle
+     * while the Sources drawer showed forty rows, which is the reported "no title plays even
+     * though the sources are very much". The app *has* a way through: `/stream/proxy` fetches
+     * the file server-side, adds the referer, and rewrites an HLS manifest's segments to come
+     * back the same way. It was only used for streams the extractor had labelled `scraped`, so a
+     * plain `url` from an add-on never got it. Now the failure itself asks for it: one silent
+     * retry through the proxy, once, and only when the direct attempt was not already proxied.
+     */
+    let throughProxy = Boolean(needsProxy);
+    const retryThroughProxy = () => {
+      if (throughProxy || seq !== playerSeq || isUnplayableUrl(target)) return;
+      throughProxy = true;
+      sayError("");
+      console.log("[player] direct playback failed — retrying through the app's own server", target);
+      attach({ url: target, scraped: true, referer: s.referer || s.page || "", title: s.title, name: s.name });
+    };
     try {
       if (hlsTarget && !native) {
         const Hls = await loadHls();
@@ -15165,6 +15221,9 @@ async function openPlayer(url, title, opts = {}) {
           for (const event of [Hls.Events.MANIFEST_PARSED, Hls.Events.AUDIO_TRACKS_UPDATED, Hls.Events.SUBTITLE_TRACKS_UPDATED]) {
             if (event) playerHls.on(event, redrawTracks);
           }
+          // A fatal manifest or segment error is the same failure as the element's own: the
+          // host would not serve it to a player.
+          if (Hls.Events.ERROR) playerHls.on(Hls.Events.ERROR, (_event, data) => { if (data?.fatal) retryThroughProxy(); });
           playerHls.loadSource(playUrl);
           playerHls.attachMedia(video);
         } else {
@@ -15176,12 +15235,21 @@ async function openPlayer(url, title, opts = {}) {
         // element is the standard player, and it seeks without an engine.
         video.src = playUrl;
       }
+      // The element itself reports a file it cannot open (`MEDIA_ERR_SRC_NOT_SUPPORTED`, or a
+      // network error), which is the other half of the same problem.
+      video.addEventListener("error", retryThroughProxy, { once: true });
       if (seq !== playerSeq) return;
       await video.play().catch(() => {
         /* autoplay refused: the controls are right there */
       });
     } catch (err) {
       if (seq !== playerSeq) return;
+      // The manifest request itself failing (a 403, a CORS refusal) is the case the proxy
+      // exists for, so it is asked for before giving up on the stream.
+      if (!throughProxy) {
+        retryThroughProxy();
+        return;
+      }
       sayError(`Could not play this stream — ${err.message}`);
     }
   };
@@ -15302,7 +15370,19 @@ async function openSources(meta) {
     return hit[1] === "4k" || hit[1] === "uhd" ? 2160 : Number(hit[1]);
   };
   const clean = playable.filter((s) => !/cam|trailer|sample/i.test(`${s.name} ${s.title}`));
-  const pool = clean.length ? clean : playable;
+  const found = clean.length ? clean : playable;
+  // **A source that plays here beats one that cannot.**
+  //
+  // A magnet is not a stream until something holds the swarm, and this app has two things that
+  // can: a debrid account, and the server's own engine (`/stream/torrent`, reported in
+  // `state.options.torrent.ready`). With neither, the first source of a torrent-only add-on was
+  // a magnet the page could never open — the player sat on a black rectangle while the sources
+  // drawer showed forty rows, which is the reported "any title does not play even when the
+  // sources are very much". So the *order* is chosen by what can actually play: direct and HLS
+  // sources first when nothing here can hold a swarm, torrents first when something can. The
+  // torrents stay in the list either way — they are one press away in the drawer.
+  const torrentsWork = Boolean(debridActive()) || Boolean(state.options?.torrent?.ready);
+  const pool = torrentsWork ? found : [...found.filter((s) => !s.torrent), ...found.filter((s) => s.torrent)];
   const best = ceiling
     ? [...pool].sort((a, b) => {
         const ha = heightOf(a);

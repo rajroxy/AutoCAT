@@ -278,9 +278,20 @@ body {
    app's ink and the mark is the colour: two colours, on any palette, and the picture reads at a
    glance instead of blending into the card. Everywhere else the avatar keeps the app's own plate. */
 .profile-tile .avatar, .current-profile .avatar {
-  background: #0D0E12;
-  color: var(--fill);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  background: var(--fill);
+  color: #14110a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+/* **On the chosen card the disc is the plate, deepened.** A chosen tile's plate *is* the accent,
+   so an accent disc on it is the same colour twice — but the answer to that is not a near-black
+   circle punched into a coloured card (the owner's "avatar again looks damn bad"). The disc is
+   the card's own colour with a translucent ink wash over it, which keeps the plate's hue, reads
+   as a well rather than a hole, and leaves the mark dark and legible. */
+.profile-tile.active .avatar,
+.profile-grid .profile-tile.active .avatar {
+  background: rgba(12, 10, 6, 0.30);
+  color: #14110a;
+  box-shadow: none;
 }
 .profile-tile-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
 .profile-tile-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
@@ -3432,18 +3443,19 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 }
 .player-group { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .player-group.end { justify-content: flex-end; flex: none; }
-/* **A control-bar chip is one of the app's buttons.** The chips were square-ish
-   (`border-radius: 9px`, no border, a 9% wash) while every button in the app is a pill with a
-   hairline over a 5% fill — so the player read as a control strip from somewhere else. Same
-   pill, same hairline, same fill, same hover: the bar is the app's own row of buttons now. */
+/* **The bar's chips are chips, and that shape was right.** A pass turned every control in the
+   bar into one of the app's pills — a hairline over a 5% fill at 999px corners — and the answer
+   was that the *bar's* buttons were the right shape before it: a soft rounded square at 9px, no
+   edge, one 9% wash, and a lighter wash under the cursor instead of a coloured border. The row
+   of them is what makes the bar read as one surface rather than a line of loose buttons. */
 .player-icon {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 36px; height: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 0 12px;
-  background: rgba(255, 255, 255, 0.05);
+  border: 0; border-radius: 9px; padding: 0 12px;
+  background: rgba(255, 255, 255, 0.09);
   color: var(--text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
 }
-.player-icon:hover, .player-icon:focus-visible { border-color: rgba(var(--hover-rgb), 0.55); }
+.player-icon:hover, .player-icon:focus-visible { background: rgba(255, 255, 255, 0.16); }
 /* A drawn mark, on the same stroked grid as the top bar's icons. */
 .player-glyph { display: inline-flex; align-items: center; justify-content: center; }
 .player-glyph svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
@@ -4582,8 +4594,9 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
   padding: 0;
   border: 0;
   border-radius: 999px;
-  /* Elapsed in the accent — a filled bar, the same reading as the player's. */
-  background: linear-gradient(90deg, var(--fill) 0 var(--fill, 0%), rgba(255, 255, 255, 0.16) var(--fill, 0%) 100%);
+  /* Elapsed in the accent — a filled bar, the same reading as the player's (`--played`, not
+     the accent's own name: see `.player-seek`). */
+  background: linear-gradient(90deg, var(--fill) 0 var(--played, 0%), rgba(255, 255, 255, 0.16) var(--played, 0%) 100%);
   accent-color: var(--fill);
   cursor: pointer;
   -webkit-appearance: none;
@@ -4902,17 +4915,22 @@ button.chip:not(.active):hover { background: rgba(var(--hover-rgb), 0.24); color
   color: var(--fill);
 }
 
-/* **The player's seek bar is a bar with its fill.** A flat track, a round accent thumb,
-   and the *whole elapsed part* painted in the accent — `--fill` is set from the playhead
-   in `openPlayer`, so the bar reads at a glance instead of being an empty grey line with
-   a dot on it. */
+/* **The player's seek bar is a bar with its fill.** A flat track, a round accent thumb, and the
+   *whole elapsed part* painted in the accent.
+   ----------------------------------------------------------------------------
+   **It was painting nothing, and one name was the reason.** The fill was written as
+   `var(--fill) 0 var(--fill, 0%)` — the accent *and* the percentage under the same custom
+   property — while the script sets that property to `37%` on this element. The shadowed
+   variable made the whole gradient invalid, so the bar fell back to no background at all: an
+   empty line with a dot on it, which is exactly "the seek bar is not filled". The playhead is
+   `--played` now, and `--fill` is the accent again, here and on the trailer's bar. */
 .player-seek {
   -webkit-appearance: none;
   appearance: none;
   height: 6px;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, var(--fill) 0 var(--fill, 0%), rgba(255, 255, 255, 0.22) var(--fill, 0%) 100%);
+    linear-gradient(90deg, var(--fill) 0 var(--played, 0%), rgba(255, 255, 255, 0.22) var(--played, 0%) 100%);
   cursor: pointer;
 }
 .player-seek::-webkit-slider-thumb {
@@ -6318,3 +6336,18 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
   border-radius: 4px 4px 2px 2px;
   background: rgba(var(--fill-rgb, 200, 169, 106), 0.55);
 }
+
+/* ============================================================================
+   **Two cards are a picture, not a door.**
+   ----------------------------------------------------------------------------
+   The **For You** card and the **Upcoming** card are read, not opened: Upcoming has no button in
+   it at all and For You is the app's own glance at what it picked for you. The keyboard's ring —
+   `.focusable:focus-visible` and `.icon-box:has(:focus-visible)` — still drew a 3px accent box
+   around the whole card the moment it was clicked, which is the "one big selection ring" on a
+   card that does nothing when you press it. Both keep the app's flat panel, hovered or focused,
+   the way the hero banner does.
+   ============================================================================ */
+.icon-box.card-for-you, .icon-box.card-spotlight, .icon-box.card-wide,
+.icon-box.card-for-you:is(:hover, :focus-visible, :has(:focus-visible)),
+.icon-box.card-spotlight:is(:hover, :focus-visible, :has(:focus-visible)),
+.icon-box.card-wide:is(:hover, :focus-visible, :has(:focus-visible)) { box-shadow: none; }

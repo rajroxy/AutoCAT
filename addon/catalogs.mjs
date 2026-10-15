@@ -227,6 +227,15 @@ async function specsFor(entry, media, opts = {}) {
     case "curated": {
       const { within, before, olderThan, future, between, ...rest } = entry.params || {};
       const params = { ...rest };
+      // **A stay that is not one number for every title.** These three may be written **per media
+      // type** (`{ movie: 180, series: 365 }`) as well as one number for both, and a plain number
+      // still means both so every other row is untouched. A series is carried twice as long as a
+      // film here, which is the point: `release + 180 days, for any title` was an arithmetic
+      // accident that put the same date on every title of the Leaving row.
+      const days = (v) => Number(v && typeof v === "object" ? v[media === "series" ? "series" : "movie"] : v);
+      const withinDays = days(within);
+      const olderDays = days(olderThan);
+      const futureDays = days(future);
       // **A window with two ends, given as two days.** `within`, `olderThan`, `before` and
       // `future` each measure from today; a row whose name is a *season* is a stretch of the
       // calendar that is neither — "Summer" is three months, and it started before today or it
@@ -236,8 +245,8 @@ async function specsFor(entry, media, opts = {}) {
         params[`${dateField(media)}.gte`] = String(between[0]);
         params[`${dateField(media)}.lte`] = String(between[1]);
       }
-      if (Number.isFinite(within)) params[`${dateField(media)}.gte`] = iso(new Date(Date.now() - within * 864e5));
-      if (Number.isFinite(olderThan)) params[`${dateField(media)}.lte`] = iso(new Date(Date.now() - olderThan * 864e5));
+      if (Number.isFinite(withinDays)) params[`${dateField(media)}.gte`] = iso(new Date(Date.now() - withinDays * 864e5));
+      if (Number.isFinite(olderDays)) params[`${dateField(media)}.lte`] = iso(new Date(Date.now() - olderDays * 864e5));
       if (Number.isFinite(before)) params[`${dateField(media)}.lte`] = `${before}-12-31`;
       // **"Upcoming", said once for either media type.** A film sorts on
       // `primary_release_date` and a show on `first_air_date`, so a row that means "what
@@ -246,10 +255,10 @@ async function specsFor(entry, media, opts = {}) {
       if (params.sort_by === "date.asc" || params.sort_by === "date.desc") {
         params.sort_by = `${dateField(media)}.${params.sort_by.split(".")[1]}`;
       }
-      if (Number.isFinite(future)) {
+      if (Number.isFinite(futureDays)) {
         const now = Date.now();
         params[`${dateField(media)}.gte`] = iso(new Date(now));
-        params[`${dateField(media)}.lte`] = iso(new Date(now + future * 864e5));
+        params[`${dateField(media)}.lte`] = iso(new Date(now + futureDays * 864e5));
       }
       return [page(params, entry.take)];
     }
