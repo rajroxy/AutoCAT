@@ -2937,7 +2937,7 @@ function signInCard() {
       : null,
     el("p", {
       class: "option-desc",
-      text: `${localAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts on this profile${room > 0 ? ` — ${room} left` : ""}.`,
+      text: `${countedAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts of your own on this profile (Adam and Eve are not counted)${room > 0 ? ` — ${room} left` : ""}.`,
     }),
   ];
 }
@@ -3049,7 +3049,10 @@ async function signInOnThisMachine(name, email) {
 
 /** The accounts this profile holds, and how many it may hold. */
 const MAX_LOCAL_ACCOUNTS = 5;
+/** **Adam and Eve are the app's own and do not count against the five** (see the addon's rule). */
+const DEFAULT_ACCOUNT_NAMES = ["Adam", "Eve"];
 const localAccounts = () => (Array.isArray(state.account?.accounts) ? state.account.accounts : []);
+const countedAccounts = () => localAccounts().filter((a) => !DEFAULT_ACCOUNT_NAMES.includes(String(a?.name || "")));
 
 /**
  * **The list of this profile's accounts**, as the sign-in page and the settings pane draw it.
@@ -3090,22 +3093,25 @@ function accountList() {
       }),
     ),
   );
-  return { accounts, rows, current, room: MAX_LOCAL_ACCOUNTS - accounts.length };
+  // **Room is counted over the accounts you made** — both of the defaults are always there, so
+  // counting them would leave a profile with three of its own and call it full.
+  return { accounts, rows, current, room: MAX_LOCAL_ACCOUNTS - countedAccounts().length };
 }
 
 /**
  * **The new-account form**, which stops offering itself at the fifth account.
  *
- * Five is the limit per profile (see `MAX_LOCAL_ACCOUNTS` in the addon), and the form says so
- * rather than letting a sixth be typed and refused.
+ * Five is the limit per profile **excluding Adam and Eve** (see `MAX_LOCAL_ACCOUNTS` and
+ * `countedAccounts` in the addon), and the form says so rather than letting a sixth be typed
+ * and refused.
  */
 function accountForm({ onDone } = {}) {
   const draft = state.signInDraft || { name: "", email: "" };
-  const room = MAX_LOCAL_ACCOUNTS - localAccounts().length;
+  const room = MAX_LOCAL_ACCOUNTS - countedAccounts().length;
   if (room <= 0) {
     return el("p", {
       class: "option-desc",
-      text: `This profile has ${MAX_LOCAL_ACCOUNTS} local accounts — the limit. Forget one to make another.`,
+      text: `This profile has ${MAX_LOCAL_ACCOUNTS} accounts of its own — the limit (Adam and Eve are not counted). Forget one to make another.`,
     });
   }
   const nameField = el("input", {

@@ -126,6 +126,15 @@ const ACCOUNT_FILE = process.env.AUTOCAT_ACCOUNT_FILE || path.join(__dirname, "a
 /** How many local accounts one profile can hold. */
 export const MAX_LOCAL_ACCOUNTS = 5;
 
+/**
+ * **The two names that are not counted.** Every profile is given a default account — Adam on the one
+ * who is watching as *Male*, Eve on the other (`ensureDefaultAccount`) — and the owner's limit is
+ * *five, excluding Adam and Eve*: those two are the app's own, so a profile may hold the pair **and**
+ * five accounts of its own. Everything else about them is unchanged.
+ */
+export const DEFAULT_ACCOUNT_NAMES = ["Adam", "Eve"];
+const countedAccounts = (list) => list.filter((a) => !DEFAULT_ACCOUNT_NAMES.includes(String(a?.name || "")));
+
 /** `undefined` = not read yet; an array otherwise. */
 let accountsCache;
 
@@ -302,8 +311,10 @@ export function signInLocal({ name, email, id, who } = {}) {
     sessions.set(sessionId, { user: publicAccount(resume), profile, expires: Date.now() + SESSION_MS });
     return { user: publicAccount(resume), sessionId, accounts: localAccounts(profile) };
   }
-  if (mine.length >= MAX_LOCAL_ACCOUNTS) {
-    throw new Error(`${profile} already holds ${MAX_LOCAL_ACCOUNTS} local accounts — that is the limit. Forget one first.`);
+  // **Adam and Eve do not count against the five.** `mine` includes the profile's default account,
+  // so the count is taken over the accounts the person made themselves (see `countedAccounts`).
+  if (countedAccounts(mine).length >= MAX_LOCAL_ACCOUNTS) {
+    throw new Error(`${profile} already holds ${MAX_LOCAL_ACCOUNTS} accounts of its own — Adam and Eve are not counted. Forget one first.`);
   }
   const address = String(email ?? "").trim().slice(0, 120);
   if (address && !looksLikeEmail(address)) throw new Error("That address does not look like one.");
