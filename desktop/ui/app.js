@@ -1914,7 +1914,18 @@ const modal = {
 /* --------------------------------------------------------------- data rows */
 
 function posterCard(m, opts = {}) {
-  const poster = posterOf(m);
+  // **A wide tile is the shape your own lists use** (`opts.wide` — the Watchlist card's rows). Trakt
+  // and Stremio draw what you are watching, what you plan to watch and what you have watched as
+  // landscape thumbnails, not as posters among posters: the artwork is the title's own wide picture
+  // (its backdrop, or the landscape poster where TMDB has one) in a 16:9 frame, with the name under
+  // the picture the way a list reads. Every other row in the app is unchanged.
+  const wide = Boolean(opts.wide);
+  // **A wide frame takes a wide picture, and the app has one for every title.** The title's own
+  // backdrop first; where TMDB has none, the app's `/landscape/…` read is the wide answer
+  // (`landscapePoster` — a backdrop, or a frame out of the trailer) and `fillStrip` puts it on the
+  // tile when it answers. A 2:3 poster in a 16:9 frame is a band cut through the middle of itself,
+  // so it is the fallback and not the picture: the tile draws at once, with what the row served.
+  const poster = wide ? backdropOf(m) || posterOf(m) : posterOf(m);
   // The calendar mixes films and series in one grid, so it asks for the row type
   // to be drawn on the card.
   const kind = opts.kind ? (m.type === "movie" ? "Movie" : "Series") : "";
@@ -1923,7 +1934,7 @@ function posterCard(m, opts = {}) {
     // titles that share a name.
     "button",
     {
-      class: "poster focusable",
+      class: "poster focusable" + (wide ? " wide" : ""),
       type: "button",
       "data-id": m.id || "",
       // **What is drawn on the card, on the element.** The card itself draws no caption
@@ -1967,6 +1978,10 @@ function posterCard(m, opts = {}) {
     // artwork and nothing else, and a title's name is carried by the page it opens.
     // The `caption` option is kept so callers that pass it still mean what they say,
     // it simply has nothing left to switch on.
+    // **The name is under the picture, never on it.** A wide tile is a list entry rather than a
+    // poster, and a list entry has to say what it is — but the app's rule that nothing is written
+    // over artwork still holds, so the caption sits below the frame, in the app's own panel.
+    wide ? el("div", { class: "poster-cap" }, el("div", { class: "poster-name", text: m.name || "" })) : null,
     opts.watch ? watchTag(m) : null,
     lineupTag(m),
   );
@@ -2198,7 +2213,25 @@ async function fillStrip(strip, catalog) {
         }
         return;
       }
-      for (const m of metas) strip.append(posterCard(m, { watch: catalog.kind === "watchlist" }));
+      // **The Watchlist card's rows are a list, so they draw wide** (`opts.wide` in `posterCard`):
+      // Trakt draws your own titles as landscape thumbnails, and the owner's word was *"watching,
+      // watchlist card me landscape poster hoga na, jaisa trakt pe bhi hota hai"*. Every other row
+      // keeps the poster shape its card was designed with.
+      const wideRows = catalog.kind === "watchlist";
+      for (const m of metas) {
+        const tile = posterCard(m, { watch: wideRows, wide: wideRows });
+        strip.append(tile);
+        // **The title's own wide picture arrives after the tile does.** A tile with no backdrop of
+        // its own swaps to the app's landscape answer when it comes, so a card is never waiting on
+        // one read per tile to draw a row — the same way a spotlight tile waits (`putSpotlightArt`
+        // swaps only once the incoming file is in hand, so the frame is never left empty).
+        if (wideRows && !backdropOf(m)) {
+          landscapePoster(m).then((url) => {
+            const img = tile.querySelector("img");
+            if (url && img && tile.isConnected) putSpotlightArt(img, url, posterOf(m));
+          });
+        }
+      }
       // A For You row hands its titles to the card's *other* rows — see
       // `forYouServed` — so two of them cannot open on the same film.
       if (catalog.kind === "recommend") noteForYouServed(catalog.id, metas);

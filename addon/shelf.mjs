@@ -118,6 +118,21 @@ export const monthEnd = (month) => {
   return `${month}-${String(last).padStart(2, "0")}`;
 };
 
+/**
+ * **The month after a month key**, `2026-10` → `2026-11`.
+ *
+ * The two dated rows are a *schedule*, and a schedule that stopped at the end of the calendar month
+ * would run out in the middle of it: on the 20th there are eleven days left to spread fifty arrivals
+ * over, and on the 31st there is nothing. The owner's word for the window is *"only 20 oct nahi,
+ * aage ka 1 month yani october month then november month aise last tak"* — so a row shows **this
+ * month and the one after it**, and the day after this month ends the schedule already holds the
+ * month beyond that.
+ */
+export const monthNext = (month) => {
+  const [year, mon] = String(month).split("-").map(Number);
+  return mon >= 12 ? `${year + 1}-01` : `${year}-${String(mon + 1).padStart(2, "0")}`;
+};
+
 /** A day, `n` days away from another. (One place for the arithmetic, all of it in UTC.) */
 export const shiftDay = (iso, n) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
@@ -143,6 +158,31 @@ export function draw(list, n, seed) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a.slice(0, Math.max(0, n));
+}
+
+/**
+ * **The turn: the `n` titles whose own coin comes out best for that month.**
+ *
+ * The same idea as `onShelfCoin` — a hash of the title's own key — with the month, the row and the
+ * media type mixed in, so the fifty are as unpredictable as a shuffled draw and **do not depend on
+ * the order the pool happened to be written in, or on how many other titles are in it**.
+ *
+ * That is the difference that matters. A Fisher–Yates shuffle (`draw` above) is order-sensitive: the
+ * pool is filled from ten HTTP answers and from a store that grows as rows are read, so a title
+ * arriving at the front of the pool reshuffled everything behind it. Measured on a real restart:
+ * **43 of a row's 100 titles changed** between two processes reading the same pages, and a server a
+ * month ahead shared only 33 of the 52 titles the two schedules had in common. With a per-title
+ * coin, a pool that gains or loses a title moves **that title's** place and no one else's.
+ *
+ * Ties are broken by the key, so the answer is a function of the pool *set* alone — every process, on
+ * every machine, inside one month, answers the same fifty.
+ */
+export function pick(list, n, seed, key = (m) => `${m?.type || ""}:${m?.id || ""}`) {
+  return [...(Array.isArray(list) ? list : [])]
+    .map((item) => ({ item, rank: hash32(`${seed}:${key(item)}`) }))
+    .sort((a, b) => a.rank - b.rank || String(key(a.item)).localeCompare(String(key(b.item))))
+    .slice(0, Math.max(0, n))
+    .map((x) => x.item);
 }
 
 /**

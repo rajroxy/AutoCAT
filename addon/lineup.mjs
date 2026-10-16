@@ -37,10 +37,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-// **One source of truth for the month.** Both rows are the month's own turn: an arrival day and a
-// leaving day are inside the month and on or after today, which is what makes the store's own day
-// enough to tell "named this month" from "named before it".
-import { SHELF_SHARE, SHELF_TURN, monthEnd, monthOf, monthStart, onShelfCoin } from "./shelf.mjs";
+// **One source of truth for the window.** Both rows are the month's own turn (fifty in, fifty out),
+// and a row holds this month's and the next month's (`SHELF_AHEAD` in `addon/index.mjs`), so a day on
+// a schedule is inside its own month and on or after today — which is what makes the store's own day
+// enough to tell "named before this month" from "named in it".
+import { SHELF_SHARE, SHELF_TURN, monthEnd, monthNext, monthOf, monthStart, onShelfCoin } from "./shelf.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FILE = path.join(HERE, "lineup.json");
@@ -135,7 +136,10 @@ export function note(rowName, metas) {
  * stays one (`New 20 Oct` on the poster for the rest of the month).
  *
  * A title that has *left* is not on it either — that is `isLeaving`, asked separately, because leaving
- * is a word about a title the app used to carry and this one is about what it carries at all.
+ * is a word about a title the app used to carry and this one is about what it carries at all. **It
+ * is a question about the day, not about the naming**: the Leaving row announces ahead (it is a
+ * schedule, `Arrives`' mirror image — `Leaves 20 Nov` reads for weeks), and the title goes from the
+ * app on its own day, which is what "those who leaved should hide from whole app" means.
  */
 export const onShelf = (key) => {
   if (!key) return false;
@@ -147,24 +151,31 @@ export const onShelf = (key) => {
 /** `onShelf`, asked of a meta rather than of a key. */
 export const inService = (m) => onShelf(keyOf(m));
 
-/** The day this title leaves, or "" — the service's own recorded promise, not a guess. */
-export const leavingOn = (m) => load().leaving[keyOf(m)] || "";
+/**
+ * **The day this title leaves, exactly as the store has it** — "" for a title the row never named.
+ *
+ * The raw record, windowed or not. `leavingOn` below is the same day *as a tag* (it blanks a day that
+ * belongs to a month the app is no longer scheduling), and this is what the row's own arithmetic and
+ * the store's report ask — the same split as `joinedOn`/`arrivingOn` for the other end.
+ */
+export const leavingDay = (m) => load().leaving[keyOf(m)] || "";
 
 /** Has it left? (Its leaving day is today or behind it.) */
 export const hasLeft = (m) => {
-  const at = leavingOn(m);
+  const at = leavingDay(m);
   return Boolean(at) && at <= today();
 };
 
 /**
- * **Is it leaving? (It has been named, whenever the day is.)**
+ * **Is it leaving? (Has its day come?)**
  *
- * The shelf rule the owner settled on: a title the Leaving Soon row has named is **out of the app
- * from that moment** — *"leaving soon titles will remove from app cards, search, filters, etc"* —
- * while the row that named it still shows it, wearing the day it goes. `hasLeft` is the same
- * question asked of the calendar and stays for the checks and the store's own report.
+ * The row announces ahead — `Leaves 20 Nov` on a poster is the warning a service prints weeks before
+ * it happens — and the title is still a title of the app until the day itself, when it goes from the
+ * cards, the search and the filters (`hideGone`). The owner's word for it is the plain one: *"those
+ * who leaved should hide from whole app"* — the hiding follows the leaving, not the naming. A title
+ * named for a day still to come is on the Leaving row with its date, and everywhere else as usual.
  */
-export const isLeaving = (m) => Boolean(leavingOn(m));
+export const isLeaving = (m) => hasLeft(m);
 
 /**
  * **The day a title joined the shelf, exactly as the store has it** — "" for a title the shelf has
@@ -179,19 +190,40 @@ export const isLeaving = (m) => Boolean(leavingOn(m));
 export const joinedOn = (m) => load().arrived[keyOf(m)] || "";
 
 /**
+ * **The last day the app is scheduling** — the end of the month after this one.
+ *
+ * The two dated rows are a schedule two months long (`SHELF_AHEAD` in `addon/index.mjs`): this month's
+ * fifty and next month's. A tag is read inside that window and nowhere else — a title that arrived in
+ * March is a title like any other by April, and one that left in March is simply gone.
+ */
+export const scheduleEnd = () => monthEnd(monthNext(monthOf()));
+
+/** Is this day inside the window the app is scheduling? (A day still to come, or one just gone.) */
+const scheduled = (at) => isDay(at) && at >= monthStart(monthOf()) && at <= scheduleEnd();
+
+/**
  * **The day a title joins the service — the month's own, and it may be ahead of today.**
  *
  * The store keeps the day for good (it is what makes a title the shelf brought in a title the app
- * carries), and the *tag* is the month's: `New 3 Nov` for a day that has happened, `Arrives 20 Oct`
+ * carries), and the *tag* is the schedule's: `New 3 Nov` for a day that has happened, `Arrives 20 Oct`
  * for the one the shelf has announced and not reached yet — the same two words the app has always
  * used for the two sides of today, now on the app's own arrival days rather than the world's release
- * days. A title that joined in an earlier month wears nothing: by this month it is a title like any
- * other.
+ * days. A title that joined before the window opened wears nothing: by this month it is a title like
+ * any other.
  */
 export const arrivingOn = (m) => {
   const at = load().arrived[keyOf(m)] || "";
-  const month = monthOf();
-  return isDay(at) && at >= monthStart(month) && at <= monthEnd(month) ? at : "";
+  return scheduled(at) ? at : "";
+};
+
+/**
+ * **The day a title leaves the service, as a tag** — the same window as `arrivingOn`, and the mirror
+ * image of it: `Leaves 20 Nov` while the day is ahead, and nothing at all once the window has moved
+ * past it (by then the title is not in the app and has nothing to say).
+ */
+export const leavingOn = (m) => {
+  const at = leavingDay(m);
+  return scheduled(at) ? at : "";
 };
 
 /**
@@ -283,16 +315,26 @@ export function payload() {
   const now = today();
   const rows = (bag) => Object.entries(bag).map(([key, on]) => ({ key, on, type: key.split(":")[0] }));
   return {
-    leaving: rows(all.leaving).sort((a, b) => a.on.localeCompare(b.on)),
-    // **This month's arrivals, soonest first** — the ones that have landed and the ones the shelf has
-    // announced for the days still to come (`arrivingOn`). A title from an earlier month is a title
-    // like any other and is not in this report.
+    // **Both rows are the window the app is scheduling** — this month and the one after it — with the
+    // days the app has written down against the titles, soonest first. A title whose day has left the
+    // window is no longer on a schedule: what came in before it is a title like any other, and what
+    // went out before it is out of the app for good.
+    leaving: rows(all.leaving)
+      .filter((r) => r.on >= monthStart(monthOf()) && r.on <= scheduleEnd())
+      .sort((a, b) => a.on.localeCompare(b.on)),
     arriving: rows(all.arrived)
-      .filter((r) => r.on >= monthStart(monthOf()) && r.on <= monthEnd(monthOf()))
+      .filter((r) => r.on >= monthStart(monthOf()) && r.on <= scheduleEnd())
       .sort((a, b) => a.on.localeCompare(b.on)),
     today: now,
-    // **The shelf itself, in the report.** Which month's turn this is, how much of the catalogue the
-    // service carries and how many titles a turn moves — the three numbers the whole feature is.
-    shelf: { month: monthOf(), share: SHELF_SHARE, turn: SHELF_TURN, carried: rows(all.arrived).length },
+    // **The shelf itself, in the report.** Which month's turn this is, the month the schedule reaches,
+    // how much of the catalogue the service carries and how many titles a turn moves — the numbers the
+    // whole feature is.
+    shelf: {
+      month: monthOf(),
+      through: scheduleEnd().slice(0, 7),
+      share: SHELF_SHARE,
+      turn: SHELF_TURN,
+      carried: rows(all.arrived).length,
+    },
   };
 }

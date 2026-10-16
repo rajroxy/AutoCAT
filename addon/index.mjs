@@ -48,10 +48,10 @@ import {
 import { activity as watchlistActivity } from "./watchlist.mjs";
 // **What has left and what has not arrived** — the dates the Updates card's two rows imply,
 // written down, and the two gates that act on them (see `addon/lineup.mjs`).
-import { cardKeyOfRow, hideGone, hideNotYet, hideOffShelf, isLeaving, joinedOn, keyOf, leavingOn, note as noteLineup, onShelf, payload as lineupPayload, withDates } from "./lineup.mjs";
+import { cardKeyOfRow, hideGone, hideNotYet, hideOffShelf, isLeaving, joinedOn, keyOf, leavingDay, note as noteLineup, onShelf, payload as lineupPayload, withDates } from "./lineup.mjs";
 // **The shelf** — half of TMDB is the app, and the month's own dice pick what turns over
 // (see `addon/shelf.mjs`). The two Updates rows are drawn with these, and nothing else is.
-import { SHELF_PAGES, SHELF_TURN, dayFor, draw, monthEnd, monthOf, monthStart, onShelfCoin, pagesFor } from "./shelf.mjs";
+import { SHELF_PAGES, SHELF_TURN, dayFor, monthEnd, monthNext, monthOf, monthStart, onShelfCoin, pagesFor, pick, shiftDay } from "./shelf.mjs";
 import { end as partyEnd, join as partyJoin, leave as partyLeave, note as partyNote, start as partyStart, state as partyState } from "./party.mjs";
 import {
   DEFAULT_ROW,
@@ -1378,13 +1378,14 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
  *     in the app (a title can arrive once), every one of them is a title the world has already
  *     released (`<release>.lte` today, so the row can never show something unreleased however random
  *     the draw — the complaint four earlier shapes of this row answered the hard way), and each one
- *     wears **the day it joins the app** — *today* or a day still to come in this month, so the row
- *     reads like a service's own announcement (`Arrives 20 Oct`, `Arrives today`) and a title is in
+ *     wears **the day it joins the app** — *today* or a day still to come, in this month or the next,
+ *     so the row reads like a service's own announcement (`Arrives 20 Oct`, `Arrives today`) and a title is in
  *     the app from that day on (`New 20 Oct` on its poster afterwards).
  *   - **Leaving Soon** — the fifty the month takes out, drawn from the half that *is* in the app,
- *     each wearing the day it goes. A title named here is out of the app from that moment
- *     (`isLeaving`), which is the rule the owner set: *"leaving soon titles will remove from app
- *     cards, search, filters, etc"*.
+ *     each wearing the day it goes. A title named here is out of the app **on its own day**
+ *     (`isLeaving`) — the warning reads for weeks before it happens, and on the day it comes the
+ *     title goes from the cards, the search and the filters, which is the owner's rule:
+ *     *"leaving soon titles will remove from app cards, search, filters, etc"*.
  *
  * **The pond is TMDB; the draw is the month.** Two pages of TMDB's popularity order and eight
  * seeded-random ones inside the first sixty (`pagesFor`) are what the fifty are fished out of. No
@@ -1399,10 +1400,10 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
  * re-deal the card between two reads — and the store keeps the *days* (`noteLineup`), so a title
  * that has been named keeps the day it was named however often the card is opened.
  *
- * **Both rows are dated inside the month they belong to and run forward from today**: an arrival day
- * is today or a day still to come (a service announces what is joining it), a leaving day is today or
- * a day still to come before it goes, and both stay inside the month — which is what lets the store
- * tell "named this month" from "named before it" from the day alone (`before`/`leftBefore` below).
+ * **Both rows are a schedule that runs forward from today over two months.** An arrival day is today
+ * or a day still to come (a service announces what is joining it), a leaving day is today or a day
+ * still to come before it goes, and the row holds **this month's fifty and next month's fifty** —
+ * the owner's *"only 20 oct nahi, aage ka 1 month yani october month then november month aise last
  */
 const shelfDraws = new Map();
 
@@ -1410,48 +1411,107 @@ const shelfDraws = new Map();
 const dayIn = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
 /**
- * **The month's fifty for one row** — read once per month per process and kept, with each meta
- * wearing `shelfOn`: the day this month's turn gave that title, which is what the row writes down
- * (`noteLineup`) and what its poster wears.
+ * **How many months of the schedule a row holds: this one, and the one after it.**
+ *
+ * A turn is fifty titles a month and the month is the unit (`addon/shelf.mjs`), but a *row* is the
+ * schedule a service publishes, and a schedule that ended with the calendar month ran out
+ * mid-month — the owner's word for the window is *"only 20 oct nahi, aage ka 1 month yani october
+ * month then november month aise last tak"*. So a row holds this month's fifty and next month's
+ * fifty, soonest first: the day this month ends, what was next month's turn is this month's and the
+ * row already holds the month beyond it.
  */
-async function shelfMonth(rowName, media, language) {
-  const month = monthOf();
-  const key = `${month}:${rowName}:${media}:${language || ""}`;
-  const hit = shelfDraws.get(key);
-  if (hit) return hit;
+const SHELF_AHEAD = 1;
 
+/**
+ * **One month's turn, once per process.** The exclusions a turn is built with are fixed by the month,
+ * the row and the media type (`shelfMonth` below), so the same month is the same fifty whoever asks
+ * for it and in whatever order — which is what lets the Leaving row's own draw *exclude the arriving
+ * row's fifty* without the two rows having to be read in one particular order.
+ */
+const turnCache = new Map();
+
+/**
+ * **One month's fifty for one row** — the pond its draw reads, the draw itself, and the day each
+ * title was given.
+ *
+ * `excluded` is how the two months of one row stay apart **without asking the store**: the next
+ * month's draw may not name a title this month's draw already named, so the row answers the same way
+ * in any process, over any store, and in whatever order its two months are read. (Asking the live
+ * store instead is the trap this file has already fallen into once: a read of one row wrote its
+ * arrivals down, which handed eleven of them to the other row and shrank the pond for the next
+ * process — measured, both.)
+ */
+async function monthTurn(rowName, media, language, month, opts = {}) {
+  const cacheKey = `${month}:${rowName}:${media}:${language || ""}`;
+  const cached = turnCache.get(cacheKey);
+  if (cached) return cached;
   const leaving = rowName === LEAVING_ROW;
   const salt = `${media}:${leaving ? "out" : "in"}`;
-  const monthStartIso = monthStart(month);
+  const startIso = monthStart(month);
   const field = media === "movie" ? "primary_release_date" : "first_air_date";
+  const excluded = opts.excluded instanceof Set ? opts.excluded : new Set();
 
-  // **The shelf as this month found it.** The coin, plus every title an **earlier** month brought in
-  // — and explicitly *not* the ones this month's own draw is bringing in. This one predicate decides
-  // both rows (`leaving ? before : !before`), and it has to be a snapshot rather than a live question,
-  // because **a read of either row writes the arrivals down** (`noteLineup`): with the live store,
-  // reading the arriving row first made its own fifty count as "in the app" and handed eleven of them
-  // straight to the Leaving row, and reading it again after a restart found only 48 candidates left
-  // (measured, both). A turn that a read can change is not a turn.
+  // **The shelf as *that* month found it.** The coin, plus every title an earlier month brought in —
+  // and, for the month after this one, this month's own fifty too: they all land before it begins.
+  // This one predicate decides both rows (`leaving ? before : !before`), and it is a snapshot rather
+  // than a live question, because a read of either row writes the arrivals down (`noteLineup`).
   const before = (m) => {
     const k = keyOf(m);
     if (onShelfCoin(k)) return true;
     const joined = joinedOn(m);
-    return Boolean(joined) && joined < monthStartIso;
+    return Boolean(joined) && joined < startIso;
   };
+  // **A title an earlier month named as leaving is gone and never comes back to either pond**, and
+  // this is the whole of the exclusion: the *recorded day*, not "has the row named it yet". Excluding
+  // what this month's own row named looked equivalent and was not — the month's fifty left the pond
+  // the moment they were written, the shuffle over what was left answered with fifty *different*
+  // titles, and every fresh process named fifty more (measured: the store reached 400 leaving titles
+  // in eight runs, and a second server's row came back 25 long where the first server's came back 50).
+  const leftBefore = (m) => {
+    const at = leavingDay(m);
+    return Boolean(at) && at < startIso;
+  };
+  const candidates = () =>
+    pond.filter((m) => (leaving ? before(m) && !leftBefore(m) : !before(m)) && !excluded.has(keyOf(m)));
+
+  // **The cutoff is the month's own.** "Nothing the world has not released can arrive" is the owner's
+  // rule, and the row is the month's turn — so a title released *inside* the month it is joining is
+  // not a candidate either (the world's new releases are not this feature's business: *"koi world
+  // upcoming ya newly released se koi connection nahi"*). Reading it as "released by today" instead
+  // made the pool depend on the clock: a server a month ahead asked TMDB for `<date>.lte` a month
+  // later, pulled in a month of new titles, and the pool it drew from was not the one the app had
+  // drawn from. The finding is the **first day of the month being drawn**, which is the same day
+  // whenever and wherever that month's turn is built.
+  const windowEnd = !leaving ? shiftDay(startIso, -1) : "";
 
   const seen = new Set();
   const pond = [];
+  // **The pages of one month's draw are read at once, and put in the pond in page order.** A cold
+  // read is ten TMDB pages a turn and a row is two turns (this month and the next) for each media
+  // type — one page after another is eighty round trips before a card can be drawn, so they go out
+  // together (`Promise.all`) and the cache behind `get` (`addon/tmdb.mjs`) keeps the repeats free.
+  //
+  // **The *order* they land in must not matter.** Appending each answer as it arrives made the pond's
+  // order a race between ten HTTP responses, and `draw` is a Fisher–Yates shuffle — an order-sensitive
+  // one — so two processes reading the same pages drew **different fifties**: measured, a restart in
+  // the same month answered with 43 of its 100 titles changed, and a server a month ahead shared only
+  // 33 of the 52 titles both schedules contained. Collected first, appended in page order, the pond is
+  // the same list in every process on every machine, and so is the fifty.
   const readPages = async (pages) => {
-    for (const page of pages) {
-      const res = await get(`/discover/${tmdbPath(media)}`, {
-        sort_by: "popularity.desc",
-        "vote_count.gte": 20,
-        page,
-        // **Nothing the world has not released can arrive**, so the arrival draw only reads days that
-        // have been. The leaving row needs no window at all: it only ever holds titles the app has.
-        ...(leaving ? {} : { [`${field}.lte`]: dayIn(0) }),
-        language,
-      }).catch(() => null);
+    const answers = await Promise.all(
+      pages.map((page) =>
+        get(`/discover/${tmdbPath(media)}`, {
+          sort_by: "popularity.desc",
+          "vote_count.gte": 20,
+          page,
+          // Nothing the world has not released can arrive (`windowEnd` above). The leaving row needs
+          // no window at all: it only ever holds titles the app has.
+          ...(leaving ? {} : { [`${field}.lte`]: windowEnd }),
+          language,
+        }).catch(() => null),
+      ),
+    );
+    for (const res of answers) {
       for (const item of res?.results || []) {
         const meta = toMeta(item, media);
         if (!meta || seen.has(meta.id)) continue;
@@ -1460,20 +1520,6 @@ async function shelfMonth(rowName, media, language) {
       }
     }
   };
-  // **A title an earlier month named as leaving is gone and never comes back to either pond**, and
-  // this is the whole of the exclusion: `leftBefore` asks the *recorded day*, not "has the row named
-  // it yet". Excluding what this month's own row has named looked equivalent and was not — the
-  // month's fifty are removed from the pond the moment they are written, the shuffle over what is
-  // left answers with fifty *different* titles, and every fresh process (a restart, a second server,
-  // the check's own) named fifty more: measured, the store reached 400 leaving titles in eight runs
-  // and a second server's row came back 25 titles long where the first server's came back 50.
-  const leftBefore = (m) => {
-    const at = leavingOn(m);
-    return Boolean(at) && at < monthStartIso;
-  };
-  // **Which half of the shelf a title belongs to is the snapshot** (`before`), so the two rows are
-  // disjoint by construction and neither can be moved by a read of the other.
-  const candidates = () => pond.filter((m) => (leaving ? before(m) && !leftBefore(m) : !before(m)));
 
   await readPages(pagesFor(month, salt));
   let mine = candidates();
@@ -1486,37 +1532,96 @@ async function shelfMonth(rowName, media, language) {
     mine = candidates();
   }
 
-  const drawn = draw(mine, SHELF_TURN, `${month}:${rowName}:${media}`);
-  const now = dayIn(0);
-  // **Both days run forward from today and stop at the end of the month.** An arrival day *ahead* is
-  // the point — the row is the app announcing what is joining it (`Arrives 20 Oct`), so the days are
-  // not capped at today — and a leaving day is the warning it always was. Keeping them inside the
-  // month is what makes the store's own day enough to tell "named this month" from "named before it"
-  // (`before`/`leftBefore`), which is what keeps the turn stable and the two rows apart.
-  const from = now;
+  // **The turn is the fifty whose own coin comes out best for this month's row** — see `pick` in
+  // `addon/shelf.mjs` for why this is a coin and not a shuffle: a shuffled pool changed fifty titles
+  // when the order it was written in changed, and the pool does change (ten HTTP answers, a store
+  // that grows as rows are read).
+  const drawn = pick(mine, SHELF_TURN, `${month}:${rowName}:${media}`, keyOf);
+  // **The days**: the month we are inside runs from today — a schedule has nothing on it that has
+  // already gone by — and a month still to come runs from its own first day, because every day of it
+  // is ahead of us. Both stay inside the month its turn belongs to, which is what lets the store's own
+  // day say whether a title was named before the month a draw is being built for (`before`/
+  // `leftBefore`).
+  const from = opts.lead ? dayIn(0) : startIso;
   const to = monthEnd(month);
   const stamped = drawn.map((m) => ({
     ...m,
     shelfOn: dayFor(`${month}:${rowName}:${media}:${keyOf(m)}`, from, to),
   }));
-  // **The row leads with today**: one title is given the day itself, so the card opens on today's own
-  // arrival rather than on the luck of the spread.
-  if (!leaving && stamped.length) stamped[0] = { ...stamped[0], shelfOn: now };
+  // **The row opens on today's own arrival**, rather than on the luck of the spread. Only the month we
+  // are inside has a "today" to give a title; a month still to come has none.
+  if (!leaving && opts.lead && stamped.length) stamped[0] = { ...stamped[0], shelfOn: dayIn(0) };
+  turnCache.set(cacheKey, stamped);
+  if (turnCache.size > 64) turnCache.delete(turnCache.keys().next().value);
+  return stamped;
+}
+
+/**
+ * **The arriving fifty of a run of months** — this month's, then the next month's minus the titles
+ * this month's named, exactly as the Arriving row itself is built.
+ *
+ * The Leaving row reads this as its own exclusion set (see `shelfMonth`): one *schedule*, so a title
+ * the app is still bringing in cannot be named as leaving in the same window — a service does not
+ * announce a departure for something it has not carried yet, and the two rows of the Updates card
+ * would otherwise be able to share a title (measured: six films arrived in October on the Arriving
+ * row and left in November on the Leaving row, with nothing on either row saying so).
+ */
+async function arrivingTurns(media, language, months) {
+  const named = new Set();
+  const out = [];
+  for (const [i, at] of months.entries()) {
+    const turn = await monthTurn(ARRIVING_ROW, media, language, at, { lead: i === 0, excluded: named });
+    for (const m of turn) named.add(keyOf(m));
+    out.push(turn);
+  }
+  return out;
+}
+
+/**
+ * **The row: this month's turn and next month's, as one schedule.**
+ *
+ * Built once per process and kept (`shelfDraws`) — a popularity order drifting under the pool must not
+ * re-deal the card between two reads — and the store keeps the *days* (`noteLineup`), so a title that
+ * has been named keeps the day it was named however often the card is opened.
+ *
+ * **The two months are drawn in order**, this one first and the one after it minus the titles this one
+ * named, so the answer does not depend on which month a process happens to read first, and the next
+ * month's turn is the same fifty when it becomes this month's.
+ */
+async function shelfMonth(rowName, media, language) {
+  const month = monthOf();
+  const key = `${month}:${rowName}:${media}:${language || ""}`;
+  const hit = shelfDraws.get(key);
+  if (hit) return hit;
+
+  const months = [month];
+  for (let i = 0; i < SHELF_AHEAD; i++) months.push(monthNext(months[months.length - 1]));
+
+  // **The arriving fifty of both months are the Leaving row's exclusion list.** One schedule: what
+  // is coming in over these two months cannot be named as going out in them.
+  const arriving = rowName === LEAVING_ROW ? await arrivingTurns(media, language, months) : [];
+  const arriveKeys = new Set(arriving.flat().map(keyOf));
+
+  const out = [];
+  const named = new Set();
+  for (const [i, at] of months.entries()) {
+    const excluded = rowName === LEAVING_ROW ? new Set([...arriveKeys, ...named]) : named;
+    const turn = await monthTurn(rowName, media, language, at, { lead: i === 0, excluded });
+    for (const m of turn) named.add(keyOf(m));
+    out.push(...turn);
+  }
+
   // **The order is the order of the tags the row is about to wear.** The day that counts is the one
   // the app has already said — the store's, which is the *first* word (`noteLineup` keeps it) — and
-  // only a title the store has never dated falls back to the day this draw gave it. Ordering by the
-  // draw's own day instead let a row whose store already held this month's arrivals come out with
-  // dates that did not run downhill (measured), because the stored days and the fresh ones are not
-  // the same days. The two are the same thing on the month's first read, which is when the store is
-  // written.
+  // only a title the store has never dated falls back to the day this draw gave it. Soonest first on
+  // both rows: what joins the app next is the news on the Arriving row, what goes next is the warning
+  // on the Leaving row, and the two months of a row read as one schedule.
   const dayOf = (m) => joinedOn(m) || m.shelfOn;
-  // **Soonest first, on both rows**: what joins the app next is the news on the Arriving row and what
-  // goes next is the warning on the Leaving row — one order, which is what a schedule reads like.
-  stamped.sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
+  out.sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
 
-  shelfDraws.set(key, stamped);
+  shelfDraws.set(key, out);
   if (shelfDraws.size > 24) shelfDraws.delete(shelfDraws.keys().next().value);
-  return stamped;
+  return out;
 }
 
 /** **One of the two shelf rows, paged.** `skip` walks the month's fifty and then there is no more. */

@@ -1439,10 +1439,12 @@ const TOP10 = 10;
 // of the window, the `SOON_DAYS` constant the two rows used to read, is gone with it: "this month"
 // is now `monthStart`/`monthEnd` in `addon/shelf.mjs`, one month for both rows, read on the shelf's
 // own clock rather than as thirty days from today.
-// **Fifty either way.** Both rows of the Updates card are fifty titles — `SHELF_TURN` in
-// `addon/shelf.mjs` is the same fifty — a warning you can read and a promise you can read, rather
-// than a shelf as long as its window happened to be.
-const UPDATES_TAKE = 50;
+// **Fifty either way, and two months of it.** A turn is fifty titles — `SHELF_TURN` in
+// `addon/shelf.mjs` is the same fifty — and a row is the *schedule*, so it holds this month's fifty
+// and next month's (`SHELF_AHEAD` in `addon/index.mjs`; the owner's *"only 20 oct nahi, aage ka 1
+// month yani october month then november month aise last tak"*). A hundred is that window, not a
+// longer turn: the row reads October and then November, and the month after it is already drawn.
+const UPDATES_TAKE = 100;
 // **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide
 // card that is worth scrolling. Its card key stays `discover-top-10` — that is the
 // cover's filename (see the card's own entry for the name and its rows).
@@ -1528,15 +1530,25 @@ const decadeGenres = (type, list) =>
  * (*"movie tab me seasons card do aur contents bhi"*), and the row reads whichever date field the
  * media type has. None of them is capped, because a season is a window rather than a fixed list.
  */
-// **Five, because the year has five here.** Spring, Summer, **Rainy** (the monsoon) and
-// **Fall**, then Winter — the owner's *"season me rainy aur fall bhi to aata hai"*: four rows
-// named after the West's year left the rains out entirely. The windows touch rather than
-// overlap: summer keeps June–August, the rain runs July–September, Fall is September–November.
-const SEASON_NAMES = ["Spring", "Summer", "Rainy", "Autumn", "Winter"];
-// The month each season starts in, in the same order: March, June, July, August, December.
-// **Autumn, not Fall** — the year here has a monsoon and an autumn, and the owner's last word on it
-// was *"remove fall"*: Autumn reads August–October and the row named Fall is gone.
-const SEASON_FIRST_MONTH = [3, 6, 7, 8, 12];
+// **Five, because the year has five here.** Spring, Summer, **Rainy** (the monsoon), Autumn and
+// Winter — the owner's *"season me rainy aur fall bhi to aata hai"*, with Autumn in place of Fall
+// (*"remove fall"*).
+//
+// **One month belongs to one season, and the five run in order.** The windows used to be three
+// months each and they overlapped — Summer June–August, the rains July–September, Autumn
+// August–October — so an August show was in **three rows at once**: measured on the screen,
+// *Spider-Man: Brand New Day* opened both Summer and Rainy, and *Lanterns* sat in Summer, Rainy and
+// Autumn. The owner's word on it is *"seasons me order t sahi karo"*, so the year is split into
+// five consecutive runs, one season each: **Spring March–April, Summer May–June, Rainy (the
+// monsoon) July–September, Autumn October–November, Winter December–February**. Spring is the
+// row that opens the card and Winter the one that closes it, which is the order the year runs them.
+const SEASONS = [
+  { name: "Spring", first: 3, last: 4 },
+  { name: "Summer", first: 5, last: 6 },
+  { name: "Rainy", first: 7, last: 9 },
+  { name: "Autumn", first: 10, last: 11 },
+  { name: "Winter", first: 12, last: 2 },
+];
 
 /** `YYYY-MM-DD` for the first of a numbered month. */
 const firstOfMonth = (year, month) => `${year}-${String(month).padStart(2, "0")}-01`;
@@ -1550,16 +1562,18 @@ const lastOfMonth = (year, month) => {
 
 const seasonsRows = () => {
   const year = new Date().getUTCFullYear();
-  return SEASON_NAMES.map((name, i) => {
-    const endMonth = SEASON_FIRST_MONTH[i] + 2;
+  return SEASONS.map(({ name, first, last }) => {
+    const endMonth = last;
     // `between` is the row's own shorthand for "first aired from this day to that day", on
     // whichever date field the media type uses (see `catalogSpecs`). **The name is the season
     // and nothing else** — a season is every year's, so "Summer 2026" dated a row that is
     // summer itself; the window is the year's reading of it, taken from today, and next year it
     // is next year's without anything being edited.
+    // **Winter is the one that crosses the year**: it opens in December and closes in February, so
+    // its window runs into the next one rather than looping back inside this one.
     const between = [
-      firstOfMonth(year, SEASON_FIRST_MONTH[i]),
-      lastOfMonth(endMonth > 12 ? year + 1 : year, endMonth > 12 ? endMonth - 12 : endMonth),
+      firstOfMonth(year, first),
+      lastOfMonth(endMonth < first ? year + 1 : year, endMonth),
     ];
     // Popularity is the order: what a season is worth watching is what people watched, and a
     // window that has not happened yet still fills (TMDB gives an unreleased title a

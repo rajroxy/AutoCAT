@@ -1477,6 +1477,24 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 .poster-name { font-size: 13px; font-weight: 700; line-height: 1.25; }
 .poster-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
+/* **A wide tile, for your own lists** — the Watchlist card's rows (`opts.wide` in `posterCard`).
+   Trakt draws what you are watching, what you plan to watch and what you have watched as landscape
+   thumbnails rather than as posters among posters — the owner's *"watching, watchlist card me
+   landscape poster hoga na, jaisa trakt pe bhi hota hai"* — so the frame is 16:9, the artwork is the
+   title's own wide picture, and the name reads under it. The width is the poster's own picture at
+   16:9, so a row of them is the same height as the rows above and below it. */
+.poster.wide { width: calc(var(--poster-w) * 1.78); }
+.poster.wide img { aspect-ratio: 16 / 9; object-position: 50% 30%; }
+.poster.wide .poster-cap { padding: 8px 11px 11px; }
+.poster.wide .poster-name {
+  font-size: 12.5px;
+  /* **One line, clipped rather than wrapped.** A list entry stays the same height whatever it is
+     called — a two-line title would otherwise make its own tile taller than the row it sits in. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .placeholder {
   flex: none;
   width: var(--poster-w);
