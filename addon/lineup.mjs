@@ -2,7 +2,10 @@
  * **What has left the service, and what the month has brought in.**
  *
  * The Updates card publishes two rows — **Leaving Soon** and **Arriving Soon** — and they are the
- * app's two ends: what is going out of it, and what has just come in. Until now both ends were a
+ * app's two ends: what is going out of it, and what it is bringing in. Each is a *schedule* for the
+ * month, so both read forward from today — a title named as leaving goes on or after today, and one
+ * named as arriving **joins on or after today** (`Arrives 20 Oct`, `New 20 Oct` once that day has
+ * come), which is what a service's own "coming soon" list does. Until now both ends were a
  * *reading of the world's calendar*: `Leaving Soon` was the last month of a title's stay, derived
  * from its release day, and `Arriving Soon` was the last month of TMDB's releases. The owner's
  * feature replaces that with a **service's own shelf** (see `addon/shelf.mjs`):
@@ -12,8 +15,10 @@
  *   koi connection nahi sab random hoga"*
  *
  * - **Half of TMDB is in the app, and the other half is not** (`onShelf`): a stable coin on the
- *   title's own key, plus every title the shelf has ever brought in. Every row, the search and the
- *   filters read that one answer, so the app is one library rather than a filter on some rows.
+ *   title's own key, plus every title the shelf has brought in **whose day has come**. Every row,
+ *   the search and the filters read that one answer, so the app is one library rather than a filter
+ *   on some rows — and a title the month has announced but not reached is in none of them, only on
+ *   the Updates card that announced it.
  * - **Fifty leave and fifty arrive every month, at random.** The draw itself lives in
  *   `addon/index.mjs` (it is the two rows), and this file is what *remembers* it: the day the draw
  *   gave a title is written down here, and from then on it is a fact about the title.
@@ -32,10 +37,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-// **One source of truth for the window.** "Soon" is a month at both ends: the Arriving row holds
-// the month that has landed, and a title named as leaving is gone within the same month.
-import { SOON_DAYS } from "../scripts/collections.mjs";
-import { SHELF_SHARE, SHELF_TURN, monthOf, onShelfCoin, shiftDay } from "./shelf.mjs";
+// **One source of truth for the month.** Both rows are the month's own turn: an arrival day and a
+// leaving day are inside the month and on or after today, which is what makes the store's own day
+// enough to tell "named this month" from "named before it".
+import { SHELF_SHARE, SHELF_TURN, monthEnd, monthOf, monthStart, onShelfCoin } from "./shelf.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FILE = path.join(HERE, "lineup.json");
@@ -59,8 +64,6 @@ const NOW_CARDS = new Set(["on-the-board"]);
 
 const day = (d) => d.toISOString().slice(0, 10);
 const today = () => day(new Date());
-/** **The day arithmetic is the shelf's** (`addon/shelf.mjs`), so one place does it for everybody. */
-const plusDays = shiftDay;
 const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
 
 /**
@@ -124,11 +127,22 @@ export function note(rowName, metas) {
  * **Is this title one the service carries?**
  *
  * The whole of the app's library in one function: **the coin** (half of TMDB — `onShelfCoin`), or a
- * title the shelf has brought in at some point (`arrived`). A title that has *left* is not on it
- * either — that is `isLeaving`, asked separately, because leaving is a word about a title the app
- * used to carry and this one is about what it carries at all.
+ * title the shelf has brought in — **on its own day and not before it**. An arrival is announced
+ * ahead of time, the way a service announces what is joining it this month (`Arrives 20 Oct` on the
+ * poster), and the announcement is not the title: until that day the app does not carry it at all, so
+ * it is on the Updates card — the card that *is* the announcement — and off every row, out of the
+ * search and out of the filters. On the day itself it is a title of the app like any other, and it
+ * stays one (`New 20 Oct` on the poster for the rest of the month).
+ *
+ * A title that has *left* is not on it either — that is `isLeaving`, asked separately, because leaving
+ * is a word about a title the app used to carry and this one is about what it carries at all.
  */
-export const onShelf = (key) => Boolean(key) && (onShelfCoin(key) || Boolean(load().arrived[key]));
+export const onShelf = (key) => {
+  if (!key) return false;
+  if (onShelfCoin(key)) return true;
+  const day = load().arrived[key] || "";
+  return isDay(day) && day <= today();
+};
 
 /** `onShelf`, asked of a meta rather than of a key. */
 export const inService = (m) => onShelf(keyOf(m));
@@ -165,17 +179,19 @@ export const isLeaving = (m) => Boolean(leavingOn(m));
 export const joinedOn = (m) => load().arrived[keyOf(m)] || "";
 
 /**
- * **The day a title arrived in the service — while it is still news.**
+ * **The day a title joins the service — the month's own, and it may be ahead of today.**
  *
  * The store keeps the day for good (it is what makes a title the shelf brought in a title the app
- * carries), but the *tag* is only a tag for the month: `New 3 Nov` belongs to what has just come
- * in, and a title that arrived in March is a title like any other by April. So the date is read
- * only inside the same month the Arriving Soon row claims.
+ * carries), and the *tag* is the month's: `New 3 Nov` for a day that has happened, `Arrives 20 Oct`
+ * for the one the shelf has announced and not reached yet — the same two words the app has always
+ * used for the two sides of today, now on the app's own arrival days rather than the world's release
+ * days. A title that joined in an earlier month wears nothing: by this month it is a title like any
+ * other.
  */
 export const arrivingOn = (m) => {
   const at = load().arrived[keyOf(m)] || "";
-  const now = today();
-  return isDay(at) && at <= now && at > plusDays(now, -SOON_DAYS) ? at : "";
+  const month = monthOf();
+  return isDay(at) && at >= monthStart(month) && at <= monthEnd(month) ? at : "";
 };
 
 /**
@@ -268,13 +284,13 @@ export function payload() {
   const rows = (bag) => Object.entries(bag).map(([key, on]) => ({ key, on, type: key.split(":")[0] }));
   return {
     leaving: rows(all.leaving).sort((a, b) => a.on.localeCompare(b.on)),
-    // The month that has landed, newest first — a title that arrived longer ago than the window is
-    // a title like any other, and it stays in the app without a tag (`arrivingOn`).
+    // **This month's arrivals, soonest first** — the ones that have landed and the ones the shelf has
+    // announced for the days still to come (`arrivingOn`). A title from an earlier month is a title
+    // like any other and is not in this report.
     arriving: rows(all.arrived)
-      .filter((r) => r.on <= now && r.on > plusDays(now, -SOON_DAYS))
-      .sort((a, b) => b.on.localeCompare(a.on)),
+      .filter((r) => r.on >= monthStart(monthOf()) && r.on <= monthEnd(monthOf()))
+      .sort((a, b) => a.on.localeCompare(b.on)),
     today: now,
-    soonDays: SOON_DAYS,
     // **The shelf itself, in the report.** Which month's turn this is, how much of the catalogue the
     // service carries and how many titles a turn moves — the three numbers the whole feature is.
     shelf: { month: monthOf(), share: SHELF_SHARE, turn: SHELF_TURN, carried: rows(all.arrived).length },

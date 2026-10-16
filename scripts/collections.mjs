@@ -1435,11 +1435,10 @@ const TOP10 = 10;
 // later (`CATALOG_DAYS`, and 365 for a series), and both rows were read from that window. The
 // owner's feature replaced the stay with a **shelf**: half of TMDB is in the app and each month
 // fifty titles leave it and fifty arrive, drawn at random (`addon/shelf.mjs`), so the Leaving and
-// Arriving rows carry *the service's* dates and not the world's. What is left of the window is
-// this one number: "soon" is a month, at both ends — the Arriving row holds the month that has
-// landed, a title named as leaving is gone within the same month — so it is exported and imported
-// (`addon/index.mjs`, `addon/lineup.mjs`) rather than written down twice.
-export const SOON_DAYS = 30;
+// Arriving rows carry *the service's* dates and not the world's — and the last thing that was left
+// of the window, the `SOON_DAYS` constant the two rows used to read, is gone with it: "this month"
+// is now `monthStart`/`monthEnd` in `addon/shelf.mjs`, one month for both rows, read on the shelf's
+// own clock rather than as thirty days from today.
 // **Fifty either way.** Both rows of the Updates card are fifty titles — `SHELF_TURN` in
 // `addon/shelf.mjs` is the same fifty — a warning you can read and a promise you can read, rather
 // than a shelf as long as its window happened to be.
@@ -1453,12 +1452,13 @@ const both = (list) => ({ movie: list, show: list.map((e) => ({ ...e })) });
  * The Upcoming card's rows for one row type: the worldwide list first, then one per
  * country the Countries card publishes, each in arrival order.
  *
- * **It is the whole of the unreleased calendar, and the Updates card's Arriving row is the month that
- * has already landed** — so the two cannot share a title, by construction rather than by a boundary
- * someone has to keep in step. A window of this card was given to that row for a round (`after:
- * SOON_DAYS`) while the row was a wave of *upcoming* titles, and the owner's answer was *"its showing
- * upcoming titles in arriving in card"*: the titles that have not landed are **this** card's subject
- * and nothing else's.
+ * **It is the whole of the unreleased calendar, and the Updates card's Arriving row carries titles the
+ * world has already released** — so the two cannot share a title, by construction rather than by a
+ * boundary someone has to keep in step. A window of this card was given to that row for a round
+ * (`after: SOON_DAYS`) while the row was a wave of *upcoming* titles, and the owner's answer was
+ * *"its showing upcoming titles in arriving in card"*: the titles that have not landed are **this**
+ * card's subject and nothing else's — the Arriving row's own days are the app's arrival days, which
+ * are inside this month and have nothing to do with when the world released a title.
  *
  * **The near end is tomorrow, not today** (`after: 1`): a title whose day is today has arrived — it
  * is on the Updates card's Arriving row, and it is playable — so this card is strictly about days
@@ -2047,8 +2047,10 @@ const buildCollections = (code = "") => {
       // released se koi connection nahi"*.
       leaving("Leaving Soon", UPDATES_TAKE),
       // **The month's fifty titles the service is bringing in** — drawn at random from the half of
-      // TMDB that is *not* in the app yet, each wearing the day it came in (`New today` on the day
-      // itself). Every shape this row had before was a reading of the world's calendar and showed
+      // TMDB that is *not* in the app yet, each wearing the day it **joins** the app: today or a day
+      // still to come this month (`Arrives 20 Oct`, `New 20 Oct` once that day has come), and never
+      // the world's own release day. Every shape this row had before was a reading of the world's
+      // calendar and showed
       // **unreleased** titles — the calendar's next month, a quarter of it in popularity order, a
       // Game-Pass-shaped wave of the next thirty days, the last month of releases — and the owner
       // said no to all of them the same way: *"the arriving soon in update card should not connected

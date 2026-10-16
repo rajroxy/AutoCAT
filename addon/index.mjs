@@ -28,7 +28,6 @@ import {
   REMOVED_COUNTRY_CODES,
   keywordVocab,
   localServices,
-  SOON_DAYS,
   title as collectionTitle,
 } from "../scripts/collections.mjs";
 import { get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
@@ -52,7 +51,7 @@ import { activity as watchlistActivity } from "./watchlist.mjs";
 import { cardKeyOfRow, hideGone, hideNotYet, hideOffShelf, isLeaving, joinedOn, keyOf, leavingOn, note as noteLineup, onShelf, payload as lineupPayload, withDates } from "./lineup.mjs";
 // **The shelf** — half of TMDB is the app, and the month's own dice pick what turns over
 // (see `addon/shelf.mjs`). The two Updates rows are drawn with these, and nothing else is.
-import { SHELF_PAGES, SHELF_TURN, dayFor, draw, laterDay, monthEnd, monthOf, monthStart, onShelfCoin, pagesFor } from "./shelf.mjs";
+import { SHELF_PAGES, SHELF_TURN, dayFor, draw, monthEnd, monthOf, monthStart, onShelfCoin, pagesFor } from "./shelf.mjs";
 import { end as partyEnd, join as partyJoin, leave as partyLeave, note as partyNote, start as partyStart, state as partyState } from "./party.mjs";
 import {
   DEFAULT_ROW,
@@ -1379,7 +1378,9 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
  *     in the app (a title can arrive once), every one of them is a title the world has already
  *     released (`<release>.lte` today, so the row can never show something unreleased however random
  *     the draw — the complaint four earlier shapes of this row answered the hard way), and each one
- *     wears the day the draw gave it as the day it came into the app.
+ *     wears **the day it joins the app** — *today* or a day still to come in this month, so the row
+ *     reads like a service's own announcement (`Arrives 20 Oct`, `Arrives today`) and a title is in
+ *     the app from that day on (`New 20 Oct` on its poster afterwards).
  *   - **Leaving Soon** — the fifty the month takes out, drawn from the half that *is* in the app,
  *     each wearing the day it goes. A title named here is out of the app from that moment
  *     (`isLeaving`), which is the rule the owner set: *"leaving soon titles will remove from app
@@ -1397,6 +1398,11 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
  * month's answer is built once and kept — a popularity order drifting under the pool must not
  * re-deal the card between two reads — and the store keeps the *days* (`noteLineup`), so a title
  * that has been named keeps the day it was named however often the card is opened.
+ *
+ * **Both rows are dated inside the month they belong to and run forward from today**: an arrival day
+ * is today or a day still to come (a service announces what is joining it), a leaving day is today or
+ * a day still to come before it goes, and both stay inside the month — which is what lets the store
+ * tell "named this month" from "named before it" from the day alone (`before`/`leftBefore` below).
  */
 const shelfDraws = new Map();
 
@@ -1482,20 +1488,19 @@ async function shelfMonth(rowName, media, language) {
 
   const drawn = draw(mine, SHELF_TURN, `${month}:${rowName}:${media}`);
   const now = dayIn(0);
-  // **A leaving day is ahead of us** (the row is a warning) and **an arrival day is behind us**
-  // (the row is what has landed), both inside the window the row claims. The arrival window starts
-  // at the first of the month as soon as the month is old enough, so the row reads as *this month's*
-  // fifty rather than as a rolling thirty days.
-  // …and a **leaving day stays inside the month** it was named in (see `monthEnd`), which is what
-  // makes the store's own day enough to tell "named this month" from "named before it".
-  const from = leaving ? now : laterDay(monthStart(month), dayIn(-(SOON_DAYS - 1)));
-  const to = leaving ? monthEnd(month) : now;
+  // **Both days run forward from today and stop at the end of the month.** An arrival day *ahead* is
+  // the point — the row is the app announcing what is joining it (`Arrives 20 Oct`), so the days are
+  // not capped at today — and a leaving day is the warning it always was. Keeping them inside the
+  // month is what makes the store's own day enough to tell "named this month" from "named before it"
+  // (`before`/`leftBefore`), which is what keeps the turn stable and the two rows apart.
+  const from = now;
+  const to = monthEnd(month);
   const stamped = drawn.map((m) => ({
     ...m,
     shelfOn: dayFor(`${month}:${rowName}:${media}:${keyOf(m)}`, from, to),
   }));
-  // **The row leads with today**: one title is given the day itself, so the card opens on
-  // `New today` rather than on the luck of the spread.
+  // **The row leads with today**: one title is given the day itself, so the card opens on today's own
+  // arrival rather than on the luck of the spread.
   if (!leaving && stamped.length) stamped[0] = { ...stamped[0], shelfOn: now };
   // **The order is the order of the tags the row is about to wear.** The day that counts is the one
   // the app has already said — the store's, which is the *first* word (`noteLineup` keeps it) — and
@@ -1505,9 +1510,9 @@ async function shelfMonth(rowName, media, language) {
   // the same days. The two are the same thing on the month's first read, which is when the store is
   // written.
   const dayOf = (m) => joinedOn(m) || m.shelfOn;
-  stamped.sort((a, b) =>
-    leaving ? dayOf(a).localeCompare(dayOf(b)) : dayOf(b).localeCompare(dayOf(a)),
-  );
+  // **Soonest first, on both rows**: what joins the app next is the news on the Arriving row and what
+  // goes next is the warning on the Leaving row — one order, which is what a schedule reads like.
+  stamped.sort((a, b) => dayOf(a).localeCompare(dayOf(b)));
 
   shelfDraws.set(key, stamped);
   if (shelfDraws.size > 24) shelfDraws.delete(shelfDraws.keys().next().value);

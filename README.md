@@ -91,12 +91,12 @@ out short (48 of 50) and handed eleven of the arriving row's own titles to the L
 leaving draw that excluded the titles its own row had named answered with fifty *different* names on
 every fresh process — a restart, a second server — until the month had no pond left.
 
-The **Updates** card is that turn — what the month has just brought in, and what it is about to take
-away:
+The **Updates** card is that turn — the app's own two ends, **both read forward from today**, the way
+a service announces what is joining it and warns about what is going:
 
 | Row | What it is |
 |---|---|
-| **Arriving Soon** | this month's **fifty titles the service is bringing in** — drawn from the half of TMDB the app did not carry, every one of them **already released**, each poster wearing the day it came in (`New today` on the day itself) |
+| **Arriving Soon** | this month's **fifty titles the service is bringing in** — drawn from the half of TMDB the app did not carry, every one of them **already released**, each poster wearing the day it **joins** the app: today or a day still to come this month (`Arrives 20 Oct`, `New 20 Oct` once that day has come, `New today` on the day itself), soonest first |
 | **Leaving Soon** | this month's **fifty on their way out** — drawn from the half the app carries, each poster wearing the day it goes (`Leaves 25 Oct`, inside this month), nearest first |
 
 **Nothing on the Arriving row is *upcoming*, and the shelf is why that can no longer go wrong.** That
@@ -123,9 +123,12 @@ day never moves once it has been said.
 **out of the app from that moment** — dropped from every row, from the search and from the
 filters — and the two places it is still on screen are the Updates card that named it, wearing
 its leaving date, and your own Watchlist and Library, which are yours to keep. A title the shelf has
-brought in is the other way round: it is *in* the app like any other — findable, in its genre,
-country and decade row, in the filters — for good, and its arrival day rides on its poster for the
-month it came in. A title that has **not landed yet** (an unreleased one the Upcoming card holds) is
+brought in is the other way round: from **its own day** it is *in* the app like any other — findable,
+in its genre, country and decade row, in the filters — for good, and its arrival day rides on its
+poster for the month it came in. **Before that day it is only announced**: the Arriving row is the
+announcement — the one place it is on screen — and the app carries it nowhere else until the day
+arrives. So a row of `Arrives …` posters is a promise, not a library: the titles behind them enter
+the app one by one, on their own days, over the month. A title that has **not landed yet** (an unreleased one the Upcoming card holds) is
 in the app the same way, and the only thing it lacks is something to play, which its title page says
 (`Arriving 4 Nov` in place of Play). The one kind of row it waits off is the card whose rows claim a
 title is **on now** (Now Playing, Airing Today, On the Air), where TMDB's own pre-release windows
