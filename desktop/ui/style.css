@@ -4047,8 +4047,11 @@ select.player-rate option { background: #14161c; color: var(--text); }
  * other), which is what keeps two boxes out of the same corner.
  */
 .player-sources {
-  position: absolute; left: 14px; bottom: 96px; width: min(420px, 46%);
-  max-height: min(62vh, 540px);
+  /* **A drawer over the film, not a wall beside it.** `max-height: 540px` is most of a 720p
+     television's picture — the panel was the whole height of the frame on a TV — so both panels
+     are capped in the frame's own height, and their width in the frame's own width. */
+  position: absolute; left: 14px; bottom: 92px; width: min(380px, 42%);
+  max-height: 58vh;
   /* **No sideways scroll.** One long stream name made the drawer wider than itself, so the whole
      panel gained a horizontal scrollbar and every row inside it could be pushed out of view. The
      panel scrolls one way — down — and a long name wraps inside its own row (`overflow-wrap`
@@ -4091,8 +4094,11 @@ select.player-rate option { background: #14161c; color: var(--text); }
  * time (see the two buttons in `openPlayer`).
  */
 .player-settings-menu {
-  position: absolute; left: 14px; bottom: 96px; width: min(420px, 46%);
-  max-height: min(62vh, 540px);
+  /* **A drawer over the film, not a wall beside it.** `max-height: 540px` is most of a 720p
+     television's picture — the panel was the whole height of the frame on a TV — so both panels
+     are capped in the frame's own height, and their width in the frame's own width. */
+  position: absolute; left: 14px; bottom: 92px; width: min(380px, 42%);
+  max-height: 58vh;
   display: flex; flex-direction: column; gap: 8px; padding: 16px;
   overflow-y: auto; overflow-x: hidden;
   border-radius: 14px; background: rgba(8, 9, 13, 0.94); backdrop-filter: blur(8px);

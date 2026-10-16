@@ -14984,7 +14984,22 @@ function stopPlayer({ keepFullscreen = false } = {}) {
 }
 
 function playerKey(e) {
-  if (e.key === "Escape") return stopPlayer();
+  // **A panel that is open owns the arrows.** The Sources drawer and the settings menu are
+  // lists you walk with a remote, and this handler reads Up and Down as the volume — so on a
+  // TV, pressing Up to reach a source turned the sound up and the cursor never moved. While one
+  // of them is open the arrows are left to the app's own D-pad walk (see `setupInput`), and
+  // Escape closes the panel instead of stopping the film.
+  const panel = [...document.querySelectorAll(".player-sources, .player-settings-menu")].find((n) => n && !n.hidden) || null;
+  if (panel && /^Arrow(Up|Down|Left|Right)$/.test(e.key)) return;
+  if (e.key === "Escape") {
+    if (panel) {
+      panel.hidden = true;
+      const opener = document.getElementById(panel.classList.contains("player-sources") ? "player-sources" : "player-settings");
+      opener?.focus();
+      return;
+    }
+    return stopPlayer();
+  }
   if (e.target?.tagName === "INPUT" || e.target?.tagName === "SELECT") return;
   const video = document.querySelector(".player-video");
   if (!video) return;
@@ -16086,6 +16101,10 @@ async function openPlayer(url, title, opts = {}) {
               // stack two boxes in the same place.
               if (opening) drawer.hidden = true;
               gearPanel.hidden = !opening;
+              if (opening) {
+                const rows = [...gearPanel.querySelectorAll(".focusable")].filter((n) => !n.disabled);
+                rows[0]?.focus();
+              }
               // The lookup is a live API call with a daily quota, so it happens when the
               // panel is opened for the first time — not for every stream that starts.
               if (opening && osReady() && !osState.loading && !osState.results.length && !osState.active && !osState.error) osSearch();
@@ -16100,6 +16119,13 @@ async function openPlayer(url, title, opts = {}) {
                   const opening = drawer.hidden;
                   if (opening) gearPanel.hidden = true;
                   drawer.hidden = !opening;
+                  // **The cursor follows the panel.** A remote cannot press a row it never
+                  // lands on: opening the drawer puts the cursor in it (on the stream that is
+                  // playing, so it also reads where you are), and closing it hands the cursor
+                  // back to this button.
+                  if (!opening) return;
+                  const rows = [...drawer.querySelectorAll(".focusable")].filter((n) => !n.disabled);
+                  (rows.find((n) => n.classList.contains("active")) || rows[0])?.focus();
                 },
               }, playerGlyph([svgNode("path", { d: "M3.5 7.5a2 2 0 0 1 2-2h3.3l1.8 2h6.9a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" })]))
             : null,
