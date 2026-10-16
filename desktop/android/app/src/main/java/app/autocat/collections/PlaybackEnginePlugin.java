@@ -16,6 +16,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.ui.PlayerView;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -89,10 +90,12 @@ public class PlaybackEnginePlugin extends Plugin {
     final boolean hardware = !Boolean.FALSE.equals(call.getBoolean("hardware", true));
     final boolean tunneling = Boolean.TRUE.equals(call.getBoolean("tunneling", false));
     final String decoder = call.getString("decoder", "hardware");
-    final List<String> audio = call.getArray("audio", String.class) != null
-        ? call.getArray("audio", String.class) : java.util.Collections.emptyList();
-    final List<String> subtitle = call.getArray("subtitle", String.class) != null
-        ? call.getArray("subtitle", String.class) : java.util.Collections.emptyList();
+    // **`getArray(key, Class)` does not exist in this Capacitor.** `PluginCall` offers
+    // `getArray(String)` and `getArray(String, JSArray)` only, and `JSArray` is an
+    // `org.json.JSONArray` — so the array is read entry by entry, which is also the reason this
+    // file compiled against Capacitor 5's idea of the API and not against the one it builds on.
+    final List<String> audio = stringsOf(call.getArray("audio"));
+    final List<String> subtitle = stringsOf(call.getArray("subtitle"));
 
     getActivity().runOnUiThread(() -> {
       try {
@@ -116,6 +119,28 @@ public class PlaybackEnginePlugin extends Plugin {
         call.resolve(answer);
       }
     });
+  }
+
+  /**
+   * **A JS array of language codes, as plain strings.**
+   *
+   * Absent, empty or `null` entries all mean the same thing to Media3 — no preference — which is
+   * what the page sends when Primary/Secondary is not set, so the caller can treat the result as
+   * a list of zero or more languages and nothing else.
+   */
+  private static List<String> stringsOf(JSArray array) {
+    List<String> out = new java.util.ArrayList<>();
+    if (array == null) return out;
+    for (int i = 0; i < array.length(); i++) {
+      // `opt` and `length` are the two `org.json.JSONArray` methods every Android version has —
+      // `JSArray` is one — so nothing here depends on a convenience call that may not exist.
+      if (array.isNull(i)) continue;
+      Object item = array.opt(i);
+      if (item == null) continue;
+      String value = String.valueOf(item).trim();
+      if (!value.isEmpty() && !"null".equals(value)) out.add(value);
+    }
+    return out;
   }
 
   /** Media3: hardware order, tunneling and the track preferences. */
