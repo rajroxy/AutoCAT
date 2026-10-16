@@ -7,12 +7,13 @@
 # Run it from Actions → "Android TV APK" → Run workflow, then download
 # `autocat-collections-debug-apk` from the run's Artifacts section.
 #
-# The APK is a thin client: it renders the UI and talks to the catalog server
-# over https. Set the repository variable `AUTOCAT_HOST` (Settings → Secrets and
-# variables → Actions → Variables) to the deployed addon host, e.g.
-# `https://your-addon-host.example.com`, and it is baked into the build. With the
-# variable unset the app still builds and starts, and says it cannot reach the
-# server instead of failing silently.
+# The APK is **standalone**: it carries the catalog server itself (a Node project at
+# `desktop/ui/nodejs`, built by `npm run android:node` and started on the device by the
+# Capacitor Node.js runtime — see desktop/README.md). Nothing has to be running
+# anywhere else, and `ui/config.js` falls back to `http://127.0.0.1:4173` in a packaged
+# build. The optional `AUTOCAT_HOST` repository variable (Settings → Secrets and
+# variables → Actions → Variables) only exists for pointing a build at a *remote*
+# server instead, e.g. `https://your-addon-host.example.com`.
 name: Android TV APK
 
 on:
@@ -45,7 +46,7 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
-      - name: Point the packaged app at the catalog server
+      - name: Point the packaged app at a remote catalog server (optional)
         if: vars.AUTOCAT_HOST != ''
         working-directory: desktop
         run: |
@@ -61,7 +62,7 @@ jobs:
         env:
           AUTOCAT_HOST: ${{ vars.AUTOCAT_HOST }}
 
-      - name: Copy the UI into the Android project
+      - name: Build the in-APK node project and copy the UI into the Android project
         working-directory: desktop
         run: npm run android:sync
 

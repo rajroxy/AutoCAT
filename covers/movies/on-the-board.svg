@@ -82,9 +82,9 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="496.6" font-family="Inter" font-size="129" font-weight="800" letter-spacing="-4.52" fill="url(#titleFill)">On the</text>
-    <text x="140" y="620.5" font-family="Inter" font-size="129" font-weight="800" letter-spacing="-4.52" fill="url(#titleFill)">Board</text>
-    <text x="140" y="727" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Now Playing</text>
+    <text x="140" y="506.1" font-family="Inter" font-size="86" font-weight="800" letter-spacing="-3.01" fill="url(#titleFill)">On the</text>
+    <text x="140" y="588.6" font-family="Inter" font-size="86" font-weight="800" letter-spacing="-3.01" fill="url(#titleFill)">Board</text>
+    <text x="140" y="684.9" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Now Playing</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>

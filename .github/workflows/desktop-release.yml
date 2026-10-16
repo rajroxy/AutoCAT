@@ -1,0 +1,65 @@
+# Build the standalone desktop apps — Windows, Linux and macOS installers — on GitHub's
+# runners and hand them back as downloads.
+#
+# The installer carries everything: the interface, the catalog server (built from the sources
+# into `desktop/server/` by `npm run desktop:server`) and the card art. Nothing has to be
+# installed on the machine that runs it, and no server runs outside the app.
+#
+# A macOS `.dmg` can only be built on macOS, and a Windows installer is easiest there too,
+# which is why this is a matrix rather than one runner. The artifacts are **unsigned**: a
+# signed/notarised build needs certificates in CI secrets (see desktop/README.md).
+#
+# Run it from Actions → "Desktop installers" → Run workflow, or push a `v*` tag.
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  installers:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            script: dist:linux
+            artifact: autocat-linux
+          - os: windows-latest
+            script: dist:win
+            artifact: autocat-windows
+          - os: macos-latest
+            script: dist:mac
+            artifact: autocat-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the app's dependencies
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      # The server the installer carries, then the installer itself. `dist:*` runs
+      # `desktop:server` first, so this is one command.
+      - name: Build the installer
+        working-directory: desktop
+        run: npm run ${{ matrix.script }}
+
+      - name: Upload the installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+          if-no-files-found: error

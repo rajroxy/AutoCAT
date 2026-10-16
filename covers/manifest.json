@@ -1,5 +1,13 @@
 [
   {
+    "collection": "discover",
+    "title": "Discover",
+    "subtitle": "",
+    "row": "movie",
+    "svg": "covers/movies/discover.svg",
+    "png": "covers/movies/discover.png"
+  },
+  {
     "collection": "on-the-board",
     "title": "On the Board",
     "subtitle": "Now Playing",
@@ -8,36 +16,12 @@
     "png": "covers/movies/on-the-board.png"
   },
   {
-    "collection": "for-you",
-    "title": "For You",
-    "subtitle": "More Like What You Watch",
-    "row": "movie",
-    "svg": "covers/movies/for-you.svg",
-    "png": "covers/movies/for-you.png"
-  },
-  {
     "collection": "discover-top-10",
-    "title": "Discover Plus",
-    "subtitle": "Critically Acclaimed · Award Winners · Staff Picks · Box Office Hits · Hidden Gems · Cult Classics · All-Time Landmarks · Record Breakers",
+    "title": "Discover",
+    "subtitle": "Critically Acclaimed · Award Winners · Staff Picks · Box Office Hits · Hidden Gems · Cult Classics · All-Time Landmarks · Record Breakers · Festival Favorites · Independent Standouts · Best Sequels · Genre Definers · Technical Achievements · Adaptation Standouts · Underrated Performances · Box Office Flops",
     "row": "movie",
     "svg": "covers/movies/discover-top-10.svg",
     "png": "covers/movies/discover-top-10.png"
-  },
-  {
-    "collection": "discover",
-    "title": "Discover",
-    "subtitle": "Festival Favorites · Independent Standouts · Best Sequels · Genre Definers · Technical Achievements · Adaptation Standouts · Underrated Performances · Box Office Flops",
-    "row": "movie",
-    "svg": "covers/movies/discover.svg",
-    "png": "covers/movies/discover.png"
-  },
-  {
-    "collection": "seasons",
-    "title": "Seasons",
-    "subtitle": "",
-    "row": "movie",
-    "svg": "covers/movies/seasons.svg",
-    "png": "covers/movies/seasons.png"
   },
   {
     "collection": "popular-by-genre",
@@ -89,19 +73,19 @@
   },
   {
     "collection": "continental",
-    "title": "Continental",
-    "subtitle": "Asia · Europe · North America · South America · Africa · Middle East · Oceania",
+    "title": "Continental & Countries",
+    "subtitle": "Asia · Europe · North America · Latin America · Africa · Middle East · Oceania · United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Nigeria · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Chile · Peru · Egypt · South Africa · Morocco · Israel · Saudi Arabia · United Arab Emirates · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · New Zealand · Ukraine · Czech Republic · Hungary · Romania · Finland · Switzerland · Belgium · Austria · Bulgaria · Serbia · Croatia · Iceland · Slovakia · Slovenia · Lithuania · Latvia · Estonia · Bosnia and Herzegovina · North Macedonia · Luxembourg · Georgia · Kazakhstan · Lebanon · Venezuela · Uruguay · Dominican Republic · Cuba · Tunisia · Algeria · Cambodia · Iran · Lao People's Democratic Republic · Palestinian Territory",
     "row": "movie",
     "svg": "covers/movies/continental.svg",
     "png": "covers/movies/continental.png"
   },
   {
-    "collection": "countries",
-    "title": "Countries",
-    "subtitle": "United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Nigeria · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Chile · Peru · Egypt · South Africa · Morocco · Israel · Saudi Arabia · United Arab Emirates · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · New Zealand · Ukraine · Czech Republic · Hungary · Romania · Finland · Switzerland · Belgium · Austria · Bulgaria · Serbia · Croatia · Iceland · Slovakia · Slovenia · Lithuania · Latvia · Estonia · Bosnia and Herzegovina · North Macedonia · Luxembourg · Georgia · Kazakhstan · Lebanon · Venezuela · Uruguay · Dominican Republic · Cuba · Tunisia · Algeria · Cambodia · Iran · Lao People's Democratic Republic · Palestinian Territory",
+    "collection": "seasons",
+    "title": "Seasons",
+    "subtitle": "Summer · Rainy · Autumn · Winter · Spring",
     "row": "movie",
-    "svg": "covers/movies/countries.svg",
-    "png": "covers/movies/countries.png"
+    "svg": "covers/movies/seasons.svg",
+    "png": "covers/movies/seasons.png"
   },
   {
     "collection": "runtimes",
@@ -136,28 +120,12 @@
     "png": "covers/movies/themes-and-tags.png"
   },
   {
-    "collection": "global-ott-top-10",
-    "title": "International | Top 10",
-    "subtitle": "Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
-    "row": "movie",
-    "svg": "covers/movies/global-ott-top-10.svg",
-    "png": "covers/movies/global-ott-top-10.png"
-  },
-  {
     "collection": "global-ott",
     "title": "International",
     "subtitle": "Netflix · Netflix Originals · Prime Video · Prime Video Originals · Disney+ · Disney+ Originals · Max · Max Originals · Apple TV+ · Apple TV+ Originals · Paramount+ · Paramount+ Originals",
     "row": "movie",
     "svg": "covers/movies/global-ott.svg",
     "png": "covers/movies/global-ott.png"
-  },
-  {
-    "collection": "regional-ott-top-10",
-    "title": "Domestic | Top 10",
-    "subtitle": "",
-    "row": "movie",
-    "svg": "covers/movies/regional-ott-top-10.svg",
-    "png": "covers/movies/regional-ott-top-10.png"
   },
   {
     "collection": "regional-ott",
@@ -168,14 +136,6 @@
     "png": "covers/movies/regional-ott.png"
   },
   {
-    "collection": "specialist-top-10",
-    "title": "Specialist | Top 10",
-    "subtitle": "",
-    "row": "movie",
-    "svg": "covers/movies/specialist-top-10.svg",
-    "png": "covers/movies/specialist-top-10.png"
-  },
-  {
     "collection": "specialist",
     "title": "Specialist",
     "subtitle": "",
@@ -184,9 +144,17 @@
     "png": "covers/movies/specialist.png"
   },
   {
+    "collection": "upcoming",
+    "title": "Upcoming",
+    "subtitle": "Upcoming · Upcoming in United States · Upcoming in India · Upcoming in Japan · Upcoming in South Korea · Upcoming in United Kingdom · Upcoming in France · Upcoming in Spain · Upcoming in Germany · Upcoming in Italy · Upcoming in China · Upcoming in Mexico · Upcoming in Brazil · Upcoming in Turkey · Upcoming in Australia · Upcoming in Canada · Upcoming in Nigeria · Upcoming in Russia · Upcoming in Netherlands · Upcoming in Sweden · Upcoming in Norway · Upcoming in Denmark · Upcoming in Poland · Upcoming in Ireland · Upcoming in Portugal · Upcoming in Greece · Upcoming in Argentina · Upcoming in Colombia · Upcoming in Chile · Upcoming in Peru · Upcoming in Egypt · Upcoming in South Africa · Upcoming in Morocco · Upcoming in Israel · Upcoming in Saudi Arabia · Upcoming in United Arab Emirates · Upcoming in Indonesia · Upcoming in Thailand · Upcoming in Philippines · Upcoming in Taiwan · Upcoming in Hong Kong · Upcoming in Malaysia · Upcoming in Singapore · Upcoming in Vietnam · Upcoming in Pakistan · Upcoming in Bangladesh · Upcoming in New Zealand · Upcoming in Ukraine · Upcoming in Czech Republic · Upcoming in Hungary · Upcoming in Romania · Upcoming in Finland · Upcoming in Switzerland · Upcoming in Belgium · Upcoming in Austria · Upcoming in Bulgaria · Upcoming in Serbia · Upcoming in Croatia · Upcoming in Iceland · Upcoming in Slovakia · Upcoming in Slovenia · Upcoming in Lithuania · Upcoming in Latvia · Upcoming in Estonia · Upcoming in Bosnia and Herzegovina · Upcoming in North Macedonia · Upcoming in Luxembourg · Upcoming in Georgia · Upcoming in Kazakhstan · Upcoming in Lebanon · Upcoming in Venezuela · Upcoming in Uruguay · Upcoming in Dominican Republic · Upcoming in Cuba · Upcoming in Tunisia · Upcoming in Algeria · Upcoming in Cambodia · Upcoming in Iran · Upcoming in Lao People's Democratic Republic · Upcoming in Palestinian Territory",
+    "row": "movie",
+    "svg": "covers/movies/upcoming.svg",
+    "png": "covers/movies/upcoming.png"
+  },
+  {
     "collection": "updates",
     "title": "Updates",
-    "subtitle": "Arriving Soon · Leaving Soon",
+    "subtitle": "Leaving Soon · Arriving Soon",
     "row": "movie",
     "svg": "covers/movies/updates.svg",
     "png": "covers/movies/updates.png"
@@ -200,20 +168,20 @@
     "png": "covers/movies/watchlist.png"
   },
   {
-    "collection": "upcoming",
-    "title": "Upcoming",
-    "subtitle": "Upcoming · Upcoming in United States · Upcoming in India · Upcoming in Japan · Upcoming in South Korea · Upcoming in United Kingdom · Upcoming in France · Upcoming in Spain · Upcoming in Germany · Upcoming in Italy · Upcoming in China · Upcoming in Mexico · Upcoming in Brazil · Upcoming in Turkey · Upcoming in Australia · Upcoming in Canada · Upcoming in Nigeria · Upcoming in Russia · Upcoming in Netherlands · Upcoming in Sweden · Upcoming in Norway · Upcoming in Denmark · Upcoming in Poland · Upcoming in Ireland · Upcoming in Portugal · Upcoming in Greece · Upcoming in Argentina · Upcoming in Colombia · Upcoming in Chile · Upcoming in Peru · Upcoming in Egypt · Upcoming in South Africa · Upcoming in Morocco · Upcoming in Israel · Upcoming in Saudi Arabia · Upcoming in United Arab Emirates · Upcoming in Indonesia · Upcoming in Thailand · Upcoming in Philippines · Upcoming in Taiwan · Upcoming in Hong Kong · Upcoming in Malaysia · Upcoming in Singapore · Upcoming in Vietnam · Upcoming in Pakistan · Upcoming in Bangladesh · Upcoming in New Zealand · Upcoming in Ukraine · Upcoming in Czech Republic · Upcoming in Hungary · Upcoming in Romania · Upcoming in Finland · Upcoming in Switzerland · Upcoming in Belgium · Upcoming in Austria · Upcoming in Bulgaria · Upcoming in Serbia · Upcoming in Croatia · Upcoming in Iceland · Upcoming in Slovakia · Upcoming in Slovenia · Upcoming in Lithuania · Upcoming in Latvia · Upcoming in Estonia · Upcoming in Bosnia and Herzegovina · Upcoming in North Macedonia · Upcoming in Luxembourg · Upcoming in Georgia · Upcoming in Kazakhstan · Upcoming in Lebanon · Upcoming in Venezuela · Upcoming in Uruguay · Upcoming in Dominican Republic · Upcoming in Cuba · Upcoming in Tunisia · Upcoming in Algeria · Upcoming in Cambodia · Upcoming in Iran · Upcoming in Lao People's Democratic Republic · Upcoming in Palestinian Territory",
-    "row": "movie",
-    "svg": "covers/movies/upcoming.svg",
-    "png": "covers/movies/upcoming.png"
-  },
-  {
     "collection": "custom",
     "title": "Library",
     "subtitle": "My List · My List · My List · My List · My List · My List",
     "row": "movie",
     "svg": "covers/movies/custom.svg",
     "png": "covers/movies/custom.png"
+  },
+  {
+    "collection": "for-you",
+    "title": "Recommendations",
+    "subtitle": "More Like What You Watch",
+    "row": "movie",
+    "svg": "covers/movies/for-you.svg",
+    "png": "covers/movies/for-you.png"
   },
   {
     "collection": "genre-from-decades",
@@ -224,6 +192,14 @@
     "png": "covers/movies/genre-from-decades.png"
   },
   {
+    "collection": "discover",
+    "title": "Discover",
+    "subtitle": "",
+    "row": "show",
+    "svg": "covers/shows/discover.svg",
+    "png": "covers/shows/discover.png"
+  },
+  {
     "collection": "on-the-board",
     "title": "On the Board",
     "subtitle": "Airing Today · On the Air",
@@ -232,36 +208,12 @@
     "png": "covers/shows/on-the-board.png"
   },
   {
-    "collection": "for-you",
-    "title": "For You",
-    "subtitle": "More Like What You Watch",
-    "row": "show",
-    "svg": "covers/shows/for-you.svg",
-    "png": "covers/shows/for-you.png"
-  },
-  {
     "collection": "discover-top-10",
-    "title": "Discover Plus",
-    "subtitle": "Critically Acclaimed · Award Winners · Staff Picks · Breakout Series · Limited Series · Hidden Gems · Cult Classics · All-Time Landmarks",
+    "title": "Discover",
+    "subtitle": "Critically Acclaimed · Award Winners · Staff Picks · Breakout Series · Limited Series · Hidden Gems · Cult Classics · All-Time Landmarks · Anthology Series · Genre Definers · Character Arcs · Ensemble Casts · Memorable Finales · Spin-Offs · Industry Firsts · Record Breakers",
     "row": "show",
     "svg": "covers/shows/discover-top-10.svg",
     "png": "covers/shows/discover-top-10.png"
-  },
-  {
-    "collection": "discover",
-    "title": "Discover",
-    "subtitle": "Anthology Series · Genre Definers · Character Arcs · Ensemble Casts · Memorable Finales · Spin-Offs · Industry Firsts · Record Breakers",
-    "row": "show",
-    "svg": "covers/shows/discover.svg",
-    "png": "covers/shows/discover.png"
-  },
-  {
-    "collection": "seasons",
-    "title": "Seasons",
-    "subtitle": "Premiering Soon · New This Month · Back on Air · Every Season Out",
-    "row": "show",
-    "svg": "covers/shows/seasons.svg",
-    "png": "covers/shows/seasons.png"
   },
   {
     "collection": "popular-by-genre",
@@ -313,19 +265,19 @@
   },
   {
     "collection": "continental",
-    "title": "Continental",
-    "subtitle": "Asia · Europe · North America · South America · Africa · Middle East · Oceania",
+    "title": "Continental & Countries",
+    "subtitle": "Asia · Europe · North America · Latin America · Africa · Middle East · Oceania · United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Egypt · South Africa · Israel · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · New Zealand · Czech Republic · Hungary · Finland · Belgium · Austria",
     "row": "show",
     "svg": "covers/shows/continental.svg",
     "png": "covers/shows/continental.png"
   },
   {
-    "collection": "countries",
-    "title": "Countries",
-    "subtitle": "United States · India · Japan · South Korea · United Kingdom · France · Spain · Germany · Italy · China · Mexico · Brazil · Turkey · Australia · Canada · Russia · Netherlands · Sweden · Norway · Denmark · Poland · Ireland · Portugal · Greece · Argentina · Colombia · Egypt · South Africa · Israel · Indonesia · Thailand · Philippines · Taiwan · Hong Kong · Malaysia · Singapore · Vietnam · Pakistan · Bangladesh · New Zealand · Czech Republic · Hungary · Finland · Belgium · Austria",
+    "collection": "seasons",
+    "title": "Seasons",
+    "subtitle": "Summer · Rainy · Autumn · Winter · Spring",
     "row": "show",
-    "svg": "covers/shows/countries.svg",
-    "png": "covers/shows/countries.png"
+    "svg": "covers/shows/seasons.svg",
+    "png": "covers/shows/seasons.png"
   },
   {
     "collection": "runtimes",
@@ -360,28 +312,12 @@
     "png": "covers/shows/themes-and-tags.png"
   },
   {
-    "collection": "global-ott-top-10",
-    "title": "International | Top 10",
-    "subtitle": "Netflix | Top 10 · Prime Video | Top 10 · Disney+ | Top 10 · Max | Top 10 · Apple TV+ | Top 10 · Paramount+ | Top 10",
-    "row": "show",
-    "svg": "covers/shows/global-ott-top-10.svg",
-    "png": "covers/shows/global-ott-top-10.png"
-  },
-  {
     "collection": "global-ott",
     "title": "International",
     "subtitle": "Netflix · Netflix Originals · Prime Video · Prime Video Originals · Disney+ · Disney+ Originals · Max · Max Originals · Apple TV+ · Apple TV+ Originals · Paramount+ · Paramount+ Originals",
     "row": "show",
     "svg": "covers/shows/global-ott.svg",
     "png": "covers/shows/global-ott.png"
-  },
-  {
-    "collection": "regional-ott-top-10",
-    "title": "Domestic | Top 10",
-    "subtitle": "",
-    "row": "show",
-    "svg": "covers/shows/regional-ott-top-10.svg",
-    "png": "covers/shows/regional-ott-top-10.png"
   },
   {
     "collection": "regional-ott",
@@ -392,14 +328,6 @@
     "png": "covers/shows/regional-ott.png"
   },
   {
-    "collection": "specialist-top-10",
-    "title": "Specialist | Top 10",
-    "subtitle": "",
-    "row": "show",
-    "svg": "covers/shows/specialist-top-10.svg",
-    "png": "covers/shows/specialist-top-10.png"
-  },
-  {
     "collection": "specialist",
     "title": "Specialist",
     "subtitle": "",
@@ -408,9 +336,17 @@
     "png": "covers/shows/specialist.png"
   },
   {
+    "collection": "upcoming",
+    "title": "Upcoming",
+    "subtitle": "Upcoming · Upcoming in United States · Upcoming in India · Upcoming in Japan · Upcoming in South Korea · Upcoming in United Kingdom · Upcoming in France · Upcoming in Spain · Upcoming in Germany · Upcoming in Italy · Upcoming in China · Upcoming in Mexico · Upcoming in Brazil · Upcoming in Turkey · Upcoming in Australia · Upcoming in Canada · Upcoming in Russia · Upcoming in Netherlands · Upcoming in Sweden · Upcoming in Norway · Upcoming in Denmark · Upcoming in Poland · Upcoming in Ireland · Upcoming in Portugal · Upcoming in Greece · Upcoming in Argentina · Upcoming in Colombia · Upcoming in Egypt · Upcoming in South Africa · Upcoming in Israel · Upcoming in Indonesia · Upcoming in Thailand · Upcoming in Philippines · Upcoming in Taiwan · Upcoming in Hong Kong · Upcoming in Malaysia · Upcoming in Singapore · Upcoming in Vietnam · Upcoming in Pakistan · Upcoming in Bangladesh · Upcoming in New Zealand · Upcoming in Czech Republic · Upcoming in Hungary · Upcoming in Finland · Upcoming in Belgium · Upcoming in Austria",
+    "row": "show",
+    "svg": "covers/shows/upcoming.svg",
+    "png": "covers/shows/upcoming.png"
+  },
+  {
     "collection": "updates",
     "title": "Updates",
-    "subtitle": "Arriving Soon · Leaving Soon",
+    "subtitle": "Leaving Soon · Arriving Soon",
     "row": "show",
     "svg": "covers/shows/updates.svg",
     "png": "covers/shows/updates.png"
@@ -424,20 +360,20 @@
     "png": "covers/shows/watchlist.png"
   },
   {
-    "collection": "upcoming",
-    "title": "Upcoming",
-    "subtitle": "Upcoming · Upcoming in United States · Upcoming in India · Upcoming in Japan · Upcoming in South Korea · Upcoming in United Kingdom · Upcoming in France · Upcoming in Spain · Upcoming in Germany · Upcoming in Italy · Upcoming in China · Upcoming in Mexico · Upcoming in Brazil · Upcoming in Turkey · Upcoming in Australia · Upcoming in Canada · Upcoming in Russia · Upcoming in Netherlands · Upcoming in Sweden · Upcoming in Norway · Upcoming in Denmark · Upcoming in Poland · Upcoming in Ireland · Upcoming in Portugal · Upcoming in Greece · Upcoming in Argentina · Upcoming in Colombia · Upcoming in Egypt · Upcoming in South Africa · Upcoming in Israel · Upcoming in Indonesia · Upcoming in Thailand · Upcoming in Philippines · Upcoming in Taiwan · Upcoming in Hong Kong · Upcoming in Malaysia · Upcoming in Singapore · Upcoming in Vietnam · Upcoming in Pakistan · Upcoming in Bangladesh · Upcoming in New Zealand · Upcoming in Czech Republic · Upcoming in Hungary · Upcoming in Finland · Upcoming in Belgium · Upcoming in Austria",
-    "row": "show",
-    "svg": "covers/shows/upcoming.svg",
-    "png": "covers/shows/upcoming.png"
-  },
-  {
     "collection": "custom",
     "title": "Library",
     "subtitle": "My List · My List · My List · My List · My List · My List",
     "row": "show",
     "svg": "covers/shows/custom.svg",
     "png": "covers/shows/custom.png"
+  },
+  {
+    "collection": "for-you",
+    "title": "Recommendations",
+    "subtitle": "More Like What You Watch",
+    "row": "show",
+    "svg": "covers/shows/for-you.svg",
+    "png": "covers/shows/for-you.png"
   },
   {
     "collection": "genre-from-decades",

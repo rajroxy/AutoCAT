@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Continental — movies collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
-  <title>Continental — movies collection cover</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-label="Continental &amp; Countries — movies collection cover" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <title>Continental &amp; Countries — movies collection cover</title>
   <defs>
     <linearGradient id="titleFill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFFFFF"/>
@@ -74,10 +74,11 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="513.1" font-family="Inter" font-size="129" font-weight="800" letter-spacing="-4.52" fill="url(#titleFill)">Continental</text>
-    <text x="140" y="619.7" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Asia  ·  Europe  ·  North America</text>
-    <text x="140" y="665.1" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">South America  ·  Africa</text>
-    <text x="140" y="710.5" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Middle East  ·  +1 more</text>
+    <text x="140" y="460.6" font-family="Inter" font-size="86" font-weight="800" letter-spacing="-3.01" fill="url(#titleFill)">Continental &amp;</text>
+    <text x="140" y="543.2" font-family="Inter" font-size="86" font-weight="800" letter-spacing="-3.01" fill="url(#titleFill)">Countries</text>
+    <text x="140" y="639.4" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Asia  ·  Europe  ·  North America</text>
+    <text x="140" y="684.9" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Latin America  ·  Africa</text>
+    <text x="140" y="730.3" font-family="Inter" font-size="32" font-weight="600" letter-spacing="6.40" fill="rgba(231,235,243,0.52)">Middle East  ·  +80 more</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>

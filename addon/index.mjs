@@ -32,7 +32,7 @@ import {
 } from "../scripts/collections.mjs";
 import { genres as tmdbGenres, get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
 import { cleanScope, currentScope, rescope, withScope } from "./scope.mjs";
-import { askAI, askAbout, askTags, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
+import { askAI, askAbout, askTags, askTitle, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
 import {
   STATES,
   STATE_LABEL,
@@ -46,6 +46,10 @@ import {
 } from "./watchlist.mjs";
 // **The Activity screen's own read** — the watchlist store, read as a timeline (see `activity`).
 import { activity as watchlistActivity } from "./watchlist.mjs";
+// **The players you watch in.** Settings → Players connects Stremio, Nuvio, Kodi and the rest to this
+// app: each one is given this profile's own ingest address and reports what it played, which is filed
+// as an ordinary pin (so it turns up on the Activity page and in the Library) — see `players.mjs`.
+import { connect as playerConnect, remove as playerRemove, report as playerReport, rotate as playersRotate, setOn as playerSetOn, state as playersState } from "./players.mjs";
 // **What has left and what has not arrived** — the dates the Updates card's two rows imply,
 // written down, and the two gates that act on them (see `addon/lineup.mjs`).
 import { cardKeyOfRow, hasLeft, hideGone, hideNotYet, hideOffShelf, isLeaving, joinedOn, keyOf, leavingDay, note as noteLineup, onShelf, payload as lineupPayload, withDates } from "./lineup.mjs";
@@ -3167,6 +3171,95 @@ async function serveAddon(req, res, pathname, origin) {
     return true;
   }
 
+  // **Settings → Players: the players this profile is connected to.**
+  //
+  // The read answers with the ingest address to paste into a player, the rows themselves, and the
+  // last few reports that arrived — the pane draws all three, so a connection that works can be
+  // *seen* working. `token` is this profile's own and travels on the address; nothing else here is
+  // secret, and the address is what a player is given.
+  if (pathname === "/players.json" || pathname === "/players") {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "content-type",
+      });
+      res.end();
+      return true;
+    }
+    if (req.method === "POST") {
+      try {
+        const body = await readBody(req);
+        scopeStores(scopeFrom(body.who, body.as));
+        const action = String(body.action || "");
+        if (action === "connect") json(res, 200, { ...playerConnect(body.player, { name: body.name, url: body.url }) });
+        else if (action === "remove") json(res, 200, { ...playerRemove(body.player) });
+        else if (action === "toggle") json(res, 200, { ...playerSetOn(body.player, body.on !== false) });
+        else if (action === "rotate") json(res, 200, { ok: true, token: playersRotate(), ...playersState() });
+        else json(res, 400, { ok: false, error: `unknown action ${action}` });
+      } catch (err) {
+        json(res, 400, { ok: false, error: String(err?.message || err) });
+      }
+      return true;
+    }
+    // **The address, as the app was reached.** Built from the request's own `Host`, so a player on
+    // your network is given the address of *this* server (the port, or the tunnel in front of it)
+    // rather than a guessed localhost.
+    const host = String(req.headers?.host || "");
+    const proto = String(req.headers?.["x-forwarded-proto"] || "").split(",")[0].trim() ||
+      (/^(localhost|127\.|\[::1\])/.test(host) ? "http" : "https");
+    const origin = host ? `${proto}://${host}` : "";
+    json(res, 200, { ok: true, ingest: `${origin}/players/watch.json`, ...playersState() });
+    return true;
+  }
+
+  /**
+   * **What a player tells the app.** The other end of Settings → Players: the ingest address the
+   * pane shows, called by Stremio, Nuvio, Kodi or anything else that can POST JSON or open a URL.
+   *
+   * Deliberately forgiving about the shape — a `POST` with a JSON body, a form-encoded body, or the
+   * same fields in the query string (some players can only open a link) all work — and deliberately
+   * strict about the token: the report is filed against the profile whose token it carries and no
+   * other, so an address that leaks can be rotated in one press. What it files is an ordinary pin,
+   * which is what puts the title on the Activity page (see `report` in `players.mjs`).
+   */
+  if (pathname === "/players/watch.json" || pathname === "/players/watch") {
+    const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+    let fields = Object.fromEntries([...query.entries()].map(([k, v]) => [k, v]));
+    if (req.method === "POST") {
+      try {
+        const body = await readBody(req);
+        fields = { ...fields, ...(body && typeof body === "object" ? body : {}) };
+      } catch {
+        /* an empty body is a query-string report */
+      }
+    }
+    // **Which profile's store this lands in.** The token belongs to one profile, so the scope is
+    // resolved from the same scope fields every other write carries (`who`, `as`) and the token is
+    // checked against that profile's own address by `report`.
+    scopeStores(scopeFrom(fields.who || "", fields.as || ""));
+    const watched = await playerReport({
+      token: fields.token || fields.key || "",
+      title: fields.title || fields.name || "",
+      year: fields.year || "",
+      id: fields.id || fields.tmdb || "",
+      imdb: fields.imdb || fields.imdb_id || "",
+      type: fields.type || fields.media_type || "movie",
+      state: fields.state || fields.event || fields.status || "",
+      player: fields.player || fields.from || "",
+    });
+    // A player does not read JSON; a person pasting the address into a browser does.
+    if (req.method === "GET" || String(fields.format || "") === "text") {
+      res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+      res.end(watched.ok
+        ? `Filed ${watched.filed.name} as ${watched.filed.state}${watched.removed ? " (taken off again)" : ""}.\n`
+        : `${watched.error}\n`);
+      return true;
+    }
+    json(res, watched.ok ? 200 : 400, watched);
+    return true;
+  }
+
 /**
  * **Who can watch this with you.**
  *
@@ -3355,7 +3448,10 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     return true;
   }
 
-  if (pathname === "/ai/ask" || pathname === "/ai/verify" || pathname === "/ai/models") {
+  // **A description, not a query** (`/ai/find`). `/ai/ask` asks the provider for search words;
+  // this asks it for the **title** a description means, which is the one thing a catalogue search
+  // cannot do with a description's own words (see `askTitle`). Same answer shape: `{ ok, query }`.
+  if (pathname === "/ai/find" || pathname === "/ai/ask" || pathname === "/ai/verify" || pathname === "/ai/models") {
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "access-control-allow-origin": "*",
@@ -3370,9 +3466,11 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
       const provider = String(body.provider || "");
       const result = pathname === "/ai/ask"
         ? await askAI(String(body.prompt || ""))
-        : pathname === "/ai/models"
-          ? await aiModels(provider || aiProviderName())
-          : await verifyAI(provider, body.key ? String(body.key) : undefined, body.model ? String(body.model) : "");
+        : pathname === "/ai/find"
+          ? await askTitle(String(body.prompt || ""))
+          : pathname === "/ai/models"
+            ? await aiModels(provider || aiProviderName())
+            : await verifyAI(provider, body.key ? String(body.key) : undefined, body.model ? String(body.model) : "");
       json(res, 200, result);
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });
@@ -3809,19 +3907,20 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     const keepWatched = kind === "watchlist" || kind === "custom" || kind === "arriving" || kind === "leaving";
     // **The two dated rows read past their own length** (`LINEUP_ROWS`, see the note on it):
     // both of them lose titles to the gates below, and a reader that asked for fifty titles
-    // should get fifty. Only a plain card read tops up — an Explore page reads the row itself
-    // (`deep`) and a caller that names a `count` gets the window it asked for.
+    // should get fifty. A **named `count` reads past its own length for the same reason** (below).
     // A card's size lives on its **entry** (`curated(name, params, take)` in
     // `scripts/collections.mjs`), not on the catalog that wraps it.
     const lineupTake = Number(parsed.def?.take) || Number(parsed.def?.entry?.take) || 0;
     const wanted = Number(params.get("count")) || 0;
     const topUp = LINEUP_ROWS.has(parsed.def?.name) && lineupTake > 0 && !wanted && params.get("deep") !== "1";
-    const metas = withoutWatched(
+    // **One read of the row, at whatever width is asked for.** The window is a prefix of the row —
+    // page 1 first, then page 2 — so a wider read is a superset of a narrower one, in the same order,
+    // and asking again is how this route steps wider (see the gates below).
+    const readRow = async (width) =>
       parsed.shuffle
         ? await catalogShuffle(parsed.type, parsed.def, parsed.shuffle, { adult, language, sort })
-        : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: topUp ? lineupTake + LINEUP_OVER : wanted, over: topUp, deep: params.get("deep") === "1" }),
-      keepWatched,
-    );
+        : await catalogMetas(parsed.type, parsed.def, parsed.skip, { adult, language, sort, exclude, open, count: width, over: topUp, deep: params.get("deep") === "1" });
+    let metas = withoutWatched(await readRow(topUp ? lineupTake + LINEUP_OVER : wanted), keepWatched);
     // **What is leaving, and what has not landed yet.** The two rows of the Updates card are read
     // for their dates before anything is filtered, so the promise they make holds from the first
     // time the card is opened; then a title the app has named as **leaving is dropped from every
@@ -3835,7 +3934,29 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     // still ride on the metas, so a card can wear them whatever row it was read from.
     noteLineup(parsed.def.name, metas);
     const rowCard = cardKeyOfRow(parsed.def.id);
-    const shown = withDates(hideNotYet(hideOffShelf(hideGone(metas, keepWatched, rowCard), keepWatched, rowCard), rowCard));
+    /** The same gates, run over whatever the last read brought back. */
+    const gate = () => withDates(hideNotYet(hideOffShelf(hideGone(metas, keepWatched, rowCard), keepWatched, rowCard), rowCard));
+    let shown = gate();
+    // **A `count` is a promise of that many titles, and the gates were breaking it.** A card page's
+    // Top picks row asks for ten and was handed **four**: it read ten titles of the row, and the gates
+    // dropped six of them — half of TMDB is off the shelf (`hideOffShelf`), and the rest of the gates
+    // take their own share — which on the screen is a row that stops in the middle of the page (the
+    // owner's *"why titles only fetch this much in top pick from row"*). The row was never short; the
+    // **window** was. So the same read steps wider — one more window at a time — until the number
+    // asked for survives it, and stops the moment it does. Each step only asks the row's own pool for
+    // more of itself, and that pool is kept for ten minutes: the pages read here are the pages the
+    // first scroll of the row would have asked for anyway, and a read that already promised enough
+    // costs nothing at all.
+    if (wanted && !parsed.shuffle && shown.length < wanted) {
+      const ceiling = Math.min(wanted * 8, wanted + 400);
+      for (let width = wanted * 2; shown.length < wanted && width <= ceiling; width += wanted) {
+        metas = withoutWatched(await readRow(width), keepWatched);
+        noteLineup(parsed.def.name, metas);
+        shown = gate();
+      }
+      // The cap the caller asked for still holds: a Top picks row is ten titles, not ten-plus.
+      shown.length = Math.min(shown.length, wanted);
+    }
     // The row is its own length again: what the gates dropped is what the top-up replaced.
     if (topUp) shown.length = Math.min(shown.length, lineupTake);
     // Better posters first (it may replace `poster`), then the chosen content

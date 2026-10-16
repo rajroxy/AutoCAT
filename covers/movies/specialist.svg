@@ -73,7 +73,7 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="599.5" font-family="Inter" font-size="129" font-weight="800" letter-spacing="-4.52" fill="url(#titleFill)">Specialist</text>
+    <text x="140" y="588.4" font-family="Inter" font-size="86" font-weight="800" letter-spacing="-3.01" fill="url(#titleFill)">Specialist</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>

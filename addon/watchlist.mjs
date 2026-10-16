@@ -86,6 +86,11 @@ export function cleanItem(item, state) {
     if (item[field]) out[field] = String(item[field]);
   }
   if (item.hasBetterPoster) out.hasBetterPoster = true;
+  // **Which player it came from**, when it came from one. A watch reported by Stremio, Nuvio or Kodi
+  // through Settings → Players is an ordinary pin — that is what makes it show up everywhere the app
+  // shows a pin — and this one extra field is what lets the Activity page say where it was watched
+  // (see `report` in `players.mjs`). A title pinned in the app has no `source` and nothing shows.
+  if (item.source) out.source = String(item.source).slice(0, 40);
   // A calendar plan is a plan about a date, and the app draws the day under the poster —
   // so the date is one of the fields worth keeping. It is absent on every other pin.
   if (item.releaseDate) out.releaseDate = String(item.releaseDate);
@@ -204,6 +209,7 @@ export function activity(limit = 80) {
       name: i.name || "Untitled",
       poster: i.poster || "",
       state: i.state || "",
+      source: i.source || "",
       addedAt: i.addedAt || "",
       at: i.updatedAt || i.addedAt || "",
     }))

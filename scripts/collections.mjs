@@ -77,7 +77,7 @@ export const CONTINENTS = {
   Asia: ["JP", "KR", "CN", "IN", "TH", "ID", "PH", "TW", "HK", "MY", "SG", "VN", "PK", "LK", "BD"],
   Europe: ["GB", "FR", "DE", "IT", "ES", "SE", "NO", "DK", "NL", "PL", "RU", "IE", "PT", "GR", "UA", "CZ", "HU", "RO", "FI", "CH", "BE", "AT", "BG", "RS", "HR"],
   "North America": ["US", "CA", "MX"],
-  "South America": ["BR", "AR", "CO", "CL", "PE"],
+  "Latin America": ["BR", "AR", "CO", "CL", "PE"],
   Africa: ["NG", "ZA", "EG", "KE", "MA", "GH"],
   "Middle East": ["AE", "SA", "IL", "TR", "QA", "KW", "BH", "OM", "JO", "LB"],
   Oceania: ["AU", "NZ"],
@@ -1644,6 +1644,31 @@ const discoverPlusRows = (take) => ({
 
 
 /**
+ * **The Discover card's rows live in the Discover Plus card now.**
+ *
+ * The owner's note: *"discover card ki tags ko discover plus card me daal do, record breakers tag ke baad,
+ * same order me jis order me discover card ke tags hain"* — the two cards are one idea split in two (the
+ * canon, and the shapes of a series), and the wide card is where they belong together. So every row the
+ * Discover card published is published **here**, **after the Record Breakers row**, in the Discover card's
+ * own order; the Discover card publishes nothing of its own and is no longer drawn on Home.
+ *
+ * **Nothing is deleted.** The rows, their ids, their covers and their reads are all still here — only the
+ * card that holds them changed, and every id keeps answering exactly as it did (`autocat-discover--…`).
+ */
+const discoverAllRows = (take) => {
+  const plus = discoverPlusRows(take);
+  const mine = discoverRows();
+  const merge = (type) => {
+    const list = [...plus[type]];
+    const at = list.findIndex((row) => row && row.name === "Record Breakers");
+    return at >= 0
+      ? [...list.slice(0, at + 1), ...mine[type], ...list.slice(at + 1)]
+      : [...list, ...mine[type]];
+  };
+  return { movie: merge("movie"), show: merge("show") };
+};
+
+/**
  * **The three period rows the Discover card opens on, at Top 10.**
  *
  * The Global and Regional Top 10 cards used to open straight onto one row per
@@ -1666,26 +1691,37 @@ const top10Periods = (_suffix = " | Top 10") => [];
  * The app never reorders or subsets the cards, so the order is the same on every
  * device, in both the Movies and the Shows row, and in AutoCAT itself.
  *
+ * **The owner read the page top to bottom and said what it should be**: *"home card order should be
+ * discover, genres, decades, continental & countries, seasons, runtime/episodes, based on the, moods &
+ * vibes, themes & tags, then leave same gap here like gap between hero banner and card, then put
+ * upcoming card but three card poster then right of it update card then under upcoming card watchlist
+ * then library then leave a card gap then at last under update card, put recommendations"*.
+ *
+ * So the page reads in three parts, and this list is those three parts in that order:
+ *   **the browsing cards** (what the catalogue is) — Discover first, then the shapes of a title: genre,
+ *   decade, where it comes from, season, length, what it was made from, mood, theme;
+ *   **the shelves of services** (where it plays) — the four OTT cards and the Specialist one, which the
+ *   owner named neither way and keep the block they already had;
+ *   **the foot** — Upcoming, Updates, Watchlist, Library, Recommendations, which is the one part of the
+ *   order the app lays out itself (see `collectionGrid` in `desktop/ui/app.js`: a full-row gap opens it,
+ *   Upcoming spans three of its neighbours, and one card's worth of nothing puts Recommendations under
+ *   Updates).
+ *
  * `based-on-the` sits directly after `runtimes`: the card order is the owner's
  * list, so "Based on the" belongs with the other shape-of-the-title cards (how
  * long it is, what it was made from) rather than down with the keyword cards.
  */
 const CARD_ORDER = [
-  // **The owner's own landmarks, in their own words**: *"pehle watchlist card, phir discovery
-  // plus, phir discover, phir for you, phir genre; uske baad continental & countries, uske baad
-  // season card ... specialist top 10 se pehle library card, specialist ke baad updates, aur
-  // sabse last me 4 poster wala upcoming card"*. Those landmarks hold in the list below:
-  //   Watchlist · Discover Plus · Discover · For You · Genres · (… ·) Continental & Countries ·
-  //   Seasons · (… ·) Library · Specialist | Top 10 · Specialist · Updates · Upcoming
-  // **Nothing was taken off Home to make them hold.** The cards between two landmarks — the
-  // decades ladder, the runtime/episode ladders, the keyword cards, the Domestic / International
-  // shelves — are drawn exactly as they were; a card is only ever hidden when that is asked for
-  // in so many words (`on-the-board`, `popular-by-genre` and the four beside them).
-  "watchlist",
+  // **Discover opens the page** — *"home card order should be discover, genres, decades, continental &
+  // countries, seasons, runtime/episodes, based on the, moods & vibes, themes & tags"* — and the card
+  // that opens it is the **wide one** (twenty-five a row), which holds both cards' rows since the merge
+  // and wears the name *Discover* again. The plain `discover` entry below publishes nothing and is not
+  // drawn; it stays listed so its key, cover and ids keep their place.
+  "discover",
+  // **The banner's own card.** It is not drawn on Home — its rows are the left half of the hero — and it
+  // sits here so the two cards the app keeps for the banner read together at the top of the list.
   "on-the-board",
   "discover-top-10",
-  "discover",
-  "for-you",
   // **Seasons sits with the browsing cards.** It is a date card like Discover — what is
   // arriving, what is back — so it follows the two that ask the same question about the whole
   // catalogue, and it is only drawn on the Shows tab (see the card's own note).
@@ -1714,6 +1750,7 @@ const CARD_ORDER = [
   "based-on-the",
   "moods-and-vibes",
   "themes-and-tags",
+  // -- where it plays: the four OTT cards, then the Specialist shelf. -----------------------
   "global-ott-top-10",
   "global-ott",
   "regional-ott-top-10",
@@ -1721,20 +1758,28 @@ const CARD_ORDER = [
   // **The Specialist card sits after the Domestic ones.** It is the same idea read one shelf
   // further in — the services a viewer picks *on purpose* rather than the ones their country
   // happens to lead with — so it follows the card it comes off.
-  // **The Library sits before the Specialist Top 10**, as asked: the rows you filled
-  // yourself are yours the way the Watchlist is, and they belong in front of the last shelf of
-  // services rather than after it.
-  "custom",
   "specialist-top-10",
   "specialist",
-  // **Updates is the last card before Upcoming**, asked back by name: *"update wale card pe do
-  // poster hoga and ye last card hai upcoming card ke pehle"*. It closed the OTT block before this
-  // round and it closes it again — what is leaving and what is arriving is the last thing on the
-  // page before the card of what is next.
-  "updates",
-  // **Upcoming is the last card on the page**, as asked, and it is drawn as a card of four
-  // posters now rather than as one spotlighted still (see its own note).
+  // -- **The foot of the page.** --------------------------------------------------------------
+  // Five cards, in the owner's order: *"then put upcoming card ... then right of it update card then
+  // under upcoming card watchlist then library ... then at last under update card, put recommendations"*.
+  // None of them is drawn like the cards above: the foot is laid out by `collectionGrid` — a full-row gap
+  // opens it, Upcoming is three cards long with Updates beside it, and one card's worth of nothing puts
+  // Recommendations under Updates — so **this order is what places them on the screen**, and the only
+  // thing that does.
+  //
+  // **Upcoming is the card of what is next**, three posters long, and it opens the foot; Updates — the
+  // one card that turns over by itself every month — sits to its right, so the two "what is coming"
+  // cards read across one line. Below them the two lists that are *yours*: the Watchlist, then the
+  // Library. Then Recommendations, last, under Updates.
   "upcoming",
+  "updates",
+  "watchlist",
+  "custom",
+  "for-you",
+  // **Off Home, and listed last so nothing has to move when it is switched back on.** The card and its
+  // rows stay defined under `genre-from-decades` (see the note above them).
+  "genre-from-decades",
 ];
 
 /**
@@ -1765,24 +1810,14 @@ const buildCollections = (code = "") => {
   },
   {
     key: "for-you",
-    lines: ["For", "You"],
+    // **The name is Recommendations, plural.** The owner asked for the label to say what the card is —
+    // its rows are written from what you watch, and "For You" was the app's word for it, not his — and
+    // then for the plural on it: *"put s in its label"*.
+    lines: ["Recommendations"],
     scene: "watchlist",
     // **More like what you watch**: one row drawn from TMDB's own recommendations
     // for the titles in your Watchlist — watched first, then watching, then planned.
     catalogs: both([recommend("More Like What You Watch")]),
-  },
-  {
-    // **The key stays `discover-top-10`** — it is the cover's filename, and the card it
-    // names is the wide one (twenty-five titles a row). The **name** is Discover Plus:
-    // one card that asks six questions about the whole catalogue, beside the Discover
-    // card that asks the five orders (see `discoverPlusRows`).
-    key: "discover-top-10",
-    lines: ["Discover", "Plus"],
-    scene: "spotlight-top-10",
-    // **The six verdicts, at twenty-five a row.** The card is named for the questions only it
-    // asks — what is acclaimed, what a pick is, what the gems are — so those are the rows it
-    // holds; the plain **Discover** card beside it asks the seven orders.
-    catalogs: discoverPlusRows(),
   },
   {
     key: "on-the-board",
@@ -1864,9 +1899,27 @@ const buildCollections = (code = "") => {
     key: "discover",
     lines: ["Discover"],
     scene: "discover",
-    // **The seven orders**, uncapped: the newest, the oldest, what is rising, what is popular and
-    // what nobody has found, and the best reviewed of all of it.
-    catalogs: discoverRows(),
+    // **Its rows are in the Discover Plus card now** — the owner's note, and `discoverAllRows` is where
+    // they went, after that card's Record Breakers row and in this card's own order. The entry stays (its
+    // cover, its key and its ids are all still this card's), it simply publishes nothing, so the grid does
+    // not draw it. Nothing was deleted: the row reads are all in this file, exactly as they were.
+    catalogs: both([]),
+  },
+  {
+    // **The key stays `discover-top-10`** — it is the cover's filename, and the card it names is
+    // the wide one (twenty-five titles a row). The **name is Discover**: it holds the Discover
+    // card's own rows as well as its own (see `discoverAllRows`), so the two read as one card
+    // again and it wears the one word for both — the owner's *"why discovery plus not renamed to
+    // discover"*. The cover is generated from this line (`npm run generate`), so the artwork says
+    // it too.
+    key: "discover-top-10",
+    lines: ["Discover"],
+    scene: "spotlight-top-10",
+    // **The six verdicts, at twenty-five a row.** The card is named for the questions only it
+    // asks — what is acclaimed, what a pick is, what the gems are — so those are the rows it
+    // holds; the plain **Discover** card beside it asks the seven orders.
+    // **Its own rows, and the Discover card's after Record Breakers** (see `discoverAllRows`).
+    catalogs: discoverAllRows(),
   },
   {
     key: "popular-by-genre",
@@ -1942,12 +1995,6 @@ const buildCollections = (code = "") => {
   // The **key does not move**: it is the cover's filename and the catalog ids' prefix, so
   // renaming it would leave every published row behind.
   {
-    key: "global-ott-top-10",
-    lines: ["International", "| Top 10"],
-    scene: "global-ott-top-10",
-    catalogs: both([...top10Periods(), ...globalOtt.top10(TOP10)]),
-  },
-  {
     key: "global-ott",
     lines: ["International"],
     scene: "global-ott",
@@ -1963,23 +2010,6 @@ const buildCollections = (code = "") => {
   // *your* country's services, as against the International card's worldwide platforms. The
   // **key stays** `regional-ott*` for the same reason the International one's does: it names
   // the cover file and the catalog ids.
-  {
-    key: "regional-ott-top-10",
-    lines: ["Domestic", "| Top 10"],
-    scene: "regional-ott-top-10",
-    titleOnly: true,
-    // **The region's Top 10s, and the continents' beside them.** Both Regional cards carry
-    // the continent rows (`regionalOttByContinent`) — they are the same fact read wider, and
-    // a card that is "the regional services" is where a reader looks for them.
-    catalogs: (() => {
-      const here = regionalOtt("top10");
-      const wider = regionalOttByContinent("top10");
-      return {
-        movie: [...top10Periods(), ...oneRowPerService([...here.movie, ...wider.movie])],
-        show: [...top10Periods(), ...oneRowPerService([...here.show, ...wider.show])],
-      };
-    })(),
-  },
   {
     key: "regional-ott",
     lines: ["Domestic"],
@@ -2012,13 +2042,6 @@ const buildCollections = (code = "") => {
   // row and the services differ by region, so a cover that drew one of them would be wrong
   // for the next reader. It reuses the Domestic Top 10's own scene rather than shipping with
   // no artwork at all.
-  {
-    key: "specialist-top-10",
-    lines: ["Specialist", "| Top 10"],
-    scene: "regional-ott-top-10",
-    titleOnly: true,
-    catalogs: both([]),
-  },
   // **And the plain card the Top 10 one is the shelf of.** The two are one list read two
   // ways — the ten and the whole service — exactly as the Domestic and International cards
   // are built, and **this half was missing**: `withSpecialistServices` published a plain

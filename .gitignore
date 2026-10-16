@@ -9,6 +9,9 @@ addon/settings.json
 # Runtime state written by the app (your pinned titles, not source)
 addon/watchlist.json
 
+# The players this profile is connected to and their ingest token (runtime state, not source)
+addon/players*.json
+
 # The account this machine signed in with — a name and an optional address, no password.
 # Private to the install, and not source.
 addon/account.json
@@ -93,3 +96,10 @@ addon/settings.split.*
 serve.log
 .patch/
 serve.pid
+# The node project the APK carries, built by scripts/android-node-folder.mjs (and green
+# after `cap sync`, which copies it into the APK). Generated, so never committed twice.
+desktop/ui/nodejs/
+# The server the packaged desktop app carries, built by scripts/desktop-server-folder.mjs,
+# and the installers electron-builder writes. Both generated.
+desktop/server/
+desktop/dist/

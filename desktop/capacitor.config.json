@@ -1,5 +1,11 @@
 {
   "appId": "app.autocat.collections",
   "appName": "AutoCAT",
-  "webDir": "ui"
+  "webDir": "ui",
+  "plugins": {
+    "Nodejs": {
+      "nodeDir": "nodejs",
+      "startMode": "auto"
+    }
+  }
 }

@@ -3,30 +3,88 @@
   "productName": "AutoCAT",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop app for the AutoCAT collection covers and catalogs. Web UI, wrapped by Electron \u2014 the same UI ports to Android TV via Capacitor.",
+  "description": "Desktop app for the AutoCAT collection covers and catalogs. Web UI, wrapped by Electron — the same UI ports to Android TV via Capacitor.",
   "type": "module",
   "main": "main.js",
   "scripts": {
     "start": "node ../scripts/start-desktop.mjs",
-    "android:sync": "cap sync android",
+    "android:node": "node ../scripts/android-node-folder.mjs",
+    "android:sync": "npm run android:node && cap sync android",
     "android:open": "cap open android",
     "android:build": "cd android && sh ./gradlew assembleDebug",
-    "android:apk": "cd android && sh ./gradlew assembleRelease"
+    "android:apk": "cd android && sh ./gradlew assembleRelease",
+    "desktop:server": "node ../scripts/desktop-server-folder.mjs",
+    "pack": "npm run desktop:server && electron-builder --dir",
+    "dist": "npm run desktop:server && electron-builder",
+    "dist:linux": "npm run desktop:server && electron-builder --linux",
+    "dist:win": "npm run desktop:server && electron-builder --win",
+    "dist:mac": "npm run desktop:server && electron-builder --mac"
   },
   "devDependencies": {
-    "@capacitor/android": "^6.2.2",
-    "@capacitor/cli": "^6.2.2",
-    "@capacitor/core": "^6.2.2",
-    "electron": "^31.2.0"
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "electron": "^31.2.0",
+    "electron-builder": "^25.1.8"
   },
   "allowScripts": {
     "electron": true
   },
   "dependencies": {
+    "@capawesome/capacitor-nodejs": "^0.2.0",
     "hls.js": "^1.7.3",
     "webtorrent": "^2.8.5"
   },
   "overrides": {
     "uint8-util": "2.2.6"
-  }
+  },
+  "build": {
+    "appId": "app.autocat.collections",
+    "productName": "AutoCAT",
+    "copyright": "AutoCAT",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "asar": false,
+    "npmRebuild": false,
+    "files": [
+      "main.js",
+      "preload.cjs",
+      "server/**",
+      "ui/**",
+      "!ui/nodejs/**",
+      "!**/*.map"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo",
+      "maintainer": "AutoCAT",
+      "synopsis": "AutoCAT — collection covers and catalogs"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.entertainment",
+      "identity": null
+    }
+  },
+  "author": "AutoCAT",
+  "homepage": "https://github.com/rajroxy/Nuvio-collection"
 }

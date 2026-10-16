@@ -471,6 +471,32 @@ body {
   gap: 18px;
 }
 
+/* **The foot of Home is opened by a row's worth of nothing.** The browsing cards and the shelves of
+   services run to the bottom of the page as they always did; then one empty row stands where the
+   owner asked for it — *"leave same gap here like gap between hero banner and card, then put upcoming
+   card"* — and what is next, what is turning over and your own two lists begin under it.
+   The height is the banner's own breath of space **minus the grid's own gap**, which is added below
+   the spacer anyway, so the gap the eye reads is exactly the 110px the banner has above the first
+   card. Nothing is drawn in it: it is a spacer (`aria-hidden`, empty), not a card. */
+.icons.grid > .home-gap { grid-column: 1 / -1; height: 92px; }
+/* **One card's worth of nothing, before Recommendations.** Upcoming is three cards long and Updates
+   takes the fourth column of that line; below them the Watchlist, the Library and this slot fill the
+   next line, which is what lands Recommendations **under Updates** — the owner's own reading
+   (*"leave a card gap then at last under update card, put recommendations"*). It is a cell of the
+   grid and nothing else: no height of its own, so the line is as tall as the cards beside it. */
+.icons.grid > .home-slot { min-height: 1px; }
+/* **And the line under the two "what is coming" cards starts at the left edge.** Upcoming and
+   Updates fill the first line of the foot; the Watchlist, the Library, the one-card slot and
+   Recommendations fill the next one, which is what puts Recommendations under Updates. On a grid
+   with a column to spare the Watchlist would otherwise take that spare column and slide the rest
+   along (measured at five columns: Watchlist beside Updates, Library under Upcoming, Recommendations
+   in the third column), so the card that opens the line is pinned to column 1. */
+.icons.grid > .icon-box.foot-lead { grid-column-start: 1; }
+/* The row form scrolls sideways, where "under the card above it" is not a place: neither spacer is
+   drawn there. */
+.icons.rows > .home-gap,
+.icons.rows > .home-slot { display: none; }
+
 .icons.rows {
   display: flex;
   gap: 18px;
@@ -519,19 +545,18 @@ body {
    nothing in it is clickable, so it takes **no hover lift** either: a card that rises under the
    cursor is promising a door, and this one is a window on what is coming. It is **four cards
    long** with four tiles in it, the same size and shape as the Movies home's own Upcoming. */
-/* **Four cards long.** A card spanning four of its neighbours must keep **their** height — a
-   one-card frame at this width would be four times as tall as the row it sits in, and `64 / 9`
-   (four 16:9 frames and no gaps) came out 8px taller than the cards beside it, because the three
-   18px gaps are width without height. The frame is four 16:9 tiles **and the three gaps between
-   them**: `(4w + 54) / (9w/16)`, which is ~7.45 whatever the column ends up being (it is 7.43 at
-   the row form's 300px and 7.45 at the grid's narrower columns), so one ratio holds for both.
-   `1200px + 54px` is that same sum for the row form of the grid (`iconBox` asks for one). */
+/* **Three cards long.** A card spanning three of its neighbours must keep **their** height — a
+   one-card frame at this width would be three times as tall as the row it sits in — and the frame is
+   three 16:9 tiles **and the two gaps between them**: `(3w + 36) / (9w/16)` works out at ~5.5 for any
+   column, so one ratio holds for both forms of the grid (it is 5.58 at the grid's 265px columns and
+   5.55 at the row form's 300px — the ~1% either way is inside the frame's own rounding).
+   `900px + 36px` is that same sum for the row form (`iconBox` asks for three tiles there too). */
 .icon-box.card-spotlight,
-.icon-box.card-wide { grid-column: span 4; }
+.icon-box.card-wide { grid-column: span 3; }
 .icons.rows .icon-box.card-spotlight,
-.icons.rows .icon-box.card-wide { width: calc(1200px + 54px); }
+.icons.rows .icon-box.card-wide { width: calc(900px + 36px); }
 .icon-box.card-spotlight .icon-wrap,
-.icon-box.card-wide .icon-wrap { aspect-ratio: 745 / 100; }
+.icon-box.card-wide .icon-wrap { aspect-ratio: 555 / 100; }
 /* A card that rises under the cursor is promising a door, and these two are windows — the live
    home's Upcoming and the Movies home's own, which is the same glance at what is coming. */
 .icon-box.card-spotlight:hover,
@@ -739,6 +764,16 @@ body {
    the artwork — the card's own posters, padded inside the frame — on the right. */
 .section-head { display: flex; align-items: center; gap: 26px; margin-bottom: 26px; }
 .section-meta { flex: 1; min-width: 0; }
+/* **The tag band is the same height on every card page, so the picks row starts at the same place.**
+   The band used to be as tall as the tags happened to be — one row of pills on Seasons (27px), one
+   clamped row and its control on Runtime (71px), two rows and the control on Genres or Themes (106px)
+   — so the row under it landed 79px further down on one card than on the next. The owner read exactly
+   that off two screenshots: *"then why not all top pick rows at the same place"*.
+   The height is the tallest the band ever gets (a clamped track plus the control that reveals the
+   rest), so a card with three tags now keeps the same band as a card with a hundred and eighty: the
+   tags stand at the top of it, the rest of the band is the card's own breathing space, and the row
+   below begins on one line across the whole app. */
+.section-head .section-meta { min-height: 106px; }
 .section-art {
   position: relative;
   flex: none;
@@ -766,6 +801,25 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
   align-items: center;
   gap: 14px;
   margin-bottom: 12px;
+}
+
+/**
+ * **The picks row sits down the page, in the room the tags leave it.**
+ *
+ * The owner's words, twice: *"shuffle row is middle of screen it should be a little down"* — and then,
+ * when 34px of margin was the answer, *"why this row is not little down"*, and at 58px, *"is the row
+ * really down, or you are making me fool"*. Both of those are the same complaint: the row was one small
+ * step under the tags, which on a screen taller than the tags is still the top of the page. A fixed
+ * margin cannot answer it either, because the room under the tags depends on the window, not on the
+ * stylesheet.
+ *
+ * So the space above the row is **proportional to the viewport** — one fifth of its height, never less
+ * than 58px (the small step it had) and never more than 220px — which puts the row in the lower half of
+ * a tall window and leaves the small window exactly as it was. Nothing else about the row moves: same
+ * label, same strip, and the tags still stand at the top of the card where they have always been.
+ */
+.cat-row.top-picks-row {
+  margin-top: clamp(58px, 20vh, 220px);
 }
 
 .cat-name {
@@ -3203,6 +3257,19 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 /* **The grid.** The same episodes as the list, as cards: the still, its number, its
    name and how long it runs. It fills the row instead of running a column, which is
    what a season is for — counting how far you have to go. */
+/* **The grid's covers do not ring.** In the list, an episode's still rings in the selection
+   colour under the cursor — it is one row among many, and the ring says which one you are on. A
+   grid of ten covers is a wall of pictures, and ten rings as the cursor crosses them is noise: the
+   owner's note was *"in season page when in grid option covers dont show rings when hover"*. So
+   the cover in the grid answers the cursor with nothing at all — the picture is the press, and the
+   number and title under it say what it is. */
+.ep-grid .ep-card-art,
+.ep-grid .ep-card-art:hover,
+.ep-grid .ep-card-art:focus-visible,
+.ep-grid .ep-card-art:has(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
 .ep-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -3825,6 +3892,60 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
 }
 .answer-title:hover, .answer-title:focus-visible { color: var(--text); }
 
+/* **What a tag found: titles, each with the catalogue's own description.**
+   A tag used to open a page, and the owner's note was that it was meant to *find* — so the find is
+   drawn where it belongs, beside the answer: a poster, the name and the year, and the synopsis the
+   catalogue holds for that title under them. The list scrolls inside the box rather than growing it,
+   so eight titles can never push the answer off the panel. */
+.assistant-finds { display: flex; flex-direction: column; gap: 9px; }
+.assistant-finds:empty { display: none; }
+.find-head { margin: 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+.find-note { margin: 0; font-size: 11.5px; color: var(--muted); }
+.find-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.find-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(var(--fill-rgb), 0.06);
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.find-row:hover, .find-row:focus-visible { background: rgba(var(--fill-rgb), 0.13); }
+.find-poster {
+  width: 40px;
+  height: 60px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 7px;
+  background: rgba(var(--fill-rgb), 0.14);
+}
+.find-plate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.find-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.find-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.find-name { font-size: 14px; font-weight: 700; }
+.find-year { font-size: 11.5px; color: var(--muted); }
+.find-desc { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
 .assistant-answer {
   margin: 0;
   min-height: 88px;
@@ -3839,6 +3960,13 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
    watch along box me close button ke jyada pass chipka hua hai" — so the row has the app's own gap
    and the way out sits at the end of it. */
 .assistant-actions { display: flex; justify-content: flex-end; gap: 12px; }
+/* **The two pins are the app's own controls, in the app's own row.** Plan to Watch and Add to
+   Library are drawn with `pinButtons` — the banner's buttons, the same classes and the same
+   behaviour — and in the box they were folded into one inline span: no gap between them, and
+   pushed to the right against Close, while on a title page the pins come *first* and the other
+   actions follow. The span is the app's own inline row now (its gap included) and it takes the
+   left of the row, so the box reads like the page it was opened from. */
+.assistant-pins { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; }
 
 /* The centre play target — the picture is clickable, and this is what says so. */
 .player-center {
@@ -6782,3 +6910,11 @@ html .tab.tab-home {
    action row: a row of their own so a redraw after a press cannot disturb Close. */
 .assistant-pins { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .assistant-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* **The address screen.** Drawn when a packaged app cannot reach the catalog server — see
+   `serverPanel` in app.js. It is the one screen a thin client needs that a browser never
+   does: the address it was built to talk to. The field and the two buttons are the app's own
+   `.text-input` / `.btn`, so it reads like every other pane. */
+.server-panel { display: flex; flex-direction: column; gap: 12px; max-width: 760px; margin: 7vh auto 0; }
+.server-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.server-row .text-input { flex: 1 1 340px; min-width: 240px; }

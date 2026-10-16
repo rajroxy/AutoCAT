@@ -525,6 +525,15 @@ const DEFAULT_PEOPLE = PEOPLE;
 // that no longer has a tile.
 const LIVE_PROFILE = "IPTV";
 const PROFILES = ["VOD"];
+/**
+ * **The profile's name, as a person reads it.**
+ *
+ * The profile is stored as `VOD` — it is the id every scope, every settings file and every
+ * server-side store is filed under, so it cannot be renamed without moving an install's whole app.
+ * What it is *called* is another thing: the owner's note was that "VOD" is jargon with no label of
+ * its own, and the row that shows it should say what it means.
+ */
+const profileLabel = (name) => (name === "VOD" ? "Video on Demand" : name);
 const LEGACY_PROFILES = { "Movies & Shows": "VOD", "Live TV & Sports": "VOD", [LIVE_PROFILE]: "VOD" };
 /** The current name for whatever a stored setting says — legacy or unknown → the first. */
 const profileName = (name) => {
@@ -954,6 +963,9 @@ const SETTINGS_GROUPS = [
       ["ratings", "Ratings"],
       ["providers", "Providers"],
       ["tracking", "Trackers"],
+      // **The players you watch in** (Mode 2 only — see `modeHides`): the connection that makes this
+      // app the dashboard of what you watched somewhere else.
+      ["players", "Players"],
       ["notifications", "Notifications"],
       ["addons", "Add-ons"],
       ["debrid", "Debrid"],
@@ -1024,7 +1036,14 @@ const LIVE_SETTINGS_SECTIONS = LIVE_SETTINGS_GROUPS.flatMap((g) => g.sections);
  */
 const modeHides = (name) => {
   const mode = state.trackingMode;
-  if (mode === "dashboard") return name === "addons" || name === "debrid" || name === "playback" || name === "title-play";
+  // **Mode 2 connects players instead of trackers.** Watching elsewhere and tracking here means the
+  // *player* is what reports a watch — so the Trackers tab (which is about writing outwards to Trakt
+  // or SIMKL) has nothing to do in it, and Players (Settings → Players, see `panePlayers`) is where
+  // the connection is made. The owner's note: "in mode 2, tracker option should also hide and api if
+  // app option should come in settings for player like stremio, nuvio, etc connection for sync in
+  // external players for in app tracking in activity page".
+  if (name === "players") return mode !== "dashboard";
+  if (mode === "dashboard") return name === "addons" || name === "debrid" || name === "playback" || name === "title-play" || name === "tracking";
   if (mode === "native") return name === "tracking";
   return name === "activity";
 };
@@ -1043,6 +1062,26 @@ const readJSON = (key, fallback) => {
   }
 };
 const writeJSON = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+
+/**
+ * **A settings group, and the repair of one that has been poisoned.**
+ *
+ * The mode was filed under `tracking` for a round — the key that holds every tracker account — so the
+ * value stored there became a **string**, and every launch read it back and wrote it out again, which
+ * grew a layer of escaping each time. That is the value in the owner's screenshot, and it lives in
+ * this browser's own storage, not on the server; the crash came from folding a *group* into a string
+ * (`can't assign to property "trakt" on …`).
+ *
+ * Naming the mode differently stops it happening again, and this is the repair for a browser that
+ * already holds the poisoned value: a group that is not a group is replaced with the defaults **and
+ * written back**, so the next launch reads a group and there is nothing left to grow.
+ */
+function groupStore(key, fallback) {
+  const held = readJSON(key, fallback);
+  if (held && typeof held === "object" && !Array.isArray(held)) return held;
+  writeJSON(key, fallback);
+  return fallback;
+}
 
 const state = {
   tab: "home",
@@ -1071,11 +1110,11 @@ const state = {
   liveSource: readJSON(KEY.liveSource, { mode: "m3u", m3u: "", host: "", username: "", password: "", epg: "", providers: [], refreshMinutes: 0 }),
   live: { loading: false, loaded: false, all: [], total: 0, groups: [], rows: [], updated: 0, error: "", guide: null, guideLoading: false, guideError: "", guideCountry: "", guideCategory: "", guideSportsOnly: false },
   recordings: readJSON("autocat.recordings", []),
-  providers: readJSON(KEY.providers, { tmdb: { enabled: true }, tvdb: { enabled: false }, mdblist: { enabled: false } }),
+  providers: groupStore(KEY.providers, { tmdb: { enabled: true }, tvdb: { enabled: false }, mdblist: { enabled: false } }),
   // Debrid: which service turns a torrent into a direct link. Only `enabled` and
   // `hasKey` are ever stored here — the key itself lives on the server and is
   // never sent back to the page.
-  debrid: readJSON(KEY.debrid, { realdebrid: { enabled: false }, alldebrid: { enabled: false }, premiumize: { enabled: false }, torbox: { enabled: false }, debridlink: { enabled: false }, deepbrid: { enabled: false }, putio: { enabled: false } }),
+  debrid: groupStore(KEY.debrid, { realdebrid: { enabled: false }, alldebrid: { enabled: false }, premiumize: { enabled: false }, torbox: { enabled: false }, debridlink: { enabled: false }, deepbrid: { enabled: false }, putio: { enabled: false } }),
   // Subtitles: OpenSubtitles' key and login, and the language to look in. As with
   // debrid, the page only ever learns whether a key is set — never the key itself.
   subtitles: readJSON(KEY.subtitles, { opensubtitles: { enabled: false, hasKey: false, hasLogin: false }, subdl: { enabled: false, hasKey: false }, subsource: { enabled: false, hasKey: false }, wyzie: { enabled: false, hasKey: false }, language: "" }),
@@ -1090,7 +1129,7 @@ const state = {
   // because a stream URL expires; keeping them here means they survive closing the player
   // and are gone on a restart, which is exactly the requested lifetime. */
   customStreams: {},
-  tracking: readJSON(KEY.tracking, {
+  tracking: groupStore(KEY.tracking, {
     trakt: { enabled: false },
     simkl: { enabled: false },
     myanimelist: { enabled: false },
@@ -1487,6 +1526,14 @@ async function pushSettings(patch) {
 
 function mergeServerSettings(res) {
   const fold = (group, store, key) => {
+    // **The second lock.** A store that is not a group is not folded into — it is dropped and
+    // replaced, because the loop below is what used to throw the whole screen out
+    // (`can't assign to property "trakt" on "native"`). `groupStore` repairs the stored value on the
+    // way in; this is the guard for a value that reached here another way.
+    if (!store || typeof store !== "object" || Array.isArray(store)) {
+      writeJSON(key, {});
+      return;
+    }
     for (const name of Object.keys(store)) {
       const on = group?.[name]?.enabled;
       if (typeof on === "boolean") store[name].enabled = on;
@@ -2507,35 +2554,12 @@ function catalogChip(card, cat) {
     // sentence printed over the row it names (see the note on `icon-art`).
     "aria-label": `Go to ${cat.name}`,
     text: cat.name,
-    onclick: () => openRow(card.key, cat.id),
+    // **The tag is a door into that row.** It used to scroll to the row's own place on the card page,
+    // and the card page no longer draws rows — its rows are these tags and one shuffled sample (see
+    // `cardTopPicksRow`) — so the press goes where a tag has always *named*: the row's Explore page.
+    // The banner's line of tags reads the same way: *"each one a link into that catalog"*.
+    onclick: () => go(`#/x/${encodeURIComponent(card.key)}/${encodeURIComponent(cat.id)}`),
   });
-}
-
-/**
- * Open a card and bring one of its rows to the top of the screen.
- *
- * The page renders asynchronously (each row fetches its own titles), so the scroll
- * is retried over a few frames until the row exists — and it is a no-op when we are
- * already on that card.
- */
-function openRow(key, catalogId) {
-  const here = parseHash();
-  if (here.view !== "card" || here.key !== key) go(`#/c/${encodeURIComponent(key)}`);
-  const find = () => document.querySelector(`.cat-row[data-catalog="${CSS.escape(catalogId)}"]`);
-  let tries = 0;
-  const jump = () => {
-    const node = find();
-    if (node) {
-      // Guarded: a bare DOM implementation (jsdom, an old WebView) has no
-      // scrollIntoView, and jumping is a nicety, not a requirement.
-      if (typeof node.scrollIntoView === "function") node.scrollIntoView({ block: "start", behavior: "smooth" });
-      node.classList.add("row-flash");
-      setTimeout(() => node.classList.remove("row-flash"), 1200);
-      return;
-    }
-    if (tries++ < 40) requestAnimationFrame(jump);
-  };
-  requestAnimationFrame(jump);
 }
 
 /* ---------------------------------------------------------------- routing */
@@ -2860,7 +2884,7 @@ function syncProfileMark() {
   const button = document.getElementById("profile");
   if (!button) return;
   const who = currentPerson();
-  const title = `${who.name} · ${state.profile} — switch profile`;
+  const title = `${who.name} · ${profileLabel(state.profile)} — switch profile`;
   button.title = title;
   button.setAttribute("aria-label", title);
   // **A person, not a mode.** This corner drew the VOD/IPTV mark, which answers "which
@@ -2921,7 +2945,18 @@ function signInCard() {
     // **No middle box.** The pane drew a box inside the plate and then the fields inside that —
     // three borders around two inputs ("settings me account wale box me bhi middle inner box ko hta
     // dena"). The fields sit on the plate now; the rows of the accounts list below keep their own.
-    el("div", { class: "account-new", id: "account-new" }, accountForm()),
+    // **The sign-in box is the Library's "Add a row" box.** The owner's note: *"profile sign in box
+    // should be like add a row box"* — a named head over one plate holding the fields and the button
+    // (`group-head` + `provider` + `source-form`, the same three the Library pane uses). What it holds
+    // is unchanged: a name, an address if you have one, and Add account.
+    el("div", { class: "group-head" },
+      el("span", { class: "option-title", text: "Add account" }),
+      el("span", {
+        class: "option-desc",
+        text: `${countedAccounts().length} of ${MAX_LOCAL_ACCOUNTS} accounts of your own on this profile${room > 0 ? ` — ${room} left` : ""}. Adam and Eve are the app's own and are not counted.`,
+      }),
+    ),
+    el("div", { class: "provider" }, el("div", { id: "account-new" }, accountForm())),
     el("div", { class: "h-divider", "aria-hidden": "true" }),
     groupHead("Accounts"),
     rows.length ? el("div", { class: "account-list" }, ...rows) : null,
@@ -3130,9 +3165,11 @@ function accountForm({ onDone } = {}) {
   for (const field of [nameField, emailField]) {
     field.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); submit(); } });
   }
+  // **The same shape the Library's "Add a row" box uses** (`source-form`): one line of fields and the
+  // button that acts on them, so the pane's boxes are one design rather than one per subject.
   return el(
     "div",
-    { class: "account-row account-buttons" },
+    { class: "account-row account-buttons source-form" },
     nameField,
     emailField,
     el("button", {
@@ -4541,12 +4578,13 @@ function iconBox(c, row) {
   // glance at what is coming is a window rather than a shelf of posters. It has
   // **no artwork button**: nothing about it is clickable.
   const spotlight = Boolean(c.spotlight);
-  // **A card that is four cards long holds four poster cards.** Upcoming is the one: it is drawn
-  // as wide as four of its neighbours and its frame carries four tiles, which is what "four card
-  // long" asks for — the row of what is next, at the width of the row above it (see `card-wide`
-  // in the sheet and the card's own note in `scripts/collections.mjs`).
+  // **A card that is three cards long holds three poster cards.** Upcoming is the one: the owner's
+  // layout for the foot of the page is *"upcoming card but three card poster then right of it update
+  // card"*, so its frame carries three tiles and it spans three of its neighbours — which is what
+  // leaves the fourth column of that line to Updates (see `card-wide` in the sheet and the foot's own
+  // note above `collectionGrid`).
   const wide = Boolean(c.wide);
-  const tiles = wide ? 4 : spotlight || twoTiles ? 2 : 3;
+  const tiles = wide ? 3 : spotlight || twoTiles ? 2 : 3;
   // The frame is filled by `startSpotlight`, not by the poster wall: the Upcoming
   // card is **two poster cards**, each carrying its own title and release date.
   const strip = contentStrip(c, row, tiles);
@@ -4632,12 +4670,44 @@ function collectionList(row = state.row) {
   );
 }
 
-/** The collection grid, with the vertical divider before the marked card. */
+/**
+ * The collection grid, with the vertical divider before the marked card.
+ *
+ * **And the foot of Home, laid out here rather than in the sheet.** The owner read the page and wrote
+ * its last cards out himself: *"leave same gap here like gap between hero banner and card, then put
+ * upcoming card but three card poster then right of it update card then under upcoming card watchlist
+ * then library then leave a card gap then at last under update card, put recommendations"*.
+ *
+ * Two spacers are all it takes, because the grid places the rest by itself:
+ *   - a **full-row gap** in front of Upcoming (`home-gap`) — the same breath of space the banner has
+ *     above the first card — so "what is next" opens a block of its own;
+ *   - **one card's worth of nothing** in front of Recommendations (`home-slot`), which is what puts it
+ *     **under Updates**: Upcoming is three cards long, Updates takes the fourth column of that line,
+ *     and the Watchlist, the Library and the empty slot fill the line beneath them.
+ *
+ * Both are spacers and nothing else: no name, no artwork, nothing to press (`aria-hidden`), and in the
+ * row layout — where the cards scroll sideways and "under" means nothing — they are not drawn at all.
+ */
+const HOME_GAP_BEFORE = "upcoming";   // the card the foot opens on
+const HOME_SLOT_BEFORE = "for-you";   // the card that lands under Updates
+const HOME_LINE_START = "watchlist";  // the card that opens the foot's second line
 function collectionGrid(row) {
   const container = el("div", { class: state.layout === "rows" ? "icons rows" : "icons grid" });
+  let drawn = 0;
   for (const c of collectionList(row)) {
     if (c.divider) container.append(el("div", { class: "v-divider", "aria-hidden": "true" }));
-    container.append(iconBox(c, row));
+    // A spacer only ever stands between two cards — never in front of the first one.
+    if (drawn && String(c.key) === HOME_GAP_BEFORE) container.append(el("div", { class: "home-gap", "aria-hidden": "true" }));
+    if (drawn && String(c.key) === HOME_SLOT_BEFORE) container.append(el("div", { class: "home-slot", "aria-hidden": "true" }));
+    const node = iconBox(c, row);
+    // **The foot's second line opens under Upcoming, whatever the window is.** On a four-column grid
+    // it does so by itself — Upcoming and Updates fill the line above it — but a wider window has a
+    // column left over and put the Watchlist *beside* Updates, which pushed the Library under
+    // Upcoming and Recommendations up to the third column. Asking the card that opens the line to
+    // start at the first column is the whole fix, and on the four-column window it changes nothing.
+    if (drawn && String(c.key) === HOME_LINE_START) node.classList.add("foot-lead");
+    container.append(node);
+    drawn += 1;
   }
   return container;
 }
@@ -4791,6 +4861,113 @@ function catalogRow(card, cat) {
   );
 }
 
+/**
+ * **The card's content is one row of its own top picks.**
+ *
+ * The owner's note on the card pages: *"har cards me jaise tags hai wo to hai thik hai, usko click karne
+ * pe explore page pe aa jayega user. isiliye tag ke neeche jo rows hai wo hata ke waha pe shuffle row bas
+ * rakh do"* — and then, once he had read it: *"it should be not shuffle row, it should be top picks from
+ * if in genre card then top picks from adventure, or top picks from romance, etc and in if decade then
+ * top picks from 2020s, etc **rotating between tags with updated top 10 on every time card open**."*
+ *
+ * So it is **one row, with the tag's own name on it** — *Top picks from Adventure*, *Top picks from
+ * 2020s* — and which tag it is is **drawn at random on every open** (`topPickDraw`), so a card answers a
+ * different question each time you walk into it, and the ten titles under it are read again (the row's
+ * own order, in full, through `count`). Nothing is drawn with a button of its own: the row is a reading,
+ * not a control.
+ *
+ * **Only the browsing cards.** The Watchlist, Library, Recommendation and Updates cards are *your own*
+ * state, read as a list of named rows, and the owner asked for those to be left exactly as they were —
+ * they draw their rows (`catalogRow`), which is what `keepsRows` decides.
+ */
+const TOP_PICKS = 10;
+
+/**
+ * **Which tag this open is about — a draw, not a turn.**
+ *
+ * This was a counter per card, kept on the machine and advanced on every open, which turned the row
+ * into a **queue**: walk into Genres twice and the second visit was simply the next genre down the
+ * card's own list (the owner's *"why its not randomly appearing tags in top picks, when i open in
+ * shows in order the top pick from then top pick from adventure"* — Adventure, then whatever the next
+ * row happens to be). A rotation that always advances is not a rotation, it is a reading order.
+ *
+ * So the tag is **drawn at random** out of the card's own rows, and the one that was drawn last is
+ * remembered and never drawn twice running — which is what makes two visits answer two different
+ * questions without ever repeating the one on screen a moment ago. Only the *last* draw is kept (not a
+ * walk of past ones): the row is meant to surprise, and a memory of every past draw would turn the
+ * card's list into a deck that runs down and reshuffles. With one row, or with no storage at all
+ * (private mode), there is nothing to choose between and nothing to remember.
+ */
+function topPickDraw(key, count) {
+  if (count <= 1) return 0;
+  let last = -1;
+  try {
+    const held = Number(localStorage.getItem(`autocat.toppick.${key}`));
+    if (Number.isFinite(held)) last = held;
+  } catch {
+    /* private mode — the draw stands, there is just nothing to avoid repeating */
+  }
+  let pick = Math.floor(Math.random() * count);
+  // **Never the same tag twice running.** Landing on the one that was just drawn re-draws it out of
+  // the `count - 1` that are left, so a card of two rows — or a genre card whose rows are all the
+  // small genres — cannot answer the same question twice in a row while still being a draw.
+  if (pick === last) pick = (last + 1 + Math.floor(Math.random() * (count - 1))) % count;
+  try {
+    localStorage.setItem(`autocat.toppick.${key}`, String(pick));
+  } catch {
+    /* private mode — the draw still stands */
+  }
+  return pick;
+}
+
+function cardTopPicksRow(card, catalogs) {
+  const cat = catalogs[topPickDraw(card.key, catalogs.length)] || catalogs[0];
+  const strip = el("div", { class: "strip" });
+  const load = async () => {
+    strip.replaceChildren(...Array.from({ length: 6 }, () => el("div", { class: "placeholder" })));
+    try {
+      // **The row's own order, in full** — its ten top picks, as the catalogue ranks them.
+      const { metas } = await get(
+        `/catalog/${apiType()}/${encodeURIComponent(cat.id)}.json${catalogQuery()}&count=${TOP_PICKS}&_=${Date.now()}`,
+      );
+      strip.replaceChildren();
+      if (!metas?.length) {
+        strip.append(el("p", { class: "empty", text: `Nothing in ${cat.name} just now.` }));
+        return;
+      }
+      for (const m of metas.slice(0, TOP_PICKS)) strip.append(posterCard(m));
+    } catch (err) {
+      strip.replaceChildren(el("p", { class: "empty", text: `Could not read ${cat.name} — ${err.message}` }));
+    }
+  };
+  queueMicrotask(() => load());
+  return el(
+    "div",
+    { class: "cat-row top-picks-row", "data-top-picks": cat.id },
+    el(
+      "header",
+      { class: "cat-head" },
+      // A label, like every other row's name — there is nothing to press beside it.
+      el("span", { class: "cat-name static", text: `Top picks from ${cat.name}` }),
+    ),
+    strip,
+  );
+}
+
+/**
+ * **The cards that keep their own rows.** Four of them are *your* state rather than a catalogue — the
+ * watchlist you pinned, the Library you built, the Recommendation rows the server writes from what you
+ * watch, and the Updates shelf — and the owner was plain that those were not to be touched with a picks
+ * row. The banner's own card (Now Playing / Airing Today / On the Air) keeps its rows too: its tags live
+ * on the banner, and its page is the only place those rows are read in full.
+ */
+const ROWS_KEPT_KEYS = new Set(["watchlist", "for-you", "custom", "updates", "on-the-board"]);
+const ROWS_KEPT_KINDS = new Set(["watchlist", "custom", "recommend", "lineup"]);
+const keepsRows = (card) =>
+  Boolean(card.hidden) ||
+  ROWS_KEPT_KEYS.has(String(card.key)) ||
+  rowOf(card).catalogs.some((cat) => ROWS_KEPT_KINDS.has(String(cat.kind)));
+
 /* --------------------------------------------------- the page's own backdrop */
 
 /* The page used to wear the **colours of the title you were on**, as a blurred
@@ -4846,7 +5023,10 @@ async function renderCard(key) {
     { class: "section" },
     // A card with nothing to put up there (no visible rows) draws no header at all
     // rather than an empty band above its rows.
-    chips.length
+    // **The banner's card draws no tags.** Its rows are Now Playing / Airing Today / On the Air and
+    // their tags are already on the hero banner, where a press lands straight on that row's Explore
+    // page — the owner's note. Every other card keeps its line.
+    chips.length && !c.hidden
       ? el(
           "header",
           { class: "section-head" },
@@ -4860,70 +5040,26 @@ async function renderCard(key) {
   );
 
 
+  // **The card is its tags, and one shuffled row of titles.** Every row the card holds is a tag up
+  // there already (`chips` above), so the rows themselves are not repeated below: see
+  // `cardTopPicksRow` / `keepsRows` for why, in the owner's own words.
   if (catalogs.length) {
-    for (const cat of catalogs) {
-      // A row marked `divider` gets a horizontal rule above it (the Watchlist's
-      // Watching → Plan to Watch boundary).
-      if (cat.divider) wrapper.append(el("div", { class: "h-divider", "aria-hidden": "true" }));
-      wrapper.append(catalogRow(c, cat));
+    // **Your own cards keep their rows** (see `keepsRows`); a browsing card shows one row of top picks
+    // from one of its tags, and the tag moves on every open (see `cardTopPicksRow`).
+    if (keepsRows(c)) {
+      for (const cat of catalogs) {
+        // A row marked `divider` gets a horizontal rule above it (the Watchlist's
+        // Watching → Plan to Watch boundary).
+        if (cat.divider) wrapper.append(el("div", { class: "h-divider", "aria-hidden": "true" }));
+        wrapper.append(catalogRow(c, cat));
+      }
+    } else {
+      wrapper.append(cardTopPicksRow(c, catalogs));
     }
   } else {
     wrapper.append(el("p", { class: "empty", text: "This collection is cover art only — it has no catalogs yet." }));
   }
   return [wrapper];
-}
-
-/**
- * The sample row at the top of an Explore page.
- *
- * It is a plain row — no label, no control of its own — so it reads like the
- * catalog below it rather than like a numbered "Shuffle 1/2/3" list. The one
- * Shuffle button in the header redraws all three (that is what `reload` is for).
- */
-/**
- * **The sample row is drawn once per catalog, and Shuffle is what draws a new one.**
- *
- * The row is a random twelve, and every redraw of the screen rolled a fresh twelve — so
- * changing the **order** dropdown (which re-reads the row from the server) re-rolled the
- * sample above it too, and the one thing on the page that is meant to stay put moved. The
- * drawn sample is kept per catalog for the session; `Shuffle` asks for a new one, and
- * `refreshNow` drops the lot along with the rest of the drawn artwork.
- */
-const shuffledSamples = new Map();
-
-function shuffleRow(cat) {
-  const strip = el("div", { class: "strip" });
-  const paint = (metas) => {
-    strip.replaceChildren();
-    if (!metas.length) {
-      strip.append(el("p", { class: "empty", text: "Nothing to shuffle in this catalog yet." }));
-      return;
-    }
-    for (const m of metas) strip.append(posterCard(m));
-  };
-  const load = async (fresh = false) => {
-    const held = fresh ? null : shuffledSamples.get(cat.id);
-    if (held) {
-      paint(held);
-      return;
-    }
-    strip.replaceChildren(...Array.from({ length: 5 }, () => el("div", { class: "placeholder" })));
-    try {
-      // The `_` is a fresh number per draw, and the server answers a shuffle with
-      // no-store. Without it this URL is byte-identical every time, the browser
-      // serves its cached copy, and Shuffle looks like a button that does nothing.
-      const { metas } = await get(
-        `/catalog/${apiType()}/${encodeURIComponent(cat.id)}/shuffle=12.json${catalogQuery()}&_=${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
-      );
-      shuffledSamples.set(cat.id, metas);
-      paint(metas);
-    } catch (err) {
-      strip.replaceChildren(el("p", { class: "empty", text: `Could not shuffle — ${err.message}` }));
-    }
-  };
-  queueMicrotask(() => load());
-
-  return { node: el("div", { class: "cat-row shuffle-row" }, strip), reload: () => load(true) };
 }
 
 /**
@@ -4941,9 +5077,6 @@ function renderExplore(key, id) {
   const sentinel = el("div", { class: "sentinel" });
   // The chosen letter's own line: what is being shown, and the way back.
   const filterBar = el("div", { class: "explore-filter", hidden: true });
-
-  // The single sample row the header's Shuffle redraws.
-  const samples = [];
 
   // A watchlist (or calendar) catalog holds *your* titles, in your order and in
   // full. There is nothing to draw a random sample from and nothing to shuffle, so
@@ -4963,13 +5096,11 @@ function renderExplore(key, id) {
   // The **For You** rows are named after the titles you watch (`More Like …`), so a
   // random sample on top would be a second, unlabelled copy of the same row — no
   // shuffle row, no Shuffle button.
-  const sampled =
-    !stateful &&
-    !ott &&
-    !String(card.key).startsWith("discover") &&
-    card.key !== "on-the-board" &&
-    card.key !== "for-you" &&
-    card.key !== "upcoming";
+  // **The Explore page has no Shuffle row and no Shuffle button.** The owner read the page and
+  // said so: the sample row on top was a second, unlabelled copy of the row underneath it, and the
+  // card's own page is where a mix belongs (see `cardTopPicksRow`). Nothing is sampled here any
+  // more, so there is no `shuffleRow` and nothing to drive one.
+  const sampled = false;
 
   // **The header no longer names the page.** The bar above already carries the
   // catalog you are inside (see `renderTabs`), so the breadcrumb that said
@@ -4999,27 +5130,10 @@ function renderExplore(key, id) {
   // owner caught it standing on the Global and Domestic Top 10 pages after the first pass took
   // it off the Specialist Top 10 only — the control follows `isOttOrderCard`, and nothing else.
   const sortTools = (sortable || isOttOrderCard(card)) && !stateful ? el("div", { class: "cat-tools" }, ottSortControl()) : null;
-  const tools = ott
-    ? null
-    : sampled
-      ? el(
-          "div",
-          { class: "cat-tools" },
-          sampled
-            ? el("button", {
-                class: "btn subtle focusable shuffle-btn",
-                type: "button",
-                id: "shuffle-samples",
-                title: "Shuffle — draw a fresh sample",
-                // **The word is the button.** It carried the drawn two-way arrows beside the
-                // label, which was the only icon in the app standing in for a word that
-                // already says what it does.
-                onclick: () => samples.forEach((row) => row.reload()),
-              }, el("span", { text: "Shuffle" }))
-            : null,
-        )
-      : null;
-  const head = tools ? el("header", { class: "explore-head" }, tools) : null;
+  // **No control of the page's own, then.** With the sample row gone this button had nothing to
+  // drive; what is left of the header is the OTT order dropdown, which is a *read* of the row
+  // rather than a redraw of it (see `sortTools`), and it is passed to the page as its own node.
+  const head = null;
 
   // Endless scroll: keep paging until the catalog is exhausted.
   let skip = 0;
@@ -5113,11 +5227,9 @@ function renderExplore(key, id) {
   const stopScroll = () => window.removeEventListener("scroll", onScroll);
   window.addEventListener("scroll", onScroll, { passive: true });
 
-  // ONE random sample on top, then a horizontal rule, then the normal endlessly
-  // scrolling catalog — for a catalog that can be sampled at all.
-  if (sampled) samples.push(shuffleRow(cat));
-  const shuffles = sampled ? el("div", { class: "explore-shuffles" }, ...samples.map((row) => row.node)) : null;
-  const rule = sampled ? el("div", { class: "h-divider", "aria-hidden": "true" }) : null;
+  // **The list is the page.** No sample row above it and no rule under one (see `sampled`).
+  const shuffles = null;
+  const rule = null;
 
   /* The alphabet rail — the **titles in this row**, by first letter.
    *
@@ -8007,6 +8119,10 @@ async function openAssistant(meta, opts = {}) {
   });
   const answer = el("p", { class: "assistant-answer", text: "" });
   const stateLine = el("p", { class: "player-note", text: "" });
+  // **What a tag found, above what the model said.** The box's tags are *finds* now (see `findIn`),
+  // and a find belongs next to the answer — one list of titles with the catalogue's own description
+  // of each, rather than a page it dumps you on.
+  const finds = el("div", { class: "assistant-finds" });
   const close = () => {
     document.removeEventListener("keydown", onKey, true);
     dropSharp();
@@ -8041,57 +8157,12 @@ async function openAssistant(meta, opts = {}) {
   //   **Watch it with something** (the companion title and what to put on afterwards). There is
   //   no *Surprise me* here: the page you are reading is the subject, and a random title is not
   //   an answer about it.
-  // **The tags are grouped, and one group is written for the open.**
-  // *Give me something* is the **actions** — presses that go somewhere (a surprise, one of your
-  // Library rows, one of the things you are watching). The other group is **questions**, and the
-  // owner asked for those to come from the model itself, a fresh set every time the box opens,
-  // with the written ones standing by as the fallback (see `loadAITags` below).
-  // **The app's own shelves and lists, as tags.** The owner's ask for the Home box: *"itne sare card
-  // hai, catalog row hai, all around countries titles hai, aur genres — in sab ka bhi tag ho"*. So the
-  // box carries the app itself as four more groups — the **cards**, the **rows** inside them, the
-  // **countries** a catalogue can be read by and the **genres** — each chip a door to that page
-  // (`#/c/…`, `#/x/…`, `#/l/country/…`, `#/l/genre/…`). Read when the box opens, and a failure is an
-  // empty group rather than a box that does not draw.
-  const browse = { cards: [], rows: [], countries: [], genres: [] };
-  if (generic) {
-    try {
-      const cards = await get("/collections.json");
-      for (const card of cards || []) {
-        const label = card.title || card.name || card.key;
-        if (browse.cards.length < 8 && card.key) browse.cards.push([label, () => { close(); go(`#/c/${encodeURIComponent(card.key)}`); }]);
-        for (const cat of [...(card.movie?.catalogs || []), ...(card.series?.catalogs || [])]) {
-          if (browse.rows.length >= 6 || !cat?.id) continue;
-          browse.rows.push([cat.name || cat.id, () => { close(); go(`#/x/${encodeURIComponent(card.key)}/${encodeURIComponent(cat.id)}`); }]);
-        }
-      }
-    } catch {
-      /* no cards read — the box keeps the groups it has */
-    }
-    try {
-      const { filters } = await get("/search/filters.json");
-      for (const [code, label] of (filters?.countries || [])) {
-        if (browse.countries.length >= 9 || !code || code === "all") continue;
-        browse.countries.push([label, () => { close(); go(`#/l/country/${encodeURIComponent(code)}?type=movie`); }]);
-      }
-    } catch {
-      /* same */
-    }
-    try {
-      const { genres } = await get("/genres.json?type=movie");
-      for (const g of genres || []) {
-        if (browse.genres.length >= 10) continue;
-        browse.genres.push([g.name, () => { close(); go(`#/l/genre/${encodeURIComponent(g.id)}?type=movie`); }]);
-      }
-    } catch {
-      /* same */
-    }
-  }
-  const browseGroups = [
-    ["Cards", browse.cards],
-    ["Rows", browse.rows],
-    ["Countries", browse.countries],
-    ["Genres", browse.genres],
-  ].filter(([, items]) => items.length);
+  //
+  // **Home keeps those two groups, and only those two.** The box had also carried the app's own
+  // taxonomy as chips — the cards, their rows, the categories, the countries, the moods & vibes,
+  // the themes, the services and the genres, each a *find* against the catalogue. The owner read
+  // them and said no, so they are gone: the orders and the questions stand, and finding is what a
+  // person asks for — type a description and the assistant names the title behind it (see `ask`).
 
   const chips = generic
     ? [
@@ -8109,8 +8180,6 @@ async function openAssistant(meta, opts = {}) {
           ["Something to fall asleep to", () => askWith("Name one calm, slow film or series to fall asleep to, and say why in one line.")],
           ["Just one, and be quick", () => askWith("Name one title for tonight in a single line, no explanation.")],
         ], { ai: true }],
-        // **The app itself, as tags** — the cards, their rows, the countries and the genres.
-        ...browseGroups.map(([group, items]) => [group, items, { ai: false }]),
       ]
     : [
         ["About this title", (ASK_QUESTIONS[meta?.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie)
@@ -8152,6 +8221,7 @@ async function openAssistant(meta, opts = {}) {
           ),
         )),
       ),
+      finds,
       stateLine,
       answer,
       el("div", { class: "assistant-actions" },
@@ -8164,6 +8234,98 @@ async function openAssistant(meta, opts = {}) {
       ),
     ),
   );
+  /**
+   * **The action is a find, not a door.**
+   *
+   * The first pass gave every tag a page to open — a card, a row, a country list, a genre list — and the
+   * owner's note was plain: *"those are not just cards or rows. i wanted that action to find adam or any
+   * movie with description from those cards or catalogs."* A tag that dumps you onto a browse page is a
+   * label. The action was always meant to **find titles**, out of the app's own cards and catalogs, and to
+   * show what the catalogue itself says about each one.
+   *
+   * Every read here is a read of the app's *own* catalogue — a card's row, a row, a country's films, a
+   * genre's films, or the name you typed — and those answers already carry the synopsis for their first
+   * titles (`applyContentSource` fills what a `/discover` result leaves empty), so the description on the
+   * list is the catalogue's own rather than something invented. Each title is a press away from its page.
+   */
+  function drawFinds(head, metas, note = "") {
+    const list = (metas || []).filter((m) => m && m.name).slice(0, 8);
+    finds.hidden = false;
+    // **A find that found nothing says so.** The panel used to vanish when a row answered with no
+    // titles, which reads as the press having done nothing at all — an empty row is an answer, and
+    // it is worth more than a blank box.
+    if (!list.length) {
+      finds.replaceChildren(
+        el("p", { class: "find-head", text: head }),
+        el("p", { class: "find-note", text: note || "Nothing there just now." }),
+      );
+      return;
+    }
+    finds.replaceChildren(
+      el("p", { class: "find-head", text: head }),
+      el("div", { class: "find-list" }, ...list.map((m) => {
+        const type = m.type === "series" ? "series" : "movie";
+        const id = String(m.id || "").replace(/^tmdb:/, "");
+        const desc = String(m.description || "").trim();
+        return el("button", {
+          class: "find-row focusable",
+          type: "button",
+          title: `Open ${m.name}`,
+          onclick: () => { close(); go(`#/t/${type}/${encodeURIComponent(id)}`); },
+        },
+          m.poster || m.background
+            ? el("img", { class: "find-poster", src: m.poster || m.background, alt: "", loading: "lazy" })
+            : el("span", { class: "find-poster find-plate", text: String(m.name).slice(0, 1) }),
+          el("span", { class: "find-body" },
+            el("span", { class: "find-line" },
+              el("span", { class: "find-name", text: m.name }),
+              m.releaseInfo ? el("span", { class: "find-year", text: String(m.releaseInfo) }) : null,
+            ),
+            // **The description is what makes the list worth reading before you press.** The
+            // catalogue's own words, or a plain line when it holds none — never an invented one.
+            el("span", { class: "find-desc", text: desc || "The catalogue has no description for this one." }),
+          ),
+        );
+      })),
+      note ? el("p", { class: "find-note", text: note }) : null,
+    );
+  }
+
+  /** One find: read, then draw what came back. A read that fails is an empty list, not a broken box. */
+  async function findIn(where, reads) {
+    finds.hidden = false;
+    finds.replaceChildren(el("p", { class: "find-head", text: `Looking in ${where}…` }));
+    const answers = await Promise.all(reads.map((read) => read().catch(() => ({ metas: [] }))));
+    const seen = new Set();
+    const metas = [];
+    for (const answer of answers) {
+      for (const m of answer?.metas || []) {
+        const key = `${m?.type || ""}:${m?.id || ""}`;
+        if (!m?.name || seen.has(key)) continue;
+        seen.add(key);
+        metas.push(m);
+      }
+    }
+    if (!metas.length) {
+      // **A read that found nothing draws nothing.** The box used to answer with a panel of its own —
+      // *"‹where› — nothing there just now"* and a note under it — and the owner read that panel and
+      // asked for it gone: *"ye text aata ha wo hata do"*. Nothing found is not news; it is the absence
+      // of news, and the answer the model writes (which is what the question was really put to) is drawn
+      // on its own above it. A read that **did** find titles draws exactly as it did (see `drawFinds`).
+      finds.hidden = true;
+      finds.replaceChildren();
+      return metas;
+    }
+    const shown = Math.min(metas.length, 8);
+    drawFinds(`${where} — ${shown} ${shown === 1 ? "title" : "titles"}, with the catalogue's own description of each`,
+      metas,
+      metas.length > 8 ? `The first ${8} of the ${metas.length} that read answered with.` : "");
+    // **What it found, handed back.** The Assistant box reads the catalogue first and only lets the
+    // model name a title when that read found nothing (see `ask`), so a miss is a fact its caller
+    // needs: an empty list is the description case, a hit is the name you typed.
+    return metas;
+  }
+
   async function askWith(q) {
     question.value = q;
     await ask();
@@ -8255,6 +8417,43 @@ async function openAssistant(meta, opts = {}) {
     if (/\bsurprise me\b/i.test(q) && q.length <= 24) { close(); surpriseMe(); return; }
     answer.textContent = "";
     stateLine.textContent = "Asking…";
+    // **A typed question is a find first.** Typing a name — *"adam"* — used to hand the words to a
+    // model and nothing else; the app's own catalogues were never asked, though they are the thing that
+    // can answer with a *description* and a page to open. So every typed question reads them in the same
+    // breath, and what it found is drawn above the model's answer (see `findIn`).
+    const read = findIn(`your catalogues for “${q}”`, [() => get(`/search.json?q=${encodeURIComponent(q)}&type=${apiType()}`)]);
+    // **And a *description* is a title the assistant can name.** *"The one where a chemistry
+    // teacher cooks meth"* is not a search the catalogue understands — the words are nowhere in
+    // the title — so the sentence is handed to the assistant, which answers with the **name** and
+    // the name is what the catalogue is then asked for (see `askTitle` on the server).
+    //
+    // **It is a fallback, not a replacement.** The model answers with *a* title, and a wrong one is
+    // worse than nothing: typing a name this app already holds had the model guess a *different*
+    // film and draw it over the one that was asked for. So this read only stands where the catalogue
+    // itself found nothing — which is exactly the description, and never the name. A provider that
+    // cannot answer leaves the find above it untouched.
+    if (aiReady()) {
+      post("/ai/find", { prompt: q })
+        .then(async (res) => {
+          const named = String(res?.query || "").trim();
+          if (!res?.ok || !named || named.toLowerCase() === q.toLowerCase()) return;
+          if ((await read).length) return;
+          // **Both halves of the catalogue are asked**, whatever tab you are on: a description does not
+          // say whether it is a film or a show, and the name the assistant answers with must not be
+          // hidden because the Movies side is the one you happened to be standing on.
+          //
+          // **And it is read before it is drawn.** The panel used to be opened first and then say
+          // *"nothing there just now"* — the owner's note on exactly that line. A name the catalogue
+          // holds nothing for draws nothing at all, and the find above it stands.
+          const { metas: named_metas } = await get(`/search.json?q=${encodeURIComponent(named)}`).catch(() => ({ metas: [] }));
+          const hits = (named_metas || []).filter((m) => m && m.name);
+          if (!hits.length) return;
+          const shown = Math.min(hits.length, 8);
+          drawFinds(`“${named}” — the title the assistant reads for “${q}”`,
+            hits, hits.length > 8 ? `The first ${8} of the ${hits.length} the catalogue answered with.` : "");
+        })
+        .catch(() => { /* the literal find stands */ });
+    }
     try {
       const res = await post("/ai/about", {
         question: q,
@@ -8271,8 +8470,14 @@ async function openAssistant(meta, opts = {}) {
       // fixed model to look up, and an answer you cannot attribute is an answer you cannot
       // trust or reproduce.
       const who = res?.model ? `${res.model}${res.provider ? ` · ${state.ai?.providers?.[res.provider]?.label || res.provider}` : ""}` : "";
-      if (res?.ok) { renderAnswer(res.text); stateLine.textContent = who ? `Answered by ${who}` : ""; }
-      else stateLine.textContent = res?.text || "No answer came back.";
+      if (res?.ok) {
+        // **On Home the answer is the titles, not the sentences.** The owner read the box and asked for
+        // the model's own lines to go: a home question is turned into a *find* (the panel above), and
+        // printing the model's prose over it as well was the text he pointed at — *"ye text aata ha wo
+        // hata do"*. A title's own box still writes: *what is this about* is prose or it is nothing.
+        if (!generic) renderAnswer(res.text);
+        stateLine.textContent = who ? `Answered by ${who}` : "";
+      } else stateLine.textContent = res?.text || "No answer came back.";
     } catch (err) {
       stateLine.textContent = `Could not read the answer — ${err.message}`;
     }
@@ -8296,6 +8501,10 @@ async function openAssistant(meta, opts = {}) {
     try {
       const res = await post("/ai/tags", {
         context: {
+          // **A different angle every open.** The same six suggestions came back every time the box
+          // was opened; the angle is what makes the model write a new set (see `askTags` on the
+          // server, which is told to build the tags around it and never repeat itself).
+          angle: AI_ANGLES[Math.floor(Math.random() * AI_ANGLES.length)],
           // **The tab you are on.** A box opened on the Movies side must not suggest a series —
           // and the same for Shows (see `askTags` on the server).
           row: state.row === "series" ? "series" : "movie",
@@ -8309,8 +8518,16 @@ async function openAssistant(meta, opts = {}) {
               }),
         },
       });
-      const tags = (res?.tags || []).map((t) => String(t || "").replace(/^[-*\d.\s]+/, "").trim()).filter((t) => t && t.length <= 60).slice(0, 8);
-      if (tags.length < 3) return;
+      const seen = new Set();
+      const tags = (res?.tags || [])
+        .map((t) => String(t || "").replace(/^[-*\d.\s]+/, "").replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, "").trim())
+        .filter((t) => {
+          if (!t || t.length > 60 || seen.has(t.toLowerCase())) return false;
+          seen.add(t.toLowerCase());
+          return true;
+        })
+        .slice(0, 6);
+      if (tags.length < 2) return;
       row.replaceChildren(...tags.map((label) => el("button", {
         class: "chip focusable",
         type: "button",
@@ -8337,6 +8554,29 @@ async function openAssistant(meta, opts = {}) {
  * overview, the year, the runtime and the cast already say is not worth a chip. Each one
  * is a sentence you would actually type, so pressing it is the same as asking it.
  */
+/**
+ * **The angles the tag writer works from.** One is drawn at random on every open, and the model builds
+ * its suggestions around it — that is what makes the chips of *Ask for a pick* a fresh set each time
+ * rather than the same six lines written from the same prompt. They are moods and shapes of an evening,
+ * not titles: what fills them in is the model's own knowledge of films and series.
+ */
+const AI_ANGLES = [
+  "a rainy evening in, nothing longer than two hours",
+  "a comfort rewatch you have seen a hundred times",
+  "a five-star classic from before you were born",
+  "a foreign-language film that deserves more attention",
+  "something nobody in the room has heard of",
+  "a long weekend binge of one show",
+  "something to watch with friends who disagree about everything",
+  "a true story, as long as it is a good one",
+  "animation, and not for children",
+  "a thriller that actually holds up",
+  "a comedy that is genuinely funny, not just light",
+  "a late-night, quiet, slow film",
+  "the best thing that came out this year",
+  "a documentary that is a film first and a subject second",
+];
+
 const ASK_QUESTIONS = {
   // A film is one sitting: what it is, whether it is worth the evening, and what to put on
   // after it.
@@ -9976,6 +10216,14 @@ async function openRandomFrom(kinds, label) {
  * into a search query; without one — or if the provider is unreachable — the
  * typed words are searched as-is, so the box still works with no AI configured.
  */
+/**
+ * **Whether an assistant can answer at all.** A key can live in the environment, so "set / not
+ * set" is the **server's** answer (`/ai.json`) rather than this page's copy — and the server uses
+ * the first provider that actually has a key, so one pasted for a provider that was not picked
+ * still counts. The Assist pad and the Assistant box both ask this before calling a model.
+ */
+const aiReady = () => Boolean(state.ai?.enabled !== false && (state.ai?.ready || state.ai?.provider));
+
 async function aiIntent(text, picked) {
   const q = String(text || "").trim();
   if (!q) return;
@@ -10005,7 +10253,7 @@ async function aiIntent(text, picked) {
   // not explicitly picked still answers here. Gating on the local `provider` alone
   // sent every Ask straight to a literal search, which read as the box doing
   // nothing.
-  const ready = Boolean(state.ai?.enabled !== false && (state.ai?.ready || provider));
+  const ready = aiReady();
   if (ready) {
     try {
       const res = await post("/ai/ask", { prompt: q });
@@ -10115,17 +10363,11 @@ function paneProfile() {
     // cloud data, the app as the local tracker of what you watch in Kodi/Plex/Stremio, and the one
     // that touches no third party at all. Only Mode 1 writes outwards (see `trackingMode`); all
     // three keep the rating and the mark here, which is what the app has always done.
-    groupHead("Tracking & sync"),
-    radioRow(state.trackingMode === "sync", "trackingMode", "Mode 1 — Play here, sync outwards",
-      "Stream in the app and let Trakt or SIMKL keep the history: every rating, every title started and every title finished is scrobbled to the tracker you already have, so your badges and followers stay where they are.",
-      () => setTracking("sync")),
-    radioRow(state.trackingMode === "dashboard", "trackingMode", "Mode 2 — Watch elsewhere, track here",
-      "Kodi, Plex, Stremio and the rest stay your players; this app is the dashboard — it reads what you watched in from them and is the place you browse, discover and manage from. Nothing is pushed outwards.",
-      () => setTracking("dashboard")),
-    radioRow(state.trackingMode === "native", "trackingMode", "Mode 3 — Everything in the app, nothing out",
-      "Streaming and tracking both stay here: no tracker is written to and none is consulted, so nothing about what you watch depends on a service that can go down, rate-limit or change its pricing.",
-      () => setTracking("native")),
-    el("p", { class: "option-desc", text: `The rating and the watched mark are kept on this machine in every mode — the mode decides what is copied out. Now: ${state.trackingMode === "sync" ? "Mode 1" : state.trackingMode === "dashboard" ? "Mode 2" : "Mode 3"}.` }),
+    // **Video on Demand, in its own box, above the modes.** The profile this app is running as is
+    // the thing above *how* it runs: the owner's note was that the VOD option had no main label of
+    // its own and sat below the mode options, so the box that names the profile now leads the pane
+    // under its own head, and the three modes follow it.
+    groupHead(profileLabel(state.profile)),
     el(
       "div",
       { class: "current-profile" },
@@ -10133,7 +10375,7 @@ function paneProfile() {
       el(
         "div",
         { class: "current-profile-body" },
-        el("span", { class: "current-profile-name", text: state.profile }),
+        el("span", { class: "current-profile-name", text: profileLabel(state.profile) }),
         el("span", { class: "current-profile-note", text: editing ? "Editing this profile" : "Current profile" }),
       ),
       el("button", {
@@ -10152,6 +10394,18 @@ function paneProfile() {
         ? "Switch off anything this profile should not show, then press Done. Off by default: with the editor closed, everything shows and nothing is hidden."
         : "This is the profile the app is using. Names are changed on the profile screen at boot; press Edit to choose which rows, cards and catalogs this profile shows.",
     }),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    groupHead("Tracking & sync"),
+    radioRow(state.trackingMode === "sync", "trackingMode", "Mode 1 — Play here, sync outwards",
+      "Stream in the app and let Trakt or SIMKL keep the history: every rating, every title started and every title finished is scrobbled to the tracker you already have, so your badges and followers stay where they are.",
+      () => setTracking("sync")),
+    radioRow(state.trackingMode === "dashboard", "trackingMode", "Mode 2 — Watch elsewhere, track here",
+      "Kodi, Plex, Stremio and the rest stay your players; this app is the dashboard — it reads what you watched in from them and is the place you browse, discover and manage from. Nothing is pushed outwards.",
+      () => setTracking("dashboard")),
+    radioRow(state.trackingMode === "native", "trackingMode", "Mode 3 — Everything in the app, nothing out",
+      "Streaming and tracking both stay here: no tracker is written to and none is consulted, so nothing about what you watch depends on a service that can go down, rate-limit or change its pricing.",
+      () => setTracking("native")),
+    el("p", { class: "option-desc", text: `The rating and the watched mark are kept on this machine in every mode — the mode decides what is copied out. Now: ${state.trackingMode === "sync" ? "Mode 1" : state.trackingMode === "dashboard" ? "Mode 2" : "Mode 3"}.` }),
     // **The two modes, and whether they share.** VOD and IPTV are two ways to use the app:
     // separate, each keeps its own keys, add-ons, Debrid account, playlists, playback and
     // layout (and the mode switch carries what you are looking at across, once). Unified,
@@ -10608,7 +10862,11 @@ function activityRows(events) {
         : el("span", { class: "activity-poster activity-initials", text: initialsOf(e.name).toUpperCase() }),
       el("div", { class: "activity-text" },
         el("span", { class: "activity-name", text: e.name }),
-        el("span", { class: "activity-sub", text: `${e.type === "series" ? "Show" : "Film"} · ${ACTIVITY_LABEL[e.state] || e.state}` }),
+        // **And which player it came from, when it came from one.** A watch reported by Stremio,
+        // Nuvio or Kodi through Settings → Players is an ordinary pin — see `report` in
+        // `addon/players.mjs` — and the store keeps the player's name on it so the timeline can say
+        // so. A title pinned in the app has no source and reads exactly as it always did.
+        el("span", { class: "activity-sub", text: `${e.type === "series" ? "Show" : "Film"} · ${ACTIVITY_LABEL[e.state] || e.state}${e.source ? ` · from ${e.source}` : ""}` }),
       ),
       el("span", { class: "activity-when", text: agoText(e.at) }),
     ),
@@ -11478,7 +11736,7 @@ function paneNotifications() {
     render();
   };
   return [
-    el("p", { class: "option-desc", text: `Notifications for this profile (${state.profile}). A notification is drawn in the app; nothing leaves the machine and no account is needed.` }),
+    el("p", { class: "option-desc", text: `Notifications for this profile (${profileLabel(state.profile)}). A notification is drawn in the app; nothing leaves the machine and no account is needed.` }),
     groupHead("Calendar"),
     toggleRow(n.calendar, "Pinned titles in the Calendar", "Tell me when a title I pinned to watch comes out, and when a pinned episode airs.", (e) => set({ calendar: e.target.checked })),
     // **Not "Library"** — the left menu already has a pane by that name.
@@ -11780,7 +12038,17 @@ function sourceRow(source, index, order = [], pos = 0) {
   const list = Array.isArray(source.allProviders) && source.allProviders.length ? source.allProviders : null;
   return el("div", { class: "source provider" },
     el("div", { class: "source-main" },
-      el("span", { class: "source-type", text: `${typeLabel(source.type)}${source.name ? ` · ${source.name}` : ""}` }),
+      // **The row's head is the Debrid pane's head.** A debrid account is drawn as a box whose head
+      // carries the service's name and a badge saying whether it is working, and the owner's note was
+      // that the add-ons should read the same way: *"addon box should be like debrid option box"*. The
+      // name and the state are the head; the address, the providers and the buttons are the body.
+      el("div", { class: "provider-head" },
+        el("div", { class: "ai-provider-name" },
+          el("span", { class: "option-title", text: source.name || typeLabel(source.type) }),
+          el("span", { class: `badge ${source.status?.ok ? "on" : "off"}`, text: source.status?.ok ? "working" : "not read" }),
+        ),
+        el("span", { class: "source-type", text: typeLabel(source.type) }),
+      ),
       el("span", { class: "source-url", text: source.url }),
       source.status ? el("span", { class: `source-status ${source.status.ok ? "ok" : "bad"}`, text: sourceStatusText(source) }) : null,
       ...sourceBody(source),
@@ -11831,6 +12099,147 @@ function sourceRow(source, index, order = [], pos = 0) {
  * Settings → Add-ons & plugins, one pane: both kinds of source, each with its own
  * form, so "where do I add a source?" has one answer.
  */
+/**
+ * **Settings → Players: the players this app is the dashboard for.**
+ *
+ * Mode 2 is *watch elsewhere, track here* — and until now there was nothing to tell the app what
+ * "elsewhere" played. This pane is that connection: the app's own **ingest address** (one line, one
+ * press to copy) goes into the player, and the player tells the app what started and what finished.
+ * Every report is filed as an ordinary pin, so what you watch in Stremio, Nuvio or Kodi turns up on
+ * the **Activity page**, in the Library card and in the Watched filter exactly like a pin you made
+ * here — because it *is* one (see `report` in `addon/players.mjs`).
+ *
+ * The owner's ask, in their words: *"in mode 2, tracker option should also hide and api if app option
+ * should come in settings for player like stremio, nuvio, etc connection for sync in external players
+ * for in app tracking in activity page"*. So this section exists in Mode 2 and its rows are the same
+ * shape the Debrid pane's accounts are: a box with the name in its head, a switch for it, and what it
+ * has done underneath.
+ */
+let playersFetchedAt = 0;
+
+function panePlayers() {
+  if (Date.now() - playersFetchedAt > 1500) {
+    playersFetchedAt = Date.now();
+    get("/players.json")
+      .then((res) => {
+        if (res?.ok) state.externalPlayers = res;
+        if (state.settingsSection === "players") render();
+      })
+      .catch(() => { /* offline: the pane shows what the app already knows */ });
+  }
+  const data = state.externalPlayers || { ingest: "", token: "", players: [], events: [], known: [], max: 8 };
+  const rows = data.players || [];
+  const events = data.events || [];
+  const address = data.ingest && data.token ? `${data.ingest}?token=${encodeURIComponent(data.token)}` : data.ingest || "";
+  const note = el("span", { class: "source-status", text: "" });
+  const say = (text, ok = false) => { note.className = `source-status${ok ? " ok" : text ? " bad" : ""}`; note.textContent = text || ""; };
+  const call = async (body) => {
+    const res = await post("/players.json", body).catch(() => null);
+    if (res?.ok) state.externalPlayers = res;
+    else say(res?.error || "That did not work.");
+    render();
+  };
+
+  const addressInput = el("input", { class: "text-input focusable", type: "text", id: "player-address", readonly: "readonly", value: address });
+  const copy = el("button", {
+    class: "btn primary focusable", type: "button", id: "player-copy", text: "Copy address",
+    onclick: async () => {
+      try { await navigator.clipboard.writeText(address); say("Copied. Paste it into the player.", true); }
+      catch { addressInput.select(); say("This browser would not copy it — select the box and copy it by hand."); }
+    },
+  });
+  const rotate = el("button", {
+    class: "btn subtle focusable", type: "button", id: "player-rotate", text: "New address",
+    title: "Make a new token — every player you gave the old address to stops reporting",
+    onclick: () => call({ action: "rotate" }),
+  });
+
+  const known = dropdown((data.known || []).map((k) => [k.id, k.name]), (data.known || [])[0]?.id || "stremio");
+  const chosen = () => (data.known || []).find((k) => k.id === known.value()) || null;
+  const hint = el("p", { class: "option-desc", id: "player-hint", text: chosen()?.hint || "" });
+  const nameInput = el("input", { class: "text-input focusable", type: "text", id: "player-name", maxlength: "40", placeholder: "Its name" });
+  const urlInput = el("input", { class: "text-input focusable", type: "text", id: "player-url", maxlength: "400", placeholder: "Its own address — optional" });
+  const add = el("button", {
+    class: "btn primary focusable", type: "button", id: "player-add", text: "Connect",
+    disabled: rows.length >= (data.max || 8),
+    onclick: () => call({ action: "connect", player: known.value(), name: nameInput.value.trim() || chosen()?.name || "", url: urlInput.value.trim() }),
+  });
+  // The hint follows the picker: what each player is told to do with the address differs.
+  known.node.addEventListener("change", () => { hint.textContent = chosen()?.hint || ""; });
+
+  /** One connected player: the Debrid pane's own box, with a switch in its head. */
+  const rowBox = (player) => el("div", { class: `provider ai-provider${player.on ? " active" : ""}` },
+    el("div", { class: "provider-head" },
+      el("div", { class: "ai-provider-name" },
+        el("span", { class: "option-title", text: player.name }),
+        el("span", { class: `badge ${player.on ? "on" : "off"}`, text: player.on ? "connected" : "off" }),
+        player.count ? el("span", { class: "badge free", text: `${player.count} report${player.count === 1 ? "" : "s"}` }) : null,
+      ),
+      el("label", { class: "switch", title: `${player.on ? "Stop accepting" : "Start accepting"} reports from ${player.name}` },
+        el("input", {
+          type: "checkbox", checked: player.on,
+          onchange: (e) => call({ action: "toggle", player: player.id, on: e.target.checked }),
+        }),
+        el("span", { class: "slider" }),
+      ),
+    ),
+    el("p", {
+      class: "option-desc",
+      text: player.lastAt ? `Last report: “${player.lastTitle}”, ${agoText(player.lastAt)}.` : "Nothing reported yet — paste the address above into it.",
+    }),
+    player.url ? el("span", { class: "source-url", text: player.url }) : null,
+    el("div", { class: "source-actions" },
+      el("button", {
+        class: "btn subtle focusable", type: "button", id: `player-remove-${player.id}`, text: "Disconnect",
+        onclick: () => call({ action: "remove", player: player.id }),
+      }),
+    ),
+  );
+
+  return [
+    el("p", {
+      class: "option-desc",
+      text: "This app does not have to be the player. Give a player the address below and it will tell this app what you started and what you finished — so the Activity page, the Library and the Watched filter all show the truth of what you actually watched, wherever you watched it. Nothing is pushed anywhere: a report arrives here and stays here.",
+    }),
+    el("div", { class: "group-head" },
+      el("span", { class: "option-title", text: "This app's ingest address" }),
+      el("span", { class: "option-desc", text: "One address per profile. Anything holding it can write to this profile's history, and “New address” takes it back." }),
+    ),
+    el("div", { class: "provider" },
+      el("div", { class: "source-form" }, addressInput, copy, rotate),
+      el("p", { class: "option-desc", text: "A player that can only open a link uses the same address with the title on it: …&title=The%20Matrix&type=movie&state=watching. POST JSON to the address with {token, title, id, type, state} if it can." }),
+      note,
+    ),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    el("div", { class: "group-head" },
+      el("span", { class: "option-title", text: "Connect a player" }),
+      el("span", { class: "option-desc", text: `Up to ${data.max || 8} on this profile.` }),
+    ),
+    el("div", { class: "provider" }, el("div", { class: "source-form" }, known.node, nameInput, urlInput, add), hint),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    el("div", { class: "group-head" },
+      el("span", { class: "option-title", text: "Connected players" }),
+      el("span", { class: "option-desc", text: "Each one reports with the address above; switching one off stops its reports and leaves the others alone." }),
+    ),
+    ...(rows.length ? rows.map(rowBox) : [el("p", { class: "option-desc", text: "None yet." })]),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    el("div", { class: "group-head" },
+      el("span", { class: "option-title", text: "What has arrived" }),
+      el("span", { class: "option-desc", text: "The last few reports, newest first — the same titles the Activity page keeps." }),
+    ),
+    events.length
+      ? el("div", { class: "activity-list" }, ...events.map((e) =>
+          el("div", { class: "activity-row" },
+            el("div", { class: "activity-text" },
+              el("span", { class: "activity-name", text: e.title }),
+              el("span", { class: "activity-sub", text: `${e.player} · ${ACTIVITY_LABEL[e.state] || e.state}` }),
+            ),
+            el("span", { class: "activity-when", text: agoText(e.at) }),
+          )))
+      : el("p", { class: "option-desc", text: "Nothing has arrived yet." }),
+  ];
+}
+
 function paneAddonsPlugins() {
   const addons = state.sources.filter((s) => ADDON_TYPES.some(([t]) => t === s.type));
   // **Add-ons only.** The AutoCAT plugin half of this pane is gone: a plugin is code
@@ -12144,6 +12553,7 @@ function renderSettings() {
     // Trackers and providers are their own panes now — the two halves of the old
     // "Trackers & providers" tab, each under its own name.
     tracking: paneTracking,
+    players: panePlayers,
     providers: paneProviders,
     debrid: paneDebrid,
     dns: paneDns,
@@ -12253,7 +12663,7 @@ function setChromeLabel(text) {
 /** The profile button is an icon — the profile it stands for lives in its title. */
 function renderProfile() {
   const btn = document.getElementById("profile");
-  const label = `${currentPerson().name} · ${state.profile} — switch profile`;
+  const label = `${currentPerson().name} · ${profileLabel(state.profile)} — switch profile`;
   btn.title = label;
   btn.setAttribute("aria-label", label);
 }
@@ -16166,6 +16576,93 @@ function screenError(err, view) {
   );
 }
 
+/**
+ * **Where the server is, asked on the screen.**
+ *
+ * The packaged app (Android TV) is a **thin client**: the APK carries the interface, and every
+ * card, cover and row is served by the catalog server (`serve.mjs`) — a Node program, which
+ * cannot run inside an APK. With no address to ask there is nothing to draw, and that is the
+ * whole of "cards nahi dikhte" on the TV.
+ *
+ * So the address is asked for here, the way the rest of the app asks for things: a field, a
+ * Save, and the app reloads on it. It is remembered on the device under `autocat.api`, which
+ * `ui/config.js` reads before the build-time `AUTOCAT_HOST` — so an APK that was built with no
+ * host in it is still usable, and a server that moves to another address does not need a new
+ * build. An https host is the public case; the LAN address of the machine running `serve.mjs`
+ * is the one a TV box on the same network wants (the Android manifest allows that in the clear).
+ */
+function serverPanel(err, retry) {
+  const held = (() => {
+    try {
+      return localStorage.getItem("autocat.api") || "";
+    } catch {
+      return "";
+    }
+  })();
+  const input = el("input", {
+    class: "text-input focusable",
+    id: "server-host",
+    type: "url",
+    inputmode: "url",
+    placeholder: "https://your-server.example.com",
+    value: held || window.AUTOCAT_HOST || "",
+    "aria-label": "Catalog server address",
+  });
+  const save = () => {
+    const host = String(input.value || "").trim().replace(/\/+$/, "");
+    try {
+      if (host) localStorage.setItem("autocat.api", host);
+      else localStorage.removeItem("autocat.api");
+    } catch {
+      /* private mode — the reload simply keeps the build-time host */
+    }
+    location.reload();
+  };
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") save();
+  });
+  return el(
+    "div",
+    { class: "server-panel" },
+    el("p", { class: "empty", text: `Could not reach the catalog server: ${err.message}` }),
+    el("p", {
+      class: "view-hint",
+      text: "Every card, cover and row is read from the catalog server. Give its address — an https host, or the LAN address of the machine running serve.mjs.",
+    }),
+    el(
+      "div",
+      { class: "server-row" },
+      input,
+      el("button", { class: "btn primary focusable", type: "button", text: "Save and reload", onclick: save }),
+      retry ? el("button", { class: "btn focusable", type: "button", text: "Try again", onclick: () => bootRetry() }) : null,
+    ),
+  );
+}
+
+/** Whether this build is the packaged app (the APK), where the server starts with it. */
+const packagedApp = () => typeof window.Capacitor !== "undefined";
+
+/**
+ * **The in-app server comes up with the app, not before it.**
+ *
+ * On Android TV the catalog server is started by the same launch as the WebView, so the first
+ * read can arrive while it is still binding its port — one moment of patience is the whole
+ * difference between the cards and a screen saying the server is not there. Nothing else needs
+ * this: in a browser and in the Electron window the server is already up when the page loads.
+ * Returns the cards, or `null` when the server never answered.
+ */
+async function waitForCollections(read, tries = 12, gap = 700) {
+  for (let i = 0; i < tries; i++) {
+    await new Promise((done) => setTimeout(done, gap));
+    try {
+      return await read();
+    } catch {
+      /* still coming up */
+    }
+  }
+  return null;
+}
+
 /** The same boot read, without the splash: used by the watchdog's button. */
 async function bootRetry() {
   const main = document.getElementById("main");
@@ -16188,16 +16685,22 @@ async function boot() {
   setupInput();
   setupSound();
 
+  // A cache-buster, like `refreshCollections`: For You's rows are rebuilt per request,
+  // and without one the browser can hand back the list it already has — the same rows after
+  // every reload.
+  const readCollections = () => get(`/collections.json?_=${Date.now()}`);
   try {
-    // A cache-buster, like `refreshCollections`: For You's rows are rebuilt per
-    // request, and without one the browser can hand back the list it already has —
-    // the same rows after every reload.
-    state.collections = await get(`/collections.json?_=${Date.now()}`);
+    state.collections = await readCollections();
   } catch (err) {
-    document.getElementById("main").replaceChildren(
-      el("p", { class: "empty", text: `Could not reach the catalog server: ${err.message}` }),
-    );
-    return;
+    // **The packaged app is given a moment.** Its own server starts with it (see
+    // `waitForCollections`), and a read that arrives a beat too early is not a missing server.
+    state.collections = packagedApp() ? await waitForCollections(readCollections) : null;
+    if (!state.collections) {
+      // **The way in, not just the failure.** The address is typed on this screen and
+      // remembered (`serverPanel`), so a build that cannot reach anything is not a dead end.
+      document.getElementById("main").replaceChildren(serverPanel(err, true));
+      return;
+    }
   }
 
   // What the addon actually publishes, read from its own manifest.

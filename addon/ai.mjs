@@ -127,6 +127,21 @@ const SYSTEM = [
 ].join(" ");
 
 /**
+ * **A description is a title nobody named.**
+ *
+ * `SYSTEM` turns a request into a query for a search *box*, which is not what a described film
+ * needs: *"the one where a chemistry teacher cooks meth"* has no useful keywords — the words are
+ * nowhere in the title. This prompt asks for the **title behind a description**, and the Assistant
+ * box then looks that name up in the app's own catalogue (`/ai/find` → `/search.json`).
+ */
+const TITLE_SYSTEM = [
+  "You name ONE film or TV series from a viewer's description of it.",
+  "Answer with the title only — no quotes, no year, no explanation.",
+  "If the description names it already, answer with that name.",
+  "If you cannot tell which title is meant, answer with the closest title you know.",
+].join(" ");
+
+/**
  * Models that think before they answer.
  *
  * `gpt-oss` and friends spend the token budget on reasoning, and with a small
@@ -411,6 +426,9 @@ const tidy = (text) =>
 /**
  * Turn a sentence into a search query. Never throws: a provider problem comes
  * back as `{ ok: false }` so the caller can fall back to the literal text.
+ *
+ * `opts.system` swaps the job — `askTitle` below is the same call with the *name this title*
+ * prompt, so a description finds a title with the same provider, model and fallbacks.
  */
 export async function askAI(prompt, opts = {}) {
   const provider = opts.provider || aiProviderName();
@@ -432,7 +450,8 @@ export async function askAI(prompt, opts = {}) {
   const attempt = async (candidate) => {
     const ask = async (maxTokens) => {
       try {
-        return { raw: await complete(cfg, key, candidate, text, maxTokens ? { maxTokens } : {}) };
+        const asked = { ...(maxTokens ? { maxTokens } : {}), ...(opts.system ? { system: opts.system } : {}) };
+        return { raw: await complete(cfg, key, candidate, text, asked) };
       } catch (err) {
         return { err };
       }
@@ -475,6 +494,14 @@ export async function askAI(prompt, opts = {}) {
   }
   return { ok: false, text: `${cfg.label} — ${lastError}` };
 }
+
+/**
+ * **The title a description means.** `/ai/find`: the Assistant box hands over what you typed —
+ * *"the one where a chemistry teacher cooks meth"* — and gets back `breaking bad`, which the app
+ * then looks up in its own catalogue. Same providers, same key, same fallbacks as `askAI`; only the
+ * system prompt differs (`TITLE_SYSTEM`), and the answer is the `query` either way.
+ */
+export const askTitle = (prompt, opts = {}) => askAI(prompt, { ...opts, system: TITLE_SYSTEM });
 
 /**
  * **A question about one title, answered in prose.**
@@ -558,6 +585,7 @@ export async function askAbout(question, context = {}, opts = {}) {
  * things to watch on Home — one per line, and hands back only the lines. Any failure is an empty
  * list, which the box reads as "keep what is written".
  */
+const TAGS_PICK_SYSTEM = `You choose tags for a streaming app's Ask box out of the lists you are given. Reply with one line per choice, each exactly \`Group: tag\`, using the tag names exactly as they are written in the lists — never a name that is not in the list, never a new one, no numbering, no explanation, no markdown.`;
 const TAGS_SYSTEM = `You write the suggestion buttons for a streaming app's Ask AI box. Reply with six short suggestions, one per line, no numbering, no bullet marks, no markdown, no explanation. Each suggestion is at most five words and is something the person could tap: a question about the title, or a request for something to watch tonight. Never repeat a suggestion. Use the exact media word you are told to use, and never the other one.`;
 
 /**
@@ -622,6 +650,63 @@ export async function askTags(context = {}, opts = {}) {
   if (!cfg) return { ok: false, tags: [] };
   const key = opts.key ?? aiKey(provider);
   if (!key) return { ok: false, tags: [] };
+
+  /**
+   * **The groups, written for the open — out of the app's own lists.**
+   *
+   * The find groups in the Ask box (the cards, the rows, the categories, the countries, the genres,
+   * the moods, the themes, the services) have one hard rule a free-written suggestion cannot keep:
+   * a chip has to open something. So the model is not asked to invent the tags — it is asked to
+   * **choose and order them from the lists this app can actually open**, and the answer is filtered
+   * against those lists afterwards. A name that is not in the list it came back under is dropped,
+   * which is what makes a model-written group safe: the worst it can do is choose badly, never make
+   * a chip that points at nothing.
+   *
+   * One call for every group together (a call per group would be eight model calls for one box), and
+   * any failure is `ok: false`, which the client reads as "keep the app's own order".
+   */
+  const wanted = context.groups && typeof context.groups === "object" ? context.groups : null;
+  if (wanted) {
+    const pools = Object.entries(wanted)
+      .map(([name, list]) => [String(name), (Array.isArray(list) ? list : []).map((x) => String(x || "").trim()).filter(Boolean).slice(0, 80)])
+      .filter(([, list]) => list.length >= 2);
+    if (!pools.length) return { ok: false, tags: [], groups: {} };
+    const want = Math.max(2, Math.min(6, Number(context.count) || 4));
+    const browse = context.row === "series" ? "shows" : context.row === "movie" ? "films" : "";
+    const prompt = [
+      browse ? `The person is browsing ${browse} right now.` : "",
+      `Below are the tags this app can open, group by group. Choose ${want} from each group, in the order a person would want them tonight.`,
+      "Reply with one line per tag, exactly `Group: tag`, using the names as they are written and nothing else — no numbering, no explanation.",
+      "",
+      ...pools.map(([name, list]) => `${name}: ${list.join(", ")}`),
+    ].filter(Boolean).join("\n");
+    const model = opts.model || aiModel(provider);
+    for (const candidate of await candidateOrder(cfg, key, model)) {
+      try {
+        const raw = await complete(cfg, key, candidate, prompt, { system: TAGS_PICK_SYSTEM, maxTokens: 400 });
+        const picked = {};
+        for (const line of String(raw || "").split("\n")) {
+          const at = line.indexOf(":");
+          if (at < 1) continue;
+          const name = line.slice(0, at).replace(/^\s*[-*\d.)\]]+\s*/, "").trim();
+          const tag = line.slice(at + 1).replace(/^\s*[-*\d.)\]]+\s*/, "").trim().replace(/[.,;]$/, "");
+          const pool = pools.find(([n]) => n.toLowerCase() === name.toLowerCase());
+          if (!pool || !pool[1].includes(tag)) continue;
+          const list = (picked[pool[0]] = picked[pool[0]] || []);
+          if (list.length < want && !list.includes(tag)) list.push(tag);
+        }
+        const groups = Object.fromEntries(Object.entries(picked).filter(([, list]) => list.length >= 2));
+        const total = Object.values(groups).reduce((n, list) => n + list.length, 0);
+        if (total >= 4) {
+          WORKING.set(cfg.label, candidate);
+          return { ok: true, provider, model: candidate, tags: [], groups };
+        }
+      } catch {
+        /* the next model, or the box keeps the app's own order */
+      }
+    }
+    return { ok: false, tags: [], groups: {} };
+  }
   const about = [
     context.name && `Title: ${context.name}`,
     context.year && `Year: ${context.year}`,
@@ -641,9 +726,20 @@ export async function askTags(context = {}, opts = {}) {
   const tab = browsing
     ? ` The person is browsing ${browsing} right now: every suggestion must be about ${browsing}, and must use the word "${browsing === "shows" ? "show" : "movie"}" (never "${browsing === "shows" ? "movie" : "show"}").`
     : "";
+  // **Every open is its own question.** The model answered with the same six suggestions every time the
+  // box was opened — the owner's *"why ask for pick category shows this always on opening ask assisstant
+  // box, in place of directly generating random tags"* — so each call carries a **different angle**,
+  // chosen by the box, and is told in as many words to write something new. The angle is *not* a title
+  // from the catalogue: it is the mood or shape of the request, and the model's own knowledge is what
+  // fills it in.
+  const angle = String(context.angle || "").trim();
+  const variety = angle
+    ? ` Build every suggestion around this angle: ${angle}.`
+    : " Pick a different angle from the last time you were asked.";
+  const never = " These must not be the suggestions you gave last time, and must not repeat each other: six different angles, never six phrasings of one.";
   const prompt = about
-    ? `${about}\n\nWrite six suggestions someone could tap about this title.${tab}`
-    : `Nothing is chosen yet. Write six suggestions someone could tap tonight — things to watch, and questions that get them a pick.${tab}`;
+    ? `${about}\n\nWrite six suggestions someone could tap about this title.${tab}${variety}${never}`
+    : `Nothing is chosen yet. Write six suggestions someone could tap tonight — things to watch, and questions that get them a pick.${tab}${variety}${never}`;
   const model = opts.model || aiModel(provider);
   for (const candidate of await candidateOrder(cfg, key, model)) {
     try {
@@ -656,7 +752,9 @@ export async function askTags(context = {}, opts = {}) {
           .slice(0, 8),
         browsing,
       );
-      if (tags.length >= 3) {
+      // **Two is enough to be a fresh set.** Three was the floor, and a model that answered with two
+      // good ones left the written suggestions standing instead — which is the thing the owner saw.
+      if (tags.length >= 2) {
         WORKING.set(cfg.label, candidate);
         return { ok: true, provider, model: candidate, tags };
       }

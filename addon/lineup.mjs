@@ -44,7 +44,9 @@ import { fileURLToPath } from "node:url";
 import { SHELF_SHARE, SHELF_TURN, monthEnd, monthNext, monthOf, monthStart, onShelfCoin } from "./shelf.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const FILE = path.join(HERE, "lineup.json");
+// Overridable like every other state file, so an installed app can keep the shelf of the
+// day in its own data directory rather than in read-only program files.
+const FILE = process.env.AUTOCAT_LINEUP_FILE || path.join(HERE, "lineup.json");
 
 /** The two rows that declare a date. The rest of the app only ever reads what they said. */
 const LEAVING_ROW = "Leaving Soon";

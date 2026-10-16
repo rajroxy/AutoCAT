@@ -6,8 +6,14 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- **The catalog server is spoken to in the clear when it is on the LAN.** The APK carries
+         the interface, and the cards, covers and rows are served by `serve.mjs` over the
+         network; run that server on a PC and it answers `http://192.168.x.x:3000`, which Android
+         blocks for every app from API 28 on unless this is set — and a blocked request is exactly
+         "no cards on the TV". A public https host works either way. -->
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:banner="@mipmap/ic_launcher"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -16,7 +22,7 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"

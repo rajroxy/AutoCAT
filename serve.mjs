@@ -18,8 +18,13 @@ import { handleAddon } from "./addon/index.mjs";
 import { installProcessGuards } from "./addon/guards.mjs";
 
 const ROOT_DIR = resolve(fileURLToPath(import.meta.url), "..");
-const COVERS = resolve(ROOT_DIR, "covers");
-const UI = resolve(ROOT_DIR, "desktop", "ui");
+// **Where the card art and the interface are.** Both default to a checkout's own layout and
+// both can be pointed elsewhere, because an installed desktop app has neither beside this
+// file: electron-builder packs `desktop/server/` (this file, the addon modules and `covers/`)
+// and `desktop/ui/` as two folders of the app, and `main.js` hands over both — see
+// `scripts/desktop-server-folder.mjs`.
+const COVERS = process.env.AUTOCAT_COVERS_DIR ? resolve(process.env.AUTOCAT_COVERS_DIR) : resolve(ROOT_DIR, "covers");
+const UI = process.env.AUTOCAT_UI_DIR ? resolve(process.env.AUTOCAT_UI_DIR) : resolve(ROOT_DIR, "desktop", "ui");
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",

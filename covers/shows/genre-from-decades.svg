@@ -101,11 +101,11 @@
   <rect x="0" y="0" width="1920" height="1080" fill="url(#vignette)"/>
 
   <g>
-    <text x="140" y="455" font-family="Inter" font-size="129" font-weight="800" letter-spacing="-4.52" fill="url(#titleFill)">Genre from</text>
-    <text x="140" y="578.9" font-family="Inter" font-size="129" font-weight="800" letter-spacing="-4.52" fill="url(#titleFill)">Decades</text>
-    <text x="140" y="683.8" font-family="Inter" font-size="30" font-weight="600" letter-spacing="6.00" fill="rgba(231,235,243,0.52)">Action &amp; Adventure | 1950 → Present</text>
-    <text x="140" y="726.4" font-family="Inter" font-size="30" font-weight="600" letter-spacing="6.00" fill="rgba(231,235,243,0.52)">Animation | 1950 → Present</text>
-    <text x="140" y="769" font-family="Inter" font-size="30" font-weight="600" letter-spacing="6.00" fill="rgba(231,235,243,0.52)">+14 more</text>
+    <text x="140" y="464.5" font-family="Inter" font-size="86" font-weight="800" letter-spacing="-3.01" fill="url(#titleFill)">Genre from</text>
+    <text x="140" y="547" font-family="Inter" font-size="86" font-weight="800" letter-spacing="-3.01" fill="url(#titleFill)">Decades</text>
+    <text x="140" y="641.7" font-family="Inter" font-size="30" font-weight="600" letter-spacing="6.00" fill="rgba(231,235,243,0.52)">Action &amp; Adventure | 1950 → Present</text>
+    <text x="140" y="684.3" font-family="Inter" font-size="30" font-weight="600" letter-spacing="6.00" fill="rgba(231,235,243,0.52)">Animation | 1950 → Present</text>
+    <text x="140" y="726.9" font-family="Inter" font-size="30" font-weight="600" letter-spacing="6.00" fill="rgba(231,235,243,0.52)">+14 more</text>
   </g>
 
   <rect x="0.75" y="0.75" width="1918.5" height="1078.5" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
