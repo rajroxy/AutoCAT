@@ -66,47 +66,62 @@ recorded in `scripts/tmdb-verified.json`).
 filtered again before they are built, because several TMDB endpoints take no such
 parameter. The SFW and NSFW pools are keyed separately, so one can never answer the other.
 
-**Leaving and arriving.** Every title is in the app from the day it is released, and the
-app carries it for a fixed stay: **180 days for a film, 365 for a series** — a series
-arrives an episode at a time over months, a film arrives complete. The stay is per title,
-not one number for everything, and the leaving date is `release + stay` for that title.
+**Half the catalogue, and fifty either way a month.** The app is a **service with a shelf**, not a
+mirror of TMDB: **half of TMDB is in it** — a stable coin on each title's own key (`SHELF_SHARE` in
+`addon/shelf.mjs`), the same half on every row, in the search, in the filters, on every machine and
+in every run — and the other half is **not in the app at all**. It is the pond the arrivals are
+fished out of.
 
-The **Updates** card is the two ends of that window — **what has arrived this month, and what goes
-next month**:
+Every month **fifty titles leave the shelf and fifty are drawn into it, at random** — the owner's
+own words: *"pehle to app me se tmdb ka half titles hatana hoga … then unn half me 50 titles leave
+honge per month and 50 titles aayenge per month randomly aur koi world upcoming ya newly released se
+koi connection nahi sab random hoga."* No release window, no "newly released", no trending list: a
+title is on the shelf because the month picked it, and a title leaves because the month picked it.
+
+**The draw is a function of the month's own name** (`2026-10`), so every read inside October answers
+with the same fifty, a restart or a second machine answers the same fifty, and November answers with
+a different fifty. The pond is TMDB — two pages of its popularity order plus eight seeded-random
+ones inside the first sixty — so the fifty have names on them rather than being deep-cut noise, and
+the shuffle over that pond is the month's dice. `Math.random` would re-deal the card on every request.
+
+The **Updates** card is that turn — what the month has just brought in, and what it is about to take
+away:
 
 | Row | What it is |
 |---|---|
-| **Arriving Soon** | the **first 30 days of the stay**: the titles that have arrived in the app over the last month, **newest first**, each poster wearing the day it landed — `New today` on the day itself. Every one of them is playable |
-| **Leaving Soon** | the **last 30 days of the stay** — everything on it is out of the app within a month, and its leaving date is on the poster |
+| **Arriving Soon** | this month's **fifty titles the service is bringing in** — drawn from the half of TMDB the app did not carry, every one of them **already released**, each poster wearing the day it came in (`New today` on the day itself) |
+| **Leaving Soon** | this month's **fifty on their way out** — drawn from the half the app carries, each poster wearing the day it goes (`Leaves 25 Oct`), nearest first |
 
-**Nothing on the Arriving row is *upcoming*.** That distinction is the whole history of this row: it
-has been the calendar's next month, a quarter of it in popularity order, a Game Pass-shaped wave of
-the next thirty days with day-level dates, and every one of those was refused in the same words —
-*"the arriving soon in update card should not connected to real world upcoming releases which is
-already in upcoming card"*, and finally *"its showing upcoming titles in arriving in card"*. Titles
-that have not come out are the **Upcoming** card's subject, whole, and this card is the app's own
-window: a title is in it from the day it is released, so "arriving" here means what has just landed.
+**Nothing on the Arriving row is *upcoming*, and the shelf is why that can no longer go wrong.** That
+distinction is the whole history of this row: it has been the calendar's next month, a quarter of it
+in popularity order, a Game Pass-shaped wave of the next thirty days, and the last month of each
+title's own stay — every one a reading of the world's calendar, refused in the same words
+(*"the arriving soon in update card should not connected to real world upcoming releases which is
+already in upcoming card"*, *"its showing upcoming titles in arriving in card"*). The shelf's draw has
+no calendar in it at all, so the row is measured not by a window but by the titles themselves: **none
+of the fifty is unreleased**, and their release days are years old at the median — the row is a
+shelf, not a release list (`.patch/r58-shelf-check.mjs` measures exactly that).
 
-The two cards therefore cannot share a title, and it is by construction rather than by a boundary
-someone has to keep in step: `after: 1` in `UPCOMING_ROWS` means the Upcoming card begins **tomorrow**
-— a title whose day is today has arrived, is on the Updates card and is playable — so one row holds
-days that have been and the other holds days that have not. Measured with the near end at today,
-thirteen titles sat on both cards at once; the check that reads both rows off the running server now
-fails if a single title is on both.
+The **Upcoming** card keeps the whole unreleased calendar, and `after: 1` in `UPCOMING_ROWS` means it
+begins **tomorrow**: a title whose day is today has arrived, so the two cards cannot share a title by
+construction rather than by a boundary someone has to keep in step.
 
-The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored) and
-put on the title's own card — a title on the Arriving Soon row is one the rest of the app now knows
-is on its way, which is what keeps it off the rows that claim a title is on **now**.
+The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored): a title the
+Leaving row named keeps the day it goes (`leaving`), and a title the Arriving row brought in keeps the
+day it came in **and stays on the shelf for good** (`arrived`) — the store is what makes the turn
+one-way rather than a shuffle of the same names.
 
 **Leaving and arriving are two different rules.** A title the Leaving Soon row has named is
 **out of the app from that moment** — dropped from every row, from the search and from the
 filters — and the two places it is still on screen are the Updates card that named it, wearing
-its leaving date, and your own Watchlist and Library, which are yours to keep. A title that has
-**not landed yet** is the other way round: it is *in* the app like any other — findable, in its
-genre, country and decade rows, in the filters — and the only thing it lacks is something to
-play, which its title page says (`Arriving 4 Nov` in place of Play). The one kind of row it
-waits off is the card whose rows claim a title is **on now** (Now Playing, Airing Today, On the
-Air), where TMDB's own pre-release windows would otherwise put the same poster twice.
+its leaving date, and your own Watchlist and Library, which are yours to keep. A title the shelf has
+brought in is the other way round: it is *in* the app like any other — findable, in its genre,
+country and decade row, in the filters — for good, and its arrival day rides on its poster for the
+month it came in. A title that has **not landed yet** (an unreleased one the Upcoming card holds) is
+in the app the same way, and the only thing it lacks is something to play, which its title page says
+(`Arriving 4 Nov` in place of Play). The one kind of row it waits off is the card whose rows claim a
+title is **on now** (Now Playing, Airing Today, On the Air), where TMDB's own pre-release windows
+would otherwise put the same poster twice.
 
 ## The player
 
@@ -169,7 +184,8 @@ addon/
   index.mjs          the handler: manifest, catalogs, search, the app's own routes
   catalogs.mjs       the plan: a card's rows → TMDB queries
   tmdb.mjs           the TMDB client (paging pools, genre resolution, caching)
-  lineup.mjs         what has left and what has not arrived, with the dates
+  lineup.mjs         the store: what has left, what the month brought in, and the gates
+  shelf.mjs          the shelf: half of TMDB, and the month's own draw (50 out, 50 in)
   watchlist.mjs      the pins: Plan to Watch / Watching / Watched
   party.mjs          Watch Along: the room, its code, and the notes
   proxy.mjs          the stream proxy (referer, cookies, rewritten manifests)

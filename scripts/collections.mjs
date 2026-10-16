@@ -1172,11 +1172,13 @@ const ORIGINALS = VERIFIED.originals || {};
 // payload: `Watched` is a page of its own now (Settings → Content → Watched), and a row
 // the card does not draw is exactly what that needs.
 const watchlist = (name, state, offcard) => ({ name, kind: "watchlist", state, offcard: Boolean(offcard) });
-// **What is arriving — yours.** Not a TMDB window at any distance (see `arrivingMetas`): the titles
-// you put in **Plan to Watch**, the ones in your own **Library rows** (the Calendar's plan row among
-// them), read for their own release days, soonest known first and the rest in your own order. See
-// `arrivingMetas` in `addon/index.mjs`.
+// **The Updates card's two rows, and the only two rows in the app that a *service's* shelf decides
+// rather than the world's calendar.** Half of TMDB is in the app and every month fifty titles leave
+// it and fifty arrive, at random — the draw itself lives in `addon/index.mjs` (`shelfMonth`), the
+// days are written down by `addon/lineup.mjs`, and neither row carries a TMDB window at any
+// distance. See `addon/shelf.mjs` for the shelf and the owner's own words for it.
 const arriving = (name, take) => ({ name, kind: "arriving", take });
+const leaving = (name, take) => ({ name, kind: "leaving", take });
 
 /**
  * Keyword entries for one card, straight from the verified table.
@@ -1428,28 +1430,19 @@ export const brandOf = (name) => BRAND_FOLD.get(popKey(name)) || ROW_LABEL[name]
 const ROW_REGION = { BritBox: "US", iQIYI: "US" };
 
 const TOP10 = 10;
-// **The app's own window on the catalogue, and how near "soon" is.** A title arrives on the day
-// it is released and the app carries it for `CATALOG_DAYS`; the Updates card is the two ends of
-// that window, so its rows mean what they say rather than repeating the "what is on" cards:
-// everything on **Arriving Soon** lands in the next `SOON_DAYS` days, and everything on
-// **Leaving Soon** is out of the app within `SOON_DAYS` — it has `CATALOG_DAYS` behind it and
-// `SOON_DAYS` left, which is why that row is **the last month of the stay and not the whole
-// back catalogue**. `addon/lineup.mjs` writes the same dates down against each title
-// (`LEAVING_DAYS` there is `CATALOG_DAYS` here).
-export const CATALOG_DAYS = 180;
-// **A series stays twice as long as a film.** A film arrives complete and a series arrives an
-// episode at a time over months, so one number for both left the Leaving row half full of
-// half-watched shows. The stay is per media type now — and the *same* pair of numbers is in
-// `addon/lineup.mjs`, which is where the date on a title's card is written from.
-export const SERIES_CATALOG_DAYS = 365;
-// **The one number the whole pair reads: "soon" is a month at both ends of a title's stay.** The
-// Arriving Soon row holds the **first** month of it (what has landed), the Leaving Soon row the
-// **last** month of it (what is going) — so it is exported and imported (`addon/index.mjs`,
-// `addon/lineup.mjs`) rather than written down twice, and `.patch/r57-arriving-check.mjs` reads
-// both rows off the running server and fails if either end ever drifts.
+// **"Soon" is a month, and it is the only window the Updates card has left.** The card used to be
+// the two ends of a title's own stay — a title arrived on the day it was released and left a season
+// later (`CATALOG_DAYS`, and 365 for a series), and both rows were read from that window. The
+// owner's feature replaced the stay with a **shelf**: half of TMDB is in the app and each month
+// fifty titles leave it and fifty arrive, drawn at random (`addon/shelf.mjs`), so the Leaving and
+// Arriving rows carry *the service's* dates and not the world's. What is left of the window is
+// this one number: "soon" is a month, at both ends — the Arriving row holds the month that has
+// landed, a title named as leaving is gone within the same month — so it is exported and imported
+// (`addon/index.mjs`, `addon/lineup.mjs`) rather than written down twice.
 export const SOON_DAYS = 30;
-// **Fifty either way.** Both rows of the Updates card are fifty titles: a warning you can read
-// and a promise you can read, rather than a shelf as long as its window happened to be.
+// **Fifty either way.** Both rows of the Updates card are fifty titles — `SHELF_TURN` in
+// `addon/shelf.mjs` is the same fifty — a warning you can read and a promise you can read, rather
+// than a shelf as long as its window happened to be.
 const UPDATES_TAKE = 50;
 // **Discover Plus** publishes 25 titles per row rather than 10, so it is the one wide
 // card that is worth scrolling. Its card key stays `discover-top-10` — that is the
@@ -2020,14 +2013,16 @@ const buildCollections = (code = "") => {
     catalogs: both([]),
   },
 
-  // **Updates** — what is arriving, and what is on its way out.
+  // **Updates** — what has just arrived, and what is on its way out: **the service's own shelf.**
   //
-  // **Leaving Soon** is read from **today's date** every time the card is opened, so the card
-  // moves on its own: it is the last `SOON_DAYS` of each title's own stay, recomputed per request
-  // — which is what "leaving, from time to time" means here (see `specsFor` in `addon/catalogs.mjs`).
-  // **Arriving Soon** is the other end of the same question and is not a date range at all: it is
-  // **yours** — what you planned and filed, read for your own dates, soonest known first. Nothing
-  // about it is stored or scheduled; it moves with your own lists.
+  // Both rows are the month's turn and nothing else. Half of TMDB is in the app
+  // (`SHELF_SHARE` — a stable coin per title, `addon/shelf.mjs`), and once a month fifty titles
+  // leave that half and fifty are drawn into it **at random**: no release window, no "newly
+  // released", no trending list, no connection to the world's calendar in either row. The draw is a
+  // function of the month's own name, so a month answers with the same fifty all month and the next
+  // month answers with a different fifty (`shelfMonth` in `addon/index.mjs`); the days the turn gave
+  // each title are written down by `addon/lineup.mjs`, and both are kept against the title and drawn
+  // on its card (`New 3 Nov`, `Leaves 25 Oct`).
   {
     key: "updates",
     lines: ["Updates"],
@@ -2037,41 +2032,32 @@ const buildCollections = (code = "") => {
     // have to watch *now*, so it is the first row on the card (the owner asked for it in that
     // order: "there should be first leaving soon then arriving soon").
     //
-    // **These two rows are the two ends of the app's own window on the catalogue** — what is
-    // coming into it and what is going out of it — and they are read as such: a title in
-    // **Arriving Soon** has not landed yet and is one you are waiting for, and a title in
-    // **Leaving Soon** landed `CATALOG_DAYS - SOON_DAYS` days ago and is gone from the app
-    // within `SOON_DAYS` of that day (its release + `CATALOG_DAYS` — `LEAVING_DAYS` in
-    // `addon/lineup.mjs`). Both dates are kept against the title and drawn on its card.
-    //
-    // **The leaving row is a month, not a season.** It held releases from sixty to a hundred and
-    // eighty days old, so four titles in five on it were not leaving for months and the row read
-    // as another "what is new" shelf; it is the *last* month of the stay now, which is the only
-    // set whose leaving date is inside the word "soon". Nothing here is drawn from the banner's
-    // rows, the on-the-board card or the Upcoming card — the catalogue's own two edges are the
-    // whole of it.
+    // **A title named as leaving is out of the app from that moment** and does not come back — off
+    // every card, out of the search and out of the filters (your own lists aside), which is the
+    // owner's rule. **A title the turn brings in is in the app from its own day on**, for good: it
+    // is a title the service carries now, which is what makes the two rows a turn rather than a
+    // filter. Nothing here is drawn from the banner's rows, the on-the-board card or the Upcoming
+    // card — the service's own two edges are the whole of it.
     catalogs: both([
-      // **A film's last month and a series' last month, from stays of different lengths.** The
-      // film's stay is `CATALOG_DAYS`, a series' is `SERIES_CATALOG_DAYS`, and each row is the
-      // last `SOON_DAYS` of its own — so the dates on the card differ per title instead of every
-      // title on screen carrying the same one.
-      curated("Leaving Soon", {
-        sort_by: "popularity.desc",
-        "vote_count.gte": 20,
-        within: { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS },
-        olderThan: { movie: CATALOG_DAYS - SOON_DAYS, series: SERIES_CATALOG_DAYS - SOON_DAYS },
-      }, UPDATES_TAKE),
-      // **What has arrived in the app — the first month of a title's stay, and never a title that
-      // is still to come.** Every shape this row had before showed **unreleased** titles — the
-      // calendar's next month, then a quarter of it in popularity order, then a Game-Pass-shaped
-      // wave of the next thirty days — and the owner said no to all of them the same way:
-      // *"the arriving soon in update card should not connected to real world upcoming releases
-      // which is already in upcoming card"*, *"again you done same world upcoming release shit in
-      // arriving row shit"*, and finally *"its showing upcoming titles in arriving in card"*.
-      // Unreleased titles are the **Upcoming** card's subject, whole; this row is the other end of
-      // the app's own window — what has landed over the last `SOON_DAYS` days, newest first, each
-      // poster wearing the day it arrived (`New today`). Leave-it-empty and it is a real answer:
-      // a quiet month is a quiet row, and the screen says nothing rather than apologising (`emptyRowText`).
+      // **The month's fifty titles on their way out**, drawn from the half of TMDB the app carries,
+      // each wearing the day it goes (`Leaves 25 Oct`) and out of the app from the moment this row
+      // names it. It used to be a window — the last `SOON_DAYS` of a film's or a series' stay,
+      // derived from its release day — and the window is what the shelf replaced: the owner's
+      // feature is *"50 titles leave honge per month … randomly aur koi world upcoming ya newly
+      // released se koi connection nahi"*.
+      leaving("Leaving Soon", UPDATES_TAKE),
+      // **The month's fifty titles the service is bringing in** — drawn at random from the half of
+      // TMDB that is *not* in the app yet, each wearing the day it came in (`New today` on the day
+      // itself). Every shape this row had before was a reading of the world's calendar and showed
+      // **unreleased** titles — the calendar's next month, a quarter of it in popularity order, a
+      // Game-Pass-shaped wave of the next thirty days, the last month of releases — and the owner
+      // said no to all of them the same way: *"the arriving soon in update card should not connected
+      // to real world upcoming releases which is already in upcoming card"*, *"again you done same
+      // world upcoming release shit in arriving row shit"*, *"its showing upcoming titles in
+      // arriving in card"*. The shelf answers it for good, because the draw has no calendar in it at
+      // all: a title arrives because the month picked it, which it can only be if the world has
+      // already released it. Leave-it-empty and it is a real answer: a quiet month is a quiet row,
+      // and the screen says nothing rather than apologising (`emptyRowText`).
       arriving("Arriving Soon", UPDATES_TAKE),
     ]),
   },

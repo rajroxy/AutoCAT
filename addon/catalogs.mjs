@@ -402,11 +402,14 @@ async function specsFor(entry, media, opts = {}) {
     case "watchlist":
       return [{ watchlist: entry.state || "planned" }];
 
-    // **The Updates card's Arriving row** — your own queue: the titles you planned and the ones in
-    // your Library rows, read for their own dates, soonest known first. Not a TMDB query over what
-    // the world is releasing, in any window: see `arrivingMetas` in `addon/index.mjs`.
+    // **The Updates card's two rows — the shelf's own month.** Not a TMDB query over what the world
+    // is releasing, in any window, in either direction: the Arriving row is the fifty titles the
+    // month's turn is bringing into the app and the Leaving row the fifty it is taking out, both
+    // drawn at random from the month itself. See `shelfMonth` in `addon/index.mjs`.
     case "arriving":
       return [{ arriving: true }];
+    case "leaving":
+      return [{ leaving: true }];
 
     // A custom row — the one you fill yourself. Same deal: served from the
     // stored titles, not from TMDB, but published and paged as a normal row.

@@ -1,65 +1,44 @@
 /**
- * **What has left the app, and what has not arrived in it yet.**
+ * **What has left the service, and what the month has brought in.**
  *
- * The Updates card publishes two rows — **Leaving Soon** and **Arriving Soon** — and until now
- * they were only a pair of shelves: a title sat in the first while it happened to fall in the
- * row's date window and then fell out of it, and a title in the second was on its way in with
- * nothing saying when. The owner asked for the thing those two words actually promise, the way
- * a storefront does it: *"if leave then it disappears from the app"*, and *"arriving soon when
- * then that title appears in its specific card and catalogs"*, with **the date on the title's
- * own card**.
+ * The Updates card publishes two rows — **Leaving Soon** and **Arriving Soon** — and they are the
+ * app's two ends: what is going out of it, and what has just come in. Until now both ends were a
+ * *reading of the world's calendar*: `Leaving Soon` was the last month of a title's stay, derived
+ * from its release day, and `Arriving Soon` was the last month of TMDB's releases. The owner's
+ * feature replaces that with a **service's own shelf** (see `addon/shelf.mjs`):
  *
- * So the two rows are not only read, they are **written down**, and the dates they imply become
- * real:
+ *   *"pehle to app me se tmdb ka half titles hatana hoga … then unn half me 50 titles leave honge
+ *   per month and 50 titles aayenge per month randomly aur koi world upcoming ya newly released se
+ *   koi connection nahi sab random hoga"*
  *
- * - **Leaving Soon** is a window, not a list: `within: CATALOG_DAYS` days back, `olderThan:
- *   CATALOG_DAYS - SOON_DAYS` — the *last month* of a title's stay, so every title on the row
- *   really is out within the month. A title in it is out of the far edge of that window on
- *   `release + CATALOG_DAYS`, which is exactly the day the row stops answering with it — so that
- *   is its **leaving date**, and it is derived from the row's own definition rather than invented
- *   here. On that day the title is **gone from the app**: every card, every row and the search
- *   drop it (the one exception is your own lists — see `hideGone`).
- * - **Arriving Soon** looks `SOON_DAYS` days ahead, and each title in it carries its own
- *   release date, which is the day it lands. Until that day the title is **held off the shelves**
- *   — it is on the Updates card and the Upcoming card, both of which are *about* what is coming,
- *   and on no other row — and from that day on it is a title like any other, in whatever cards
- *   and catalogs it belongs to.
+ * - **Half of TMDB is in the app, and the other half is not** (`onShelf`): a stable coin on the
+ *   title's own key, plus every title the shelf has ever brought in. Every row, the search and the
+ *   filters read that one answer, so the app is one library rather than a filter on some rows.
+ * - **Fifty leave and fifty arrive every month, at random.** The draw itself lives in
+ *   `addon/index.mjs` (it is the two rows), and this file is what *remembers* it: the day the draw
+ *   gave a title is written down here, and from then on it is a fact about the title.
  *
- * **Why a file and not a calculation.** `release + 180` can be worked out for any title, but
- * "this one is leaving" cannot: the app's promise is about the titles its own Leaving Soon row
- * *named*, and re-deriving it later would either hide the whole back catalogue or nothing. The
- * store is that naming, kept: a small map of key → date, one file for the machine (what is
- * leaving the catalogue is not a fact about the person reading it).
+ * **Why a file and not a calculation.** "This one is leaving" has to survive the month it was said
+ * in — a title named as leaving is out of the app from that moment and does not come back — and
+ * "this one arrived in the app today" is the day the service said so, which is no title's release
+ * day. Neither can be re-derived later, so the store is that naming, kept: two maps of key → day,
+ * one file for the machine (what a service carries is not a fact about the person reading it).
  *
- * **It is a record, never the source.** Nothing here is read to *decide* what a row shows — TMDB
- * still answers every row, and the dates only sort, withhold and explain. A store that was lost
- * would leave the app exactly as it was before this file existed.
+ * **It is a record, never the source.** Nothing here decides which titles a row shows — the rows
+ * read TMDB and draw the month themselves — and the record only carries the dates the two rows
+ * name, drops what has gone, and keeps off the shelves what was never on them. A store that was
+ * lost would leave the app with the same monthly draw and fresh dates.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-// **One source of truth for the window** — see the note on `LEAVING_DAYS` below.
-import { CATALOG_DAYS, SERIES_CATALOG_DAYS, SOON_DAYS } from "../scripts/collections.mjs";
+// **One source of truth for the window.** "Soon" is a month at both ends: the Arriving row holds
+// the month that has landed, and a title named as leaving is gone within the same month.
+import { SOON_DAYS } from "../scripts/collections.mjs";
+import { SHELF_SHARE, SHELF_TURN, monthOf, onShelfCoin, shiftDay } from "./shelf.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FILE = path.join(HERE, "lineup.json");
-
-/**
- * How long a title stays in the app — **the far edge of the Leaving Soon row's window**
- * (`within: { movie: 180, series: 365 }` in `scripts/collections.mjs`).
- *
- * **The numbers are read from there, not written again here.** They used to be a copy with a
- * comment on each side pointing at the other, which is the arrangement that goes wrong quietly: the
- * date on a card would drift out of step with the row the title came off. Per media type, because a
- * series is carried twice as long as a film — it arrives over months.
- */
-export const LEAVING_DAYS = { movie: CATALOG_DAYS, series: SERIES_CATALOG_DAYS };
-/**
- * How near "soon" is, at **both** ends of the pair: the **first** month of a title's stay, which the
- * Updates card's Arriving Soon row holds (what has landed, newest first — see `arrivingMetas` in
- * `addon/index.mjs`), and the **last** month of it, which Leaving Soon holds.
- */
-export { SOON_DAYS };
 
 /** The two rows that declare a date. The rest of the app only ever reads what they said. */
 const LEAVING_ROW = "Leaving Soon";
@@ -69,33 +48,35 @@ const ARRIVING_ROW = "Arriving Soon";
  * **The one card whose rows are about *now*.** Now Playing, Airing Today and On the Air are not
  * shelves of titles, they are statements about the calendar: something that lands tomorrow is not
  * playing today. This is the only place a title that has not landed is still held back — everywhere
- * else (search, the filters, every genre, country and decade row) arriving titles are in the app,
- * which is what the owner asked for.
+ * else (search, the filters, every genre, country and decade row) an unreleased title is in the app
+ * like any other, which is what the owner asked for.
  *
  * It exists because TMDB's own now-playing list carries a day or two of pre-releases: a film
  * releasing tomorrow is in both `now_playing` and the upcoming window, so without this the same
- * poster would sit on the Arriving Soon row and the Now Playing row at once.
+ * poster would sit on two rows at once.
  */
 const NOW_CARDS = new Set(["on-the-board"]);
 
-const day = (d) => `${d.toISOString().slice(0, 10)}`;
+const day = (d) => d.toISOString().slice(0, 10);
 const today = () => day(new Date());
-/** `iso` is a `YYYY-MM-DD`; the arithmetic is done on the day itself, in UTC. */
-const plusDays = (iso, n) => day(new Date(Date.parse(`${iso}T00:00:00Z`) + n * 864e5));
+/** **The day arithmetic is the shelf's** (`addon/shelf.mjs`), so one place does it for everybody. */
+const plusDays = shiftDay;
 const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
 
-const keyOf = (m) => `${m?.type === "series" ? "series" : "movie"}:${String(m?.id || "")}`;
-/** The day a title lands: a film's release, a series' first airing. */
-const releaseOf = (m) => (isDay(m?.releaseDate) ? m.releaseDate : "");
+/**
+ * **A title's key**: its kind and its own id. The same string the shelf's coin is taken on and the
+ * same one the store is written against, so `movie:tmdb:1339274` means one title everywhere.
+ */
+export const keyOf = (m) => `${m?.type === "series" ? "series" : "movie"}:${String(m?.id || "")}`;
 
 let cache = null;
 
 function load() {
   if (cache) return cache;
-  cache = { leaving: {}, arriving: {} };
+  cache = { leaving: {}, arrived: {} };
   try {
     const raw = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    for (const bag of ["leaving", "arriving"]) {
+    for (const bag of ["leaving", "arrived"]) {
       for (const [k, v] of Object.entries(raw?.[bag] || {})) if (isDay(v)) cache[bag][k] = v;
     }
   } catch {
@@ -116,73 +97,46 @@ function save() {
  * **Write down what a row just said.**
  *
  * Called with the row's own name and the titles it answered with, on every read of the Updates
- * card. A title already recorded keeps the date it was first given: the leaving date is the same
- * for the same title on every read (it comes off its release date), and a title that came in on
- * the Arriving row must not have its arrival pushed out by a later read of a wider window.
+ * card. The day comes off the meta (`shelfOn`), which is the day the month's draw gave that title —
+ * a row never invents a date, so the store and the row can never disagree about one.
+ *
+ * **The first word is the one that counts.** A title the store has already dated keeps it: the
+ * month's draw is the same all month, and if a title is ever re-drawn (a store that was lost, a
+ * pool that shifted under it) the day it first arrived is the day it arrived.
  */
 export function note(rowName, metas) {
   const list = Array.isArray(metas) ? metas : [];
   if (!list.length) return;
   if (rowName !== LEAVING_ROW && rowName !== ARRIVING_ROW) return;
-  const arriving = rowName === ARRIVING_ROW;
-  const bag = load()[arriving ? "arriving" : "leaving"];
-  const now = today();
+  const bag = load()[rowName === ARRIVING_ROW ? "arrived" : "leaving"];
   let wrote = false;
-  // **An arrival that has been and gone is not a date any more.** The row reads thirty days
-  // ahead, so tomorrow it answers with the same titles again — and a title that landed last week
-  // would keep "Arrives 8 Oct" on its card for good if the entry were kept. The day it lands it
-  // is recorded (so the card can say so), and the next read drops it: from then on it is a title
-  // like any other, which is the whole point of the arrival.
-  if (arriving) {
-    // **The row's own window is the only thing that declares an arrival**, so an entry outside it is
-    // not this row's word any more. The window is the **landed** month: `now - SOON_DAYS … now`. Any
-    // date outside it is left over from a shape this row had before — the versions that read the
-    // calendar months and years ahead — and those entries were still drawing `Arrives 15 Nov` on the
-    // Upcoming card's own first page after the row had stopped declaring anything about them. Pruned
-    // here, on the read that knows what the window is.
-    const firstDay = plusDays(now, -SOON_DAYS);
-    for (const [k, on] of Object.entries(bag)) {
-      if (on < firstDay || on > now) {
-        delete bag[k];
-        wrote = true;
-      }
-    }
-  }
-  // **A leaving date is derived, and it is rewritten.** It is the release date plus the title's
-  // own stay, and both are facts about the title — so an entry written under an older stay cannot
-  // keep a series out of the app a year early for ever; the next read corrects it. The *arrival*
-  // date is a different thing (the day the row said it lands), and a later read of a wider window
-  // must not push it out, which is the guard further down.
   for (const m of list) {
     const key = keyOf(m);
-    const landed = releaseOf(m);
-    if (!landed) continue;
-    // A **leaving** date that is already behind us is not a warning, it is a tombstone — the
-    // title is recorded so it can stay gone, and it is filtered out of the row it was read on.
-    // **The stay belongs to the title's own kind**, not to the row: a series is carried for a
-    // year and a film for half of one, so two titles read on the same day carry two different
-    // leaving dates.
-    const stay = LEAVING_DAYS[key.startsWith("series:") ? "series" : "movie"];
-    const date = arriving ? landed : plusDays(landed, stay);
-    // **An arrival that is not inside the row's own month is not this row's word.** The row holds
-    // what has landed over the last `SOON_DAYS` days; anything older has been in the app long
-    // enough to be a title like any other, and anything ahead of today is the Upcoming card's.
-    if (arriving && (date > now || date < plusDays(now, -SOON_DAYS))) continue;
-    if (arriving && bag[key]) continue;
-    if (bag[key] === date) continue;
-    bag[key] = date;
+    const on = isDay(m?.shelfOn) ? m.shelfOn : "";
+    if (!key || !on || bag[key]) continue;
+    bag[key] = on;
     wrote = true;
   }
   if (wrote) save();
 }
 
-/** The day this title leaves, or "" — the app's own recorded promise, not a guess. */
+/**
+ * **Is this title one the service carries?**
+ *
+ * The whole of the app's library in one function: **the coin** (half of TMDB — `onShelfCoin`), or a
+ * title the shelf has brought in at some point (`arrived`). A title that has *left* is not on it
+ * either — that is `isLeaving`, asked separately, because leaving is a word about a title the app
+ * used to carry and this one is about what it carries at all.
+ */
+export const onShelf = (key) => Boolean(key) && (onShelfCoin(key) || Boolean(load().arrived[key]));
+
+/** `onShelf`, asked of a meta rather than of a key. */
+export const inService = (m) => onShelf(keyOf(m));
+
+/** The day this title leaves, or "" — the service's own recorded promise, not a guess. */
 export const leavingOn = (m) => load().leaving[keyOf(m)] || "";
 
-/** The day this title lands, or "". */
-export const arrivingOn = (m) => load().arriving[keyOf(m)] || "";
-
-/** Has it left? (Its leaving date is today or behind it.) */
+/** Has it left? (Its leaving day is today or behind it.) */
 export const hasLeft = (m) => {
   const at = leavingOn(m);
   return Boolean(at) && at <= today();
@@ -199,14 +153,25 @@ export const hasLeft = (m) => {
 export const isLeaving = (m) => Boolean(leavingOn(m));
 
 /**
+ * **The day a title arrived in the service — while it is still news.**
+ *
+ * The store keeps the day for good (it is what makes a title the shelf brought in a title the app
+ * carries), but the *tag* is only a tag for the month: `New 3 Nov` belongs to what has just come
+ * in, and a title that arrived in March is a title like any other by April. So the date is read
+ * only inside the same month the Arriving Soon row claims.
+ */
+export const arrivingOn = (m) => {
+  const at = load().arrived[keyOf(m)] || "";
+  const now = today();
+  return isDay(at) && at <= now && at > plusDays(now, -SOON_DAYS) ? at : "";
+};
+
+/**
  * **Has it landed yet? — the title's own release day, not a note about it.**
  *
- * This used to read the store's arrival record, because the row that named titles as arriving was
- * the Updates card's Arriving Soon row and that row carried the future days. It does not any more:
- * that row holds the month that has **landed** (the owner's complaint — *"its showing upcoming
- * titles in arriving in card"* — is what moved it), so the one fact that says a title is still to
- * come is the title's own day, which every meta already carries. A stronger answer than the store's:
- * it holds for a title whose row was never read at all.
+ * The one fact that says a title is still to come is its own day, which every meta already carries:
+ * a stronger answer than a store's, because it holds for a title whose row was never read at all.
+ * It is what `hideNotYet` uses to keep a pre-release off a row that claims the title is on *now*.
  */
 export const isComing = (m) => {
   const at = isDay(m?.releaseDate) ? m.releaseDate : "";
@@ -235,13 +200,29 @@ export function hideGone(metas, keep = false, cardKey = "") {
 }
 
 /**
+ * **Drop what was never on the shelf — everywhere but your own lists, and but the Updates card.**
+ *
+ * The other half of the library rule, and the same shape as `hideGone`: **half of TMDB is not in
+ * the app at all** (`onShelf`), so a title outside that half is not on a row, not in the search and
+ * not in the filters — it is the pond the monthly arrivals are drawn from. Your own lists are the
+ * exception for the same reason as above (a pin is something you wrote), and so is the Updates card:
+ * its Arriving row is *made* of titles the service is bringing in, and that row has to be readable
+ * even in the moment before its own read has been written down.
+ */
+export function hideOffShelf(metas, keep = false, cardKey = "") {
+  const list = Array.isArray(metas) ? metas : [];
+  if (keep || !list.length || String(cardKey || "") === "updates") return list;
+  const off = list.filter((m) => !onShelf(keyOf(m)));
+  return off.length ? list.filter((m) => onShelf(keyOf(m))) : list;
+}
+
+/**
  * **Hold back what has not landed — on the rows that are about now, and only those.**
  *
- * An arriving title used to be held off every row but the two cards about what is coming. The
- * owner's rule is the opposite: it is *in* the app — searchable, filterable, sitting in whatever
- * genre, country or decade row it belongs to — and the only thing it lacks is something to play.
- * The single exception is a row that claims the title is on **now** (`NOW_CARDS`), where a film
- * that lands tomorrow would be a plain lie; it joins those rows on the day it lands.
+ * An arriving title is *in* the app — searchable, filterable, sitting in whatever genre, country or
+ * decade row it belongs to — and the only thing it lacks is something to play. The single exception
+ * is a row that claims the title is on **now** (`NOW_CARDS`), where a film that lands tomorrow would
+ * be a plain lie; it joins those rows on the day it lands.
  */
 export function hideNotYet(metas, cardKey = "") {
   const list = Array.isArray(metas) ? metas : [];
@@ -264,7 +245,7 @@ export function withDates(metas) {
 /**
  * The card key inside a catalog id: `autocat-upcoming--upcoming-in-japan` is a row of the
  * **upcoming** card. The id is the one thing every row carries on its own (`parsed.def.id`), so
- * the two "what is coming" cards are recognised by it rather than by a list of row names.
+ * the two \"what is coming\" cards are recognised by it rather than by a list of row names.
  */
 export const cardKeyOfRow = (id) => String(id || "").replace(/^autocat-/, "").split("--")[0] || "";
 
@@ -275,12 +256,15 @@ export function payload() {
   const rows = (bag) => Object.entries(bag).map(([key, on]) => ({ key, on, type: key.split(":")[0] }));
   return {
     leaving: rows(all.leaving).sort((a, b) => a.on.localeCompare(b.on)),
-    // The landed month, newest first — see `note`: the arriving row is what has arrived, not what is
-    // on its way.
-    arriving: rows(all.arriving)
+    // The month that has landed, newest first — a title that arrived longer ago than the window is
+    // a title like any other, and it stays in the app without a tag (`arrivingOn`).
+    arriving: rows(all.arrived)
       .filter((r) => r.on <= now && r.on > plusDays(now, -SOON_DAYS))
       .sort((a, b) => b.on.localeCompare(a.on)),
     today: now,
-    leavingDays: LEAVING_DAYS,
+    soonDays: SOON_DAYS,
+    // **The shelf itself, in the report.** Which month's turn this is, how much of the catalogue the
+    // service carries and how many titles a turn moves — the three numbers the whole feature is.
+    shelf: { month: monthOf(), share: SHELF_SHARE, turn: SHELF_TURN, carried: rows(all.arrived).length },
   };
 }

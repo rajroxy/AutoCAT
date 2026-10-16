@@ -49,7 +49,10 @@ import {
 import { activity as watchlistActivity } from "./watchlist.mjs";
 // **What has left and what has not arrived** — the dates the Updates card's two rows imply,
 // written down, and the two gates that act on them (see `addon/lineup.mjs`).
-import { cardKeyOfRow, hideGone, hideNotYet, note as noteLineup, payload as lineupPayload, withDates } from "./lineup.mjs";
+import { cardKeyOfRow, hideGone, hideNotYet, hideOffShelf, isLeaving, keyOf, note as noteLineup, onShelf, payload as lineupPayload, withDates } from "./lineup.mjs";
+// **The shelf** — half of TMDB is the app, and the month's own dice pick what turns over
+// (see `addon/shelf.mjs`). The two Updates rows are drawn with these, and nothing else is.
+import { SHELF_TURN, dayFor, draw, laterDay, monthOf, monthStart, pagesFor } from "./shelf.mjs";
 import { end as partyEnd, join as partyJoin, leave as partyLeave, note as partyNote, start as partyStart, state as partyState } from "./party.mjs";
 import {
   DEFAULT_ROW,
@@ -113,7 +116,9 @@ import { liveChannels, liveGuide, liveStatus, liveCountries, countrySpellings } 
  * `LINEUP_OVER` titles deep now and cut back to their own length after the gates: the same window,
  * the same order, with the titles the gates took replaced by the ones behind them.
  */
-const LINEUP_ROWS = new Set(["Leaving Soon", "Arriving Soon"]);
+const LEAVING_ROW = "Leaving Soon";
+const ARRIVING_ROW = "Arriving Soon";
+const LINEUP_ROWS = new Set([LEAVING_ROW, ARRIVING_ROW]);
 const LINEUP_OVER = 20;
 
 
@@ -1356,99 +1361,115 @@ function dealForYou(entry, pool, media, def, skip, window, exclude, open) {
 }
 
 /**
- * **What is arriving: the month that has landed in the app — and never a title that is still to come.**
+ * **The Updates card's two rows: the month's turn on the shelf.**
  *
- * The row has been through four shapes and every one of them showed **unreleased** titles, which is
- * the thing the owner has said no to from the start: *"the arriving soon in update card should not
- * connected to real world upcoming releases which is already in upcoming card"*, and, when a further
- * window of them appeared, *"again you done same world upcoming release shit in arriving row shit"*.
- * The last shape was a Game Pass-shaped wave of the next thirty days — day-dated, most notable first,
- * `Arrives today` on the day itself — and it came back as **"its showing upcoming titles in arriving
- * in update card"**, which is exactly what it was: every title on it was a film or a series that had
- * not come out yet. *Upcoming* is the **Upcoming** card's whole subject, and this row was still
- * feeding from it.
+ * The card is not a reading of the world's calendar any more. The owner's feature is a *service's*
+ * shelf (`addon/shelf.mjs`): **half of TMDB is in the app**, and every month fifty titles leave it
+ * and fifty arrive, **at random**, with no connection to what the world is releasing —
+ * *"unn half me 50 titles leave honge per month and 50 titles aayenge per month randomly aur koi
+ * world upcoming ya newly released se koi connection nahi sab random hoga"*. Both rows are built
+ * here, out of the same month's dice:
  *
- * **So this row holds nothing that has not landed.** The app's own rule is that a title is in the app
- * from the day it is released (`CATALOG_DAYS`: 180 for a film, 365 for a series, then it leaves), and
- * the Updates card is the two ends of that stay:
+ *   - **Arriving Soon** — the fifty the month brings in. They are drawn from the half that is *not*
+ *     in the app (a title can arrive once), every one of them is a title the world has already
+ *     released (`<release>.lte` today, so the row can never show something unreleased however random
+ *     the draw — the complaint four earlier shapes of this row answered the hard way), and each one
+ *     wears the day the draw gave it as the day it came into the app.
+ *   - **Leaving Soon** — the fifty the month takes out, drawn from the half that *is* in the app,
+ *     each wearing the day it goes. A title named here is out of the app from that moment
+ *     (`isLeaving`), which is the rule the owner set: *"leaving soon titles will remove from app
+ *     cards, search, filters, etc"*.
  *
- *   - **Arriving Soon** — the **first month of it**: the titles that have arrived in the app over the
- *     last `SOON_DAYS` days, **newest first**, each poster wearing the day it landed (`New today` on
- *     the day itself). Every one of them is playable, which is what "arrived" means here.
- *   - **Leaving Soon** — the **last month of it**, as before.
+ * **The pond is TMDB; the draw is the month.** Two pages of TMDB's popularity order and eight
+ * seeded-random ones inside the first sixty (`pagesFor`) are what the fifty are fished out of. No
+ * page carries a release-date window, a "trending" flag or a service's schedule — popularity is
+ * there only so the pond holds titles with names rather than deep-cut noise — and the fifty are a
+ * seeded shuffle of it (`draw`), keyed on the month: every read inside October answers with the
+ * same fifty, November answers with a different fifty, and a restart or a second machine answers
+ * the same. `Math.random` would re-deal the card on every request.
  *
- * Nothing on it is *upcoming*: the pool is TMDB's releases **up to today** (`popularity.desc` inside
- * the window for notability — in a month of releases that is what makes a list rather than a dump —
- * then presented by the day, nearest first), and `.patch/r57-arriving-check.mjs` fails if a single
- * title on the row has a release day in the future. The unreleased calendar is the Upcoming card's,
- * all of it, undivided — no window is taken away from it — and the two rows cannot share a title
- * because one holds days that have been and the other days that have not.
+ * **One draw per row, per media type, per month, and the same fifty on every read inside it.** The
+ * month's answer is built once and kept — a popularity order drifting under the pool must not
+ * re-deal the card between two reads — and the store keeps the *days* (`noteLineup`), so a title
+ * that has been named keeps the day it was named however often the card is opened.
  */
-const ARRIVING_POOL_PAGES = 15;
-const ARRIVING_POOL_TTL_MS = 10 * 60 * 1000;
-const arrivingPools = new Map();
+const shelfDraws = new Map();
 
 /** The day `n` days from now, the way TMDB takes a date. */
 const dayIn = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
 /**
- * **The pool: what has landed inside the window, most notable first.**
- *
- * Read a page at a time and kept for `ARRIVING_POOL_TTL_MS` — the same shape the episode rows use:
- * a card reads one window of it, a reader scrolling the row asks for more, and a row that is
- * scrolled does not re-ask TMDB for what it already has.
+ * **The month's fifty for one row** — read once per month per process and kept, with each meta
+ * wearing `shelfOn`: the day this month's turn gave that title, which is what the row writes down
+ * (`noteLineup`) and what its poster wears.
  */
-async function arrivingPool(media, language) {
-  const key = `${media}:${language || ""}`;
-  let entry = arrivingPools.get(key);
-  if (!entry || Date.now() - entry.at > ARRIVING_POOL_TTL_MS) {
-    entry = { at: Date.now(), metas: [], pages: 0 };
-    arrivingPools.set(key, entry);
-  }
-  if (entry.pages >= ARRIVING_POOL_PAGES) return entry.metas;
+async function shelfMonth(rowName, media, language) {
+  const month = monthOf();
+  const key = `${month}:${rowName}:${media}:${language || ""}`;
+  const hit = shelfDraws.get(key);
+  if (hit) return hit;
+
+  const leaving = rowName === LEAVING_ROW;
   const field = media === "movie" ? "primary_release_date" : "first_air_date";
-  const seen = entry.seen || (entry.seen = new Set(entry.metas.map((m) => m.id)));
-  while (entry.pages < ARRIVING_POOL_PAGES) {
+  const seen = new Set();
+  const pond = [];
+  for (const page of pagesFor(month, `${media}:${leaving ? "out" : "in"}`)) {
     const res = await get(`/discover/${tmdbPath(media)}`, {
-      // **The window ends today, not in a month's time.** A page of a popularity order is not a
-      // stable thing to walk either: two pages read a moment apart can hand back the same title
-      // (measured on the screen, one film sat at positions 38 and 39), so the pool is a set.
-      [`${field}.gte`]: dayIn(-SOON_DAYS),
-      [`${field}.lte`]: dayIn(0),
       sort_by: "popularity.desc",
-      page: entry.pages + 1,
+      "vote_count.gte": 20,
+      page,
+      // **Nothing the world has not released can arrive**, so the arrival draw only reads days that
+      // have been. The leaving row needs no window at all: it only ever holds titles the app has.
+      ...(leaving ? {} : { [`${field}.lte`]: dayIn(0) }),
       language,
     }).catch(() => null);
-    const items = res?.results || [];
-    entry.pages += 1;
-    if (items.length < 20) entry.pages = ARRIVING_POOL_PAGES;
-    for (const item of items) {
+    for (const item of res?.results || []) {
       const meta = toMeta(item, media);
-      if (meta && !seen.has(meta.id)) {
-        seen.add(meta.id);
-        entry.metas.push(meta);
-      }
+      if (!meta || seen.has(meta.id)) continue;
+      seen.add(meta.id);
+      pond.push(meta);
     }
   }
-  return entry.metas;
+
+  // **The pond, split by the shelf**: this row's own half, and nothing the app has already said.
+  // A title that has been named as leaving never comes back to either pond, which is what makes the
+  // turn a one-way door rather than a shuffle of the same names.
+  const mine = pond.filter((m) => {
+    if (isLeaving(m)) return false;
+    const on = onShelf(keyOf(m));
+    return leaving ? on : !on;
+  });
+
+  const drawn = draw(mine, SHELF_TURN, `${month}:${rowName}:${media}`);
+  const now = dayIn(0);
+  // **A leaving day is ahead of us** (the row is a warning) and **an arrival day is behind us**
+  // (the row is what has landed), both inside the window the row claims. The arrival window starts
+  // at the first of the month as soon as the month is old enough, so the row reads as *this month's*
+  // fifty rather than as a rolling thirty days.
+  const from = leaving ? now : laterDay(monthStart(month), dayIn(-(SOON_DAYS - 1)));
+  const to = leaving ? dayIn(SOON_DAYS - 1) : now;
+  const stamped = drawn.map((m) => ({
+    ...m,
+    shelfOn: dayFor(`${month}:${rowName}:${media}:${keyOf(m)}`, from, to),
+  }));
+  // **The row leads with today**: one title is given the day itself, so the card opens on
+  // `New today` rather than on the luck of the spread.
+  if (!leaving && stamped.length) stamped[0] = { ...stamped[0], shelfOn: now };
+  stamped.sort((a, b) =>
+    leaving
+      ? String(a.shelfOn).localeCompare(String(b.shelfOn))
+      : String(b.shelfOn).localeCompare(String(a.shelfOn)),
+  );
+
+  shelfDraws.set(key, stamped);
+  if (shelfDraws.size > 24) shelfDraws.delete(shelfDraws.keys().next().value);
+  return stamped;
 }
 
-/**
- * **The row itself: what has landed, newest first.**
- *
- * Ordered by the day each title arrived in the app, today at the front. TMDB's own order (most
- * notable first) is kept *within* a day — `sort` is stable and the metas carry no popularity of
- * their own — and `skip` walks the same month when a reader scrolls, so page two continues it
- * rather than repeating the first window.
- */
-async function arrivingMetas(media, skip, window, language, adult = false) {
-  const pool = stripAdult(await arrivingPool(media, language), adult);
-  const today = dayIn(0);
-  const first = dayIn(-SOON_DAYS);
-  return pool
-    .filter((m) => String(m.releaseDate || "") >= first && String(m.releaseDate || "") <= today)
-    .sort((a, b) => String(b.releaseDate || "").localeCompare(String(a.releaseDate || "")))
-    .slice(skip, skip + window);
+/** **One of the two shelf rows, paged.** `skip` walks the month's fifty and then there is no more. */
+async function shelfMetas(rowName, media, skip, window, language, adult = false) {
+  const row = await shelfMonth(rowName, media, language);
+  return stripAdult(row, adult).slice(skip, skip + window);
 }
 
 export async function catalogMetas(media, def, skip, opts = {}) {
@@ -1494,10 +1515,14 @@ export async function catalogMetas(media, def, skip, opts = {}) {
     return customMetas(specs[0].custom, media, skip, window);
   }
 
-  // **Your own titles that have not landed yet** — the Updates card's Arriving row. Not a TMDB
-  // query either: it reads your stores and dates them (see `arrivingMetas`).
+  // **The Updates card's two rows — the shelf's own month** (see `shelfMonth`). Not a window over
+  // the world's calendar in either direction: fifty titles the app is bringing in, fifty it is
+  // taking out, drawn from the month and dated by it.
   if (specs.length === 1 && specs[0].arriving) {
-    return arrivingMetas(media, skip, window, language, Boolean(opts.adult));
+    return shelfMetas(ARRIVING_ROW, media, skip, window, language, Boolean(opts.adult));
+  }
+  if (specs.length === 1 && specs[0].leaving) {
+    return shelfMetas(LEAVING_ROW, media, skip, window, language, Boolean(opts.adult));
   }
 
   // A pool that only grows: page 2 continues where page 1 stopped, and repeat
@@ -3050,7 +3075,9 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
       // **Search drops what has left too.** A title the catalogue has taken off its shelves
       // must not still be findable by name; a title that has not *arrived* stays findable (with
       // its date on the card), because searching for what is coming is how you plan to watch it.
-      const kept = withDates(hideGone(withoutWatched(stripAdult(metas, adult))));
+      // **Half the catalogue is not in the app at all**, so a title outside the shelf is not
+      // findable by name either (`hideOffShelf`) — the same rule every row reads.
+      const kept = withDates(hideOffShelf(hideGone(withoutWatched(stripAdult(metas, adult)))));
       metas.length = 0;
       metas.push(...kept);
       await applyPosters(metas);
@@ -3382,7 +3409,7 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     // **And the Arriving row is built out of your own lists** — a pin, a Library title, a Calendar
     // plan — so the rule that keeps watched titles only in your lists would take back every single
     // one of them and leave the row empty. It *is* one of those lists, so it is served whole too.
-    const keepWatched = kind === "watchlist" || kind === "custom" || kind === "arriving";
+    const keepWatched = kind === "watchlist" || kind === "custom" || kind === "arriving" || kind === "leaving";
     // **The two dated rows read past their own length** (`LINEUP_ROWS`, see the note on it):
     // both of them lose titles to the gates below, and a reader that asked for fifty titles
     // should get fifty. Only a plain card read tops up — an Explore page reads the row itself
@@ -3411,7 +3438,7 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     // still ride on the metas, so a card can wear them whatever row it was read from.
     noteLineup(parsed.def.name, metas);
     const rowCard = cardKeyOfRow(parsed.def.id);
-    const shown = withDates(hideNotYet(hideGone(metas, keepWatched, rowCard), rowCard));
+    const shown = withDates(hideNotYet(hideOffShelf(hideGone(metas, keepWatched, rowCard), keepWatched, rowCard), rowCard));
     // The row is its own length again: what the gates dropped is what the top-up replaced.
     if (topUp) shown.length = Math.min(shown.length, lineupTake);
     // Better posters first (it may replace `poster`), then the chosen content
@@ -3433,7 +3460,7 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     // **And the Arriving row is your own list too.** It is read out of your pins, your Library rows
     // and your Calendar plans on every request, so a fifteen-minute copy of it would go on saying a
     // title is coming after you had taken it off your list — the bug the watchlist row had.
-    const stateful = ["watchlist", "custom", "recommend", "arriving"].includes(parsed.def.entry?.kind);
+    const stateful = ["watchlist", "custom", "recommend", "arriving", "leaving"].includes(parsed.def.entry?.kind);
     json(res, 200, { metas: shown }, parsed.shuffle || stateful ? 0 : 900);
   } catch (err) {
     console.error(`[addon] catalog ${parsed.type}/${parsed.def.id} failed:`, err.message);
