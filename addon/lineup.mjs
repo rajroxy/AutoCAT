@@ -250,11 +250,15 @@ export const isComing = (m) => {
  */
 export function hideGone(metas, keep = false, cardKey = "") {
   const list = Array.isArray(metas) ? metas : [];
+  void keep; // **the slot stays, the escape does not** — see the note below
   // **The Updates card is where the leaving is announced, so its own rows are let through.**
-  // Everything else drops a title the moment the app has named it as leaving (`isLeaving`), which
-  // is the owner's rule: it is off the shelves, out of search and out of the filters, and the row
-  // that named it is the one place it is still on screen with its date.
-  if (keep || !list.length || String(cardKey || "") === "updates") return list;
+  // Everything else drops a title once its day has come, which is the owner's rule: it is off the
+  // shelves, out of search, out of the filters — and, restated, **out of your own lists too**:
+  // *"those who leaved and didnt arrived yet remove them from app, make that app do these things
+  // automatically"*. The `keep` escape that used to hold a pin on a card the app no longer
+  // carries is gone with it: a title that has left the catalogue is not a title of the app, on
+  // any row, in anyone's list.
+  if (!list.length || String(cardKey || "") === "updates") return list;
   const gone = list.filter((m) => isLeaving(m));
   return gone.length ? list.filter((m) => !isLeaving(m)) : list;
 }
@@ -271,7 +275,12 @@ export function hideGone(metas, keep = false, cardKey = "") {
  */
 export function hideOffShelf(metas, keep = false, cardKey = "") {
   const list = Array.isArray(metas) ? metas : [];
-  if (keep || !list.length || String(cardKey || "") === "updates") return list;
+  void keep; // **the slot stays, the escape does not** — see the note below
+  // **And the same for a title the app does not carry yet.** An announced arrival belongs to the
+  // card that announced it and to nothing else — not to a pin, not to a Library row. (The Updates
+  // card is the announcement, so its own rows are let through; every other row, including your
+  // own, reads the same answer.)
+  if (!list.length || String(cardKey || "") === "updates") return list;
   const off = list.filter((m) => !onShelf(keyOf(m)));
   return off.length ? list.filter((m) => onShelf(keyOf(m))) : list;
 }

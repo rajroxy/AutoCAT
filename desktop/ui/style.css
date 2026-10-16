@@ -6671,12 +6671,14 @@ html .tab.tab-home {
    name on the picture. The rest of the wall stays a wall of posters, and a slot
    nothing answered for keeps its place as the app's own empty plate.
    ============================================================================ */
-.content-strip.upnext-strip { align-items: stretch; }
+.content-strip.upnext-strip { align-items: center; gap: 10px; }
 .upnext-tile {
   position: relative;
-  /* The whole wall, so the frame is the card's own landscape shape rather than a square half of
-     it — see `drawTiles`. */
-  flex: 1 1 100%;
+  /* **The wide side of the wall, and the poster beside it.** The frame you are in the middle of
+     keeps the card's own landscape shape (Trakt and Stremio draw it that way, and a poster-sized
+     slot in a card this wide is a square), and the next title stands beside it as a portrait
+     poster — the pair the owner asked for. See `drawTiles`. */
+  flex: 1 1 70%;
   min-width: 0;
   height: 100%;
   border-radius: 10px;
@@ -6696,6 +6698,9 @@ html .tab.tab-home {
   font-weight: 800;
   letter-spacing: 0.01em;
 }
+/* The second slot: the ordinary portrait poster, at the wall's own height. */
+.content-strip.upnext-strip > .poster { flex: 0 0 calc(30% - 10px); align-self: center; }
+.content-strip.upnext-strip > .poster img { height: auto; width: 100%; aspect-ratio: 2 / 3; }
 .upnext-name {
   position: absolute;
   left: 10px;
@@ -6725,3 +6730,57 @@ html .tab.tab-home {
   padding: 9px 10px;
 }
 .player-options-grid .empty { grid-column: 1 / -1; }
+
+/* ============================================================================
+   **The Reviews panel — the poster's own switch, at the top right of the frame.**
+   ----------------------------------------------------------------------------
+   A review is written after the credits, so only a title you have finished wears
+   this button (`reviewCell` in app.js): pressing it swaps the banner's artwork for
+   what people said about the title — and for the assistant's own take when an AI
+   key is saved — and pressing it again puts the poster back. A show is read a
+   season at a time (`Whole show`, then each season), and each level is its own
+   read of `/reviews/...`.
+   ============================================================================ */
+.title-review-wrap { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.title-review-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  pointer-events: auto;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(3, 4, 6, 0.74);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+.title-review-btn:hover { background: rgba(3, 4, 6, 0.92); }
+.title-review-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: auto;
+  pointer-events: auto;
+  padding: 18px 18px 22px;
+  border-radius: 12px;
+  background: rgba(4, 5, 8, 0.95);
+}
+/* **The panel's own heading keeps clear of the button that closes it.** */
+.review-head { padding-right: 96px; margin: 0 0 10px; }
+.review-title { margin: 0; font-size: 16px; font-weight: 800; }
+.review-levels { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.review-ai { margin: 0 0 16px; padding: 12px 14px; border-radius: 10px; background: rgba(var(--fill-rgb), 0.1); }
+.review-ai .row-head { margin: 0 0 6px; }
+.review-note { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.review-card { margin: 0 0 12px; padding: 12px 14px; border-radius: 10px; background: var(--panel-2); }
+.review-by { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.review-author { font-size: 13.5px; font-weight: 800; }
+.review-stars { color: #f2c14e; font-size: 12.5px; }
+.review-day { color: var(--muted); font-size: 12px; }
+.review-text { margin: 0; font-size: 13.5px; line-height: 1.55; }
+.review-link { display: inline-block; margin-top: 8px; color: var(--fill); font-size: 12.5px; font-weight: 700; }

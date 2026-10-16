@@ -48,7 +48,7 @@ import {
 import { activity as watchlistActivity } from "./watchlist.mjs";
 // **What has left and what has not arrived** — the dates the Updates card's two rows imply,
 // written down, and the two gates that act on them (see `addon/lineup.mjs`).
-import { cardKeyOfRow, hideGone, hideNotYet, hideOffShelf, isLeaving, joinedOn, keyOf, leavingDay, note as noteLineup, onShelf, payload as lineupPayload, withDates } from "./lineup.mjs";
+import { cardKeyOfRow, hasLeft, hideGone, hideNotYet, hideOffShelf, isLeaving, joinedOn, keyOf, leavingDay, note as noteLineup, onShelf, payload as lineupPayload, withDates } from "./lineup.mjs";
 // **The shelf** — half of TMDB is the app, and the month's own dice pick what turns over
 // (see `addon/shelf.mjs`). The two Updates rows are drawn with these, and nothing else is.
 import { SHELF_PAGES, SHELF_TURN, dayFor, monthEnd, monthNext, monthOf, monthStart, onShelfCoin, pagesFor, pick, shiftDay } from "./shelf.mjs";
@@ -1832,6 +1832,75 @@ async function landscapeArt(media, id, language, scene = false) {
   return { url, kind };
 }
 
+/* ------------------------------------------------------------- the reviews */
+
+/**
+ * **One title's reviews, and the assistant's own take on it.**
+ *
+ * TMDB carries the reviews people wrote, with their own rating and their own words — real
+ * discussion, and the half of this panel that needs no key of anybody's. The other half is the
+ * app's AI: when a key is saved, the assistant is asked for its own short review of the same
+ * thing, at the level the panel is reading (`show`, or one `season`). Without a key the reviews
+ * stand alone and the payload says so, rather than the panel failing (`ai.ok` is false).
+ *
+ * Cached for half an hour: a review set does not move while somebody reads it.
+ */
+const reviewPayloads = new Map();
+async function reviewPayload(media, id, { level = "show", season = 0, name = "", language = "en" } = {}) {
+  // **The subject is part of the key.** The assistant is asked by name ("review season 2 of …"), so a
+  // payload cached without one is not the same payload — the first caller would otherwise fix the
+  // subject for everyone who reads the panel after them.
+  const key = `${media}:${id}:${level}:${season}:${language}:${name}`;
+  const hit = reviewPayloads.get(key);
+  if (hit && hit.expires > Date.now()) return hit.payload;
+
+  const out = { ok: false, level, season, reviews: [], total: 0, ai: null, error: "" };
+  if (!hasKey()) {
+    out.error = "no TMDB key";
+    return out;
+  }
+  try {
+    const data = await get(`/${tmdbPath(media)}/${id}/reviews`, { language, page: 1 });
+    out.reviews = (data?.results || []).slice(0, 12).map((r) => ({
+      author: r?.author_details?.username || r?.author || "A viewer",
+      rating: Number(r?.author_details?.rating || 0) || 0,
+      day: String(r?.created_at || "").slice(0, 10),
+      url: r?.url || "",
+      text: String(r?.content || "").replace(/\s+/g, " ").trim(),
+    }));
+    out.total = Number(data?.total_results || out.reviews.length) || out.reviews.length;
+    out.ok = true;
+  } catch {
+    // A title nobody has reviewed, or a blip: an empty panel with a working AI half, not an error.
+    out.ok = true;
+  }
+
+  // **The assistant's own review**, at this level. `askAI` answers `ok: false` with the reason
+  // when no key is saved, so the panel can say where a key goes instead of failing.
+  const title = name || "this title";
+  const subject = media === "series" && level === "season" && season > 0 ? `season ${season} of “${title}”` : `“${title}”`;
+  const asked = await askAI(
+    `Write a short review of ${subject}, the way a critic writing for people who have just finished it would. Say what it is, what works and what does not, and give it a verdict in the last line. Plain prose in one paragraph, about 110 words, no headings, no bullet points, no lists.`,
+  ).catch((err) => ({ ok: false, text: String(err?.message || err) }));
+  // **An answer that says nothing is not a review.** A model asked for a paragraph sometimes answers
+  // with the title back, or with a line of nothing; the panel would then print a "take" of two words.
+  // A take has to be a paragraph to be shown, and anything shorter is reported as no answer with the
+  // line the app can print instead (see `fillReviews`).
+  const answer = String(asked?.query || "").trim();
+  const said = Boolean(asked?.ok) && answer.length >= 120;
+  out.ai = {
+    ok: said,
+    // The written take when there is one; otherwise the app's own reason, so the panel can say what
+    // happened ("model returned nothing") rather than showing a heading with nothing under it.
+    text: said ? String(asked?.text || "").trim() : asked?.ok ? "the assistant answered with nothing usable" : String(asked?.text || "no answer").trim(),
+    hasKey: Object.values(aiState().hasKey || {}).some(Boolean),
+  };
+
+  reviewPayloads.set(key, { payload: out, expires: Date.now() + 30 * 60 * 1000 });
+  if (reviewPayloads.size > 200) reviewPayloads.delete(reviewPayloads.keys().next().value);
+  return out;
+}
+
 /* --------------------------------------------------------------- the pairing */
 
 /**
@@ -2011,6 +2080,30 @@ function profileOf(req) {
     return cleanProfile("");
   }
 }
+
+/**
+ * **How this profile uses the app** — the three modes the owner asked for.
+ *
+ *   1. **`sync` — Native streaming + external sync.** Play in the app, and every mark that
+ *      matters (a rating, a title started, a title finished) is scrobbled outwards to the
+ *      connected trackers, so years of history, badges and social graphs on Trakt or SIMKL live
+ *      on: the app is a premium player over someone else's cloud data.
+ *   2. **`dashboard` — External viewing + this app as the local tracker.** What you watch in
+ *      Kodi, Plex or Stremio is tracked here and read here; nothing is pushed outwards, and the
+ *      Activity page and the Library are the dashboard.
+ *   3. **`native` — The offline one.** Streaming and tracking both stay in the app: no tracker
+ *      is written to and none is read for tracking, so nothing depends on a service that can
+ *      go down, rate-limit or change its pricing.
+ *
+ * The switch is a per-profile setting (Settings → Profile, above the profile itself) and it
+ * gates the *outbound* writes only — the app keeps the rating and the mark either way, which is
+ * why a skipped push answers `ok` with a reason rather than failing.
+ */
+const trackingMode = () => {
+  // **Not `tracking`** — that key is the trackers' own accounts, tokens and all. This is the mode.
+  const mode = String(getSettings().trackingMode || "").toLowerCase();
+  return mode === "dashboard" || mode === "native" ? mode : "sync";
+};
 
 /** The watchlist as the app reads it: every pin, plus the per-state counts. */
 function watchlistPayload() {
@@ -2330,6 +2423,14 @@ async function serveAddon(req, res, pathname, origin) {
     }
     try {
       const { item, rating } = await readBody(req);
+      // **The mode decides whether anything leaves the machine.** Only Mode 1 (Native streaming
+      // + external sync) scrobbles outwards; Mode 2 keeps the app as the local tracker of what
+      // you watch elsewhere, and Mode 3 is the offline one. The rating is kept by the app either
+      // way — this is the copy that goes out (see `trackingMode`).
+      if (trackingMode() !== "sync") {
+        json(res, 200, { ok: true, skipped: `tracking mode: ${trackingMode()}`, pushed: [] });
+        return true;
+      }
       json(res, 200, await pushRating(item, Number(rating) || 0));
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });
@@ -2339,7 +2440,8 @@ async function serveAddon(req, res, pathname, origin) {
 
   // **What you are watching, going out.** The player marks a title Watching at the start and
   // Watched at the end; those two marks are handed to the connected trackers here (see
-  // `addon/trackers.mjs`). A service with no token answers with that and nothing else.
+  // `addon/trackers.mjs`) — in Mode 1 only. A service with no token answers with that and
+  // nothing else, and a mode that does not scrobble says so instead of reaching for one.
   if (pathname === "/tracking/watch") {
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
@@ -2352,6 +2454,10 @@ async function serveAddon(req, res, pathname, origin) {
     }
     try {
       const { item, watched } = await readBody(req);
+      if (trackingMode() !== "sync") {
+        json(res, 200, { ok: true, skipped: `tracking mode: ${trackingMode()}`, pushed: [] });
+        return true;
+      }
       json(res, 200, await pushWatch(item, watched));
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });
@@ -3268,6 +3374,26 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     return true;
   }
 
+  // **What people said about this title** (`/reviews/movie/550.json?level=season&season=2`) — the
+  // Reviews panel on a title page. It answers with TMDB's own reviews, and with the assistant's own
+  // take when an AI key is set (see `reviewPayload`); the level is what the panel is reading at
+  // (the whole run, or one season), so a show's second season is reviewed as a second season.
+  const reviews = pathname.match(/^\/reviews\/(movie|series)\/([\w:-]+)\.json$/);
+  if (reviews) {
+    const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+    try {
+      json(res, 200, await reviewPayload(reviews[1], reviews[2].replace(/^tmdb:/, ""), {
+        level: String(params.get("level") || "show").toLowerCase(),
+        season: Number(params.get("season") || 0) || 0,
+        name: params.get("name") || "",
+        language: params.get("lang") || activeLanguage(),
+      }), 1800);
+    } catch (err) {
+      json(res, 200, { ok: false, reviews: [], ai: null, error: String(err?.message || err) });
+    }
+    return true;
+  }
+
   // Title search, backing the search screen and the AI box. The addon
   // advertises only the `catalog` resource, so this is a plain server route
   // rather than a Stremio `search` resource.
@@ -3334,6 +3460,20 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
       }
       try {
         const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+        // **A title the app does not carry has no page.** An announced arrival is the Updates
+        // card's news and a title that has left is out of the catalogue; neither is a title you
+        // can open and press Play on — the owner's *"why their detail page opens and why they
+        // have play button"*. The answer says which of the two it is and the day it moves, so the
+        // app can say it back instead of drawing a page.
+        const probe = { type, id: `tmdb:${id}` };
+        if (hasLeft(probe)) {
+          json(res, 200, { ok: false, catalogue: "left", day: leavingDay(probe), error: "This title has left the catalogue." });
+          return true;
+        }
+        if (!onShelf(keyOf(probe))) {
+          json(res, 200, { ok: false, catalogue: "notYet", day: joinedOn(probe), error: "This title has not joined the catalogue yet." });
+          return true;
+        }
         const payload = await titlePayload(type, id, params.get("adult") === "1");
         json(res, 200, payload, 600);
       } catch (err) {

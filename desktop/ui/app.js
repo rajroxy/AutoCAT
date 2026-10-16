@@ -78,6 +78,8 @@ const SETTING_KEYS = {
   // tell you something.
   sound: "autocat.sound",
   notifications: "autocat.notifications",
+  // **How this profile uses the app** — the three modes in Settings → Profile.
+  tracking: "autocat.tracking",
   liveRow: "autocat.liveRow",
   // How a season's episodes are drawn: one row each, or a grid of cards.
   epView: "autocat.epView",
@@ -1174,6 +1176,12 @@ const state = {
   // app is *notified*, the way a store tells you what is coming and going this month — so this
   // one switch starts on where the other two start off.
   notifications: readJSON(KEY.notifications, { calendar: true, releases: false, live: false, lineup: true }),
+  // **The tracking mode**, and what it means (see `paneProfile`): `sync` plays here and
+  // scrobbles outwards, `dashboard` is the app as the local tracker of what you watch elsewhere,
+  // `native` keeps streaming and tracking both in the app. The server reads the same value out of
+  // this profile's settings and is what actually holds a mark back (`trackingMode` in
+  // `addon/index.mjs`); this copy is what the pane draws.
+  tracking: localStorage.getItem(KEY.tracking) || "sync",
   // "Pick the cards for you": when it is on, the per-profile visibility below
   // decides which rows, cards and catalog rows this profile shows. Off means every
   // card shows, which is the default so nothing disappears on its own.
@@ -1932,7 +1940,13 @@ function posterCard(m, opts = {}) {
   // The calendar mixes films and series in one grid, so it asks for the row type
   // to be drawn on the card.
   const kind = opts.kind ? (m.type === "movie" ? "Movie" : "Series") : "";
-  return el(
+  // **A title the app does not carry yet is a poster, not a door.** An announced arrival is the
+  // Updates card's news and nothing else — the owner's *"why their detail page opens and why they
+  // have play button"* — so its poster says the day it joins instead of opening a page the server
+  // refuses anyway (`/title/…` answers `catalogue: "notYet"`). The guard runs on the way *down*
+  // (`capture`), so no delegated handler further up can open it.
+  const announced = String(m.arrivingOn || "") > new Date().toISOString().slice(0, 10);
+  const node = el(
     // `data-id` lets the checks tell a real duplicate apart from two TMDB
     // titles that share a name.
     "button",
@@ -1985,9 +1999,21 @@ function posterCard(m, opts = {}) {
     // poster, and a list entry has to say what it is — but the app's rule that nothing is written
     // over artwork still holds, so the caption sits below the frame, in the app's own panel.
     wide ? el("div", { class: "poster-cap" }, el("div", { class: "poster-name", text: m.name || "" })) : null,
-    opts.watch ? watchTag(m) : null,
-    lineupTag(m),
+    // **No chip on your own lists.** The state tag ("Watching", "Plan to Watch") and the date tag
+    // ("Leaves 18 Nov") belong to the cards that state something — the owner's *"why did you give
+    // chip and name on watchlist card poster"*. A wide tile carries the picture and the name under
+    // it and nothing else; the row above it is already the state.
+    wide ? null : (opts.watch ? watchTag(m) : null),
+    wide ? null : lineupTag(m),
   );
+  if (announced) {
+    node.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      notify("Not in the catalogue yet", `${m.name} joins on ${m.arrivingOn}. It appears in the app on that day.`);
+    }, true);
+  }
+  return node;
 }
 
 /**
@@ -3355,9 +3381,16 @@ function drawTiles(strip, art, count, layout) {
     strip.replaceChildren(artImage(src, shot, { class: "content-tile", alt: "", loading: "lazy" }));
   } else {
     // **The card's own window, and nobody else's.** (See `tileWindows`.)
+    //
+    // **What you are in the middle of always leads the wall.** The window is dealt out of the art
+    // on a per-launch dice roll, so a card whose art holds the title you are watching could start
+    // one pin too late: the slot drew two plans and the "Continue watching" frame — and with it the
+    // landscape-and-portrait pair (`upNext` below) — was simply absent from the card. When the art
+    // holds a watching title the window *is* the head of the row, not a dealt slice of it.
+    const leading = art.some((m) => m && m.state === "watching");
     const span = art.length - count + 1;
     let start = 0;
-    if (span > 1) {
+    if (!leading && span > 1) {
       const held = tileWindows.get(strip._key);
       if (held !== undefined) {
         start = held;
@@ -3398,12 +3431,21 @@ function drawTiles(strip, art, count, layout) {
       // ("continue watching is not landscape"). Trakt and Stremio give this tile the full width of
       // its card, and that is what it takes here: one landscape frame across the card, with the
       // title's state in the corner and its name on the picture.
+      // **One landscape and one portrait.** The wall is the card's own width, and a poster-sized
+      // slot in it is a square — so the frame you are in the middle of takes the wide side and
+      // **the next title stands beside it as a poster**, which is the pair the owner asked for
+      // (*"watchlist card should have one landscape poster and one potrait poster"*). Before this
+      // the wide frame took the whole wall and the second slot was not drawn at all.
+      const beside = picked.find((m) => m && m !== head);
       strip.classList.add("upnext-strip");
-      strip.replaceChildren(el("div", { class: "upnext-tile" },
-        artImage(backdropOf(head) || heroImage(head) || head.poster || "", head, { class: "upnext-art", alt: "", loading: "lazy" }),
-        el("span", { class: "upnext-tag", text: head.state === "watching" ? "Continue watching" : "Up Next" }),
-        el("span", { class: "upnext-name", text: head.name || head.title || "" }),
-      ));
+      strip.replaceChildren(
+        el("div", { class: "upnext-tile" },
+          artImage(backdropOf(head) || heroImage(head) || head.poster || "", head, { class: "upnext-art", alt: "", loading: "lazy" }),
+          el("span", { class: "upnext-tag", text: head.state === "watching" ? "Continue watching" : "Up Next" }),
+          el("span", { class: "upnext-name", text: head.name || head.title || "" }),
+        ),
+        ...(beside ? [posterCard(beside, {})] : []),
+      );
     } else if (wideCard) {
       const tiles = picked.map((m) => {
         const tile = spotlightTile();
@@ -6988,6 +7030,128 @@ function qualityPick() {
   return pick.node;
 }
 
+/* ------------------------------------------------------ the title's reviews */
+
+/**
+ * **What people said, and what the assistant made of it** — the title page's review panel.
+ *
+ * The button lives in the top-right corner of the banner's poster and it *switches* the frame:
+ * press it and the artwork is the panel, press it again and the poster is back (the owner's
+ * *"this review button should be on detail page banner poster ... switch on top right on poster"*).
+ *
+ * **It is only offered for a title you have finished.** A review is written after the credits, so
+ * the button does not exist until the title is Watched — the gate the owner asked for (*"after
+ * user complete the movie and movie collection or shows per episode and per season and full
+ * shows"*). A show is read at the level you pick: the whole run, or one season, and each level is
+ * its own read (`/reviews/…?level=season&season=2`).
+ */
+let titleReview = { open: false, media: "", id: "", level: "show", season: 0 };
+
+const reviewIsOpen = (media, id) => titleReview.open && titleReview.media === media && String(titleReview.id) === String(id);
+
+function reviewCell(meta, media, id, seasons) {
+  const open = reviewIsOpen(media, id);
+  const button = el("button", {
+    class: "title-review-btn focusable" + (open ? " on" : ""),
+    type: "button",
+    id: "review-toggle",
+    text: open ? "◀ Poster" : "Reviews",
+    title: open
+      ? "Back to the poster"
+      : `What people said about ${meta.name || "this title"} — and the assistant's own take`,
+    onclick: (event) => {
+      // The frame sits over the card's own artwork button, so the press stops here.
+      event.stopPropagation();
+      titleReview = open
+        ? { open: false, media, id: String(id), level: "show", season: 0 }
+        : { open: true, media, id: String(id), level: String(titleReview.level || "show"), season: Number(titleReview.season) || 0 };
+      render();
+    },
+  });
+  if (!open) return el("div", { class: "title-review-wrap" }, button);
+  const panel = el("div", { class: "title-review-panel", id: "review-panel" },
+    el("p", { class: "empty", text: "Reading the reviews…" }),
+  );
+  void fillReviews(panel, meta, media, id, seasons);
+  return el("div", { class: "title-review-wrap open" }, button, panel);
+}
+
+/** The panel itself: the level switch, the assistant's take, then what people wrote. */
+async function fillReviews(panel, meta, media, id, seasons) {
+  const level = titleReview.level === "season" ? "season" : "show";
+  const season = level === "season" ? Number(titleReview.season) || 1 : 0;
+  const query = `level=${level}${season ? `&season=${season}` : ""}&name=${encodeURIComponent(meta.name || "")}`;
+  let data = null;
+  try {
+    data = await get(`/reviews/${media}/${encodeURIComponent(String(id).replace(/^tmdb:/, ""))}.json?${query}`);
+  } catch {
+    data = null;
+  }
+  // The panel can be closed (or another title opened) while the read is in the air.
+  if (!panel.isConnected || !reviewIsOpen(media, id)) return;
+
+  const kids = [
+    el("div", { class: "review-head" },
+      el("h3", { class: "review-title", text: `Reviews — ${meta.name || ""}` }),
+    ),
+  ];
+  // **A show is read one season at a time, or whole.** The seasons the page already has are the
+  // switch: the whole run, then each season, and the panel asks the server for that level.
+  const rows = (Array.isArray(seasons) ? seasons : []).filter((s) => s && Number(s.number) > 0);
+  if (media === "series" && rows.length) {
+    kids.push(el("div", { class: "review-levels" },
+      el("button", {
+        class: "chip focusable" + (level === "show" ? " active" : ""), type: "button", text: "Whole show",
+        onclick: () => { titleReview = { ...titleReview, level: "show", season: 0 }; render(); },
+      }),
+      ...rows.slice(0, 14).map((s) => el("button", {
+        class: "chip focusable" + (level === "season" && season === Number(s.number) ? " active" : ""),
+        type: "button",
+        text: s.name || `Season ${s.number}`,
+        onclick: () => { titleReview = { ...titleReview, level: "season", season: Number(s.number) }; render(); },
+      })),
+    ));
+  }
+
+  const ai = data?.ai || null;
+  if (ai && ai.ok && ai.text) {
+    kids.push(el("section", { class: "review-ai" },
+      el("h4", { class: "row-head", text: `The assistant's take — ${level === "season" ? `season ${season}` : media === "series" ? "the whole run" : "the film"}` }),
+      el("p", { class: "review-text", text: ai.text }),
+    ));
+  } else {
+    // **A key that answered with nothing is said out loud**, rather than a heading over an empty
+    // paragraph: the app's own reason travels in `ai.text` (see `reviewPayload`).
+    const why = String(ai?.text || "").trim().replace(/\.$/, "");
+    kids.push(el("p", { class: "review-note", text: ai?.hasKey
+      ? (why ? `No take this time — ${why}.` : "The assistant could not answer just now.")
+      : "Add an AI key in Settings → AI and the assistant writes its own review of this one here, at whichever level you are reading." }));
+  }
+
+  const list = Array.isArray(data?.reviews) ? data.reviews : [];
+  if (!data?.ok) {
+    kids.push(el("p", { class: "empty", text: data?.error ? `Nobody's reviews could be read — ${data.error}.` : "Nobody's reviews could be read." }));
+  } else if (!list.length) {
+    kids.push(el("p", { class: "empty", text: "Nobody has reviewed this one yet." }));
+  } else {
+    kids.push(el("h4", { class: "row-head", text: `What people wrote${data.total > list.length ? ` — ${data.total} in all` : ""}` }));
+    for (const r of list) {
+      kids.push(el("article", { class: "review-card" },
+        el("div", { class: "review-by" },
+          el("span", { class: "review-author", text: r.author }),
+          r.rating ? el("span", { class: "review-stars", text: `${"★".repeat(Math.round(r.rating / 2))}${"☆".repeat(5 - Math.round(r.rating / 2))} ${r.rating}/10` }) : null,
+          r.day ? el("span", { class: "review-day", text: r.day }) : null,
+        ),
+        el("p", { class: "review-text", text: r.text.length > 900 ? `${r.text.slice(0, 900).trimEnd()}…` : r.text }),
+        r.url
+          ? el("a", { class: "review-link", href: r.url, target: "_blank", rel: "noreferrer", text: "Read on TMDB" })
+          : null,
+      ));
+    }
+  }
+  panel.replaceChildren(...kids);
+}
+
 async function renderTitle(type, id) {
   const media = type === "series" ? "series" : "movie";
   setRow(media);
@@ -7011,6 +7175,9 @@ async function renderTitle(type, id) {
   // so the frame is full without the artwork being cut in half.
   const backdrop = backdropOf(meta);
   const poster = posterOf(meta);
+  // **A review is offered once the title is done.** The mark the player writes when the credits
+  // roll is what the button waits for (see `reviewCell`): nothing watched, no reviews yet.
+  const reviewed = (state.watchlist || {})[watchKey(meta)] === "watched";
   // **No line of facts under the name.** `TV-14 · 1 season · 4 episodes · 2026 · ★ 6.9
   // · Ended` repeated what the ratings row and the facts grid already say, in the one
   // place on the page that should be the name and nothing else.
@@ -7106,7 +7273,12 @@ async function renderTitle(type, id) {
       // its poster, whole, on the frame's plate — never stretched across it.
       el(
         "div",
-        { class: "hero-art title-hero-art-frame", "aria-hidden": "true" },
+        // **The frame stops being decorative once the review button is on it.** It carries a real
+        // control for a title you have finished, so it is no longer marked `aria-hidden`; artwork
+        // alone still is.
+        reviewed
+          ? { class: "hero-art title-hero-art-frame" }
+          : { class: "hero-art title-hero-art-frame", "aria-hidden": "true" },
         backdrop
           ? el("img", { class: "title-hero-art", src: backdrop, alt: "", loading: "eager" })
           : poster
@@ -7120,6 +7292,7 @@ async function renderTitle(type, id) {
                 el("img", { class: "title-hero-poster-art", src: poster, alt: "", loading: "eager" }),
               )
             : null,
+        reviewed ? reviewCell(meta, media, id, data.seasons || []) : null,
       ),
     ),
 
@@ -9793,7 +9966,29 @@ function paneProfile() {
     writeJSON(KEY.pickCards, on);
     render();
   };
+  const setTracking = (mode) => {
+    state.tracking = mode;
+    localStorage.setItem(KEY.tracking, mode);
+    pushSettings({ trackingMode: mode });
+    render();
+  };
   return [
+    // **How this profile uses the app**, in the owner's order, above the profile itself:
+    // the three ways a person runs a catalogue — the app as a premium player over Trakt/SIMKL's
+    // cloud data, the app as the local tracker of what you watch in Kodi/Plex/Stremio, and the one
+    // that touches no third party at all. Only Mode 1 writes outwards (see `trackingMode`); all
+    // three keep the rating and the mark here, which is what the app has always done.
+    groupHead("Tracking & sync"),
+    radioRow(state.tracking === "sync", "tracking", "Mode 1 — Play here, sync outwards",
+      "Stream in the app and let Trakt or SIMKL keep the history: every rating, every title started and every title finished is scrobbled to the tracker you already have, so your badges and followers stay where they are.",
+      () => setTracking("sync")),
+    radioRow(state.tracking === "dashboard", "tracking", "Mode 2 — Watch elsewhere, track here",
+      "Kodi, Plex, Stremio and the rest stay your players; this app is the dashboard — it reads what you watched in from them and is the place you browse, discover and manage from. Nothing is pushed outwards.",
+      () => setTracking("dashboard")),
+    radioRow(state.tracking === "native", "tracking", "Mode 3 — Everything in the app, nothing out",
+      "Streaming and tracking both stay here: no tracker is written to and none is consulted, so nothing about what you watch depends on a service that can go down, rate-limit or change its pricing.",
+      () => setTracking("native")),
+    el("p", { class: "option-desc", text: `The rating and the watched mark are kept on this machine in every mode — the mode decides what is copied out. Now: ${state.tracking === "sync" ? "Mode 1" : state.tracking === "dashboard" ? "Mode 2" : "Mode 3"}.` }),
     el(
       "div",
       { class: "current-profile" },
