@@ -104,6 +104,20 @@ export const monthOf = (d = new Date()) => d.toISOString().slice(0, 7);
 /** The first day of a month key. */
 export const monthStart = (month) => `${month}-01`;
 
+/**
+ * **The last day of a month key** — the far end of the window a leaving day is drawn from.
+ *
+ * The leaving day is kept inside the month the row belongs to, and it is not a cosmetic choice: a
+ * title named in October can then never carry a November day, so *"named before this month"* is a
+ * question the store can answer from the day alone (`leftBefore` in `addon/index.mjs`), and the
+ * month's turn cannot name a title an earlier month already took out.
+ */
+export const monthEnd = (month) => {
+  const [year, mon] = String(month).split("-").map(Number);
+  const last = new Date(Date.UTC(year, mon, 0)).getUTCDate();
+  return `${month}-${String(last).padStart(2, "0")}`;
+};
+
 /** A day, `n` days away from another. (One place for the arithmetic, all of it in UTC.) */
 export const shiftDay = (iso, n) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);

@@ -153,6 +153,18 @@ export const hasLeft = (m) => {
 export const isLeaving = (m) => Boolean(leavingOn(m));
 
 /**
+ * **The day a title joined the shelf, exactly as the store has it** — "" for a title the shelf has
+ * never brought in.
+ *
+ * This is the raw record, and the difference from `arrivingOn` below is the difference between a
+ * fact and a tag: `arrivingOn` answers *is this still news* (it blanks a title that came in longer
+ * ago than a month), while this answers *when did it come in*, which is what the month's own turn
+ * asks — a title an **earlier** month brought in is a title the app carried when this month began.
+ * See `shelfMonth` in `addon/index.mjs` for why that distinction decides which fifty arrive.
+ */
+export const joinedOn = (m) => load().arrived[keyOf(m)] || "";
+
+/**
  * **The day a title arrived in the service — while it is still news.**
  *
  * The store keeps the day for good (it is what makes a title the shelf brought in a title the app

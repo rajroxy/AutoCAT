@@ -84,13 +84,20 @@ a different fifty. The pond is TMDB — two pages of its popularity order plus e
 ones inside the first sixty — so the fifty have names on them rather than being deep-cut noise, and
 the shuffle over that pond is the month's dice. `Math.random` would re-deal the card on every request.
 
+**The month's turn is decided on the shelf as the month found it** — the coin, plus every title an
+*earlier* month brought in — and never on the live one. That is what keeps the two rows apart and the
+turn still: a read of either row writes the arrivals down, so a draw that asked the live store came
+out short (48 of 50) and handed eleven of the arriving row's own titles to the Leaving row, and a
+leaving draw that excluded the titles its own row had named answered with fifty *different* names on
+every fresh process — a restart, a second server — until the month had no pond left.
+
 The **Updates** card is that turn — what the month has just brought in, and what it is about to take
 away:
 
 | Row | What it is |
 |---|---|
 | **Arriving Soon** | this month's **fifty titles the service is bringing in** — drawn from the half of TMDB the app did not carry, every one of them **already released**, each poster wearing the day it came in (`New today` on the day itself) |
-| **Leaving Soon** | this month's **fifty on their way out** — drawn from the half the app carries, each poster wearing the day it goes (`Leaves 25 Oct`), nearest first |
+| **Leaving Soon** | this month's **fifty on their way out** — drawn from the half the app carries, each poster wearing the day it goes (`Leaves 25 Oct`, inside this month), nearest first |
 
 **Nothing on the Arriving row is *upcoming*, and the shelf is why that can no longer go wrong.** That
 distinction is the whole history of this row: it has been the calendar's next month, a quarter of it
@@ -109,7 +116,8 @@ construction rather than by a boundary someone has to keep in step.
 The dates are written down per title (`addon/lineup.json`, machine-wide, git-ignored): a title the
 Leaving row named keeps the day it goes (`leaving`), and a title the Arriving row brought in keeps the
 day it came in **and stays on the shelf for good** (`arrived`) — the store is what makes the turn
-one-way rather than a shuffle of the same names.
+one-way rather than a shuffle of the same names, and it is the *first* word that counts, so a title's
+day never moves once it has been said.
 
 **Leaving and arriving are two different rules.** A title the Leaving Soon row has named is
 **out of the app from that moment** — dropped from every row, from the search and from the
