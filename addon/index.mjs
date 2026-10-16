@@ -1846,15 +1846,15 @@ async function landscapeArt(media, id, language, scene = false) {
  * Cached for half an hour: a review set does not move while somebody reads it.
  */
 const reviewPayloads = new Map();
-async function reviewPayload(media, id, { level = "show", season = 0, name = "", language = "en" } = {}) {
+async function reviewPayload(media, id, { level = "show", season = 0, episode = 0, name = "", language = "en" } = {}) {
   // **The subject is part of the key.** The assistant is asked by name ("review season 2 of …"), so a
   // payload cached without one is not the same payload — the first caller would otherwise fix the
   // subject for everyone who reads the panel after them.
-  const key = `${media}:${id}:${level}:${season}:${language}:${name}`;
+  const key = `${media}:${id}:${level}:${season}:${episode}:${language}:${name}`;
   const hit = reviewPayloads.get(key);
   if (hit && hit.expires > Date.now()) return hit.payload;
 
-  const out = { ok: false, level, season, reviews: [], total: 0, ai: null, error: "" };
+  const out = { ok: false, level, season, episode, reviews: [], total: 0, ai: null, error: "" };
   if (!hasKey()) {
     out.error = "no TMDB key";
     return out;
@@ -1878,7 +1878,13 @@ async function reviewPayload(media, id, { level = "show", season = 0, name = "",
   // **The assistant's own review**, at this level. `askAI` answers `ok: false` with the reason
   // when no key is saved, so the panel can say where a key goes instead of failing.
   const title = name || "this title";
-  const subject = media === "series" && level === "season" && season > 0 ? `season ${season} of “${title}”` : `“${title}”`;
+  // **The level is the subject.** An episode is asked for as an episode, a season as a season, and the
+  // whole run as the title — the owner's *"per episode and per season and full shows"*.
+  const subject = media !== "series" || level === "show" || season <= 0
+    ? `“${title}”`
+    : level === "episode" && episode > 0
+      ? `episode ${episode} of season ${season} of “${title}”`
+      : `season ${season} of “${title}”`;
   const asked = await askAI(
     `Write a short review of ${subject}, the way a critic writing for people who have just finished it would. Say what it is, what works and what does not, and give it a verdict in the last line. Plain prose in one paragraph, about 110 words, no headings, no bullet points, no lists.`,
   ).catch((err) => ({ ok: false, text: String(err?.message || err) }));
@@ -3385,6 +3391,7 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
       json(res, 200, await reviewPayload(reviews[1], reviews[2].replace(/^tmdb:/, ""), {
         level: String(params.get("level") || "show").toLowerCase(),
         season: Number(params.get("season") || 0) || 0,
+        episode: Number(params.get("episode") || 0) || 0,
         name: params.get("name") || "",
         language: params.get("lang") || activeLanguage(),
       }), 1800);

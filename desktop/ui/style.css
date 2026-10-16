@@ -6671,14 +6671,14 @@ html .tab.tab-home {
    name on the picture. The rest of the wall stays a wall of posters, and a slot
    nothing answered for keeps its place as the app's own empty plate.
    ============================================================================ */
-.content-strip.upnext-strip { align-items: center; gap: 10px; }
+.content-strip.upnext-strip { align-items: stretch; gap: 8px; }
 .upnext-tile {
   position: relative;
   /* **The wide side of the wall, and the poster beside it.** The frame you are in the middle of
      keeps the card's own landscape shape (Trakt and Stremio draw it that way, and a poster-sized
      slot in a card this wide is a square), and the next title stands beside it as a portrait
      poster — the pair the owner asked for. See `drawTiles`. */
-  flex: 1 1 70%;
+  flex: 1 1 auto;
   min-width: 0;
   height: 100%;
   border-radius: 10px;
@@ -6686,21 +6686,14 @@ html .tab.tab-home {
   background: var(--panel-2);
 }
 .upnext-tile .upnext-art { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 32%; }
-.upnext-tag {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  background: rgba(3, 4, 6, 0.72);
-  color: #fff;
-  font-size: 11.5px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-}
 /* The second slot: the ordinary portrait poster, at the wall's own height. */
-.content-strip.upnext-strip > .poster { flex: 0 0 calc(30% - 10px); align-self: center; }
-.content-strip.upnext-strip > .poster img { height: auto; width: 100%; aspect-ratio: 2 / 3; }
+/* **The pair is the wall's own two tiles.** The card draws three poster slots elsewhere; here the
+   frame holds the same poster at the *same size* — one slot — and the title you are in the middle of
+   takes the two that are left, the way Trakt draws a list. The owner's words: *"why the second title
+   is small, and why second title is not like other card posters size"*. A `--gap` of 8px, so two
+   slots of the three-slot wall are exactly `2 × (one slot + gap)`. */
+.content-strip.upnext-strip > .poster { flex: 0 0 calc((100% - 16px) / 3); align-self: stretch; }
+.content-strip.upnext-strip > .poster img { height: 100%; width: 100%; aspect-ratio: 2 / 3; }
 .upnext-name {
   position: absolute;
   left: 10px;

@@ -78,8 +78,10 @@ const SETTING_KEYS = {
   // tell you something.
   sound: "autocat.sound",
   notifications: "autocat.notifications",
-  // **How this profile uses the app** — the three modes in Settings → Profile.
-  tracking: "autocat.tracking",
+  // **How this profile uses the app** — the three modes in Settings → Profile. **Not `tracking`**:
+  // that key is the trackers' own store (every Trakt/SIMKL account and token), so the mode lives
+  // under a name of its own — see the note on `state.trackingMode`.
+  trackingMode: "autocat.trackingMode",
   liveRow: "autocat.liveRow",
   // How a season's episodes are drawn: one row each, or a grid of cards.
   epView: "autocat.epView",
@@ -1006,8 +1008,31 @@ const LIVE_SETTINGS_GROUPS = [
   },
 ];
 const LIVE_SETTINGS_SECTIONS = LIVE_SETTINGS_GROUPS.flatMap((g) => g.sections);
-const settingsGroups = () => (liveProfile() ? LIVE_SETTINGS_GROUPS : SETTINGS_GROUPS);
-const settingsSections = () => (liveProfile() ? LIVE_SETTINGS_SECTIONS : SETTINGS_SECTIONS);
+/**
+ * **What a mode keeps in Settings** — the owner's own list, read by the name of the section (or, for
+ * the one row that is not a tab, the name of the thing it opens).
+ *
+ *   **Mode 1 — Play here, sync outwards.** Everything stays: the app streams and the tracker records.
+ *   The one exception is the **Activity page** — the local timeline — because the record of what you
+ *   watched is the tracker's own profile in this mode, and a second one inside the app is not a
+ *   setting anybody needs to think about.
+ *   **Mode 2 — Watch elsewhere, track here.** Nothing in the app plays, so the tabs that only matter
+ *   when it does — **Add-ons, Debrid, Playback** — are gone, and the **Play button** goes with them.
+ *   Everything else stays, the in-app **Activity page** included: that page is the whole point here.
+ *   **Mode 3 — Everything in the app, nothing out.** No tracker at all, so the **Trackers** tab is
+ *   gone. Everything else — streaming, playback, the activity page — stays.
+ */
+const modeHides = (name) => {
+  const mode = state.trackingMode;
+  if (mode === "dashboard") return name === "addons" || name === "debrid" || name === "playback" || name === "title-play";
+  if (mode === "native") return name === "tracking";
+  return name === "activity";
+};
+const settingsGroups = () =>
+  (liveProfile() ? LIVE_SETTINGS_GROUPS : SETTINGS_GROUPS)
+    .map((group) => ({ ...group, sections: group.sections.filter(([id]) => !modeHides(id)) }))
+    .filter((group) => group.sections.length);
+const settingsSections = () => (liveProfile() ? LIVE_SETTINGS_SECTIONS : SETTINGS_SECTIONS).filter(([id]) => !modeHides(id));
 
 const readJSON = (key, fallback) => {
   try {
@@ -1181,7 +1206,10 @@ const state = {
   // `native` keeps streaming and tracking both in the app. The server reads the same value out of
   // this profile's settings and is what actually holds a mark back (`trackingMode` in
   // `addon/index.mjs`); this copy is what the pane draws.
-  tracking: localStorage.getItem(KEY.tracking) || "sync",
+  // **It is a string, and `tracking` next to it is an object.** The mode was filed under
+  // `tracking` for one round, which overwrote the trackers' own store and killed every Settings
+  // screen that folds it (`can't assign to property "trakt" on "native"`).
+  trackingMode: localStorage.getItem(KEY.trackingMode) || "sync",
   // "Pick the cards for you": when it is on, the per-profile visibility below
   // decides which rows, cards and catalog rows this profile shows. Off means every
   // card shows, which is the default so nothing disappears on its own.
@@ -3441,7 +3469,9 @@ function drawTiles(strip, art, count, layout) {
       strip.replaceChildren(
         el("div", { class: "upnext-tile" },
           artImage(backdropOf(head) || heroImage(head) || head.poster || "", head, { class: "upnext-art", alt: "", loading: "lazy" }),
-          el("span", { class: "upnext-tag", text: head.state === "watching" ? "Continue watching" : "Up Next" }),
+          // **No chip on the card's own poster.** The state the tile stands for is the row's, and the
+          // owner's word for the pill over the artwork was plain — *"why continue watchlist chip
+          // showing on card poster"*. The picture, and the name under it, is the whole tile now.
           el("span", { class: "upnext-name", text: head.name || head.title || "" }),
         ),
         ...(beside ? [posterCard(beside, {})] : []),
@@ -7045,7 +7075,7 @@ function qualityPick() {
  * shows"*). A show is read at the level you pick: the whole run, or one season, and each level is
  * its own read (`/reviews/…?level=season&season=2`).
  */
-let titleReview = { open: false, media: "", id: "", level: "show", season: 0 };
+let titleReview = { open: false, media: "", id: "", level: "show", season: 0, episode: 0 };
 
 const reviewIsOpen = (media, id) => titleReview.open && titleReview.media === media && String(titleReview.id) === String(id);
 
@@ -7063,8 +7093,8 @@ function reviewCell(meta, media, id, seasons) {
       // The frame sits over the card's own artwork button, so the press stops here.
       event.stopPropagation();
       titleReview = open
-        ? { open: false, media, id: String(id), level: "show", season: 0 }
-        : { open: true, media, id: String(id), level: String(titleReview.level || "show"), season: Number(titleReview.season) || 0 };
+        ? { open: false, media, id: String(id), level: "show", season: 0, episode: 0 }
+        : { open: true, media, id: String(id), level: String(titleReview.level || "show"), season: Number(titleReview.season) || 0, episode: Number(titleReview.episode) || 0 };
       render();
     },
   });
@@ -7078,9 +7108,12 @@ function reviewCell(meta, media, id, seasons) {
 
 /** The panel itself: the level switch, the assistant's take, then what people wrote. */
 async function fillReviews(panel, meta, media, id, seasons) {
-  const level = titleReview.level === "season" ? "season" : "show";
-  const season = level === "season" ? Number(titleReview.season) || 1 : 0;
-  const query = `level=${level}${season ? `&season=${season}` : ""}&name=${encodeURIComponent(meta.name || "")}`;
+  const level = ["season", "episode"].includes(titleReview.level) ? titleReview.level : "show";
+  const season = level === "show" ? 0 : Number(titleReview.season) || 1;
+  const episode = level === "episode" ? Number(titleReview.episode) || 1 : 0;
+  // **The level is in the read.** An episode is asked for as an episode of its season, a season as a
+  // season, the whole run as itself — the owner's *"per episode and per season and full shows"*.
+  const query = `level=${level}${season ? `&season=${season}` : ""}${episode ? `&episode=${episode}` : ""}&name=${encodeURIComponent(meta.name || "")}`;
   let data = null;
   try {
     data = await get(`/reviews/${media}/${encodeURIComponent(String(id).replace(/^tmdb:/, ""))}.json?${query}`);
@@ -7105,18 +7138,37 @@ async function fillReviews(panel, meta, media, id, seasons) {
         onclick: () => { titleReview = { ...titleReview, level: "show", season: 0 }; render(); },
       }),
       ...rows.slice(0, 14).map((s) => el("button", {
-        class: "chip focusable" + (level === "season" && season === Number(s.number) ? " active" : ""),
+        class: "chip focusable" + ((level === "season" || level === "episode") && season === Number(s.number) ? " active" : ""),
         type: "button",
         text: s.name || `Season ${s.number}`,
-        onclick: () => { titleReview = { ...titleReview, level: "season", season: Number(s.number) }; render(); },
+        onclick: () => { titleReview = { ...titleReview, level: "season", season: Number(s.number), episode: 0 }; render(); },
       })),
     ));
+    // **And the episodes of the season you are on.** A season is a chapter, an episode is one
+    // sitting: with a season chosen the panel offers its episodes, and each one is its own read.
+    const on = rows.find((s) => Number(s.number) === season);
+    const count = Number(on?.episodes) || 0;
+    if (level !== "show" && count > 0) {
+      const shown = Math.min(count, 24);
+      kids.push(el("div", { class: "review-levels review-episodes" },
+        el("button", {
+          class: "chip focusable" + (level === "season" ? " active" : ""), type: "button", text: `All of season ${season}`,
+          onclick: () => { titleReview = { ...titleReview, level: "season", season, episode: 0 }; render(); },
+        }),
+        ...Array.from({ length: shown }, (_, i) => i + 1).map((n) => el("button", {
+          class: "chip focusable" + (level === "episode" && episode === n ? " active" : ""),
+          type: "button",
+          text: `Episode ${n}`,
+          onclick: () => { titleReview = { ...titleReview, level: "episode", season, episode: n }; render(); },
+        })),
+      ));
+    }
   }
 
   const ai = data?.ai || null;
   if (ai && ai.ok && ai.text) {
     kids.push(el("section", { class: "review-ai" },
-      el("h4", { class: "row-head", text: `The assistant's take — ${level === "season" ? `season ${season}` : media === "series" ? "the whole run" : "the film"}` }),
+      el("h4", { class: "row-head", text: `The assistant's take — ${level === "episode" ? `season ${season}, episode ${episode}` : level === "season" ? `season ${season}` : media === "series" ? "the whole run" : "the film"}` }),
       el("p", { class: "review-text", text: ai.text }),
     ));
   } else {
@@ -7194,10 +7246,13 @@ async function renderTitle(type, id) {
   // the title's own release day (`meta.releaseDate`), read off the same facts the page prints.
   const landDate = /^\d{4}-\d{2}-\d{2}$/.test(String(meta.releaseDate || "")) ? String(meta.releaseDate) : "";
   const notOutYet = Boolean(landDate) && landDate > new Date().toISOString().slice(0, 10);
+  // **No Play button in Mode 2.** That mode is "watch elsewhere, track here", so the app does not
+  // offer to play anything; the page keeps everything else (see `modeHides`).
+  const playsHere = !modeHides("title-play");
   const actions = el(
     "div",
     { class: "title-actions title-actions-bar", id: "title-pins" },
-          el("button", {
+          playsHere ? el("button", {
             class: "btn primary play-btn focusable" + (notOutYet ? " pending" : ""),
             type: "button",
             id: "title-play",
@@ -7219,7 +7274,7 @@ async function renderTitle(type, id) {
               if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => { /* the overlay still fills the window */ });
               openSources(meta);
             },
-          }),
+          }) : null,
           el("button", {
             class: "btn focusable",
             type: "button",
@@ -9967,8 +10022,8 @@ function paneProfile() {
     render();
   };
   const setTracking = (mode) => {
-    state.tracking = mode;
-    localStorage.setItem(KEY.tracking, mode);
+    state.trackingMode = mode;
+    localStorage.setItem(KEY.trackingMode, mode);
     pushSettings({ trackingMode: mode });
     render();
   };
@@ -9979,16 +10034,16 @@ function paneProfile() {
     // that touches no third party at all. Only Mode 1 writes outwards (see `trackingMode`); all
     // three keep the rating and the mark here, which is what the app has always done.
     groupHead("Tracking & sync"),
-    radioRow(state.tracking === "sync", "tracking", "Mode 1 — Play here, sync outwards",
+    radioRow(state.trackingMode === "sync", "trackingMode", "Mode 1 — Play here, sync outwards",
       "Stream in the app and let Trakt or SIMKL keep the history: every rating, every title started and every title finished is scrobbled to the tracker you already have, so your badges and followers stay where they are.",
       () => setTracking("sync")),
-    radioRow(state.tracking === "dashboard", "tracking", "Mode 2 — Watch elsewhere, track here",
+    radioRow(state.trackingMode === "dashboard", "trackingMode", "Mode 2 — Watch elsewhere, track here",
       "Kodi, Plex, Stremio and the rest stay your players; this app is the dashboard — it reads what you watched in from them and is the place you browse, discover and manage from. Nothing is pushed outwards.",
       () => setTracking("dashboard")),
-    radioRow(state.tracking === "native", "tracking", "Mode 3 — Everything in the app, nothing out",
+    radioRow(state.trackingMode === "native", "trackingMode", "Mode 3 — Everything in the app, nothing out",
       "Streaming and tracking both stay here: no tracker is written to and none is consulted, so nothing about what you watch depends on a service that can go down, rate-limit or change its pricing.",
       () => setTracking("native")),
-    el("p", { class: "option-desc", text: `The rating and the watched mark are kept on this machine in every mode — the mode decides what is copied out. Now: ${state.tracking === "sync" ? "Mode 1" : state.tracking === "dashboard" ? "Mode 2" : "Mode 3"}.` }),
+    el("p", { class: "option-desc", text: `The rating and the watched mark are kept on this machine in every mode — the mode decides what is copied out. Now: ${state.trackingMode === "sync" ? "Mode 1" : state.trackingMode === "dashboard" ? "Mode 2" : "Mode 3"}.` }),
     el(
       "div",
       { class: "current-profile" },
@@ -10879,8 +10934,14 @@ function paneContent() {
     pageRow("Watched titles", "Every title you have marked watched, in one grid — the same page a catalog gets.", "open-watched", "Open watched titles", "Every title marked Watched, newest first", () => watched && go(`#/x/watchlist/${encodeURIComponent(watched.id)}`)),
     // **And Activity, straight after it.** Both are your own history read as a list of its own,
     // so they are the same row twice — one behind Watched, one behind the dates.
-    groupHead("Activity"),
-    pageRow("Your activity", "What you pinned and when it moved — the Watchlist read as a timeline, newest first.", "open-activity", "Open activity", "What you pinned and when it moved", () => go("#/activity")),
+    // **Not in Mode 1.** The tracker outside is the record of what you watched in that mode, so the
+    // app's own timeline is not offered (`modeHides`).
+    ...(modeHides("activity")
+      ? []
+      : [
+          groupHead("Activity"),
+          pageRow("Your activity", "What you pinned and when it moved — the Watchlist read as a timeline, newest first.", "open-activity", "Open activity", "What you pinned and when it moved", () => go("#/activity")),
+        ]),
   ];
 }
 
