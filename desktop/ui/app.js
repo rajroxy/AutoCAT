@@ -2225,8 +2225,13 @@ async function fillStrip(strip, catalog) {
         // its own swaps to the app's landscape answer when it comes, so a card is never waiting on
         // one read per tile to draw a row — the same way a spotlight tile waits (`putSpotlightArt`
         // swaps only once the incoming file is in hand, so the frame is never left empty).
-        if (wideRows && !backdropOf(m)) {
-          landscapePoster(m).then((url) => {
+        // **A still of the content, not a poster and not key art.** Every one of your own rows
+        // asks for the scene read (`?scene=1`) — the owner's *"watching wale me poster daal diye,
+        // user jo dekh raha hoga uske content se scene na daloge"* — and the tile draws at once
+        // with what the row served, then swaps when the still arrives, so a card never waits on
+        // one read per tile to draw a row.
+        if (wideRows) {
+          landscapePoster(m, true).then((url) => {
             const img = tile.querySelector("img");
             if (url && img && tile.isConnected) putSpotlightArt(img, url, posterOf(m));
           });
@@ -3975,21 +3980,33 @@ function spotlightArt(m) {
  * keeps the picture it already has.
  */
 const landscapePosters = new Map();
-async function landscapePoster(m) {
+/**
+ * **The wide picture of one title, in the two shapes it comes in.**
+ *
+ * `scene` asks for **a still of the content itself** — a wide picture with no text on it, which
+ * is what Netflix and Trakt draw for your own lists (*"watching wale me poster daal diye, user
+ * jo dekh raha hoga uske content se scene na daloge"*), or the trailer's own frame when the world
+ * has no still. Without it the read is the title's **key art**: the wide picture its name is
+ * printed on, which is what a spotlight tile is for. One cache each, because they are two
+ * different pictures of the same title.
+ */
+async function landscapePoster(m, scene = false) {
   // The app's own ids carry their source (`tmdb:550`); the route wants the number.
   const path = `${m.type === "movie" ? "movie" : "series"}/${encodeURIComponent(String(m.id || "").replace(/^tmdb:/, ""))}`;
-  if (landscapePosters.has(path)) return landscapePosters.get(path);
+  const key = scene ? `${path}?scene` : path;
+  if (landscapePosters.has(key)) return landscapePosters.get(key);
   let url = "";
   try {
     const params = new URLSearchParams();
     if (state.language) params.set("lang", state.language);
+    if (scene) params.set("scene", "1");
     const query = params.toString();
     const res = await get(`/landscape/${path}.json${query ? `?${query}` : ""}`);
     url = String(res?.url || "");
   } catch {
     url = "";
   }
-  landscapePosters.set(path, url);
+  landscapePosters.set(key, url);
   return url;
 }
 

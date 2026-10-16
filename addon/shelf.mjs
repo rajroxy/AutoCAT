@@ -57,7 +57,14 @@ export const SHELF_TURN = 50;
  * nothing in particular rather than like November's.
  */
 export const SHELF_PAGES = 10;
-export const SHELF_PAGE_SPREAD = 60;
+// **The whole catalogue, not the top of it.** The spread is how deep into TMDB's page
+// order one month's draw reads, and twenty titles to a page makes 500 pages ten thousand
+// titles in — every era and every country TMDB carries, old films from the sixties and
+// the ones nobody has heard of beside the ones everybody has. It was 60, which is where a
+// month's fifty came out looking like nothing but this year's mainstream: the owner's
+// *"from tmdb from any time randomly, not capped at only just released or any specific
+// time or country"*. Nothing here looks at a release day, a region or a language.
+export const SHELF_PAGE_SPREAD = 500;
 
 /** The 32-bit span every hash and every roll below is a fraction of. */
 const SPAN = 4294967296;
@@ -191,7 +198,10 @@ export function pick(list, n, seed, key = (m) => `${m?.type || ""}:${m?.id || ""
  */
 export function pagesFor(month, salt, count = SHELF_PAGES, spread = SHELF_PAGE_SPREAD) {
   const rand = seededRandom(`${month}:${salt}:pages`);
-  const pages = [1, 2];
+  // **One page of names, nine from anywhere.** Page one keeps a month's fifty recognizable
+  // (something to recognize among the deep cuts); the rest are drawn across the whole spread,
+  // which is what makes a turn read like a shelf rather than like a chart.
+  const pages = [1];
   while (pages.length < count) {
     const page = 1 + Math.floor(rand() * spread);
     if (!pages.includes(page)) pages.push(page);

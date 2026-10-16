@@ -1733,12 +1733,13 @@ export async function catalogMetas(media, def, skip, opts = {}) {
 const LANDSCAPE_TTL = 24 * 60 * 60 * 1000;
 const landscapeArts = new Map();
 
-async function landscapeArt(media, id, language) {
-  const key = `${media}:${id}:${language}`;
+async function landscapeArt(media, id, language, scene = false) {
+  const key = `${media}:${id}:${language}${scene ? ":scene" : ""}`;
   const hit = landscapeArts.get(key);
-  if (hit && hit.expires > Date.now()) return hit.url;
+  if (hit && hit.expires > Date.now()) return { url: hit.url, kind: hit.kind };
 
   let url = "";
+  let kind = "";
   try {
     const short = String(language || "en").slice(0, 2).toLowerCase();
     const images = await get(`/${tmdbPath(media)}/${id}/images`, {
@@ -1750,11 +1751,20 @@ async function landscapeArt(media, id, language) {
     const by = (a, b) => (b.vote_average || 0) - (a.vote_average || 0) || (b.width || 0) - (a.width || 0);
     const wide = (images?.backdrops || []).filter((b) => b?.file_path);
     const named = wide.filter((b) => b.iso_639_1);
-    const best =
-      named.filter((b) => String(b.iso_639_1).toLowerCase() === short).sort(by)[0] ||
-      [...named].sort(by)[0] ||
-      [...wide].sort(by)[0];
-    if (best) url = `${IMG}/w1280${best.file_path}`;
+    // **A scene, or the title's key art.** `scene` is what your own lists ask for — *"user jo
+    // dekh raha hoga uske content se scene na daloge"* — and a **scene** is a wide picture with
+    // no text on it: TMDB leaves `iso_639_1` null on exactly those, and fills it in on key art,
+    // which is a wide poster with the title printed on it. So a scene read must never fall back
+    // to the named one; its fallback is the trailer's own frame, which is the content itself.
+    const best = scene
+      ? [...wide].filter((b) => !b.iso_639_1).sort(by)[0]
+      : named.filter((b) => String(b.iso_639_1).toLowerCase() === short).sort(by)[0] ||
+        [...named].sort(by)[0] ||
+        [...wide].sort(by)[0];
+    if (best) {
+      url = `${IMG}/w1280${best.file_path}`;
+      kind = best.iso_639_1 ? "keyart" : "still";
+    }
     // **A wide frame out of the trailer.** Plenty of new titles have no wide picture at all — a
     // slow film from Jakarta has one 2:3 poster the week it opens — and a 2:3 poster in a 16:9
     // slot is either a band cut through it (the black bars the owner reported) or a letterboxed
@@ -1769,17 +1779,21 @@ async function landscapeArt(media, id, language) {
         clips.find((v) => v.type === "Trailer" && String(v.iso_639_1).toLowerCase() === short) ||
         clips.find((v) => v.type === "Trailer") ||
         clips[0];
-      if (clip) url = `https://img.youtube.com/vi/${clip.key}/maxresdefault.jpg`;
+      if (clip) {
+        url = `https://img.youtube.com/vi/${clip.key}/maxresdefault.jpg`;
+        kind = "trailer";
+      }
     }
   } catch {
     // An old title with no image list, or a blip: no answer, and the card keeps the wide
     // shot the row served it — the tile is never left empty because of this call.
     url = "";
+    kind = "";
   }
 
-  landscapeArts.set(key, { url, expires: Date.now() + LANDSCAPE_TTL });
+  landscapeArts.set(key, { url, kind, expires: Date.now() + LANDSCAPE_TTL });
   if (landscapeArts.size > 400) landscapeArts.delete(landscapeArts.keys().next().value);
-  return url;
+  return { url, kind };
 }
 
 /* --------------------------------------------------------------- the pairing */
@@ -3507,8 +3521,12 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
     const query = new URL(req.url ?? "/", "http://localhost").searchParams;
     const language = query.get("lang") || activeLanguage();
     const id = art[2].replace(/^tmdb:/, "");
-    const url = hasKey() ? await landscapeArt(art[1], id, language) : "";
-    json(res, 200, { ok: Boolean(url), url }, 6 * 60 * 60);
+    // **`?scene=1` is the still of the content** — a wide picture with no text on it, or the
+    // trailer's own frame — which is what your own lists draw (see the client's
+    // `landscapePoster`). Without it the answer is the title's key art, which is what the
+    // spotlight tiles want. `kind` says which of the two came back.
+    const answer = hasKey() ? await landscapeArt(art[1], id, language, query.get("scene") === "1") : { url: "", kind: "" };
+    json(res, 200, { ok: Boolean(answer.url), url: answer.url, kind: answer.kind }, 6 * 60 * 60);
     return true;
   }
 

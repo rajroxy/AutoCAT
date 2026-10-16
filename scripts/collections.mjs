@@ -1542,12 +1542,18 @@ const decadeGenres = (type, list) =>
 // five consecutive runs, one season each: **Spring March–April, Summer May–June, Rainy (the
 // monsoon) July–September, Autumn October–November, Winter December–February**. Spring is the
 // row that opens the card and Winter the one that closes it, which is the order the year runs them.
+// **And the card opens on Summer.** The owner's word: *"summer se na start hoga and jaise
+// season hote hai"* — the rows are the seasons in the order they come, starting where the
+// year's own cycle is read here: **Summer → Rainy → Autumn → Winter → Spring**, and then
+// round again. Nothing else moves: one month belongs to one season, the five runs are
+// consecutive and together they are the whole year (May–June, July–September, October–
+// November, December–February, March–April).
 const SEASONS = [
-  { name: "Spring", first: 3, last: 4 },
   { name: "Summer", first: 5, last: 6 },
   { name: "Rainy", first: 7, last: 9 },
   { name: "Autumn", first: 10, last: 11 },
   { name: "Winter", first: 12, last: 2 },
+  { name: "Spring", first: 3, last: 4 },
 ];
 
 /** `YYYY-MM-DD` for the first of a numbered month. */
