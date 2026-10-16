@@ -16,14 +16,32 @@
  *
  * ## What it is not
  *
- * - **Nothing is written to disk.** A file is read as a stream as its pieces arrive.
  * - **Nothing is kept.** A swarm is dropped after `IDLE_MS` without a request.
+ * - **The engine decides where pieces live.** WebTorrent keeps them in memory (a file is read as
+ *   a stream as its pieces arrive). The fallback engine (`torrent-stream`) is disk-backed — that
+ *   is how it works — so its pieces go to a **temporary folder of its own**, one folder per
+ *   swarm, and dropping the swarm deletes them (`torrentDir()`). Nothing is left behind, and
+ *   nothing is shared between swarms.
  * - **A debrid account still wins.** This is the fallback, not a replacement: a cached
  *   torrent on a debrid service starts instantly, while this has to find real peers.
  *
  * The engine is optional. Without it the app falls back to the in-page WebTorrent and
  * says so, rather than failing at the first Play.
  */
+/**
+ * **Two engines, and the second one is what makes a TV play a torrent.**
+ *
+ * WebTorrent is the better one and the desktop app's. It also reaches for `node-datachannel` at
+ * import time — a **native** module that has to be compiled — and an APK cannot compile
+ * anything, so on Android TV the engine was always "missing" and every magnet was a stream that
+ * never started. `torrent-stream` is the same protocol in pure JavaScript (the DHT, the
+ * trackers, TCP peers, the piece picker; it gives up WebRTC, which only a browser ever had), so
+ * it runs wherever Node runs. `warmTorrent` tries WebTorrent first and falls back, and
+ * `torrentState()` reports which one answered.
+ */
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 /** How long a swarm is kept after the last request for it. */
 const IDLE_MS = Number(process.env.AUTOCAT_TORRENT_IDLE_MS) || 15 * 60 * 1000;
@@ -34,11 +52,49 @@ const METADATA_MS = Number(process.env.AUTOCAT_TORRENT_METADATA_MS) || 45 * 1000
 
 const VIDEO_RE = /\.(mp4|m4v|webm|mkv|mov|ogv|avi|ts|m2ts)$/i;
 
-let engine = null;      // the WebTorrent constructor
+let engine = null;      // the WebTorrent constructor, when WebTorrent is the engine
+let fallback = null;    // `torrent-stream`, the pure-JavaScript engine (the APK's own)
 let client = null;      // the one client, created on first use
 let loadState = "loading"; // loading | ready | missing
 let loadError = "";
+/** Which engine answered — `webtorrent`, `torrent-stream`, or `""`. */
+let engineName = "";
 const swarms = new Map(); // infoHash → { torrent, timer, addedAt }
+
+/**
+ * **Where a torrent's pieces are written.**
+ *
+ * The fallback engine is disk-backed: `torrent-stream` streams through `fs-chunk-store`, so it
+ * needs a directory that exists and that this process may write to. On Android that is *not*
+ * the app's own folder — an APK's assets are read-only — and `os.tmpdir()` is not guaranteed to
+ * point anywhere writable either. So the candidates are tried in order and the **first one that
+ * accepts a probe file** wins; if none does, the engine is started without a directory and says
+ * so, rather than failing at the first piece.
+ */
+const STORAGE_CANDIDATES = [
+  process.env.AUTOCAT_TORRENT_DIR,
+  process.env.TMPDIR,
+  process.env.TEMP,
+  path.join(os.tmpdir(), "autocat-torrents"),
+  path.join(os.homedir() || ".", ".autocat", "torrents"),
+];
+let storageDir = "";
+function torrentDir() {
+  if (storageDir) return storageDir;
+  for (const dir of STORAGE_CANDIDATES.filter(Boolean)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const probe = path.join(dir, `.autocat-probe-${process.pid}`);
+      fs.writeFileSync(probe, "1");
+      fs.unlinkSync(probe);
+      storageDir = dir;
+      return storageDir;
+    } catch {
+      /* the next candidate */
+    }
+  }
+  return "";
+}
 
 /** Types a `<video>` element will accept, by extension. */
 const TYPES = {
@@ -56,17 +112,40 @@ export const contentType = (name) => TYPES[String(name || "").toLowerCase().matc
  * without the optional dependency should say so once, not once per stream.
  */
 export function warmTorrent() {
-  if (engine || loadState === "missing") return Promise.resolve(engine);
+  if (loadState !== "loading") return Promise.resolve(engine || fallback);
+  // **One engine can be asked for by name** (`AUTOCAT_TORRENT_ENGINE=torrent-stream`). It is
+  // how the pure-JavaScript path is tested on a machine that has WebTorrent installed, and it
+  // is the answer for a device where the first engine loads and then misbehaves.
+  const forced = String(process.env.AUTOCAT_TORRENT_ENGINE || "").trim();
+  if (forced === "torrent-stream") return loadFallback(new Error("AUTOCAT_TORRENT_ENGINE=torrent-stream"));
   return import("webtorrent")
     .then((mod) => {
       engine = mod?.default || mod?.WebTorrent;
       if (typeof engine !== "function") throw new Error("the package did not export a constructor");
+      engineName = "webtorrent";
       loadState = "ready";
       return engine;
     })
-    .catch((err) => {
+    // **The Android TV path.** WebTorrent needs `node-datachannel` — a native module — at
+    // import time, and an APK has no compiler, so on a TV this import is the one that fails.
+    // `torrent-stream` is the same protocol in pure JavaScript and runs wherever Node runs.
+    .catch((primary) => loadFallback(primary));
+}
+
+/** The second attempt, with the first one's reason folded into the failure message. */
+function loadFallback(primary) {
+  const why = String(primary?.message || primary).split("\n")[0];
+  return import("torrent-stream")
+    .then((mod) => {
+      fallback = mod?.default || mod?.torrentStream || mod;
+      if (typeof fallback !== "function") throw new Error("the package did not export a factory");
+      engineName = "torrent-stream";
+      loadState = "ready";
+      return fallback;
+    })
+    .catch((second) => {
       loadState = "missing";
-      loadError = String(err?.message || err);
+      loadError = `webtorrent: ${why}; torrent-stream: ${String(second?.message || second).split("\n")[0]}`;
       return null;
     });
 }
@@ -75,8 +154,14 @@ warmTorrent();
 
 /** Can this server play a magnet itself? Answered synchronously for Settings. */
 export const torrentReady = () => loadState === "ready";
-/** Why not, when the answer is no. */
-export const torrentState = () => ({ ready: loadState === "ready", state: loadState, text: loadState === "missing" ? loadError : "" });
+/** Why not, when the answer is no — and **which engine** answered, because they are not equal. */
+export const torrentState = () => ({
+  ready: loadState === "ready",
+  state: loadState,
+  engine: engineName,
+  dir: storageDir,
+  text: loadState === "missing" ? loadError : "",
+});
 
 function getClient() {
   if (client) return client;
@@ -84,6 +169,102 @@ function getClient() {
   // A client-level error must not take the process down; the swarm reports its own.
   client.on("error", () => { /* reported per torrent */ });
   return client;
+}
+
+/**
+ * **The second engine, adapted to the shape this file already speaks.**
+ *
+ * `torrent-stream` has no client and no `add()`: one magnet *is* one engine, and it reports
+ * itself through events (`ready`, `error`) with `files` appearing at metadata. Everything the
+ * rest of this module asks for — `ready`, `files`, `numPeers`, `progress`, `downloadSpeed`,
+ * `destroy()`, `on/once/removeListener` — is provided here, so `openTorrent`, `torrentStatus`
+ * and `handleTorrentStream` never learn which engine answered.
+ *
+ * The two differences that matter are handled, not hidden:
+ *   - **the readout is a function, not a number** (`engine.downloadSpeed()`), so the live
+ *     numbers are read at the moment they are asked for and never copied stale;
+ *   - **pieces live on disk**, so a directory has to have been found (see `torrentDir`).
+ */
+function wrapTorrentStream(magnet, infoHash = "") {
+  const root = torrentDir();
+  // **One folder per swarm.** This engine wipes its storage when it is destroyed (`rimraf(path)`),
+  // and up to `MAX_TORRENTS` swarms are alive at once — so pointed at one shared folder, dropping
+  // the oldest swarm would delete the pieces of the ones still playing. Its own folder goes, and
+  // nothing else does.
+  const dir = root ? path.join(root, String(infoHash || "swarm").slice(0, 40).replace(/[^a-z0-9]/gi, "")) : "";
+  const opts = dir ? { path: dir, tmp: root } : {};
+  const engine_ = fallback(magnet, opts);
+  const listeners = new Map();
+  const emit = (event, arg) => {
+    for (const fn of listeners.get(event) || []) {
+      try { fn(arg); } catch { /* one bad listener must not stop the rest */ }
+    }
+  };
+  const add = (event, fn) => {
+    if (typeof fn !== "function") return wrapper;
+    listeners.set(event, [...(listeners.get(event) || []), fn]);
+    return wrapper;
+  };
+  const wrapper = {
+    engine: "torrent-stream",
+    ready: false,
+    files: [],
+    // **The live numbers come from the swarm**, which is where this engine keeps them: the wires
+    // it is connected to, the bytes it has taken and the rate it is taking them at. Reading
+    // "peers: 0" while data is arriving is worse than reading nothing — the note under the
+    // picture is what tells someone whether the swarm is empty or filling.
+    get swarm() { return engine_.swarm || null; },
+    get numPeers() {
+      try { return Number(engine_.swarm?.wires?.length) || 0; } catch { return 0; }
+    },
+    get downloadSpeed() {
+      try { return Number(engine_.swarm?.downloadSpeed?.()) || 0; } catch { return 0; }
+    },
+    get uploaded() {
+      try { return Number(engine_.swarm?.uploaded) || 0; } catch { return 0; }
+    },
+    get downloaded() {
+      try { return Number(engine_.swarm?.downloaded) || 0; } catch { return 0; }
+    },
+    /** How much of it is here, as a fraction — the same meaning WebTorrent's `progress` has. */
+    get progress() {
+      const total = Number(engine_.torrent?.length) || 0;
+      if (!total) return 0;
+      return Math.min(1, (Number(engine_.swarm?.downloaded) || 0) / total);
+    },
+    get timeRemaining() {
+      const left = (Number(engine_.torrent?.length) || 0) - (Number(engine_.swarm?.downloaded) || 0);
+      const speed = Number(engine_.swarm?.downloadSpeed?.()) || 0;
+      return left > 0 && speed > 0 ? Math.round((left / speed) * 1000) : 0;
+    },
+    on: add,
+    once: (event, fn) => add(event, (arg) => { remove(event, fn); fn(arg); }),
+    removeListener: (event, fn) => remove(event, fn),
+    off: (event, fn) => remove(event, fn),
+    destroy: () => { try { engine_.destroy(); } catch { /* already gone */ } },
+  };
+  function remove(event, fn) {
+    const list = (listeners.get(event) || []).filter((f) => f !== fn);
+    if (list.length) listeners.set(event, list);
+    else listeners.delete(event);
+  }
+  engine_.on("ready", () => {
+    wrapper.ready = true;
+    wrapper.files = (engine_.files || []).map((file) => ({
+      name: String(file?.name || ""),
+      length: Number(file?.length) || 0,
+      // The adapter exposes no `type`; `pickFile` reads the extension instead, which is what
+      // every torrent's file carries anyway.
+      type: "",
+      createReadStream: (range) => file.createReadStream(range),
+    }));
+    // Two events, one moment: this file's callers listen for either name.
+    emit("ready");
+    emit("metadata");
+  });
+  engine_.on("error", (err) => emit("error", err));
+  engine_.on("torrent", () => emit("metadata"));
+  return wrapper;
 }
 
 /** Drop a swarm and its timer. */
@@ -166,8 +347,10 @@ export function prepareTorrent({ magnet = "", infoHash = "" } = {}) {
   if (!hash) return { ok: false, error: "no info hash in this stream" };
   let entry = swarms.get(hash);
   if (!entry) {
-    const c = getClient();
-    const torrent = c.add(magnet && magnet.startsWith("magnet:") ? magnet : `magnet:?xt=urn:btih:${hash}`, { path: undefined });
+    const uri = magnet && magnet.startsWith("magnet:") ? magnet : `magnet:?xt=urn:btih:${hash}`;
+    // **One engine or the other, decided when it loaded.** WebTorrent holds one client for the
+    // whole process; the fallback starts a swarm per magnet and is asked for nothing else.
+    const torrent = engineName === "webtorrent" ? getClient().add(uri, { path: undefined }) : wrapTorrentStream(uri, hash);
     entry = { torrent, addedAt: Date.now(), timer: null, error: "" };
     torrent.on("error", (err) => { entry.error = String(err?.message || err || "the torrent failed"); });
     swarms.set(hash, entry);

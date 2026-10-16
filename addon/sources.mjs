@@ -15,6 +15,54 @@
 
 const GITHUB = /^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/#?]+)/i;
 
+/**
+ * **The branches these repositories publish on.** A GitHub URL is translated to its raw files,
+ * and translating it to `main` alone made two whole ecosystems fail: Nuvio's own repository
+ * publishes on `template`, and a CloudStream repository publishes `repo.json` on `builds`. Those
+ * are guesses too — see `repoBasesDeep` for the one that is not.
+ */
+export const GITHUB_BRANCHES = ["main", "master", "builds"];
+
+/** The `owner/repo` a GitHub URL names, or `null`. */
+export function githubRepo(url) {
+  const gh = String(url || "").match(GITHUB);
+  return gh ? { owner: gh[1], repo: gh[2] } : null;
+}
+
+/**
+ * **Where a repository's files really are.**
+ *
+ * The guessed branches first, because almost every repository is on one of them and they cost a
+ * request each only when they miss — and then, if they all missed, **the branch GitHub itself
+ * names**: one API call for the repository's `default_branch`. That is the difference between
+ * "paste this repository's address" working and a 404 on a repository that is fine, for a
+ * repository whose default branch is not one anybody would guess.
+ */
+export async function repoBasesDeep(url) {
+  const bases = repoBases(url);
+  const gh = githubRepo(url);
+  if (!gh) return bases;
+  for (const branch of GITHUB_BRANCHES) {
+    const base = `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${branch}`;
+    if (!bases.includes(base)) bases.push(base);
+  }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}`, {
+      headers: { accept: "application/vnd.github+json", "user-agent": ADDON_UA },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const branch = String(data?.default_branch || "").trim();
+      const base = branch ? `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${branch}` : "";
+      if (base && !bases.includes(base)) bases.push(base);
+    }
+  } catch {
+    /* the branches above are what is left */
+  }
+  return bases;
+}
+
 /** Where the files of a repo may live — a GitHub URL maps to raw.githubusercontent. */
 export function repoBases(url) {
   const clean = String(url || "")

@@ -312,6 +312,17 @@ A torrent is **not** a live channel: the live profile's channel streams are
 continuous URLs, so a torrent handed to one is dropped rather than sitting at 0%
 forever.
 
+**Two engines, and the second one is what makes a TV play a torrent.** WebTorrent is the desktop
+app's engine and the better one — and it reaches for `node-datachannel` at import time, a
+**native** module that has to be compiled. An APK cannot compile anything, so on Android TV the
+engine was always "missing" and every magnet was a stream that never started. `torrent-stream` is
+the same protocol in pure JavaScript (the DHT, the trackers, TCP peers, the piece picker; it gives
+up WebRTC, which only a browser ever had), so it runs wherever Node runs. `warmTorrent` tries
+WebTorrent first and falls back; `AUTOCAT_TORRENT_ENGINE=torrent-stream` forces the second one, and
+`torrentState()` reports which one answered. The fallback is disk-backed — that is how it works —
+so its pieces go to a temporary folder of its own (`AUTOCAT_TORRENT_DIR`, otherwise the system temp
+directory), one folder per swarm, and dropping the swarm deletes them.
+
 **The page keeps its place.** Every screen remembers where it was scrolled: going
 back returns you to the spot you left, and re-rendering the screen you are already on
 — a pin, a filter, a settings toggle, a row switch — does not move the page at all.
@@ -650,6 +661,35 @@ cross-origin request. The UI reads:
 | `/live/countries.json` | the public directory's country table (name, ISO code, flag) for the settings picker |
 | `/addon-status.json` | diagnostics: keys present, catalog count, region, language, content source + how many titles it upgraded |
 
+## CloudStream & Nuvio — the two source kinds that are not add-ons
+
+Settings has **two more doors** beside Add-ons, because these are different things rather than
+different buttons:
+
+**Nuvio** (`addon/nuvio.mjs`) reads a repository's `manifest.json` — `{ name, scrapers: [ … ] }`,
+or a plain array, or `providers`/`plugins` — where every entry names a file under `providers/`.
+Those files are **JavaScript this app runs itself** (`addon/pluginvm.mjs`), and they are asked with
+the **TMDB id** the app already holds for the title: `getStreams(tmdbId, "movie" | "tv", season,
+episode)`. So nothing has to be looked up to ask them, an episode is asked as an episode, and what
+they return arrives in the player's Sources drawer beside the add-ons' streams. A provider that
+`require`s `cheerio-without-node-native` — which is how the published ones are bundled — is given
+`cheerio` under that name. The README's own repositories of note:
+`https://github.com/phisher98/phisher-nuvio-providers` (51 providers) and
+`https://github.com/Gowaru/gowaru-nuvio-providers` (37).
+
+**CloudStream** (`addon/cloudstream.mjs`) reads a repository the way CloudStream does — `repo.json`,
+then every `plugins.json` it names — and is honest about what it finds: almost every extension is a
+**compiled `.cs3` (dex)**, written in Kotlin for Android's own runtime, and a JavaScript runtime
+cannot execute it. Those are listed, kept and switched on/off, each labelled `compiled (dex) — needs
+CloudStream`, and they are never offered as a source that could not answer. An extension published
+as `.js` is run like any provider.
+
+Both panes are the same shape: an address to paste, the repositories that were read from it (a
+GitHub page URL is translated to raw files — `main`, `master`, `builds`, and **the branch GitHub
+itself names**, which is what Nuvio's own repository needs), a switch per provider, and a **test
+box** — a TMDB id, a type, and one provider to ask — so "does this one actually work" has an answer
+on the settings screen instead of in the player.
+
 ## Android TV — one APK, nothing running outside it
 
 The app on a TV is **standalone**: no PC, no server to start, no address to type. This is the
@@ -657,10 +697,12 @@ same shape Stremio's Android app has — the app *carries* the runtime its own d
 and starts it on the device.
 
 The catalog server is JavaScript (`serve.mjs` plus the `addon/`, `scripts/` and `scraper/`
-modules beside it), and it uses **nothing but Node built-ins** — no npm package is imported by
-it anywhere. So the APK ships that project and starts it on the device with Capacitor's Node.js
-runtime (`@capawesome/capacitor-nodejs`, which embeds Node.js for Mobile Apps on a background
-thread). The WebView then reads every card, cover and row from `http://127.0.0.1:4173`
+modules beside it), and it reaches for **exactly two npm packages** — `torrent-stream`, the
+pure-JavaScript torrent engine (see **Torrents**), and `cheerio`, which the Nuvio provider sandbox
+hands back under the name those providers `require` — both copied into the project by
+`android:node`. Everything else is Node built-ins. So the APK ships that project and starts it on
+the device with Capacitor's Node.js runtime (`@capawesome/capacitor-nodejs`, which embeds Node.js
+for Mobile Apps on a background thread). The WebView then reads every card, cover and row from `http://127.0.0.1:4173`
 (`IN_APP_SERVER` in `ui/config.js`), which is what a packaged build falls back to. Nothing is
 asked of the user and nothing runs outside the box.
 
@@ -686,10 +728,13 @@ git-ignored: generated, ~21 MB, and rebuilt by `android:sync` on every build.
 
 **What cannot run on a TV** (and says so, in the app, when it is asked): the headless-browser
 tiers of the Custom Website scraper — `jsdom` and `playwright` are loaded with a dynamic
-`import()` and the code already answers "that tier cannot run" when they are missing; and
-torrent playback, which needs `webtorrent` in the project's `node_modules`. Everything else —
-every card and row (TMDB), providers, debrid, subtitles, trackers, Live TV and the guide — is
-the same code the preview server runs.
+`import()` and the code already answers "that tier cannot run" when they are missing. Everything
+else — every card and row (TMDB), Stremio add-ons, **Nuvio providers**, **CloudStream
+repositories**, debrid, subtitles, trackers, Live TV and the guide — is the same code the preview
+server runs, and **torrents play too**: WebTorrent cannot be built into an APK (its native
+`node-datachannel` needs a compiler the device does not have), so the server falls back to the
+pure-JavaScript `torrent-stream`, which is in the APK's `node_modules`. `Settings → Playback`'s
+own readout says which engine answered (`torrentState().engine`).
 
 ### Requirements
 

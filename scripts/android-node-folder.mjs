@@ -34,6 +34,7 @@ import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { reachableModules } from "./lib/reach.mjs";
+import { vendorModules } from "./lib/vendor.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const COVERS = join(ROOT, "covers");
@@ -131,6 +132,23 @@ for (const row of ["movies", "shows"]) {
   }
 }
 
+/**
+ * **And the packages its modules need.** The import walk above copies the app's own modules; these
+ * are the npm ones, which from a checkout resolve out of the repository and inside an APK have
+ * nothing above them to resolve from. `torrent-stream` is the pure-JavaScript torrent engine —
+ * WebTorrent's `node-datachannel` is native and cannot be built on a device, which is why a magnet
+ * never played on a TV — and `cheerio` is what a provider bundled for Nuvio expects under the name
+ * `cheerio-without-node-native` (see `addon/pluginvm.mjs`).
+ *
+ * `webtorrent` is deliberately **not** vendored: it would be 34 MB of a dependency that cannot load
+ * here, and `addon/torrent.mjs` falls back cleanly when it is absent.
+ */
+const vendored = await vendorModules({
+  into: DEST,
+  packages: ["torrent-stream", "cheerio"],
+  from: [join(ROOT, "node_modules"), join(ROOT, "desktop", "node_modules")],
+});
+
 await writeFile(join(DEST, "index.cjs"), INDEX, "utf8");
 await writeFile(join(DEST, "package.json"), PACKAGE, "utf8");
 
@@ -139,5 +157,16 @@ const mb = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 console.log(
   `Android node project → desktop/ui/nodejs\n` +
     `  ${modules.length} module(s) (${modules.filter((m) => m.startsWith("scripts/")).length} from scripts/), covers ${mb(coverBytes)}\n` +
+    `  ${vendored.copied.length} npm package(s) vendored, ${mb(vendored.bytes)} (${vendored.copied
+      .slice(0, 4)
+      .map((p) => p.name)
+      .join(", ")}${vendored.copied.length > 4 ? ", …" : ""})\n` +
     `  port ${PORT} (the address ui/config.js falls back to in a packaged build)`,
 );
+// A package that is not installed here cannot be copied, and the failure it would cause on the
+// device is a provider that answers nothing — so it is said out loud, with the command that fixes it.
+if (vendored.missing.length) {
+  console.warn(
+    `  · not installed here, so NOT in the APK: ${vendored.missing.join(", ")} — run "npm install" in the repository root (and in desktop/) before syncing`,
+  );
+}

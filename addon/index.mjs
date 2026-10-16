@@ -82,6 +82,15 @@ import { pushRating, pushWatch } from "./trackers.mjs";
 import { applyPosters, postersEnabled, checkPosterService, imdbId } from "./posters.mjs";
 import { applyContentSource, contentSourceActive, contentSourceStats } from "./tvdb.mjs";
 import { inspectSource } from "./sources.mjs";
+// **The two source kinds that are not add-ons.** Both are read here rather than in the page
+// for the same reason `/api/source` is: the first is a JSON file on `raw.githubusercontent.com`
+// and the second is a folder of JavaScript, and neither can be fetched from the page. They are
+// kept apart from the add-on list because they are different things — a Nuvio provider is asked
+// with the **TMDB id** this app already holds, and a CloudStream extension is almost always
+// compiled for Android — so each has its own store and its own settings pane (`nuvio.mjs`,
+// `cloudstream.mjs`).
+import { addRepo as nuvioAddRepo, removeRepo as nuvioRemoveRepo, refresh as nuvioRefresh, setEnabled as nuvioSetEnabled, setRepoEnabled as nuvioSetRepoEnabled, state as nuvioState, test as nuvioTest } from "./nuvio.mjs";
+import { addRepo as cloudAddRepo, removeRepo as cloudRemoveRepo, refresh as cloudRefresh, setEnabled as cloudSetEnabled, setRepoEnabled as cloudSetRepoEnabled, state as cloudState, test as cloudTest } from "./cloudstream.mjs";
 import { resolveMagnet, verifyDebrid, debridReady, DEBRID_SERVICES } from "./debrid.mjs";
 import { searchSubtitles, downloadSubtitle, cachedSubtitle, verifySubtitles, SUBTITLE_LANGUAGES } from "./subtitles.mjs";
 import { extractStreams } from "../scraper/index.js";
@@ -2666,6 +2675,75 @@ async function serveAddon(req, res, pathname, origin) {
     } catch (err) {
       json(res, 200, { ok: false, streams: [], trace: [], message: String(err?.message || err) });
     }
+    return true;
+  }
+
+  // **Nuvio providers, and the repositories they come from.** One address is added at a time
+  // and read before it is stored, so a typo cannot leave a repository in the list that never
+  // answers. The pane's switches travel back as `toggle` (one provider) and `toggleRepo` (all
+  // of them), and `test` runs a single provider against a title you name — so "does this
+  // provider work" is answerable from Settings without opening a player.
+  if (pathname === "/nuvio.json" || pathname === "/nuvio") {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "content-type",
+      });
+      res.end();
+      return true;
+    }
+    if (req.method === "POST") {
+      try {
+        const body = await readBody(req);
+        const action = String(body.action || "");
+        if (action === "add") json(res, 200, { ...(await nuvioAddRepo(body.url, { name: body.name })), ...(await nuvioState()) });
+        else if (action === "remove") json(res, 200, { ...nuvioRemoveRepo(body.url), ...(await nuvioState()) });
+        else if (action === "toggle") json(res, 200, { ...nuvioSetEnabled(body.key, body.on !== false), ...(await nuvioState()) });
+        else if (action === "toggleRepo") json(res, 200, { ...nuvioSetRepoEnabled(body.url, body.on !== false), ...(await nuvioState()) });
+        else if (action === "refresh") json(res, 200, { ...nuvioRefresh(), ...(await nuvioState()) });
+        else if (action === "test") json(res, 200, await nuvioTest(body.key, { tmdbId: body.tmdbId, mediaType: body.mediaType, season: body.season, episode: body.episode }));
+        else json(res, 400, { ok: false, error: `unknown action ${action}` });
+      } catch (err) {
+        json(res, 400, { ok: false, error: String(err?.message || err) });
+      }
+      return true;
+    }
+    json(res, 200, await nuvioState());
+    return true;
+  }
+
+  // **CloudStream repositories and the extensions they publish.** The same pane shape as
+  // Nuvio's over a different file layout — `repo.json` naming `plugins.json` files — and the
+  // same honesty about what can run: an extension compiled for Android is listed, kept and
+  // reported as compiled, never offered as a source that could not possibly answer.
+  if (pathname === "/cloudstream.json" || pathname === "/cloudstream") {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "content-type",
+      });
+      res.end();
+      return true;
+    }
+    if (req.method === "POST") {
+      try {
+        const body = await readBody(req);
+        const action = String(body.action || "");
+        if (action === "add") json(res, 200, { ...(await cloudAddRepo(body.url, { name: body.name })), ...(await cloudState()) });
+        else if (action === "remove") json(res, 200, { ...cloudRemoveRepo(body.url), ...(await cloudState()) });
+        else if (action === "toggle") json(res, 200, { ...cloudSetEnabled(body.key, body.on !== false), ...(await cloudState()) });
+        else if (action === "toggleRepo") json(res, 200, { ...cloudSetRepoEnabled(body.url, body.on !== false), ...(await cloudState()) });
+        else if (action === "refresh") json(res, 200, { ...cloudRefresh(), ...(await cloudState()) });
+        else if (action === "test") json(res, 200, await cloudTest(body.key, { tmdbId: body.tmdbId, mediaType: body.mediaType, season: body.season, episode: body.episode }));
+        else json(res, 400, { ok: false, error: `unknown action ${action}` });
+      } catch (err) {
+        json(res, 400, { ok: false, error: String(err?.message || err) });
+      }
+      return true;
+    }
+    json(res, 200, await cloudState());
     return true;
   }
 

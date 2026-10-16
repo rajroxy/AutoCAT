@@ -968,6 +968,13 @@ const SETTINGS_GROUPS = [
       ["players", "Players"],
       ["notifications", "Notifications"],
       ["addons", "Add-ons"],
+      // **Two more doors beside Add-ons, because they are two more kinds of source.** A Stremio
+      // add-on answers HTTP with JSON at a fixed endpoint; a CloudStream repository is a folder of
+      // *compiled Android* extensions; a Nuvio repository is a folder of JavaScript providers asked
+      // with a **TMDB id**. None of the three is added the way the others are, so none of them shares
+      // a pane with the others.
+      ["cloudstream", "CloudStream"],
+      ["nuvio", "Nuvio"],
       ["debrid", "Debrid"],
       // **Playback, not content**: resolution, audio and subtitle are what happens once
       // a title plays.
@@ -1043,7 +1050,10 @@ const modeHides = (name) => {
   // app option should come in settings for player like stremio, nuvio, etc connection for sync in
   // external players for in app tracking in activity page".
   if (name === "players") return mode !== "dashboard";
-  if (mode === "dashboard") return name === "addons" || name === "debrid" || name === "playback" || name === "title-play" || name === "tracking";
+  // **Mode 2 plays nothing here**, so every pane that only exists to make this app play is gone
+  // with Add-ons, Debrid and Playback — CloudStream and Nuvio included, because a source nothing
+  // can ask is a row that promises a stream this mode will never start.
+  if (mode === "dashboard") return ["addons", "cloudstream", "nuvio", "debrid", "playback", "title-play", "tracking"].includes(name);
   if (mode === "native") return name === "tracking";
   return name === "activity";
 };
@@ -12240,6 +12250,248 @@ function panePlayers() {
   ];
 }
 
+/* ------------------------------------------------------- CloudStream & Nuvio */
+
+/**
+ * **The two source kinds that are not add-ons, as one pane drawn twice.**
+ *
+ * They are separate doors because they are separate things:
+ *
+ *   **CloudStream** reads a repository the way CloudStream reads it — `repo.json`, then every
+ *   `plugins.json` it names — and almost every extension in it is a **compiled `.cs3` (dex)**,
+ *   written in Kotlin for Android's own runtime. A JavaScript runtime cannot execute that, so
+ *   those are *listed, kept and switched on/off* and labelled `compiled (dex)`; the panel says
+ *   plainly that the CloudStream app itself is what runs them. The exception is an extension
+ *   published as `.js`: that is a file of code, and this app runs it like any provider.
+ *
+ *   **Nuvio** reads `manifest.json` (an array of providers) and `providers/<name>.js`, and every
+ *   provider is JavaScript this app runs itself, asked with the **TMDB id** this app already holds
+ *   for every title it shows. So a Nuvio provider needs no IMDb lookup and no `/stream/…`
+ *   endpoint, and it appears in the same Sources drawer as everything else.
+ *
+ * Both panes are therefore one function: an address to paste, the repositories that were read
+ * from it, a switch per thing it carries, and a **test box** — a TMDB id, a type, and one
+ * provider to ask — so "does this work" has an answer on this screen instead of in the player.
+ */
+const PROVIDER_PANES = {
+  nuvio: {
+    path: "/nuvio.json",
+    key: "nuvio",
+    items: "plugins",
+    title: "Nuvio providers",
+    address: "https://github.com/tapframe/nuvio-providers (a Nuvio repository)",
+    add: "Add repository",
+    intro:
+      "A Nuvio repository is a folder holding manifest.json and providers/*.js. Its providers are JavaScript this app runs itself, and each one is asked with the TMDB id of the title you play — so an episode is asked as an episode, and a title with no IMDb id still plays through them. The streams they find arrive in the player's Sources drawer beside the add-ons'.",
+    item: (p) => [p.supportedTypes?.length ? p.supportedTypes.map((t) => (t === "tv" ? "series" : t)).join(", ") : "", p.formats?.length ? p.formats.join("/") : ""].filter(Boolean).join(" · "),
+    nothing: "No Nuvio providers yet. Add a repository above and its providers are listed here.",
+  },
+  cloudstream: {
+    path: "/cloudstream.json",
+    key: "cloudstream",
+    items: "extensions",
+    title: "CloudStream repositories",
+    address: "https://raw.githubusercontent.com/…/repo.json",
+    add: "Add repository",
+    intro:
+      "A CloudStream repository is read the way CloudStream reads it: repo.json, then every plugins.json it names. Almost every extension is compiled for Android (a .cs3 dex) and can only run inside the CloudStream app — those are listed, kept and switched here, and never offered as a source that could not answer. An extension published as JavaScript is run by this app exactly like a Stremio add-on's or a Nuvio provider's streams.",
+    item: (p) => [p.kind === "script" ? "JavaScript — runs here" : p.kind === "compiled" ? "compiled (dex) — needs CloudStream" : "unknown file", p.language, p.version ? `v${p.version}` : ""].filter(Boolean).join(" · "),
+    nothing: "No CloudStream repositories yet. Add one above and every extension it carries is listed here.",
+  },
+};
+
+/** When each provider pane was last read, so its own redraw cannot loop. */
+const providerPaneFetched = { nuvio: 0, cloudstream: 0 };
+
+function paneProvider(kind) {
+  const spec = PROVIDER_PANES[kind];
+  if (!spec) return [];
+  const at = providerPaneFetched[kind] || 0;
+  if (Date.now() - at > 1500) {
+    providerPaneFetched[kind] = Date.now();
+    get(spec.path)
+      .then((res) => {
+        if (res?.ok) state[spec.key] = res;
+        if (state.settingsSection === kind) render();
+      })
+      .catch(() => { /* offline: the pane keeps what the app already knows */ });
+  }
+  const data = state[spec.key] || { repos: [], count: 0, on: 0, sandbox: {}, hint: "" };
+  const repos = data.repos || [];
+  const everything = repos.flatMap((repo) => (repo[spec.items] || []).map((item) => ({ ...item, repo: repo.url, repoName: repo.name || repo.url })));
+
+  const note = el("span", { class: "source-status", text: "" });
+  const say = (message, ok = false) => {
+    note.className = `source-status${ok ? " ok" : message ? " bad" : ""}`;
+    note.textContent = message || "";
+  };
+  const call = async (body) => {
+    const res = await post(spec.path, body).catch(() => null);
+    if (res?.ok) {
+      state[spec.key] = res;
+      if (res.message) say(res.message, true);
+      else if (res.error) say(res.error);
+    } else say(res?.error || res?.message || "That did not work.");
+    render();
+  };
+
+  const urlInput = el("input", { class: "text-input focusable", type: "text", id: `${kind}-repo`, maxlength: "400", placeholder: spec.address });
+  const add = el("button", {
+    class: "btn primary focusable",
+    type: "button",
+    id: `${kind}-add`,
+    text: spec.add,
+    onclick: () => {
+      const url = urlInput.value.trim();
+      if (!url) return;
+      urlInput.value = "";
+      call({ action: "add", url });
+    },
+  });
+
+  /** One thing a repository carries: its name, what it is, and the switch that asks it or not. */
+  const itemRow = (item) => {
+    const on = item.enabled !== false;
+    const sub = spec.item(item);
+    return el("div", { class: `provider ai-provider${on ? " active" : ""}` },
+      el("div", { class: "provider-head" },
+        el("div", { class: "ai-provider-name" },
+          el("span", { class: "option-title", text: item.name }),
+          el("span", { class: `badge ${on ? "on" : "off"}`, text: on ? "on" : "off" }),
+          sub ? el("span", { class: "badge free", text: sub }) : null,
+        ),
+        el("label", { class: "switch", title: on ? "Stop asking this one for streams" : "Start asking this one for streams" },
+          el("input", {
+            type: "checkbox",
+            checked: on,
+            onchange: (e) => call({ action: "toggle", key: item.key, on: e.target.checked }),
+          }),
+          el("span", { class: "slider" }),
+        ),
+      ),
+      item.description ? el("p", { class: "option-desc", text: item.description }) : null,
+      el("span", { class: "source-url", text: item.url || item.filename || "" }),
+    );
+  };
+
+  /** One repository: what it is called, all of it on or off, and what it carries. */
+  const repoBox = (repo) => {
+    const items = repo[spec.items] || [];
+    const on = items.filter((i) => i.enabled !== false).length;
+    return el("div", { class: "provider" },
+      el("div", { class: "provider-head" },
+        el("div", { class: "ai-provider-name" },
+          el("span", { class: "option-title", text: repo.name || repo.url }),
+          el("span", { class: `badge ${on ? "on" : "off"}`, text: on ? `${on}/${items.length} on` : "all off" }),
+        ),
+        el("label", { class: "switch", title: on ? "Switch every one of them off" : "Switch every one of them on" },
+          el("input", {
+            type: "checkbox",
+            checked: on > 0,
+            onchange: (e) => call({ action: "toggleRepo", url: repo.url, on: e.target.checked }),
+          }),
+          el("span", { class: "slider" }),
+        ),
+      ),
+      repo.description ? el("p", { class: "option-desc", text: repo.description }) : null,
+      el("span", { class: "source-url", text: repo.url }),
+      el("div", { class: "source-actions" },
+        el("button", {
+          class: "btn subtle focusable",
+          type: "button",
+          id: `${kind}-remove`,
+          text: "Remove repository",
+          onclick: () => call({ action: "remove", url: repo.url }),
+        }),
+      ),
+      items.length ? el("div", { class: "sources" }, ...items.map(itemRow)) : el("p", { class: "option-desc", text: "Nothing in it." }),
+    );
+  };
+
+  return [
+    el("p", { class: "option-desc", text: spec.intro }),
+    el("div", { class: "provider source-add" },
+      el("div", { class: "source-form" }, urlInput, add),
+      el("p", { class: "option-desc", text: data.hint || "" }),
+      note,
+    ),
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    groupHead(spec.title),
+    el("div", { class: "provider" },
+      repos.length ? el("div", { class: "sources" }, ...repos.map(repoBox)) : el("p", { class: "option-desc", text: spec.nothing }),
+    ),
+    ...providerTester(kind, everything),
+    // **What the sandbox can actually run.** A provider bundled for another runtime keeps
+    // `require("cheerio-without-node-native")` as an external call; if that name is not carried
+    // here, the provider fails at its first line — and that is worth saying on the screen rather
+    // than discovering it in an empty Sources drawer.
+    data.sandbox?.modules?.length
+      ? el("p", { class: "option-desc", text: `Providers may use these modules here: ${data.sandbox.modules.join(", ")}.` })
+      : null,
+  ];
+}
+
+/**
+ * **The test box both provider panes wear.**
+ *
+ * The question this answers is the one the app cannot answer by looking: a repository can read
+ * perfectly and every provider in it still be dead, and pressing Play to find out is how "the
+ * sources are very much but nothing plays" happens. So: one provider, one TMDB id, one type, and
+ * whatever it answers — the streams it found (with their addresses) and the last few lines it
+ * logged, which is what a provider author would ask for.
+ */
+function providerTester(kind, list) {
+  const spec = PROVIDER_PANES[kind];
+  const choices = list.map((item) => [item.key, `${item.name} — ${item.repoName || ""}`.slice(0, 90)]);
+  const picker = dropdown(choices.length ? choices : [["", "Nothing to test"]], choices[0]?.[0] || "");
+  const idInput = el("input", { class: "text-input focusable", type: "text", id: `${kind}-test-id`, maxlength: "20", placeholder: "TMDB id — 550 is Fight Club" });
+  const kinds = dropdown([["movie", "Movie"], ["tv", "Series"]], "movie");
+  const out = el("div", { class: "provider", id: `${kind}-test-out` },
+    el("p", { class: "option-desc", text: "Nothing tested yet." }));
+  const run = el("button", {
+    class: "btn primary focusable",
+    type: "button",
+    id: `${kind}-test`,
+    text: "Test this one",
+    disabled: !choices.length,
+    onclick: async () => {
+      const key = picker.value();
+      const tmdbId = idInput.value.trim().replace(/^tmdb:/i, "");
+      if (!key || !tmdbId) {
+        out.replaceChildren(el("p", { class: "option-desc", text: "Pick a provider and give it a TMDB id." }));
+        return;
+      }
+      out.replaceChildren(el("p", { class: "option-desc", text: "Asking…" }));
+      const res = await post(spec.path, { action: "test", key, tmdbId, mediaType: kinds.value() }).catch(() => null);
+      if (!res) {
+        out.replaceChildren(el("p", { class: "option-desc", text: "The app's own server did not answer." }));
+        return;
+      }
+      const rows = (res.streams || []).map((s) => el("div", { class: "provider ai-provider" },
+        el("div", { class: "provider-head" }, el("div", { class: "ai-provider-name" },
+          el("span", { class: "option-title", text: s.title || s.name || "stream" }),
+          s.quality ? el("span", { class: "badge free", text: s.quality }) : null,
+        )),
+        el("span", { class: "source-url", text: s.url }),
+      ));
+      out.replaceChildren(
+        el("p", { class: "option-desc", text: `${res.name || ""} ${res.ok ? "answered" : "did not answer"} — ${res.message || ""}` }),
+        ...(rows.length ? rows : [el("p", { class: "option-desc", text: "No streams for that title." })]),
+        ...(res.logs?.length ? [el("p", { class: "option-desc", text: res.logs.slice(-6).join(" · ") })] : []),
+      );
+    },
+  });
+  return [
+    el("div", { class: "h-divider", "aria-hidden": "true" }),
+    groupHead("Test one"),
+    el("div", { class: "provider" },
+      el("div", { class: "source-form" }, picker.node, kinds.node, idInput, run),
+      el("p", { class: "option-desc", text: "A TMDB id, the type, and the provider to ask. What comes back is what the player would get — with what it logged, when it logged anything." }),
+    ),
+    out,
+  ];
+}
+
 function paneAddonsPlugins() {
   const addons = state.sources.filter((s) => ADDON_TYPES.some(([t]) => t === s.type));
   // **Add-ons only.** The AutoCAT plugin half of this pane is gone: a plugin is code
@@ -12563,6 +12815,9 @@ function renderSettings() {
     content: paneContent,
     addons: paneAddonsPlugins,
     plugins: paneAddonsPlugins,
+    // The two source kinds that are not add-ons, each with its own door (see `paneProvider`).
+    cloudstream: () => paneProvider("cloudstream"),
+    nuvio: () => paneProvider("nuvio"),
     layout: paneLayout,
     font: paneFont,
     playback: panePlayback,

@@ -3,7 +3,7 @@
   "productName": "AutoCAT",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop app for the AutoCAT collection covers and catalogs. Web UI, wrapped by Electron — the same UI ports to Android TV via Capacitor.",
+  "description": "Desktop app for the AutoCAT collection covers and catalogs. Web UI, wrapped by Electron \u2014 the same UI ports to Android TV via Capacitor.",
   "type": "module",
   "main": "main.js",
   "scripts": {
@@ -33,7 +33,9 @@
   "dependencies": {
     "@capawesome/capacitor-nodejs": "^0.2.0",
     "hls.js": "^1.7.3",
-    "webtorrent": "^2.8.5"
+    "webtorrent": "^2.8.5",
+    "cheerio": "^1.0.0",
+    "torrent-stream": "^1.2.1"
   },
   "overrides": {
     "uint8-util": "2.2.6"
@@ -63,7 +65,7 @@
       ],
       "category": "AudioVideo",
       "maintainer": "AutoCAT",
-      "synopsis": "AutoCAT — collection covers and catalogs"
+      "synopsis": "AutoCAT \u2014 collection covers and catalogs"
     },
     "win": {
       "target": [

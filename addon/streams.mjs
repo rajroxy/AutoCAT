@@ -18,6 +18,13 @@
 import { get, toMeta } from "./tmdb.mjs";
 import { getSettings, activeLanguage } from "./settings.mjs";
 import { imdbId } from "./posters.mjs";
+// **Nuvio providers and CloudStream repositories** — the two source kinds that are not
+// add-ons. Both are read on the server and both answer a different question from an add-on:
+// a Nuvio provider is asked with the **TMDB id** this app already holds (no IMDb lookup),
+// and a CloudStream extension is almost always compiled for Android and is reported as such
+// rather than pretending to work. See `nuvio.mjs` and `cloudstream.mjs`.
+import { providerStreams } from "./nuvio.mjs";
+import { extensionStreams } from "./cloudstream.mjs";
 
 const STREAM_TTL_MS = 5 * 60 * 1000;
 // **A failure is not worth five minutes.** "Nothing answered just now" — a host down,
@@ -238,14 +245,41 @@ export async function streamsFor(type, tmdbId, { name = "", force = false, seaso
 
   const sources = streamSources("stremio");
   const meta = { id: String(tmdbId).replace(/^tmdb:/, ""), type: media, name };
-  const imdb = await imdbId(meta);
+  // **The two provider kinds that do not need an IMDb id.** They are asked in parallel with
+  // the add-ons below and merged, so a title with no IMDb id is still playable through a
+  // Nuvio provider, and a title with no add-ons is still playable through one either.
+  const providers = { tmdbId: meta.id, mediaType: media, season, episode };
+  const direct = sources.length ? null : await Promise.all([
+    providerStreams(providers).catch(() => ({ streams: [], sources: [] })),
+    extensionStreams(providers).catch(() => ({ streams: [], sources: [] })),
+  ]);
+  const imdb = sources.length ? await imdbId(meta) : null;
 
   if (!sources.length) {
-    return remember(key, { ok: false, reason: "no-sources", imdb, streams: [], sources: [] });
+    const [nuvio, cloud] = direct || [{ streams: [], sources: [] }, { streams: [], sources: [] }];
+    const streams = [...nuvio.streams, ...cloud.streams];
+    const lines = [...nuvio.sources, ...cloud.sources];
+    // Nothing to ask at all — no add-on, no provider — is the one case that is still
+    // "no sources": the settings genuinely hold nothing that plays.
+    if (!lines.length) return remember(key, { ok: false, reason: "no-sources", imdb, streams: [], sources: [] });
+    return remember(key, { ok: streams.length > 0, imdb, count: streams.length, streams, sources: lines });
   }
   if (!imdb) {
-    // Without an IMDb id an add-on cannot be asked for streams at all.
-    return remember(key, { ok: false, reason: "no-imdb", imdb: null, streams: [], sources: sources.map((s) => s.name || s.url) });
+    // Without an IMDb id a Stremio add-on cannot be asked for streams at all — but a Nuvio
+    // provider can, so the providers are still asked and their answer is the answer.
+    const [nuvio, cloud] = await Promise.all([
+      providerStreams(providers).catch(() => ({ streams: [], sources: [] })),
+      extensionStreams(providers).catch(() => ({ streams: [], sources: [] })),
+    ]);
+    const streams = [...nuvio.streams, ...cloud.streams];
+    return remember(key, {
+      ok: streams.length > 0,
+      reason: streams.length ? "" : "no-imdb",
+      imdb: null,
+      count: streams.length,
+      streams,
+      sources: [...sources.map((s) => s.name || s.url), ...nuvio.sources, ...cloud.sources],
+    });
   }
 
   const askAddon = async (source, idPart) => {
@@ -278,18 +312,25 @@ export async function streamsFor(type, tmdbId, { name = "", force = false, seaso
       }
     }),
   );
-  const results = await addonRuns;
+  // **The providers are asked while the add-ons are.** Different hosts, different protocols,
+  // no shared state — so a title waits for the slowest of them, not for the sum.
+  const [results, nuvio, cloud] = await Promise.all([
+    addonRuns,
+    providerStreams(providers).catch(() => ({ streams: [], sources: [] })),
+    extensionStreams(providers).catch(() => ({ streams: [], sources: [] })),
+  ]);
 
-  const streams = results.flatMap((r) => r.streams);
+  const streams = [...results.flatMap((r) => r.streams), ...nuvio.streams, ...cloud.streams];
   return remember(key, {
     ok: streams.length > 0,
     imdb,
     count: streams.length,
     streams,
-    // One line per add-on: which answered, with how many, and which did not. The
+    // One line per source: which answered, with how many, and which did not. The
     // player's Sources drawer names these, so a pasted add-on is visible as itself
-    // and a quiet one says why it was quiet.
-    sources: results.map((r) => ({ name: r.label, ok: r.ok, message: r.message })),
+    // and a quiet one says why it was quiet — a Nuvio provider and a CloudStream
+    // extension included, labelled by what they are.
+    sources: [...results.map((r) => ({ name: r.label, ok: r.ok, message: r.message })), ...nuvio.sources, ...cloud.sources],
   });
 }
 
