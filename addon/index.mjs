@@ -30,7 +30,7 @@ import {
   localServices,
   title as collectionTitle,
 } from "../scripts/collections.mjs";
-import { get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
+import { genres as tmdbGenres, get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
 import { cleanScope, currentScope, rescope, withScope } from "./scope.mjs";
 import { askAI, askAbout, askTags, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
 import {
@@ -3376,6 +3376,26 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
       json(res, 200, result);
     } catch (err) {
       json(res, 400, { ok: false, text: String(err?.message || err) });
+    }
+    return true;
+  }
+
+  // **The app's genres, with their ids** (`/genres.json?type=movie`) — what the assistant box offers
+  // as tags on Home: a genre name is not a door until it has an id, and this is the one list of them
+  // (`/l/genre/<id>` is the page each chip opens). Cached for a day: TMDB's genre list does not move.
+  if (pathname === "/genres.json") {
+    const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+    const media = params.get("type") === "series" ? "series" : "movie";
+    setKey(tmdbKey());
+    if (!hasKey()) {
+      json(res, 200, { ok: false, genres: [] });
+      return true;
+    }
+    try {
+      const list = await tmdbGenres(media);
+      json(res, 200, { ok: true, type: media, genres: (list || []).filter((g) => g?.id && g?.name).map((g) => ({ id: g.id, name: g.name })) }, 24 * 60 * 60);
+    } catch (err) {
+      json(res, 200, { ok: false, genres: [], error: String(err?.message || err) });
     }
     return true;
   }

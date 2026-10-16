@@ -6777,3 +6777,8 @@ html .tab.tab-home {
 .review-day { color: var(--muted); font-size: 12px; }
 .review-text { margin: 0; font-size: 13.5px; line-height: 1.55; }
 .review-link { display: inline-block; margin-top: 8px; color: var(--fill); font-size: 12.5px; font-weight: 700; }
+
+/* **The pins inside the assistant box.** The same two buttons the banner draws, in the box's own
+   action row: a row of their own so a redraw after a press cannot disturb Close. */
+.assistant-pins { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.assistant-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -8046,6 +8046,53 @@ async function openAssistant(meta, opts = {}) {
   // Library rows, one of the things you are watching). The other group is **questions**, and the
   // owner asked for those to come from the model itself, a fresh set every time the box opens,
   // with the written ones standing by as the fallback (see `loadAITags` below).
+  // **The app's own shelves and lists, as tags.** The owner's ask for the Home box: *"itne sare card
+  // hai, catalog row hai, all around countries titles hai, aur genres — in sab ka bhi tag ho"*. So the
+  // box carries the app itself as four more groups — the **cards**, the **rows** inside them, the
+  // **countries** a catalogue can be read by and the **genres** — each chip a door to that page
+  // (`#/c/…`, `#/x/…`, `#/l/country/…`, `#/l/genre/…`). Read when the box opens, and a failure is an
+  // empty group rather than a box that does not draw.
+  const browse = { cards: [], rows: [], countries: [], genres: [] };
+  if (generic) {
+    try {
+      const cards = await get("/collections.json");
+      for (const card of cards || []) {
+        const label = card.title || card.name || card.key;
+        if (browse.cards.length < 8 && card.key) browse.cards.push([label, () => { close(); go(`#/c/${encodeURIComponent(card.key)}`); }]);
+        for (const cat of [...(card.movie?.catalogs || []), ...(card.series?.catalogs || [])]) {
+          if (browse.rows.length >= 6 || !cat?.id) continue;
+          browse.rows.push([cat.name || cat.id, () => { close(); go(`#/x/${encodeURIComponent(card.key)}/${encodeURIComponent(cat.id)}`); }]);
+        }
+      }
+    } catch {
+      /* no cards read — the box keeps the groups it has */
+    }
+    try {
+      const { filters } = await get("/search/filters.json");
+      for (const [code, label] of (filters?.countries || [])) {
+        if (browse.countries.length >= 9 || !code || code === "all") continue;
+        browse.countries.push([label, () => { close(); go(`#/l/country/${encodeURIComponent(code)}?type=movie`); }]);
+      }
+    } catch {
+      /* same */
+    }
+    try {
+      const { genres } = await get("/genres.json?type=movie");
+      for (const g of genres || []) {
+        if (browse.genres.length >= 10) continue;
+        browse.genres.push([g.name, () => { close(); go(`#/l/genre/${encodeURIComponent(g.id)}?type=movie`); }]);
+      }
+    } catch {
+      /* same */
+    }
+  }
+  const browseGroups = [
+    ["Cards", browse.cards],
+    ["Rows", browse.rows],
+    ["Countries", browse.countries],
+    ["Genres", browse.genres],
+  ].filter(([, items]) => items.length);
+
   const chips = generic
     ? [
         ["Give me something", [
@@ -8062,6 +8109,8 @@ async function openAssistant(meta, opts = {}) {
           ["Something to fall asleep to", () => askWith("Name one calm, slow film or series to fall asleep to, and say why in one line.")],
           ["Just one, and be quick", () => askWith("Name one title for tonight in a single line, no explanation.")],
         ], { ai: true }],
+        // **The app itself, as tags** — the cards, their rows, the countries and the genres.
+        ...browseGroups.map(([group, items]) => [group, items, { ai: false }]),
       ]
     : [
         ["About this title", (ASK_QUESTIONS[meta?.type === "series" ? "series" : "movie"] || ASK_QUESTIONS.movie)
@@ -8106,6 +8155,11 @@ async function openAssistant(meta, opts = {}) {
       stateLine,
       answer,
       el("div", { class: "assistant-actions" },
+        // **Plan to Watch and Add to Library live in this box too.** The owner's ask: the same two
+        // presses you find under the banner, in the box you already have open about the title, drawn
+        // with the app's own buttons (`pinButtons` is what the banner uses) so nothing here is a
+        // second style of button.
+        ...(generic || !meta ? [] : assistantPins(meta)),
         el("button", { class: "btn subtle focusable", type: "button", id: "assistant-close", text: "Close", onclick: close }),
       ),
     ),
@@ -8319,7 +8373,29 @@ const ASK_QUESTIONS = {
 };
 
 /** The pin buttons for a title — the same ones the quick-look modal draws. */
-function pinButtons(item) {
+/**
+ * **The same two pins, inside the assistant box.**
+ *
+ * The box is an overlay the app's own `render` does not know about, so a press inside it left the
+ * button reading "Plan to Watch" while the title *was* pinned — the pin happened behind the box and
+ * the box never repainted. This redraws its own two controls after a press (a half-second after the
+ * click, which is when the write it started has been filed), and nothing else about the controls
+ * differs: they are the banner's own buttons, drawn twice.
+ */
+function assistantPins(meta) {
+  const holder = el("span", { class: "assistant-pins" });
+  const paint = () => holder.replaceChildren(...pinButtons(meta, { as: "assistant" }));
+  holder.addEventListener("click", () => setTimeout(paint, 500), true);
+  paint();
+  return [holder];
+}
+
+function pinButtons(item, opts = {}) {
+  // **One id, one element.** The assistant box draws the same two controls the banner does, and both
+  // used to carry `pin-planned` / `library-add` — an id is unique on a page, and two of them made the
+  // box's copy unaddressable (a check could not press it, and neither could anything else that looks
+  // the control up by id). The box's copies are suffixed (`pin-planned-assistant`).
+  const suffix = opts.as ? `-${opts.as}` : "";
   const current = state.watchlist[watchKey(item)] || "";
   const [planId, planLabel] = PIN_STATES[0] || ["planned", "Plan to Watch"];
   // **Plan to Watch, then Add to Library.** Two controls, not a button per library row:
@@ -8330,13 +8406,13 @@ function pinButtons(item) {
     el("button", {
       class: `btn pin focusable${current === planId ? " active" : ""}`,
       type: "button",
-      id: `pin-${planId}`,
+      id: `pin-${planId}${suffix}`,
       title: current === planId ? `Pinned as ${planLabel} — click to unpin` : `Pin as ${planLabel}`,
       "aria-pressed": String(current === planId),
       text: current === planId ? `${planLabel} · pinned` : planLabel,
       onclick: () => setWatchState(item, current === planId ? null : planId),
     }),
-    libraryButton(item),
+    libraryButton(item, opts),
   ];
 }
 
@@ -8357,7 +8433,7 @@ function pinButtons(item) {
  */
 let libraryWalk = { key: "", at: 0 };
 
-function libraryButton(item) {
+function libraryButton(item, opts = {}) {
   const rows = state.customRows?.length ? state.customRows : [{ id: CUSTOM_ROW, name: customLabel() }];
   // Stop 0 is the resting label; the rows follow it.
   const stops = [{ id: "", name: "Add to Library" }, ...rows];
@@ -8368,7 +8444,7 @@ function libraryButton(item) {
   const btn = el("button", {
     class: "btn pin library focusable",
     type: "button",
-    id: "library-add",
+    id: `library-add${opts.as ? `-${opts.as}` : ""}`,
     "aria-expanded": "false",
   }, label);
   const insideRow = () => rows.find((row) => inCustomRow(item, row.id));
