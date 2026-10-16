@@ -1170,7 +1170,10 @@ const state = {
   // something is not the same as music under the browsing, and a calendar reminder is not
   // the same as a release date being announced.
   sound: readJSON(KEY.sound, { clicks: false, music: "none", musicVolume: 35 }),
-  notifications: readJSON(KEY.notifications, { calendar: true, releases: false, live: false }),
+  // **The rotation is on by default.** The owner's ask is that a title joining or leaving the
+  // app is *notified*, the way a store tells you what is coming and going this month — so this
+  // one switch starts on where the other two start off.
+  notifications: readJSON(KEY.notifications, { calendar: true, releases: false, live: false, lineup: true }),
   // "Pick the cards for you": when it is on, the per-profile visibility below
   // decides which rows, cards and catalog rows this profile shows. Off means every
   // card shows, which is the default so nothing disappears on its own.
@@ -6833,6 +6836,20 @@ function setupSound() {
  */
 const toastStack = el("div", { class: "toast-stack", role: "status", "aria-live": "polite" });
 
+/**
+ * **The stack outlives the boot that drew it.**
+ *
+ * The notification pass runs at boot, and the boot is still drawing the app while it runs: the
+ * messages were appended to the body and then the app's own render replaced the body's children, so a
+ * notification drawn at boot was wiped before anyone could read it (`notify` puts the stack back on
+ * the next message, and there is no next message — measured: a real boot with the rotation notices
+ * fetched answered `0 toasts`). So the stack is put back the moment it is dropped, with whatever is
+ * still in it. A message drawn later than the boot was never lost; this is only about the first one.
+ */
+new MutationObserver(() => {
+  if (!toastStack.isConnected && toastStack.childElementCount) document.body.append(toastStack);
+}).observe(document.body, { childList: true });
+
 function notify(title, body) {
   if (!toastStack.isConnected) document.body.append(toastStack);
   const node = el("div", { class: "toast" },
@@ -6850,7 +6867,7 @@ function notify(title, body) {
 
 async function checkNotifications() {
   const n = state.notifications || {};
-  if (!n.calendar && !n.releases) return;
+  if (!n.calendar && !n.releases && n.lineup === false) return;
   if (liveProfile()) return;
   const today = new Date().toISOString().slice(0, 10);
   const seenKey = `${KEY.notifications}.seen`;
@@ -6870,6 +6887,25 @@ async function checkNotifications() {
     return;
   }
   writeJSON(seenKey, { day: today, profile: state.profile });
+
+  // **The rotation.** What joined the app today, what is on its last day, and a line for the week
+  // ahead — the app's own monthly turnover, announced the way a store announces its month, each
+  // title on the day it actually moves (`/notices.json`, see `lineupNotices`). Read on the same
+  // once-a-day pass as the rest, so a restart is not a second notification.
+  if (n.lineup !== false) {
+    try {
+      const notes = await get(`/notices.json${catalogQuery()}`);
+      for (const m of (notes.arrived || []).slice(0, 2)) notify("New on Nuvio", `${m.name} — joining the catalogue today.`);
+      for (const m of (notes.leaving || []).slice(0, 2)) notify("Last day", `${m.name} — leaving the catalogue today.`);
+      const ahead = notes.soon || [];
+      const joining = ahead.filter((x) => x.kind === "arriving").length;
+      const going = ahead.filter((x) => x.kind === "leaving").length;
+      if (joining || going) notify("The month's rotation", `${joining} joining and ${going} leaving over the next week — see Updates.`);
+    } catch {
+      /* a notification is never worth an error */
+    }
+  }
+
   if (!items.length) return;
 
   const planned = new Set(calendarPins().map((i) => keyOfItem(i)));
@@ -11110,6 +11146,10 @@ function paneNotifications() {
     // **Not "Library"** — the left menu already has a pane by that name.
     groupHead("New releases"),
     toggleRow(n.releases, "New releases in my Library", "Tell me when something in the Library gets a new season or a new episode.", (e) => set({ releases: e.target.checked })),
+    // **The catalogue's own rotation.** Like a console store or an OTT catalogue, a batch of
+    // titles joins the app and a batch leaves every month, each on its own day.
+    groupHead("Catalogue rotation"),
+    toggleRow(n.lineup !== false, "Titles joining and leaving", "Tell me when a title joins the app and when one leaves it — what landed today, what is on its last day, and what is coming this week.", (e) => set({ lineup: e.target.checked })),
 
   ];
 }

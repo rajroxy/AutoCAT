@@ -1624,6 +1624,42 @@ async function shelfMonth(rowName, media, language) {
   return out;
 }
 
+/**
+ * **The rotation, as notices.** Like a console store or an OTT catalogue, the app's library turns
+ * over once a month: a batch of titles joins the shelf and a batch leaves it, and — this is the
+ * part the owner asked for — **each one moves on its own day and the day is announced**
+ * (`addon/shelf.mjs`, the two rows of the Updates card). This reads that movement out of the rows
+ * the app already publishes, so a person can be told without opening the card: what **joined
+ * today**, what **is leaving today**, and what is **still to move in the coming week** — the
+ * heads-up. Nothing here invents a day: both come out of the store the rows themselves wrote.
+ */
+const NOTICE_AHEAD = 7;
+async function lineupNotices(language) {
+  const now = dayIn(0);
+  const to = shiftDay(now, NOTICE_AHEAD);
+  const out = { today: now, through: to, arrived: [], leaving: [], soon: [] };
+  for (const media of ["movie", "series"]) {
+    for (const [rowName, kind] of [[ARRIVING_ROW, "arriving"], [LEAVING_ROW, "leaving"]]) {
+      const metas = await shelfMonth(rowName, media, language).catch(() => []);
+      for (const m of metas) {
+        const on = kind === "arriving" ? joinedOn(m) : leavingDay(m);
+        if (!on) continue;
+        const entry = { kind, media, key: keyOf(m), type: m.type, id: m.id, name: m.name, on };
+        if (on === now) (kind === "arriving" ? out.arrived : out.leaving).push(entry);
+        else if (on > now && on <= to) out.soon.push(entry);
+      }
+    }
+  }
+  // Soonest first inside each list, and the week's own list capped: twenty notices is not a
+  // notification, it is the card again.
+  const byDay = (a, b) => a.on.localeCompare(b.on) || String(a.name).localeCompare(String(b.name));
+  out.arrived.sort(byDay);
+  out.leaving.sort(byDay);
+  out.soon.sort(byDay);
+  out.soon = out.soon.slice(0, 12);
+  return out;
+}
+
 /** **One of the two shelf rows, paged.** `skip` walks the month's fifty and then there is no more. */
 async function shelfMetas(rowName, media, skip, window, language, adult = false) {
   const row = await shelfMonth(rowName, media, language);
@@ -2995,6 +3031,16 @@ async function serveAddon(req, res, pathname, origin) {
   // infer it from a row. Nothing here decides what a row shows — see `addon/lineup.mjs`.
   if (pathname === "/lineup.json" || pathname === "/lineup") {
     json(res, 200, { ok: true, ...lineupPayload() });
+    return true;
+  }
+
+  // **What moved today, and what moves this week** (`lineupNotices` above). The app reads this
+  // once a day and draws a notification for it, so a person hears about a title joining or
+  // leaving without going to the card — the rotation a store or an OTT catalogue runs.
+  if (pathname === "/notices.json" || pathname === "/notices") {
+    const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+    const language = query.get("lang") || activeLanguage();
+    json(res, 200, { ok: true, ...(await lineupNotices(language)) }, 900);
     return true;
   }
 
