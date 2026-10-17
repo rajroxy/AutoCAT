@@ -268,10 +268,16 @@ const CONTINENT_OF = {
   ],
   "Middle East": ["AE", "SA", "IL", "TR", "QA", "KW", "BH", "OM", "JO", "LB", "IQ", "IR", "SY", "YE", "PS"],
   Oceania: ["AU", "NZ", "FJ", "PF", "NC", "PG", "SB", "VU", "WS", "TO", "TV", "KI", "NR", "FM", "MH", "PW", "CK", "NU", "NF", "TK", "PN", "AS", "GU", "MP", "WF", "UM"],
-  // The places with no country on them at all. They are rows like any other, and their rows are
-  // empty — the owner's *"even if they have no or less titles"* covers exactly this.
-  Antarctica: ["AQ", "BV", "HM", "TF", "GS"],
 };
+
+/**
+ * **The five places with no country on them are not on the card.** They were the only rows under an
+ * *Antarctica* label — uninhabited territories that can never hold a title — and the owner asked for
+ * Antarctica out of the card (*"remove antarctica from card"*). They are skipped here rather than
+ * labelled, so the card ends with the last real country; the codes stay in `COUNTRIES` for everything
+ * else that lists them.
+ */
+const CONTINENT_SKIP = new Set(["AQ", "BV", "HM", "TF", "GS"]);
 
 /** code → continent label, built once from the map above. */
 const CONTINENT_BY_CODE = new Map(
@@ -298,6 +304,7 @@ const continentalCountryRows = () => {
   const labels = [...CONTINENT_ORDER];
   const grouped = new Map(labels.map((label) => [label, []]));
   for (const code of named.keys()) {
+    if (CONTINENT_SKIP.has(code)) continue;
     // A code the map has never heard of still gets a row — last, under a label that says so — so
     // adding a country to `COUNTRIES` can never silence it on the card.
     const label = CONTINENT_BY_CODE.get(code) || "More countries";

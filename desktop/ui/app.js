@@ -5337,10 +5337,13 @@ function renderExplore(key, id) {
     filterBar.replaceChildren(
       el("span", {
         class: "explore-filter-text",
-        // **It says what it is showing, because it cannot show everything.** A row this deep has
-        // no end to reach (see the note in `pickLetter`), so the line names the count and the
-        // button beside it asks for the next batch rather than pretending the list is complete.
-        text: `Showing ${shown} title${shown === 1 ? "" : "s"} starting with ${letterFilter}`,
+        // **The count is what has been read, and it says so.** The old line read *Showing 24 titles
+        // starting with D* while the row was still being read, which reads as "there are only 24" —
+        // the owner's objection, rightly. Until the catalog's own end is read, the line is a running
+        // total; at the end it is a total, and says **all**.
+        text: done
+          ? `Showing all ${shown} title${shown === 1 ? "" : "s"} starting with ${letterFilter}`
+          : `Showing ${shown} title${shown === 1 ? "" : "s"} starting with ${letterFilter} — still reading the catalog`,
       }),
       el("button", {
         class: "btn subtle focusable",
@@ -5378,6 +5381,16 @@ function renderExplore(key, id) {
     // server now hands back a `count`-sized window, and the grid is repainted once
     // at the end rather than after every page.
     await fillLetter(letterFilter);
+    // **A sparse letter is not a short catalogue.** The first batches may hold only a handful of
+    // matches (South Korea's D held 24 while the row was still being read, and the screen said so as
+    // if that were all of them). Keep reading in the background until the grid holds a screenful of
+    // the letter — so the count climbs by itself — stopping the moment the row ends.
+    for (let round = 0; round < 40 && !done && letterFilter === letter; round += 1) {
+      if (loaded.filter(passes).length >= 30) break;
+      const before = pages;
+      await fillLetter(letter, { follow: false, pages: 2 });
+      if (pages === before) break;
+    }
   };
 
   /**
@@ -5398,7 +5411,9 @@ function renderExplore(key, id) {
    * many are shown and offers the next batch, so it never claims a list it has not read.
    */
   const fillLetter = async (letter, { follow = true, pages: want = 8 } = {}) => {
-    const LETTER_WINDOW = 120;
+    // **A wider window per read.** The server hands back a `count`-sized window of the row in one
+    // request, so asking for 250 instead of 120 finds a letter's titles in half the round trips.
+    const LETTER_WINDOW = 250;
     const LETTER_PAGES = want;
     for (let i = 0; i < LETTER_PAGES; i += 1) {
       if (done) break;
