@@ -5389,6 +5389,7 @@ function renderExplore(key, id) {
     // Choosing another letter, or clearing this one, calls the sweep off (see `sweepLetter`).
     sweepToken += 1;
     letterReadOut = false;
+    sweptLetter = null;
     paintGrid();
     updateFilterBar();
     refreshRail();
@@ -5461,20 +5462,6 @@ function renderExplore(key, id) {
   };
 
   /**
-   * **A letter keeps filling as you scroll, without a button asking for it.**
-   *
-   * The bar used to carry a *Load more of G* button beside the count, which the owner rightly called
-   * out (*"why this show more with letter button if we scroll and show more automatically"*): the
-   * page already loads more when the reader reaches its foot (`onScroll` / the sentinel), so the
-   * button was a second control for something that happens on its own. It is gone, and this is what
-   * replaces it — while a letter is chosen, reaching the foot asks for **that letter's** next
-   * windows, in a couple of rounds per gesture so the grid visibly fills instead of jumping once.
-   *
-   * Only the letter is drawn, always (`passes` — a title that does not begin with it never reaches
-   * the grid); the rest of the row is only *read through* to find its titles, which is why the count
-   * grows while everything on screen still starts with the chosen letter.
-   */
-  /**
    * **A letter is read straight through the row, on its own cursor.**
    *
    * The letter used to be filled by asking the *grid's* own reader for more, which meant its progress
@@ -5490,8 +5477,10 @@ function renderExplore(key, id) {
    */
   let sweepToken = 0;
   let sweeping = false;
+  // The letter whose row has already been walked to its end: scrolling must not read it again.
+  let sweptLetter = null;
   const sweepLetter = (letter) => {
-    if (sweeping || !letter || letterFilter !== letter) return;
+    if (sweeping || !letter || letterFilter !== letter || sweptLetter === letter) return;
     const token = (sweepToken += 1);
     sweeping = true;
     (async () => {
@@ -5506,6 +5495,7 @@ function renderExplore(key, id) {
             return; // a read that failed is not the end of the row — it simply stops here
           }
           if (!metas?.length) {
+            sweptLetter = letter;
             letterReadOut = true;
             updateFilterBar();
             break;
@@ -5524,6 +5514,7 @@ function renderExplore(key, id) {
           updateFilterBar();
           // A window that added nothing new twice running is a row that repeats itself: stop.
           if (!added && window > 1) {
+            sweptLetter = letter;
             letterReadOut = true;
             updateFilterBar();
             break;
