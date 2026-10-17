@@ -5210,9 +5210,6 @@ function renderExplore(key, id) {
   const loaded = [];
   const seenIds = new Set();
   let letterFilter = null;
-  // **Whether the bar offers another batch of this letter** (see `fillLetter`): false once a read
-  // adds nothing new.
-  let letterMore = false;
   const letterOf = (name) => String(name || "").trim().charAt(0).toUpperCase();
   const passes = (m) => !letterFilter || letterOf(m.name) === letterFilter;
 
@@ -5271,7 +5268,7 @@ function renderExplore(key, id) {
 
   const observer = new IntersectionObserver((entries) => {
     if (entries.some((e) => e.isIntersecting)) {
-      loadMore().then(() => {
+      (letterFilter ? autoFillLetter() : loadMore()).then(() => {
         // Re-observe so the next page loads while the sentinel is still in view.
         if (!done) {
           observer.disconnect();
@@ -5290,7 +5287,9 @@ function renderExplore(key, id) {
   const nearFoot = () => document.documentElement.scrollHeight - window.innerHeight - window.scrollY < 900;
   const onScroll = () => {
     if (done || busy || !nearFoot()) return;
-    loadMore();
+    // **With a letter chosen, more of that letter** — the same gesture, the same foot of the page.
+    if (letterFilter) autoFillLetter();
+    else loadMore();
   };
   const stopScroll = () => window.removeEventListener("scroll", onScroll);
   window.addEventListener("scroll", onScroll, { passive: true });
@@ -5360,12 +5359,6 @@ function renderExplore(key, id) {
         // button beside it asks for the next batch rather than pretending the list is complete.
         text: `Showing ${shown} title${shown === 1 ? "" : "s"} starting with ${letterFilter}`,
       }),
-      letterMore ? el("button", {
-        class: "btn subtle focusable",
-        type: "button",
-        text: `Load more of ${letterFilter}`,
-        onclick: () => fillLetter(letterFilter),
-      }) : null,
       el("button", {
         class: "btn subtle focusable",
         type: "button",
@@ -5421,9 +5414,9 @@ function renderExplore(key, id) {
    * published 161 of its T-titles as if they were all of them. Until the row ends the bar says how
    * many are shown and offers the next batch, so it never claims a list it has not read.
    */
-  const fillLetter = async (letter) => {
+  const fillLetter = async (letter, { follow = true, pages: want = 8 } = {}) => {
     const LETTER_WINDOW = 120;
-    const LETTER_PAGES = 8;
+    const LETTER_PAGES = want;
     for (let i = 0; i < LETTER_PAGES; i += 1) {
       if (done) break;
       const before = pages;
@@ -5440,15 +5433,46 @@ function renderExplore(key, id) {
       refreshRail();
       updateFilterBar();
     }
-    // **After the loop, not inside it.** The button that asks for the next batch is drawn from
-    // `letterMore`, so it is set before the bar is last written.
-    letterMore = !done;
     paintGrid();
     refreshRail();
     updateFilterBar();
+    // **Only a letter the reader just picked scrolls itself into view.** When these batches are
+    // asked for by a scroll (see `autoFillLetter`), moving the page would fight the wheel.
+    if (!follow) return;
     const first = grid.firstElementChild;
     if (first && letter === letterFilter && typeof first.scrollIntoView === "function") {
       first.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+    }
+  };
+
+  /**
+   * **A letter keeps filling as you scroll, without a button asking for it.**
+   *
+   * The bar used to carry a *Load more of G* button beside the count, which the owner rightly called
+   * out (*"why this show more with letter button if we scroll and show more automatically"*): the
+   * page already loads more when the reader reaches its foot (`onScroll` / the sentinel), so the
+   * button was a second control for something that happens on its own. It is gone, and this is what
+   * replaces it — while a letter is chosen, reaching the foot asks for **that letter's** next
+   * windows, in a couple of rounds per gesture so the grid visibly fills instead of jumping once.
+   *
+   * Only the letter is drawn, always (`passes` — a title that does not begin with it never reaches
+   * the grid); the rest of the row is only *read through* to find its titles, which is why the count
+   * grows while everything on screen still starts with the chosen letter.
+   */
+  let letterPumping = false;
+  const autoFillLetter = async () => {
+    if (letterPumping || done || busy || !letterFilter) return;
+    letterPumping = true;
+    try {
+      for (let round = 0; round < 3; round += 1) {
+        if (done || !letterFilter) return;
+        const before = pages;
+        await fillLetter(letterFilter, { follow: false, pages: 2 });
+        if (pages === before) return;
+        if (round && !nearFoot()) return;
+      }
+    } finally {
+      letterPumping = false;
     }
   };
   refreshRail();
