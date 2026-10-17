@@ -5196,8 +5196,21 @@ function renderExplore(key, id) {
   const letterOf = (name) => String(name || "").trim().charAt(0).toUpperCase();
   const passes = (m) => !letterFilter || letterOf(m.name) === letterFilter;
 
+  /** Wait for the read in flight, so a second ask is served rather than dropped. */
+  const untilIdle = async () => {
+    for (let i = 0; i < 400 && busy; i += 1) await new Promise((r) => setTimeout(r, 50));
+  };
+
   const loadMore = async (count = 0) => {
-    if (busy || done) return;
+    // **A read that arrives while one is in flight waits for it.** Returning here instead was why a
+    // letter could stop at four titles: the pump asked for the next batch while a scroll-triggered
+    // read was still running, was handed `undefined`, saw the page counter unchanged and concluded
+    // the catalog had ended.
+    if (done) return;
+    if (busy) {
+      await untilIdle();
+      if (done) return;
+    }
     // Stop when the cap is reached instead of re-observing forever: a catalog that
     // never runs out would otherwise keep the sentinel in view and ask the server
     // for the next window for the rest of the session.
@@ -5364,6 +5377,9 @@ function renderExplore(key, id) {
    */
   const pickLetter = async (letter) => {
     letterFilter = letterFilter === letter ? null : letter;
+    // Choosing another letter, or clearing this one, calls the pump off (see `startLetterPump`).
+    pumpLetter = null;
+    pumpToken += 1;
     paintGrid();
     updateFilterBar();
     refreshRail();
@@ -5381,16 +5397,10 @@ function renderExplore(key, id) {
     // server now hands back a `count`-sized window, and the grid is repainted once
     // at the end rather than after every page.
     await fillLetter(letterFilter);
-    // **A sparse letter is not a short catalogue.** The first batches may hold only a handful of
-    // matches (South Korea's D held 24 while the row was still being read, and the screen said so as
-    // if that were all of them). Keep reading in the background until the grid holds a screenful of
-    // the letter — so the count climbs by itself — stopping the moment the row ends.
-    for (let round = 0; round < 40 && !done && letterFilter === letter; round += 1) {
-      if (loaded.filter(passes).length >= 30) break;
-      const before = pages;
-      await fillLetter(letter, { follow: false, pages: 2 });
-      if (pages === before) break;
-    }
+    // **The letter finishes itself.** The first batches are on screen; the pump then reads the rest
+    // of the row in the background until its end, so the count climbs on its own (South Korea's D was
+    // 4, then 24, and the screen said "still reading" — it now keeps going to the row's end).
+    startLetterPump(letterFilter);
   };
 
   /**
@@ -5457,21 +5467,38 @@ function renderExplore(key, id) {
    * the grid); the rest of the row is only *read through* to find its titles, which is why the count
    * grows while everything on screen still starts with the chosen letter.
    */
-  let letterPumping = false;
-  const autoFillLetter = async () => {
-    if (letterPumping || done || busy || !letterFilter) return;
-    letterPumping = true;
-    try {
-      for (let round = 0; round < 3; round += 1) {
-        if (done || !letterFilter) return;
-        const before = pages;
-        await fillLetter(letterFilter, { follow: false, pages: 2 });
-        if (pages === before) return;
-        if (round && !nearFoot()) return;
+  // **One pump per letter, and it runs itself out.** Picking a letter starts this; it keeps reading
+  // the row — a few windows per round, painting as it goes — until the catalog's own end. Every new
+  // pick (or clearing the letter) bumps the token, which is how the old pump is called off.
+  let pumpLetter = null;
+  let pumpToken = 0;
+  let pumpRunning = false;
+  const startLetterPump = (letter) => {
+    // **One loop, always the newest letter.** A scroll asks for this on every event and a pick asks
+    // for it too; rather than stacking loops, the running one re-reads `pumpLetter`/`pumpToken` each
+    // round, so a new pick simply redirects it and an old letter stops it.
+    pumpLetter = letter;
+    pumpToken += 1;
+    if (pumpRunning) return;
+    pumpRunning = true;
+    (async () => {
+      try {
+        for (;;) {
+          if (done || !pumpLetter || letterFilter !== pumpLetter) return;
+          const token = pumpToken;
+          const before = pages;
+          await fillLetter(pumpLetter, { follow: false, pages: 3 });
+          if (token !== pumpToken) continue;
+          if (pages === before) return;
+        }
+      } finally {
+        pumpRunning = false;
       }
-    } finally {
-      letterPumping = false;
-    }
+    })();
+  };
+  const autoFillLetter = () => {
+    if (done || !letterFilter) return;
+    startLetterPump(letterFilter);
   };
   refreshRail();
 
