@@ -1,0 +1,1453 @@
+{
+  "repos": [
+    {
+      "url": "https://raw.githubusercontent.com/phisher98/phisher-nuvio-providers/main",
+      "name": "Phisher's Repo",
+      "base": "https://raw.githubusercontent.com/phisher98/phisher-nuvio-providers/main",
+      "added": 1792219796793,
+      "plugins": [
+        {
+          "id": "MoviesDrive",
+          "name": "MoviesDrive",
+          "filename": "providers/moviesdrive.js",
+          "version": "1.1.1",
+          "description": "MoviesDrive streaming with multiple quality options and versions",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "AllWish",
+          "name": "AllWish",
+          "filename": "providers/allwish.js",
+          "version": "1.0.0",
+          "description": "AllWish Anime Streaming",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://all-wish.me/assets/logo.png",
+          "enabled": true
+        },
+        {
+          "id": "Allwish",
+          "name": "Allwish",
+          "filename": "providers/allwish.js",
+          "version": "1.0.0",
+          "description": "Allwish streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Anichi",
+          "name": "Anichi",
+          "filename": "providers/anichi.js",
+          "version": "1.0.0",
+          "description": "Anichi streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Animedekho",
+          "name": "Anime-dekho",
+          "filename": "providers/anime-dekho.js",
+          "version": "1.0.0",
+          "description": "Anime-dekho streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Animecloud",
+          "name": "Animecloud",
+          "filename": "providers/animecloud.js",
+          "version": "1.0.0",
+          "description": "Animecloud streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Animedubhindi",
+          "name": "Animedubhindi",
+          "filename": "providers/animedubhindi.js",
+          "version": "1.0.0",
+          "description": "Animedubhindi streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Animekhor",
+          "name": "Animekhor",
+          "filename": "providers/animekhor.js",
+          "version": "1.0.0",
+          "description": "Animekhor streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Animepahe",
+          "name": "Animepahe",
+          "filename": "providers/animepahe.js",
+          "version": "1.0.0",
+          "description": "Animepahe streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Cinefreak",
+          "name": "Cinefreak",
+          "filename": "providers/cinefreak.js",
+          "version": "1.0.0",
+          "description": "Cinefreak streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Coflix",
+          "name": "Coflix",
+          "filename": "providers/coflix.js",
+          "version": "1.0.0",
+          "description": "Coflix streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Desicinemas",
+          "name": "Desicinemas",
+          "filename": "providers/desicinemas.js",
+          "version": "1.0.0",
+          "description": "Desicinemas streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Donghuastream",
+          "name": "Donghuastream",
+          "filename": "providers/donghuastream.js",
+          "version": "1.0.0",
+          "description": "Donghuastream streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Dorabash",
+          "name": "Dorabash",
+          "filename": "providers/dorabash.js",
+          "version": "1.0.0",
+          "description": "Dorabash streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Dudefilms",
+          "name": "Dudefilms",
+          "filename": "providers/dudefilms.js",
+          "version": "1.0.0",
+          "description": "Dudefilms streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Fibwatch",
+          "name": "Fibwatch",
+          "filename": "providers/fibwatch.js",
+          "version": "1.0.0",
+          "description": "Fibwatch streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Fivemovierulz",
+          "name": "Fivemovierulz",
+          "filename": "providers/fivemovierulz.js",
+          "version": "1.0.0",
+          "description": "Fivemovierulz streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "FourkHDhub",
+          "name": "FourkHDhub",
+          "filename": "providers/fourkHDhub.js",
+          "version": "1.0.0",
+          "description": "FourkHDhub streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Goojara",
+          "name": "Goojara",
+          "filename": "providers/goojara.js",
+          "version": "1.0.0",
+          "description": "Goojara streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Hianime",
+          "name": "Hianime",
+          "filename": "providers/hianime.js",
+          "version": "1.0.0",
+          "description": "Hianime streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Hindmoviez",
+          "name": "Hindmoviez",
+          "filename": "providers/hindmoviez.js",
+          "version": "1.0.0",
+          "description": "Hindmoviez streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Idlix",
+          "name": "Idlix",
+          "filename": "providers/idlix.js",
+          "version": "1.0.0",
+          "description": "Idlix streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Istreamflare",
+          "name": "Istreamflare",
+          "filename": "providers/istreamflare.js",
+          "version": "1.0.0",
+          "description": "Istreamflare streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": false
+        },
+        {
+          "id": "Kickassanime",
+          "name": "Kickassanime",
+          "filename": "providers/kickassanime.js",
+          "version": "1.0.0",
+          "description": "Kickassanime streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Kisskh",
+          "name": "Kisskh",
+          "filename": "providers/kisskh.js",
+          "version": "1.0.0",
+          "description": "Kisskh streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Latanime",
+          "name": "Latanime",
+          "filename": "providers/latanime.js",
+          "version": "1.0.0",
+          "description": "Latanime streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Layarkaca",
+          "name": "Layarkaca",
+          "filename": "providers/layarkaca.js",
+          "version": "1.0.0",
+          "description": "Layarkaca streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Masstamilan",
+          "name": "Masstamilan",
+          "filename": "providers/masstamilan.js",
+          "version": "1.0.0",
+          "description": "Masstamilan streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": false
+        },
+        {
+          "id": "Megakino",
+          "name": "Megakino",
+          "filename": "providers/megakino.js",
+          "version": "1.0.0",
+          "description": "Megakino streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": false
+        },
+        {
+          "id": "Movierulzhd",
+          "name": "Movierulzhd",
+          "filename": "providers/movierulzhd.js",
+          "version": "1.0.0",
+          "description": "Movierulzhd streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Movies4u",
+          "name": "Movies4u",
+          "filename": "providers/movies4u.js",
+          "version": "1.0.0",
+          "description": "Movies4u streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Moviesdrive",
+          "name": "Moviesdrive",
+          "filename": "providers/moviesdrive.js",
+          "version": "1.0.0",
+          "description": "Moviesdrive streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Mplayer",
+          "name": "Mplayer",
+          "filename": "providers/mplayer.js",
+          "version": "1.0.0",
+          "description": "Mplayer streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Multimovies",
+          "name": "Multimovies",
+          "filename": "providers/multimovies.js",
+          "version": "1.0.0",
+          "description": "Multimovies streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": false
+        },
+        {
+          "id": "Netcinez",
+          "name": "Netcinez",
+          "filename": "providers/netcinez.js",
+          "version": "1.0.0",
+          "description": "Netcinez streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Onepace",
+          "name": "Onepace",
+          "filename": "providers/onepace.js",
+          "version": "1.0.0",
+          "description": "Onepace streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Pelisplushd",
+          "name": "Pelisplushd",
+          "filename": "providers/pelisplushd.js",
+          "version": "1.0.0",
+          "description": "Pelisplushd streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": false
+        },
+        {
+          "id": "Pencurimovie",
+          "name": "Pencurimovie",
+          "filename": "providers/pencurimovie.js",
+          "version": "1.0.0",
+          "description": "Pencurimovie streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Pinoymoviepedia",
+          "name": "Pinoymoviepedia",
+          "filename": "providers/pinoymoviepedia.js",
+          "version": "1.0.0",
+          "description": "Pinoymoviepedia streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Piratexplay",
+          "name": "Piratexplay",
+          "filename": "providers/piratexplay.js",
+          "version": "1.0.0",
+          "description": "Piratexplay streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Pmsm",
+          "name": "Pmsm",
+          "filename": "providers/pmsm.js",
+          "version": "1.0.0",
+          "description": "Pmsm streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Ringz",
+          "name": "Ringz",
+          "filename": "providers/ringz.js",
+          "version": "1.0.0",
+          "description": "Ringz streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Tokusatsu",
+          "name": "Tokusatsu",
+          "filename": "providers/tokusatsu.js",
+          "version": "1.0.0",
+          "description": "Tokusatsu streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": false
+        },
+        {
+          "id": "Tokuzilla",
+          "name": "Tokuzilla",
+          "filename": "providers/tokuzilla.js",
+          "version": "1.0.0",
+          "description": "Tokuzilla streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": false
+        },
+        {
+          "id": "Toonhub",
+          "name": "Toonhub",
+          "filename": "providers/toonhub.js",
+          "version": "1.0.0",
+          "description": "Toonhub streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Toonstream",
+          "name": "Toonstream",
+          "filename": "providers/toonstream.js",
+          "version": "1.0.0",
+          "description": "Toonstream streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Toontales",
+          "name": "Toontales",
+          "filename": "providers/toontales.js",
+          "version": "1.0.0",
+          "description": "Toontales streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Topcartoons",
+          "name": "Topcartoons",
+          "filename": "providers/topcartoons.js",
+          "version": "1.0.0",
+          "description": "Topcartoons streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv",
+            "anime"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Topstreamfilm",
+          "name": "Topstreamfilm",
+          "filename": "providers/topstreamfilm.js",
+          "version": "1.0.0",
+          "description": "Topstreamfilm streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Torrastream",
+          "name": "Torrastream",
+          "filename": "providers/torrastream.js",
+          "version": "1.0.0",
+          "description": "Torrastream streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        },
+        {
+          "id": "Xdmovies",
+          "name": "Xdmovies",
+          "filename": "providers/xdmovies.js",
+          "version": "1.0.0",
+          "description": "Xdmovies streaming provider",
+          "author": "Phisher",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://i.imgur.com/9bGkGMi.png",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/yoruix/nuvio-providers/main",
+      "name": "Yoru's Repo",
+      "base": "https://raw.githubusercontent.com/yoruix/nuvio-providers/main",
+      "added": 1792219796803,
+      "plugins": [
+        {
+          "id": "4khdhub",
+          "name": "4KHDHub",
+          "filename": "providers/4khdhub.js",
+          "version": "1.0.2",
+          "description": "4KHDHub direct links",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=4khdhub.click&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "animepahe",
+          "name": "AnimePahe",
+          "filename": "providers/animepahe.js",
+          "version": "1.0.1",
+          "description": "AnimePahe (Sub/Dub)",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=animepahe.ru&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "uhdmovies",
+          "name": "UHDMovies",
+          "filename": "providers/uhdmovies.js",
+          "version": "1.2.0",
+          "description": "UHD Movies streaming with multiple resolution",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=uhdmovies.pink&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "moviesmod",
+          "name": "MoviesMod",
+          "filename": "providers/moviesmod.js",
+          "version": "1.0.1",
+          "description": "Movie and TV show streams from MoviesMod with multiple quality options",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=moviesmod.farm&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "dahmermovies",
+          "name": "DahmerMovies",
+          "filename": "providers/dahmermovies.js",
+          "version": "1.0.2",
+          "description": "Dahmer Movies streaming service. Can be slow at times to fetch and stream. Only use if needed.",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv"
+          ],
+          "logo": "https://image.similarpng.com/file/similarpng/very-thumbnail/2021/05/Letter-D-logo-design-template-with-geometric-shape-style-on-transparent-background-PNG.png",
+          "enabled": true
+        },
+        {
+          "id": "netmirror",
+          "name": "NetMirror",
+          "filename": "providers/netmirror.js",
+          "version": "1.0.3",
+          "description": "Streaming links from netmirror. Automatically disabled on iOS due to compatibility issues.",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [],
+          "logo": "https://net22.cc/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "streamflix",
+          "name": "StreamFlix",
+          "filename": "providers/streamflix.js",
+          "version": "1.0.0",
+          "description": "Direct links via StreamFlix API",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv"
+          ],
+          "logo": "https://streamflix.app/assets/images/logo-text-148x72.png",
+          "enabled": true
+        },
+        {
+          "id": "moviebox",
+          "name": "MovieBox",
+          "filename": "providers/moviebox.js",
+          "version": "1.1.0",
+          "description": "MovieBox streaming with multiple language support (DASH + MP4)",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mpd"
+          ],
+          "logo": "https://moviebox.ph/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "vixsrc",
+          "name": "Vixsrc",
+          "filename": "providers/vixsrc.js",
+          "version": "1.0.0",
+          "description": "Vixsrc M3U8 streaming with auto quality selection",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [],
+          "logo": "https://vixsrc.to/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "dvdplay",
+          "name": "DVDPlay",
+          "filename": "providers/dvdplay.js",
+          "version": "1.0.2",
+          "description": "DVDPlay direct download links with HubCloud extraction",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=dvdplay.com&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "yflix",
+          "name": "YFlix",
+          "filename": "providers/yflix.js",
+          "version": "1.1.2",
+          "description": "YFlix streaming",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8",
+            "mp4"
+          ],
+          "logo": "https://yflix.to/assets/uploads/2f505f3de3c99889c1a72557f3e3714fc0c457b0.png",
+          "enabled": true
+        },
+        {
+          "id": "videasy",
+          "name": "VIDEASY",
+          "filename": "providers/videasy.js",
+          "version": "1.0.0",
+          "description": "VideoEasy streaming with multiple server support and languages",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8",
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://www.videasy.net/logo.png",
+          "enabled": false
+        },
+        {
+          "id": "mallumv",
+          "name": "MalluMV",
+          "filename": "providers/mallumv.js",
+          "version": "1.0.1",
+          "description": "MalluMV direct links with support for Tamil, Telugu, Hindi, Malayalam, and Kannada movies",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie"
+          ],
+          "formats": [
+            "mkv",
+            "mp4"
+          ],
+          "logo": "https://mallumv.life/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "vidlink",
+          "name": "Vidlink",
+          "filename": "providers/vidlink.js",
+          "version": "1.0.0",
+          "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8",
+            "mp4"
+          ],
+          "logo": "https://vidlink.pro/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "vidnest",
+          "name": "Vidnest",
+          "filename": "providers/vidnest.js",
+          "version": "1.0.0",
+          "description": "Vidnest streaming with encrypted AES-GCM sources",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "m3u8"
+          ],
+          "logo": "https://vidnest.fun/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "vidnest-anime",
+          "name": "VidnestAnime",
+          "filename": "providers/vidnest-anime.js",
+          "version": "1.0.0",
+          "description": "Vidnest anime streaming with TMDB→AniList mapping and 5 servers (hindi, satoru, miko, pahe, anya)",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8"
+          ],
+          "logo": "https://vidnest.fun/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "cinevibe",
+          "name": "Cinevibe",
+          "filename": "providers/cinevibe.js",
+          "version": "1.0.0",
+          "description": "Cinevibe (Movies)",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie"
+          ],
+          "formats": [
+            "mp4",
+            "m3u8"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=cinevibe.online&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "cinemacity",
+          "name": "CinemaCity",
+          "filename": "providers/cinemacity.js",
+          "version": "1.0.0",
+          "description": "CinemaCity (Multi-Language)",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=cinema-city.pl&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "castle",
+          "name": "Castle",
+          "filename": "providers/castle.js",
+          "version": "1.0.0",
+          "description": "Multi Lang provider",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "m3u8"
+          ],
+          "logo": "https://static.hbayy.com/simple-blog-13/prod/_nuxt/big-logo.DESZ4mBj.png",
+          "enabled": true
+        },
+        {
+          "id": "showbox",
+          "name": "ShowBox",
+          "filename": "providers/showbox.js",
+          "version": "1.0.0",
+          "description": "ShowBox streaming with multiple quality options and versions",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://raw.githubusercontent.com/tapframe/nuvio-providers/main/Assets/Logo-2.png",
+          "enabled": true
+        },
+        {
+          "id": "hdhub4u",
+          "name": "HDHub4u",
+          "filename": "providers/hdhub4u.js",
+          "version": "1.1.0",
+          "description": "Direct links from HDHub4u with high-speed download support",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv",
+            "mp4"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=new6.hdhub4u.fo&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "allmovieland",
+          "name": "AllMovieLand",
+          "filename": "providers/allmovieland.js",
+          "version": "1.0.0",
+          "description": "AllMovieLand streaming provider with multi-language support",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=allmovieland.one&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "dooflix",
+          "name": "DooFlix",
+          "filename": "providers/dooflix.js",
+          "version": "1.0.0",
+          "description": "Fast streaming provider with direct TMDB integration",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=dooflix.org&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "movieblast",
+          "name": "MovieBlast",
+          "filename": "providers/movieblast.js",
+          "version": "1.0.0",
+          "description": "Direct links via MovieBlast API with multi-language support",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "mkv"
+          ],
+          "logo": "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/Icons/movieblast.png",
+          "enabled": true
+        },
+        {
+          "id": "mycima",
+          "name": "MyCima",
+          "filename": "providers/mycima.js",
+          "version": "1.0.0",
+          "description": "Arabic streaming provider with movies, series and anime",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4",
+            "m3u8"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=wecima.show&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "moviesdrive",
+          "name": "MoviesDrive",
+          "filename": "providers/moviesdrive.js",
+          "version": "1.0.0",
+          "description": "MoviesDrive streaming with HubCloud and Google Drive extraction",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mkv",
+            "mp4"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=moviesdrives.my&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "hianime",
+          "name": "HiAnime",
+          "filename": "providers/hianime.js",
+          "version": "1.0.0",
+          "description": "HiAnime multi-server anime streaming with real-time mapping and subtitles",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8"
+          ],
+          "logo": "https://www.google.com/s2/favicons?domain=hianime.to&sz=128",
+          "enabled": true
+        },
+        {
+          "id": "kurage",
+          "name": "Kurage",
+          "filename": "providers/kurage.js",
+          "version": "1.0.0",
+          "description": "Kurage.live anime streaming with tRPC API and multi-server proxy support",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "mp4"
+          ],
+          "logo": "https://kurage.live/favicon.ico",
+          "enabled": true
+        },
+        {
+          "id": "anizone",
+          "name": "AniZone",
+          "filename": "providers/anizone.js",
+          "version": "1.0.0",
+          "description": "AniZone high-quality anime streaming with multi-audio and soft subtitles",
+          "author": "Nuvio Team",
+          "supportedTypes": [
+            "movie",
+            "tv"
+          ],
+          "formats": [
+            "m3u8"
+          ],
+          "logo": "https://anizone.to/favicon.ico",
+          "enabled": true
+        }
+      ]
+    }
+  ]
+}

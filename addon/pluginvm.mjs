@@ -58,6 +58,17 @@ const REGISTRY = {
   url: () => ({ URL, URLSearchParams }),
   crypto: () => import("node:crypto"),
   util: () => import("node:util"),
+  // **`crypto-js`, because providers really do use it.** Nothing exotic: three of the web
+  // providers decrypt an API's payload with it (`CryptoJS.AES.decrypt`, `HmacSHA256`), and a
+  // provider the sandbox cannot feed is a provider that answers *"this provider needs the module
+  // crypto-js, which this app does not carry"* instead of a stream. It is a small pure-JS package
+  // and it is the exact API those bundles were written against, so it is carried rather than
+  // imitated — a shim that decrypts almost right is worse than an absent module.
+  // **`crypto-js` is CommonJS**, so its ESM namespace keeps the real object on `default` and a
+  // provider that writes `CryptoJS.enc.Base64` would meet `undefined` — which is exactly the
+  // failure a first attempt at this produced. The interop object is what `require("crypto-js")`
+  // returns, so that is what the shim hands over.
+  "crypto-js": () => import("crypto-js").then((m) => m.default || m),
 };
 
 /** name → the module namespace, once `warm()` has resolved it. */

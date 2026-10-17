@@ -5,7 +5,9 @@
  * needs its own pane in Settings rather than a row in the Add-ons list: a **repository** is a
  * plain GitHub folder holding
  *
- *   manifest.json            an *array* of providers: `{ id, name, filename, supportedTypes, … }`
+ *   manifest.json            an *array* of providers: `{
+  // Providers must be there for the player even if Settings was never opened.
+  await seed(); id, name, filename, supportedTypes, … }`
  *   providers/<name>.js      the provider itself, CommonJS, exporting `getStreams(…)`
  *
  * and a provider is asked with the **TMDB id** — the same id this app already holds for every
@@ -68,6 +70,49 @@ const persist = () => {
     /* read-only fs — the in-memory copy still applies for this run */
   }
 };
+
+/**
+ * **The two repositories the app starts with, and why a vendor's own name is not here.**
+ *
+ * An empty pane is the state nobody can act on: Nuvio providers are JavaScript files in a GitHub
+ * folder, and a person who has never seen one has no address to paste. These two publish the
+ * biggest catalogue between them — Phisher's 51 providers and Yoru's 29, with AllMovieLand,
+ * AllWish, Anichi, MovieBox, UHDMovies, NetflixMirror and the anime sites among them — so they are
+ * read once on a fresh install and every provider in them arrives switched on (see `seed`).
+ *
+ * Nothing about a seeded repository is special: it can be switched off or removed like any other,
+ * and it is not re-added once somebody has made that choice (the seed only runs while the list is
+ * **empty**).
+ */
+export const RECOMMENDED_REPOS = [
+  { url: "https://raw.githubusercontent.com/phisher98/phisher-nuvio-providers/main/manifest.json", name: "Phisher's Repo" },
+  { url: "https://raw.githubusercontent.com/yoruix/nuvio-providers/main/manifest.json", name: "Yoru's Repo" },
+];
+
+let seeding = null;
+
+/**
+ * **A fresh install gets the recommended repositories.** Called from `state` and from
+ * `providerStreams`, so the providers are there whether Settings was ever opened or not; the work
+ * is done once per run and only while there is nothing in the list, and a repository that will not
+ * load (offline, GitHub hiccup) is skipped in silence — the pane's own Add box is still the way in.
+ */
+export async function seed() {
+  if (load().repos.length) return;
+  if (seeding) return seeding;
+  seeding = (async () => {
+    for (const repo of RECOMMENDED_REPOS) {
+      if (load().repos.length >= RECOMMENDED_REPOS.length) break;
+      try {
+        await addRepo(repo.url, { name: repo.name });
+      } catch {
+        /* offline, or the repository moved: the pane's Add box still works */
+      }
+    }
+  })();
+  await seeding;
+  seeding = null;
+}
 
 /** The key a provider is known by: its own id inside the repository it came from. */
 const keyOf = (repoUrl, plugin) => `${repoUrl}::${plugin.id}`;
@@ -164,6 +209,7 @@ export function plugins({ enabledOnly = false } = {}) {
 /** What Settings draws: the repositories, their providers, and what the sandbox can offer. */
 export async function state() {
   await warm();
+  await seed();
   const { repos } = load();
   return {
     ok: true,
@@ -271,6 +317,10 @@ async function sourceOf(plugin) {
 export async function runProvider(plugin, { tmdbId, mediaType = "movie", season = 0, episode = 0 } = {}) {
   const label = `Nuvio · ${plugin.name}`;
   try {
+    // **The sandbox has its modules before a provider runs.** Without this a provider that asks for
+    // `crypto-js` before Settings had ever been opened was told the app does not carry it — a false
+    // answer, produced by `warm()` not having run yet, and one that reads like a missing feature.
+    await warm();
     const { source } = await sourceOf(plugin);
     const loaded = loadProvider(source, { name: `nuvio:${plugin.name}` });
     const fn = exportedFunction(loaded);
