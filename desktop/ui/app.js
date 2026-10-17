@@ -5196,21 +5196,8 @@ function renderExplore(key, id) {
   const letterOf = (name) => String(name || "").trim().charAt(0).toUpperCase();
   const passes = (m) => !letterFilter || letterOf(m.name) === letterFilter;
 
-  /** Wait for the read in flight, so a second ask is served rather than dropped. */
-  const untilIdle = async () => {
-    for (let i = 0; i < 400 && busy; i += 1) await new Promise((r) => setTimeout(r, 50));
-  };
-
-  const loadMore = async (count = 0) => {
-    // **A read that arrives while one is in flight waits for it.** Returning here instead was why a
-    // letter could stop at four titles: the pump asked for the next batch while a scroll-triggered
-    // read was still running, was handed `undefined`, saw the page counter unchanged and concluded
-    // the catalog had ended.
+  const doLoad = async (count = 0) => {
     if (done) return;
-    if (busy) {
-      await untilIdle();
-      if (done) return;
-    }
     // Stop when the cap is reached instead of re-observing forever: a catalog that
     // never runs out would otherwise keep the sentinel in view and ask the server
     // for the next window for the rest of the session.
@@ -5260,6 +5247,23 @@ function renderExplore(key, id) {
       sentinel.replaceChildren(el("p", { class: "empty", text: `Could not load — ${err.message}` }));
     }
     busy = false;
+  };
+
+  /**
+   * **One read at a time, in order.** `skip` is advanced by whatever a read brought back, so two reads
+   * running together would each advance it and leave a gap — titles that were never shown. Questions
+   * are queued instead: the pump, the sentinel and a scroll all ask here, and each is served after the
+   * one before it. (The earlier `if (busy) return` dropped the queued ask; waiting on the flag let two
+   * asks through at once. A chain does both jobs.)
+   */
+  let readChain = Promise.resolve();
+  const loadMore = (count = 0) => {
+    const run = readChain.then(() => doLoad(count));
+    readChain = run.then(
+      () => {},
+      () => {},
+    );
+    return run;
   };
 
   const observer = new IntersectionObserver((entries) => {
