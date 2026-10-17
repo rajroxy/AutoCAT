@@ -39,14 +39,41 @@ const seedRank = (s) => {
  * @param {Array<object>} streams sources that already carry a `url` or a magnet
  * @returns {Array<object>} the same rows, re-ordered (the input is not changed)
  */
+/**
+ * **How likely the element is to be able to open it at all.** A direct file is only "playable" if the
+ * container inside it is one Chromium can decode, and a Korean film's list is full of `.mkv` files
+ * whose HEVC video or AC3 audio the element refuses outright — *"media error 4 —
+ * MEDIA_ELEMENT_ERROR: Format error"*, over and over, while an `.mp4` sits below the twelve tries the
+ * player allows. So the walk now reads the address first: a playlist (the engine handles it), then a
+ * plain file the element opens, then the containers it usually cannot, and only then the ones with no
+ * extension to judge by.
+ *
+ * Nothing is dropped — every source is still offered, and the Sources drawer still lists them in the
+ * order the add-ons sent (see `orderSources`); this is the order the player *walks*.
+ */
+const containerRank = (target) => {
+  const url = String(target || "").toLowerCase().split("?")[0].split("#")[0];
+  if (/\.(m3u8|mpd)$/.test(url)) return 0;   // a playlist the engine can drive
+  if (/\.(mp4|m4v|webm|ts)$/.test(url)) return 1;   // a container the element decodes
+  if (/\.(mkv)$/.test(url)) return 3;   // MKV: fine if the codecs happen to be, refused most of the time
+  if (/\.(avi|flv|wmv|mov|mpg|mpeg|3gp|vob|rmvb|divx)$/.test(url)) return 4;
+  return 2;   // no extension to judge by: better than a known-bad one
+};
+
 export function orderSources(streams = []) {
   const rows = [...streams];
   const kind = (s) => (s?.torrent ? 1 : 0);
+  const shape = (s) => containerRank(s?.torrent ? s?.magnet : s?.url);
   return rows
     .map((s, i) => ({ s, i }))
     .sort((a, b) => {
       const byKind = kind(a.s) - kind(b.s);
       if (byKind) return byKind;
+      // Among the direct files, the ones the element can actually open come first.
+      if (!kind(a.s)) {
+        const byShape = shape(a.s) - shape(b.s);
+        if (byShape) return byShape;
+      }
       const bySeed = seedRank(a.s) - seedRank(b.s);
       if (bySeed) return bySeed;
       // A stable walk: two sources of the same kind keep the order the add-on gave them.

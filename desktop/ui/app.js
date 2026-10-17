@@ -5053,7 +5053,10 @@ async function renderCard(key) {
   // carries only what the bar cannot: the rows, and the tags that reach each one.
   const wrapper = el(
     "section",
-    { class: "section" },
+    // **`card-page` is the card's own page** (as opposed to Home's wall or Explore's row): it is the
+    // hook its foot of the page hangs on, because a card whose content is one row does not need the
+    // room a scrolling page does (see `.card-page` in style.css).
+    { class: "section card-page" },
     // A card with nothing to put up there (no visible rows) draws no header at all
     // rather than an empty band above its rows.
     // **The banner's card draws no tags.** Its rows are Now Playing / Airing Today / On the Air and
@@ -5323,9 +5326,7 @@ function renderExplore(key, id) {
       if (letter && !railIndex.has(letter)) railIndex.set(letter, m);
     }
     alphaRail.replaceChildren(
-      // The letters live in the rail's **inner panel**: the rail is a zero-height sticky shell
-      // (see `.alpha-rail` in style.css), and this element draws the box around them.
-      el("div", { class: "alpha-rail-inner" }, ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((letter) => {
+      ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((letter) => {
         const has = railIndex.has(letter);
         const chosen = letterFilter === letter;
         const what = chosen
@@ -5345,7 +5346,7 @@ function renderExplore(key, id) {
             onclick: () => pickLetter(letter),
           },
         );
-      })),
+      }),
     );
   };
 
