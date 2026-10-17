@@ -1,0 +1,85 @@
+<!--
+  **The app's own icon: the cat curled into the C, exactly the pose the opening screen draws.**
+
+  This is the boot mark from `ui/index.html` — same arc, same head, same ears, eyes, whiskers and
+  tail — with two changes an icon needs and a boot screen does not:
+
+    * **the CSS variables are resolved.** The opening draws its halo with the fill variable the
+      app's stylesheet defines, which only means something inside the app; here it is that accent's
+      own copper (`#cc825c`) written out. (Written as `var(` + the name in the stylesheet: a
+      double hyphen is not allowed inside an XML comment, and this file is XML.)
+    * **it sits on the app's ink**, with the halo behind it. The animal is drawn in near-black
+      (`#08080d`–`#262633`) because on the boot screen it resolves *out of* a copper glow; on a
+      plain black square it would be an invisible smudge at 48 px, so the glow is baked in and the
+      whole thing rides on `#0B0B0B`.
+
+  Rendered by `scripts/generate-icon.mjs` into the Electron build directory and the APK's mipmaps.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="AutoCAT">
+  <defs>
+    <!-- The plate, with its corners rounded on Linux/macOS; Android masks its own. -->
+    <linearGradient id="plate" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#141420"/>
+      <stop offset="55%" stop-color="#0d0d14"/>
+      <stop offset="100%" stop-color="#08080c"/>
+    </linearGradient>
+    <radialGradient id="catHalo" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#cc825c" stop-opacity="0.30"/>
+      <stop offset="65%" stop-color="#cc825c" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#cc825c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="catFur" x1="0.15" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#262633"/>
+      <stop offset="50%" stop-color="#13131b"/>
+      <stop offset="100%" stop-color="#09090e"/>
+    </linearGradient>
+    <linearGradient id="catBody" x1="0.15" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#21212c"/>
+      <stop offset="55%" stop-color="#101017"/>
+      <stop offset="100%" stop-color="#08080d"/>
+    </linearGradient>
+    <linearGradient id="catEarIn" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#9d90cc"/>
+      <stop offset="100%" stop-color="#6d629c"/>
+    </linearGradient>
+    <linearGradient id="catEyeW" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f2f8ea"/>
+      <stop offset="100%" stop-color="#d6e2ca"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#plate)"/>
+  <!-- A hairline of the app's copper, so the black square has an edge on a dark launcher. -->
+  <rect x="6" y="6" width="500" height="500" rx="92" fill="none" stroke="#cc825c" stroke-opacity="0.22" stroke-width="3"/>
+
+  <!-- The illustration itself: the boot mark's own geometry, centred and scaled for the plate. -->
+  <g transform="translate(256 258) scale(4.05) translate(-62 -51.5)">
+    <g class="cat-c">
+      <circle class="cat-glow" cx="58" cy="64" r="52" fill="url(#catHalo)"/>
+      <path class="c-arc" d="M76 35.2A34 34 0 1 0 76 92.8" fill="none" stroke="url(#catBody)" stroke-width="15.5" stroke-linecap="round"/>
+      <path class="c-sheen" d="M33.4 74.6C30.4 67.6 30.4 60.4 33.4 53.4" fill="none" stroke="rgba(150,166,212,0.20)" stroke-width="3.6" stroke-linecap="round"/>
+      <path class="c-tail" d="M76 92.8C88.6 97.6 97.4 88.4 90.6 79.6" fill="none" stroke="url(#catBody)" stroke-width="5.4" stroke-linecap="round"/>
+      <g class="c-head" transform="translate(80 30)">
+        <path class="c-ear c-ear-l" d="M-13.5 -5.5 -15.5 -27 -2 -13Z" fill="url(#catFur)"/>
+        <path class="c-ear c-ear-r" d="M13.5 -5.5 15.5 -27 2 -13Z" fill="url(#catFur)"/>
+        <path class="c-ear-in c-ear-l" d="M-11.4 -7.6 -13 -22 -4.4 -12.6Z" fill="url(#catEarIn)"/>
+        <path class="c-ear-in c-ear-r" d="M11.4 -7.6 13 -22 4.4 -12.6Z" fill="url(#catEarIn)"/>
+        <ellipse class="c-face" cx="0" cy="0" rx="16" ry="14.6" fill="url(#catFur)"/>
+        <path d="M-14 -3C-16 2 -14.6 8 -10.2 11.4" fill="none" stroke="rgba(150,166,212,0.30)" stroke-width="3.4" stroke-linecap="round"/>
+        <g class="c-eyes">
+          <ellipse cx="-6.4" cy="1" rx="6" ry="6.6" fill="url(#catEyeW)" stroke="#0b0b10" stroke-width="1.1" transform="rotate(-4 -6.4 1)"/>
+          <ellipse cx="6.4" cy="1" rx="6" ry="6.6" fill="url(#catEyeW)" stroke="#0b0b10" stroke-width="1.1" transform="rotate(4 6.4 1)"/>
+          <ellipse cx="-5.3" cy="1.7" rx="2.1" ry="3" fill="#0a0a0e"/>
+          <circle cx="-6.3" cy="-0.1" r="1.05" fill="#ffffff" opacity="0.92"/>
+          <circle cx="-4.2" cy="3.1" r="0.6" fill="#ffffff" opacity="0.6"/>
+          <ellipse cx="5.3" cy="1.7" rx="2.1" ry="3" fill="#0a0a0e"/>
+          <circle cx="4.3" cy="-0.1" r="1.05" fill="#ffffff" opacity="0.92"/>
+          <circle cx="6.4" cy="3.1" r="0.6" fill="#ffffff" opacity="0.6"/>
+        </g>
+        <path d="M0 5.4 -1.9 7.5h3.8L0 5.4Z" fill="#7a505a"/>
+        <path d="M-2.6 9.6c0-1 1.2-1.5 2.6-1.5s2.6.5 2.6 1.5c0 1.9-1.2 3.2-2.6 3.2s-2.6-1.3-2.6-3.2Z" fill="#bb4a5c"/>
+        <path class="c-whisk" d="M-17 1 -27.5 -1.4M-17.2 4.8 -26.5 4.8M17 1 27.5 -1.4M17.2 4.8 26.5 4.8" fill="none" stroke="rgba(226,231,240,0.36)" stroke-width="1" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+</svg>

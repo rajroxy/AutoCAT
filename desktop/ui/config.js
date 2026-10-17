@@ -29,9 +29,20 @@ const savedHost = (() => {
 // asks itself and nothing has to be running anywhere else. It is pinned: a port chosen at
 // run time would need a channel to be told through.
 const IN_APP_SERVER = "http://127.0.0.1:4173";
-// Capacitor serves the interface from https://localhost.
-const packaged = typeof window.Capacitor !== "undefined";
-// `?api=…` (a quick test), then an address saved on the device (the app's own screen asks
-// for one when the in-app server cannot be reached), then the host a build was pointed at,
-// then — in the APK — the server inside the app itself.
-window.AUTOCAT_API = fromQuery || savedHost || window.AUTOCAT_HOST || (packaged ? IN_APP_SERVER : "");
+// **Capacitor serves the interface from its own scheme and host.** `https://localhost` is that
+// address, and it is a signal that does not depend on Capacitor's runtime having been injected
+// into this page *yet* — which is what a first paint on a television caught it without. The app
+// then believed it was a web page with nothing behind it, and asked for a server address it was
+// already carrying ("first a server url box at start"). Both signals are read here, and `app.js`
+// tries the in-app server whenever nothing else answers, so the address is never asked for when
+// the app can answer itself.
+const packaged =
+  typeof window.Capacitor !== "undefined" ||
+  (location.protocol === "https:" && location.hostname === "localhost");
+// `?api=…` (a quick test), then the host a build was pointed at, then — in the app — **the server
+// inside it**, and only then an address saved on the device. A saved address is what the app asks
+// for when nothing answered, so it must not outrank the server that is right here: that ordering
+// is what kept a television pointed at an address typed once, for ever.
+window.AUTOCAT_API = fromQuery || window.AUTOCAT_HOST || (packaged ? IN_APP_SERVER : savedHost);
+// Where the app's own server is, for `app.js` to fall back to.
+window.AUTOCAT_IN_APP = IN_APP_SERVER;

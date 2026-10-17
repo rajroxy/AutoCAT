@@ -814,7 +814,14 @@ function specialistServices(code, type, { cull = true } = {}) {
   const wanted = String(code || "US").toUpperCase() || "US";
   const own = regionProviders.get(`${type}:${wanted}`);
   const held = own || regionProviders.get(`${type}:US`);
-  if (!held?.named?.length) return null;
+  // **An unread list is not an empty card.** The live lists are TMDB's answer for one country and
+  // they need a TMDB key to be read at all — so an install that has not had its key entered yet (a
+  // freshly installed app keeps its own settings, see `pointStateAtDataDir` in desktop/main.js) had
+  // **no Specialist rows**, and the home does not draw a card with no rows: the card was simply
+  // missing, which is the reported "in deb app, specialist card not showing". The shipped verified
+  // roster below is read instead — the same roster, each brand in the region that carries it — so
+  // the card is there, and its rows fill the moment a key or a live list arrives.
+  if (!held?.named?.length && !(SPECIALIST_ROSTER[type] || []).length) return null;
   // The region the rows are read in is the region the list came from — a US fallback is read
   // in the US, so its rows are asked for the US catalogue rather than the wrong one.
   const region = own ? wanted : GLOBAL_OTT_REGION;
@@ -839,7 +846,7 @@ function specialistServices(code, type, { cull = true } = {}) {
     seenKeys.add(key);
     candidates.push({ id, name: p.name, region: readIn });
   };
-  for (const p of held.named) offer(p, region);
+  for (const p of held?.named || []) offer(p, region);
   if (region !== GLOBAL_OTT_REGION) {
     for (const p of regionProviders.get(`${type}:${GLOBAL_OTT_REGION}`)?.named || []) offer(p, GLOBAL_OTT_REGION);
   }

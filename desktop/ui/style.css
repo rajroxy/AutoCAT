@@ -1627,7 +1627,38 @@ button.chip:hover { background: rgba(var(--hover-rgb), 0.26); color: #fff; }
 .setting-grid > .option { grid-column: 1 / -1; margin-bottom: 0; }
 .settings-tab:hover { background: var(--panel-2); color: var(--text); transform: translateY(-2px); }
 .settings-tab.active { background: rgba(var(--fill-rgb), 0.22); color: #fff; }
-.settings-pane { min-width: 0; }
+/* **The options scroll on their own too.** The board on the left kept a scrollbar of its own
+   (see `.settings-nav`) so a long list of doors could not drag the pane with it — but a long
+   *pane* still pushed the page: reading Settings → Providers meant scrolling the whole app,
+   and the doors scrolled out of the window while you did. The owner asked for the same answer
+   on the right (*"settings right side wale option ke side bhi to ek scrollbar do"*), so the pane
+   is its own scroll box, sticky at the same offset the doors are.
+
+   **The bottom padding is not decoration.** A scroll box clips, and the app's own dropdowns
+   open *below* their button: with the last control sitting on the pane's last pixel its list
+   would be cut off at the edge. A block of empty room under the last control means an open
+   menu always has somewhere to go, and the padding is inside the scroll box, so it costs
+   nothing when there is nothing open. */
+.settings-pane {
+  min-width: 0;
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  max-height: calc(100vh - 128px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 6px 12px 150px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.settings-pane::-webkit-scrollbar { width: 8px; }
+.settings-pane::-webkit-scrollbar-track { background: transparent; }
+.settings-pane::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+.settings-pane::-webkit-scrollbar-thumb:hover { background: rgba(var(--hover-rgb), 0.55); }
 /* **The account row.** Who is signed in: the provider's picture (or the first letter of
    their name when there is none), the name, the address and which provider it came from,
    and the way out. It is the same panel the panes already use, so the sign-in card is one
@@ -3770,16 +3801,17 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
   font-weight: 700;
   cursor: pointer;
 }
-/* **The sound box takes the accent, and so does the box itself.** The three marks in it
-   answered the cursor with a neutral grey wash — the one control in the bar that did nothing
-   the others do, which is the owner's *"sound button pe toh accent hi nahi aaya hover pe"*. It
-   is the same wash every other control in the bar takes (`rgba(fill, 0.30)` with white ink),
-   and the **box** lights as well, so pointing anywhere at the volume reads as one control
-   answering rather than as a bare plate with a lit mark inside it. A mark at its own end
-   (the `−` at zero, the `+` at full) stays dim: it is disabled, and a disabled control that
-   lights up under the cursor is a lie about what it will do. */
-.player-vol-btn:hover, .player-vol-value:hover,
-.player-vol:is(:hover, :focus-within) { background: rgba(var(--fill-rgb), 0.30); }
+/* **Each of the three chips lights on its own.** The volume is three controls — `−`, the figure
+   and `+` — and the *box around them* used to fill with the accent whenever the cursor was
+   anywhere inside it (`:hover` on the row). That is a highlight that says nothing: pointing at
+   the empty pixel beside `−` lit all three at once, and the owner's word was that each button
+   should answer for itself (*"sound me teen button hai percentage volume minus and volume plus
+   alag alag hover pe accent fill aana chahiye"*). So the row draws nothing under the cursor now,
+   and each chip takes the bar's own wash (`rgba(fill, 0.30)`) with white ink when it is the one
+   being pointed at. A mark at its own end (the `−` at zero, the `+` at full) stays dim: it is
+   disabled, and a disabled control that lights up under the cursor is a lie about what it will
+   do. */
+.player-vol-btn:hover, .player-vol-value:hover { background: rgba(var(--fill-rgb), 0.30); }
 .player-vol-btn:hover, .player-vol-value:hover { color: #fff; }
 .player-vol-btn[disabled]:hover { background: transparent; color: var(--text); }
 .player-vol-btn[disabled] { opacity: 0.35; cursor: default; }
@@ -6600,6 +6632,21 @@ body.guide-immersive .guide-screen .guide-head { position: sticky; top: 0; z-ind
 }
 .icon-box:focus-within, .icon-box:focus-visible { box-shadow: none; }
 .icon-box:focus-within::after, .icon-box:focus-visible::after { content: none; }
+/* **Every card surface is in this list, without exception.** The ring above is drawn from
+   `.icon-box`, and the two frames that are not the plain card — the wide Upcoming card and the
+   live home's spotlight card — are the ones a reader reports as "no ring on hover". The rule is
+   restated here for them by name, at the same weight as the rule that takes the card's own
+   box-shadow away, so no earlier statement about those two shapes can leave a card without one. */
+.icon-box.card-wide:hover::after,
+.icon-box.card-spotlight:hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 var(--mark-ring, 2px) var(--bg, #0b0b0b),
+    inset 0 0 0 calc(2 * var(--mark-ring, 2px)) var(--ring, var(--fill));
+}
 
 /* **The order dropdown lines up with the grid it orders.** It sat at the page's right edge,
    which is the **alphabet rail's** column, so it floated between the rail and the posters
@@ -6924,3 +6971,83 @@ html .tab.tab-home {
 .server-panel { display: flex; flex-direction: column; gap: 12px; max-width: 760px; margin: 7vh auto 0; }
 .server-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .server-row .text-input { flex: 1 1 340px; min-width: 240px; }
+
+/* ============================================================================
+   **The television.**
+
+   Every line here is one report from an Android TV box:
+
+     * **the ring was invisible.** A television has no cursor to follow, so the app has to say where
+       the D-pad is — and the app's own rule ("a thing rings; a control fills") left a button, a tab
+       or a chip answering with a fill alone. On a television the ring is drawn on `:focus` itself,
+       for everything, with a dark edge under the accent so it reads from across a room.
+     * **three cards to a row.** A 1080p Android TV WebView reports about 960x540 CSS pixels, and
+       every card size in this file was chosen for a desktop: `minmax(260px, 1fr)` gave three
+       columns of 275px cards on a television.
+     * **Settings was neither full nor navigable.** Its board is a 300-400px column with the pane
+       beside it, which on a 960px screen left the pane 444px wide; and there was no left and right
+       at all, which is the code half of the same report (`nearestBeside` in app.js).
+     * **the cursor could sit under the fold.** `scroll-margin` is what keeps a focused thing clear
+       of the top bar when `land()` brings it into view.
+
+   The class is put on `<body>` by `tvMode()` in app.js — `?tv=1` says so outright, and a packaged
+   shell with no pointer (no touch, no mouse) is a remote control.
+   ============================================================================ */
+body.tv {
+  /* Densities for a 960-wide viewport: two more cards to a row, and the width the titles grids
+     and the search results are built from follows it. */
+  --poster-w: 140px;
+  /* One ring, and it is never 2px on a television. */
+  --mark-ring: 3px;
+}
+
+/* **The ring, on `:focus`, for everything.** `:focus-visible` is the desktop's answer — a mouse
+   press should not draw one — but a D-pad only ever means "here", and an Android TV WebView does
+   not always report a key press as keyboard interaction, which is exactly "no ring is showing".
+   The dark ring under the accent is what keeps it legible on top of artwork. The search field is
+   left out because the bar around it draws the ring instead (see `.search-bar`). */
+body.tv :is(.focusable, .settings-tab, .chip, .filter-chip, .model-chip, .chip-arrow, .row-btn,
+  .tab, .icon-btn, .btn, .alpha, .avatar-pick, .vis-fold, .vis-btn, .accent-card, .cal-cell,
+  .site-row, .menu-item, .dropdown-item, .dropdown-btn, .option, .vis-option, .ep-row,
+  .source-move, .profile-tile, .rec-btn, .chip-more, .stream, .result, .person, .episode-item,
+  .icon-box, .poster, .cat-tile, .channel-card, .season-card, .company-card, .trailer-card,
+  .hero-frame):not(.search-input):is(:focus, :has(:focus)) {
+  box-shadow: 0 0 0 var(--mark-ring) var(--bg, #0b0b0b),
+    0 0 0 calc(var(--mark-ring) * 2) var(--ring, var(--fill)) !important;
+}
+
+/* **A focused thing is one screenful away at most, never under the top bar.** `scroll-margin` is
+   read by `scrollIntoView` in `land()`, and 128px is the bar plus a card's own margin. */
+body.tv .focusable { scroll-margin: 128px 24px 40px 24px; }
+
+/* **Two more cards to a row.** 140px at a 12px gap fits six across a 960px viewport; the shelf
+   form (`.icons.rows`) holds its own card width, and the two glance cards shrink with it so a
+   television shows two of them rather than one and a half. */
+body.tv .icons.grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+body.tv .icons.rows { gap: 12px; }
+body.tv .icons.rows .icon-box { width: 158px; }
+body.tv .icons.rows .icon-box.card-spotlight,
+body.tv .icons.rows .icon-box.card-wide { width: calc(440px + 36px); }
+body.tv .grid-titles { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+body.tv .result-list { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+body.tv .poster.wide { width: calc(var(--poster-w) * 1.62); }
+body.tv .icon-box.card-spotlight .icon-wrap,
+body.tv .icon-box.card-wide .icon-wrap { aspect-ratio: 440 / 100; }
+
+/* **Settings, whole.** The doors keep a fixed column and the pane takes everything else, so the
+   screen a remote has to walk is the screen it can see; the pane is given the rest of the height
+   rather than ending where its content happens to end. */
+body.tv .settings { grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 20px; }
+body.tv .settings-nav { top: 84px; max-height: calc(100vh - 108px); padding: 8px 12px 8px 8px; }
+body.tv .settings-tab { min-height: 50px; font-size: 12.5px; padding: 10px 12px; }
+body.tv .settings-pane { min-height: calc(100vh - 132px); }
+body.tv .settings-pane .source-form { gap: 8px; }
+
+/* **Targets a remote can hit, and a Paste button that is one of them.** */
+body.tv .btn,
+body.tv .settings-tab,
+body.tv .text-input,
+body.tv .vis-btn,
+body.tv .chip { min-height: 42px; }
+body.tv .paste-btn { flex: none; }
+body.tv .text-input { min-width: 180px; }

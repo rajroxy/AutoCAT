@@ -31,6 +31,11 @@ export const AI_PROVIDERS = {
     shape: "openai",
     chat: "https://api.groq.com/openai/v1/chat/completions",
     models: "https://api.groq.com/openai/v1/models",
+    // **Groq is also the fastest way to read a voice note.** Whisper on Groq takes a few
+    // seconds for a sentence, and the key is the same one; Gemini (the app's default provider)
+    // reads audio directly with the key it already has. See `transcribeAudio`.
+    stt: "https://api.groq.com/openai/v1/audio/transcriptions",
+    sttModel: "whisper-large-v3",
     signup: "https://console.groq.com/keys",
     note: "Free tier, fastest responses — the default.",
   },
@@ -858,4 +863,105 @@ export async function verifyAI(name, key, model = "") {
   } catch (err) {
     return { ok: false, text: `${cfg.label} — ${err.message}` };
   }
+}
+
+/* ------------------------------------------------------------------ voice */
+
+/**
+ * **Voice, turned into words — by the provider, not by the browser.**
+ *
+ * Chrome's `SpeechRecognition` is a Google service, and stock Electron does not ship it: the
+ * desktop app could show a microphone and never hear anything ("voice not working"), and in
+ * the web build it works only where Chrome's own key is configured. This is the app's own
+ * answer, and it uses what the app already has — the provider and key from Settings →
+ * Assistant:
+ *
+ *   - **Gemini** (`shape: "gemini"`) reads audio in the request itself (`inline_data`), so a
+ *     recorded sentence is one `generateContent` call with the key that is already saved;
+ *   - **OpenAI-shaped providers** that publish a transcription endpoint (`stt`, e.g. Groq's
+ *     Whisper) take it as a multipart upload.
+ *
+ * Called by the server's `/ai/transcribe`; the audio is a short clip from the page's own
+ * `MediaRecorder` (see the player's voice pads in `desktop/ui/app.js`).
+ */
+const TRANSCRIBE_PROMPT =
+  "Transcribe this audio, word for word. Answer with the words alone — no preamble, no quotes, " +
+  "no language name, nothing else. If it holds no words at all, answer with nothing.";
+
+/** One transcription from Gemini, where the audio rides in the request. */
+async function geminiTranscribe(cfg, key, provider, data, mime) {
+  const model = aiModel(provider) || cfg.model;
+  const url = `${cfg.base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    signal: AbortSignal.timeout(30000),
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        role: "user",
+        parts: [{ text: TRANSCRIBE_PROMPT }, { inline_data: { mime_type: mime || "audio/webm", data } }],
+      }],
+      // **No thinking, no prose.** A transcription is a copy, not an answer: temperature 0 and a
+      // small budget, exactly the shape `askAI` uses for search words.
+      generationConfig: { temperature: 0, maxOutputTokens: 300, ...(NO_THINKING.has(model) ? {} : THINKING_OFF) },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}${body ? ` — ${body.slice(0, 160)}` : ""}`);
+  }
+  const payload = await res.json();
+  const parts = payload?.candidates?.[0]?.content?.parts || [];
+  const words = parts.map((p) => (p?.text || "")).join(" ").trim();
+  return { ok: true, text: words, provider, model };
+}
+
+/** One transcription from a provider with its own upload endpoint (Groq's Whisper, OpenAI's). */
+async function uploadedTranscribe(cfg, key, provider, data, mime) {
+  if (!cfg.stt) return null;
+  const form = new FormData();
+  form.append("file", new Blob([Buffer.from(data, "base64")], { type: mime || "audio/webm" }), "voice.webm");
+  form.append("model", cfg.sttModel || "whisper-large-v3");
+  const res = await fetch(cfg.stt, {
+    method: "POST",
+    signal: AbortSignal.timeout(30000),
+    headers: authHeaders(cfg, key),
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}${body ? ` — ${body.slice(0, 160)}` : ""}`);
+  }
+  const payload = await res.json();
+  return { ok: true, text: String(payload.text || "").trim(), provider, model: cfg.sttModel || "" };
+}
+
+/**
+ * Read a recorded clip out loud as text.
+ *
+ * The chosen provider goes first, then any other provider whose key is saved — a Google key
+ * with no Groq key reads it with Gemini, and a Groq key reads it with Whisper. Nothing is
+ * invented: with no key anywhere the answer says so, and the caller (the mic button) prints
+ * it.
+ */
+export async function transcribeAudio({ mime = "", base64 = "", provider: want = "" } = {}) {
+  const data = String(base64 || "");
+  if (!data) return { ok: false, text: "no audio was sent" };
+  const order = [want, aiProviderName(), "google", "groq", ...Object.keys(AI_PROVIDERS)].filter(Boolean);
+  let lastError = "no provider with a key could read the recording";
+  for (const name of [...new Set(order)]) {
+    const cfg = AI_PROVIDERS[name];
+    if (!cfg) continue;
+    const key = aiKey(name);
+    if (!key) continue;
+    try {
+      const answer = cfg.shape === "gemini"
+        ? await geminiTranscribe(cfg, key, name, data, mime)
+        : await uploadedTranscribe(cfg, key, name, data, mime);
+      if (answer) return answer;
+    } catch (err) {
+      lastError = `${cfg.label} — ${err?.message || err}`;
+    }
+  }
+  return { ok: false, text: lastError };
 }

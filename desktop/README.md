@@ -8,6 +8,7 @@ opens the app UI.
 desktop/
   package.json      Electron app (devDependency: electron)
   main.js           main process — starts the embedded server, opens the window
+  dev-paths.mjs     which copy of the app runs (packed, checkout, AUTOCAT_DEV_DIR)
   preload.cjs       tiny context bridge (flags the desktop shell)
   ui/               THE APP UI — plain web code (HTML/CSS/JS)
     index.html
@@ -41,6 +42,45 @@ npm run start:web  # prints "AutoCAT gallery + catalog addon → http://0.0.0.0:
 Use `start:web` (or `npm run preview`, which is the same thing) when you want the
 web app in a browser at `/app/`; use `npm start` when you want the desktop app.
 
+### Live mode — working on the app you installed
+
+The deb, the AppImage, the dmg and the exe each run **their own packed copy** of the
+server, the interface and the card art, so a change to a stylesheet or a page could
+only be seen by packaging the app again. `AUTOCAT_DEV_DIR` points an installed app at
+a checkout instead:
+
+```sh
+AUTOCAT_DEV_DIR=$HOME/Nuvio-collection autocat     # Linux; the deb's command
+AUTOCAT_DEV_DIR=$HOME/Nuvio-collection open -a AutoCAT   # macOS
+set AUTOCAT_DEV_DIR=%USERPROFILE%\Nuvio-collection && AutoCAT.exe   # Windows
+```
+
+Everything that makes it the installed app stays exactly as it is — its own
+Electron, its own window, **your data directory** (so your TMDB key, watchlist and
+profiles are the real ones), the real sign-in origin — and only these three come
+from the checkout:
+
+| from the checkout | packed equivalent |
+|---|---|
+| `serve.mjs` and everything it imports (`addon/`, `scraper/`, `scripts/`) | `<app>/server/serve.mjs` |
+| `desktop/ui/` — `index.html`, `style.css`, `app.js` | `<app>/ui/` |
+| `covers/` — the card art | `<app>/server/covers/` |
+
+Then: **save a file in the checkout and the window reloads itself** a moment later
+(the reload watcher is on only in this mode). `Ctrl+R` still works, and
+`AUTOCAT_DEVTOOLS=1 AUTOCAT_DEV_DIR=… autocat` opens DevTools.
+
+A **server** module (`serve.mjs`, `addon/*.mjs`) is the one thing a reload cannot
+pick up — node caches the import graph — so restart the app for those; interface
+changes (`desktop/ui/**`) need only the reload. An `AUTOCAT_DEV_DIR` that is not a
+checkout is not an error: the app says so on the console and runs its own copy.
+
+To see the interface in a browser instead (no Electron at all):
+
+```sh
+AUTOCAT_UI_DIR=$PWD/desktop/ui node serve.mjs   # then open http://127.0.0.1:4173/app/
+```
+
 `npm start` fetches Electron's binary once if it is missing, so a fresh clone does
 not need its own install step — including on **npm 11.16 / 12**, which blocks
 dependency install scripts unless they are approved. `desktop/package.json` lists
@@ -70,7 +110,7 @@ Routing mirrors AutoCAT:
 | Switch profile | `#/profiles` | **where the app starts** — pick `Movies & Shows` or `Live TV & Sports` |
 | Home | `#/` | a **hero** panel, then **Movies / Shows** buttons, then the cards |
 | Collection | `#/c/<key>` | the collection's cover + **its catalogs as rows**, each with **Shuffle** and **Explore** |
-| Explore | `#/x/<key>/<catalogId>` | **one shuffled row** on top, then a divider, then the catalog **scrolling endlessly** — a **watchlist** catalog is just its header and your titles |
+| Explore | `#/x/<key>/<catalogId>` | the catalog, **scrolling endlessly**, with the alphabet rail beside it — a **watchlist** catalog is just its header and your titles. No sample row and no order control: how a row is ordered is picked on the card page (`cardTopPicksRow`) |
 | Sources | `#/s/<id>/<name>` | providers as a **graph**, grouped by add-on / plugin |
 | Calendar | `#/calendar` | a real **month calendar** of releases (films *and* shows) |
 | Search | `#/search` | searches **titles**, collections and catalogs — in the Live TV profile it searches **channels** |
@@ -655,6 +695,7 @@ cross-origin request. The UI reads:
 | `/settings` (GET/POST) | profile, provider/tracking/AI keys, AI options, the **content source**, **language** and **country**, plus the language/country `options` the Content pane is built from |
 | `/watchlist` (GET/POST) | your pins and their states (`Plan to Watch` / `Watching` / `Watched`) |
 | `/ai/ask`, `/ai/verify` | the Ask box and its key check |
+| `/ai/transcribe` | **voice**: a recorded clip in, the provider's words out — the desktop shell has no `SpeechRecognition` (Chromium's recogniser is a Google service Electron does not ship), so the mic records with `MediaRecorder` and the provider set in Settings → Assistant reads it (see `transcribeAudio` in `addon/ai.mjs`) |
 | `/search.json` | title search (what the Ask box feeds), and the panel's own filters while browsing |
 | `/search/filters.json` | the filter panel's vocabulary — one row per card line |
 | `/live/channels.json`, `/live/guide.json`, `/live/status.json` | the Live TV profile's channels, its XMLTV guide, and the source's state |

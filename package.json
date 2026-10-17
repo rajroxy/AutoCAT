@@ -9,7 +9,8 @@
     "preview": "node serve.mjs",
     "generate": "cd scripts && npm install && npm run generate",
     "vendor:hls": "node --input-type=module -e \"import fs from 'node:fs';fs.copyFileSync('desktop/node_modules/hls.js/dist/hls.min.js','desktop/ui/vendor/hls.min.js')\"",
-    "vendor:webtorrent": "node --input-type=module -e \"import fs from 'node:fs';fs.copyFileSync('desktop/node_modules/webtorrent/dist/webtorrent.min.js','desktop/ui/vendor/webtorrent.min.js')\""
+    "vendor:webtorrent": "node --input-type=module -e \"import fs from 'node:fs';fs.copyFileSync('desktop/node_modules/webtorrent/dist/webtorrent.min.js','desktop/ui/vendor/webtorrent.min.js')\"",
+    "icon": "node scripts/generate-icon.mjs"
   },
   "type": "module",
   "dependencies": {
@@ -23,5 +24,8 @@
   },
   "overrides": {
     "uint8-util": "2.2.6"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.0"
   }
 }

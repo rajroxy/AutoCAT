@@ -18,7 +18,8 @@
     "dist": "npm run desktop:server && electron-builder",
     "dist:linux": "npm run desktop:server && electron-builder --linux",
     "dist:win": "npm run desktop:server && electron-builder --win",
-    "dist:mac": "npm run desktop:server && electron-builder --mac"
+    "dist:mac": "npm run desktop:server && electron-builder --mac",
+    "icon": "node ../scripts/generate-icon.mjs"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",
@@ -53,6 +54,7 @@
     "files": [
       "main.js",
       "preload.cjs",
+      "dev-paths.mjs",
       "server/**",
       "ui/**",
       "!ui/nodejs/**",

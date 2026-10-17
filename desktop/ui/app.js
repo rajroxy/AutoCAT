@@ -17,7 +17,10 @@
 //   /api/source                       server-side add-on / plugin lookup
 //   /settings (GET/POST)              profile, providers, posters, AI
 
-const API = new URLSearchParams(location.search).get("api") || window.AUTOCAT_API || "";
+// **Where the server is — and the answer can change while the app is open.** `let`, because the
+// server the app carries (the APK's own, on 127.0.0.1) is tried whenever nothing else answers:
+// see `tryServers`, called from `boot`.
+let API = new URLSearchParams(location.search).get("api") || window.AUTOCAT_API || "";
 
 // The top bar has no Movies/Shows labels any more — those are buttons on Home.
 const TABS = [["home", "Home"]];
@@ -3493,7 +3496,10 @@ function drawTiles(strip, art, count, layout) {
     // **Wide artwork, in a wide slot.** A 2:3 poster in a 16:9 slot is a band cut through the
     // middle of itself, so the picture is the title's wide one — and its *landscape poster*
     // where TMDB has one, which is the picture the name is printed on (`landscapePoster`).
-    const wideCard = count >= 4;
+    // **A wide card is wide by its layout, not by its count** — see the note in `iconBox`:
+    // the Upcoming card's frame is three landscape tiles, and `count >= 4` was the number it
+    // held when it was four, so asking three of it fell through to the poster wall.
+    const wideCard = layout === "wide" || count >= 4;
     // **What you are watching is a landscape tile.** Trakt and Stremio show the thing you are in
     // the middle of as a wide "Up Next / Continue watching" frame rather than as a poster among
     // posters, and that is the Watchlist card's first tile now: the watching title's own wide
@@ -4597,7 +4603,15 @@ function iconBox(c, row) {
   const tiles = wide ? 3 : spotlight || twoTiles ? 2 : 3;
   // The frame is filled by `startSpotlight`, not by the poster wall: the Upcoming
   // card is **two poster cards**, each carrying its own title and release date.
-  const strip = contentStrip(c, row, tiles);
+  //
+  // **The wide card's shape rides on the job, not on its count.** Its three tiles are the
+  // landscape `.spotlight-tile`s — a landscape picture, the date across the top and the name
+  // under it — but `drawTiles` decided that shape from `count >= 4`, the number the card
+  // carried when it held four. Three tiles then fell through to the poster wall, and the
+  // Upcoming card drew **three 2:3 posters** in a frame three cards wide (one 267px tile and
+  // two that measured 106px and 100px on the running app), in the one card that is a row of
+  // stills. The layout is the card's own declaration, so the count is free to be your number.
+  const strip = contentStrip(c, row, tiles, wide ? "wide" : undefined);
   if (spotlight) {
     strip.classList.add("spotlight-strip");
     strip._job.spotlight = true;
@@ -4970,8 +4984,18 @@ function cardTopPicksRow(card, catalogs) {
  * watch, and the Updates shelf — and the owner was plain that those were not to be touched with a picks
  * row. The banner's own card (Now Playing / Airing Today / On the Air) keeps its rows too: its tags live
  * on the banner, and its page is the only place those rows are read in full.
+ *
+ * **Seasons and Continental & Countries keep theirs as well, and for a reason of their own.** Their
+ * *rows are the card*: the seasons are four, and their order is the year's (*"pehle summer phir fall
+ * phir winter phir spring season card me"*), and the country rows are the world's, each named for its
+ * continent and read in the continent order (*"continent and countries tags labels like Asia - India,
+ * Asia - Japan … include all countries in world"*). One drawn-at-random picks row — "Top picks from
+ * Spring", "Top picks from Europe - Norway" — showed **one** of them per open and read as the card
+ * having neither the order nor the countries in it. A card whose point is its own list of rows draws
+ * them all; the picks row is for the browsing cards, where the rows are one wide query each and the
+ * tags already name them.
  */
-const ROWS_KEPT_KEYS = new Set(["watchlist", "for-you", "custom", "updates", "on-the-board"]);
+const ROWS_KEPT_KEYS = new Set(["watchlist", "for-you", "custom", "updates", "on-the-board", "seasons", "continental"]);
 const ROWS_KEPT_KINDS = new Set(["watchlist", "custom", "recommend", "lineup"]);
 const keepsRows = (card) =>
   Boolean(card.hidden) ||
@@ -5139,7 +5163,14 @@ function renderExplore(key, id) {
   // "oldest first" of a Top 10 asks for the ten oldest, which is not what a Top 10 is. The
   // owner caught it standing on the Global and Domestic Top 10 pages after the first pass took
   // it off the Specialist Top 10 only — the control follows `isOttOrderCard`, and nothing else.
-  const sortTools = (sortable || isOttOrderCard(card)) && !stateful ? el("div", { class: "cat-tools" }, ottSortControl()) : null;
+  // **The order dropdown is gone from this page too.**
+  //
+  // The owner read their Explore pages and said so plainly: the control in the corner was a
+  // question in front of the row (*"explore page se wo dropdown hata do"*), and the row it
+  // ordered is the row you already chose on the card page — Latest, Newest, Trending, Popular
+  // or Top rated is a way to **pick a row**, which is the card page's own `cardTopPicksRow`.
+  // What is left of Explore is the thing it is for: the catalog, alphabet rail and all.
+  const sortTools = null;
   // **No control of the page's own, then.** With the sample row gone this button had nothing to
   // drive; what is left of the header is the OTT order dropdown, which is a *read* of the row
   // rather than a redraw of it (see `sortTools`), and it is passed to the page as its own node.
@@ -5150,6 +5181,11 @@ function renderExplore(key, id) {
   let done = false;
   let busy = false;
   let pages = 0;
+  // **What the last read actually added.** A deep row hands back overlapping windows (measured on
+  // the Action row: 7200 titles over 60 pages, 3650 of them unique), so "the page came back with
+  // metas in it" is not the same as "there is more of this letter out there". A page that adds
+  // nothing new is the end of the letter (see `pickLetter`).
+  let lastAdded = 0;
   const MAX_PAGES = 5000;
 
   /** Every title the row has handed over, in order, and whether it was already
@@ -5158,6 +5194,9 @@ function renderExplore(key, id) {
   const loaded = [];
   const seenIds = new Set();
   let letterFilter = null;
+  // **Whether the bar offers another batch of this letter** (see `fillLetter`): false once a read
+  // adds nothing new.
+  let letterMore = false;
   const letterOf = (name) => String(name || "").trim().charAt(0).toUpperCase();
   const passes = (m) => !letterFilter || letterOf(m.name) === letterFilter;
 
@@ -5178,15 +5217,18 @@ function renderExplore(key, id) {
     busy = true;
     try {
       const { metas } = await fetchCatalog(cat, skip, count, true);
+      let added = 0;
       for (const m of metas) {
         const id = `${m.type || apiType()}:${m.id}`;
         if (seenIds.has(id)) continue;
         seenIds.add(id);
         loaded.push(m);
+        added += 1;
         // A letter is being shown: only its titles reach the grid, and the rest
         // stay in `loaded` for when the letter is cleared.
         if (passes(m)) grid.append(posterCard(m, { caption: false }));
       }
+      lastAdded = added;
       skip += metas.length;
       pages++;
       // The rail is an index of what is actually loaded, so it grows with the row.
@@ -5293,8 +5335,21 @@ function renderExplore(key, id) {
   const updateFilterBar = () => {
     filterBar.hidden = !letterFilter;
     if (!letterFilter) return;
+    const shown = loaded.filter(passes).length;
     filterBar.replaceChildren(
-      el("span", { class: "explore-filter-text", text: `Titles starting with ${letterFilter}` }),
+      el("span", {
+        class: "explore-filter-text",
+        // **It says what it is showing, because it cannot show everything.** A row this deep has
+        // no end to reach (see the note in `pickLetter`), so the line names the count and the
+        // button beside it asks for the next batch rather than pretending the list is complete.
+        text: `Showing ${shown} title${shown === 1 ? "" : "s"} starting with ${letterFilter}`,
+      }),
+      letterMore ? el("button", {
+        class: "btn subtle focusable",
+        type: "button",
+        text: `Load more of ${letterFilter}`,
+        onclick: () => fillLetter(letterFilter),
+      }) : null,
       el("button", {
         class: "btn subtle focusable",
         type: "button",
@@ -5330,15 +5385,55 @@ function renderExplore(key, id) {
     // trip, so a letter far down a big catalog meant a long chain of requests; the
     // server now hands back a `count`-sized window, and the grid is repainted once
     // at the end rather than after every page.
+    await fillLetter(letterFilter);
+  };
+
+  /**
+   * **Page the row in for one letter, a batch at a time, painting as it goes.**
+   *
+   * The loop this replaces asked for pages until the catalogue ran out, with a ceiling of five
+   * thousand — and a *deep* row never runs out: the Action row answered 7200 titles over sixty
+   * pages, half of them repeats, and would have kept answering. So the reader's letter looked
+   * like it was not filling at all (the grid was painted once, at the end, and the end never
+   * came) — the owner's *"kisi letter se shuru poora titles nahi show karta hai catalog ka"*.
+   *
+   * What a letter can honestly be is a **batch of the row, read in order**: `LETTER_PAGES`
+   * requests per press, repainted after every one so the pictures arrive while you watch, and a
+   * stop at the row's own end — the server's empty window, which is the only thing that says the
+   * catalog has nothing more to hand over. **A page of repeats is not that end** (see the note in
+   * the loop): a deep row overlaps its own windows, and reading it as "the letter is finished"
+   * published 161 of its T-titles as if they were all of them. Until the row ends the bar says how
+   * many are shown and offers the next batch, so it never claims a list it has not read.
+   */
+  const fillLetter = async (letter) => {
     const LETTER_WINDOW = 120;
-    for (let i = 0; i < 5000; i += 1) {
+    const LETTER_PAGES = 8;
+    for (let i = 0; i < LETTER_PAGES; i += 1) {
       if (done) break;
       const before = pages;
       await loadMore(LETTER_WINDOW);
+      // **Only a read that never happened ends the loop.** A page that added nothing *new* is not
+      // the end of the letter: a deep row hands back overlapping windows (measured on the Action
+      // row — 7200 titles over sixty pages, half of them repeats), so "everything in this page was
+      // already counted" is the ordinary middle of a letter, not the end of it. Stopping there is
+      // what left the letter claiming it was exhausted at 161 titles. The row's own end (`done`,
+      // set by the server's empty window) is what stops it, and the bar keeps offering the next
+      // batch until then.
       if (pages === before) break;
+      paintGrid();
+      refreshRail();
+      updateFilterBar();
     }
+    // **After the loop, not inside it.** The button that asks for the next batch is drawn from
+    // `letterMore`, so it is set before the bar is last written.
+    letterMore = !done;
     paintGrid();
     refreshRail();
+    updateFilterBar();
+    const first = grid.firstElementChild;
+    if (first && letter === letterFilter && typeof first.scrollIntoView === "function") {
+      first.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+    }
   };
   refreshRail();
 
@@ -8216,9 +8311,13 @@ async function openAssistant(meta, opts = {}) {
         // **The box listens, like the app's other boxes** — and the microphone sits to the
         // **right of Ask**, where the owner asked for it. Settings → Assistant turns it off,
         // and with it off there is no button rather than a button that does nothing.
-        state.speak?.ask === false
-          ? null
-          : el("button", { class: "btn focusable", type: "button", id: "assistant-voice", text: "Voice", title: "Say your question", onclick: () => voiceInto(question, ask) }),
+        // **The box has no microphone.** The owner asked for it out (*"to voice button hata do box
+        // me se"*): typing in this box is the whole interaction, and the two buttons it needs —
+        // Ask and the tag chips under it — were being crowded by a third that only ever answered
+        // that it could not hear anything here. Voice stays where it belongs: the Speak pad on
+        // Home and the search box (see `startVoice`), both of which put the words in front of you
+        // before they are sent.
+        null,
       ),
       // **The tags are the two things a page cannot tell you** — plus, on Home, the owner's
       // own shortcuts. The row wraps: a suggestion line that hides behind a scroll is a
@@ -9766,10 +9865,10 @@ function paneCustomSites() {
   const sites = store.sites?.length ? store.sites : flatSites(store.categories);
   const tags = store.tags?.length ? store.tags : CATEGORY_LABELS.map(([key, label]) => ({ key, label }));
 
-  const addInput = el("input", {
+  const addInput = keepDraft(el("input", {
     class: "text-input focusable", type: "text", id: "site-url",
     placeholder: "https://site.example/",
-  });
+  }));
   const addBtn = el("button", {
     class: "btn primary focusable", type: "button", id: "site-add", text: "Add site",
     onclick: () => addCustomSite(addInput),
@@ -9781,7 +9880,7 @@ function paneCustomSites() {
     text: store.websiteNote?.text || "",
   });
 
-  const repoInput = el("input", { class: "text-input focusable", type: "text", id: "repo-url", placeholder: "https://…/repository.json" });
+  const repoInput = keepDraft(el("input", { class: "text-input focusable", type: "text", id: "repo-url", placeholder: "https://…/repository.json" }));
   const savedRepo = store.repoNote;
   const repoNote = el("p", {
     class: `option-desc${savedRepo ? (savedRepo.ok ? " ok" : savedRepo.text ? " bad" : "") : ""}`,
@@ -9803,7 +9902,7 @@ function paneCustomSites() {
       class: "option-desc",
       text: "Sites the add-ons do not cover. Paste one URL and it is searched every time you press Play — the best-matching result page is read and what it holds is added to the Sources list, tagged with the site's own domain. Only the site, its search pattern and its tags are kept; the streams themselves are never stored, because a stream URL expires and would only be a dead link tomorrow. Tag a site so a film site is not searched for a series.",
     }),
-    el("div", { class: "source-form" }, addInput, addBtn),
+    el("div", { class: "source-form" }, addInput, pasteButton(addInput, (text, ok) => setWebsiteNote(text, ok)), addBtn),
     note,
     sites.length
       ? el("div", { class: "site-list" }, ...sites.map((site) => siteRow(site, tags)))
@@ -9813,7 +9912,7 @@ function paneCustomSites() {
       el("span", { class: "option-desc", text: "A repository is a JSON list of sites: { name, websites: [{ url, category }] }." }),
     ),
     ...(repoList.length ? repoList : [el("p", { class: "option-desc", text: "No repositories added." })]),
-    el("div", { class: "source-form" }, repoInput,
+    el("div", { class: "source-form" }, repoInput, pasteButton(repoInput, (text, ok) => setRepoNote(text, ok)),
       el("button", { class: "btn primary focusable", type: "button", id: "repo-add", text: "Add Repository", onclick: () => addRepo(repoInput) }),
     ),
     repoNote,
@@ -10056,12 +10155,12 @@ async function checkSubtitles() {
 
 function aiAskRow() {
   const input = el("input", { class: "text-input focusable", type: "text", placeholder: "Tell me what to watch…", id: "ai-ask" });
-  // **Speak up is a setting, and this is where it shows.** With the Ask-AI microphone
-  // switched off in Settings → Assistant there is no button to press, rather than a
-  // button that does nothing.
-  const mic = state.speak?.ask === false
-    ? null
-    : el("button", { class: "btn focusable", type: "button", text: "🎙 Voice", onclick: () => startVoice(input) });
+  // **No microphone in the box.** This row drew one behind the Speak-up setting, and the owner
+  // asked for the voice button out of the box (*"to voice button hata do box me se"*). It is the
+  // last box in the app with one — the Ask Assistant box lost its own earlier (see
+  // `openAssistant`) — so the only voice control left is the **Ask Assistant pad** on Home, which
+  // opens the box rather than listening inside it. `startVoice` and `voiceInto` stay for the next
+  // box that wants a microphone of its own.
   const send = el("button", {
     class: "btn primary focusable",
     type: "button",
@@ -10084,15 +10183,87 @@ function aiAskRow() {
         ? "The assistant turns your words into a search."
         : "No AI provider is connected yet, so these words are searched as they are. Paste a key above to let the assistant read them.",
     }),
-    el("div", { class: "ai-ask-form" }, input, mic, send),
+    el("div", { class: "ai-ask-form" }, input, send),
   );
+}
+
+/**
+ * **Voice, where the browser has no recogniser.**
+ *
+ * Chrome's `SpeechRecognition` is a Google service, and stock Electron does not ship it — the
+ * desktop app drew a microphone and could never hear anything ("voice not working"), and the
+ * message it showed was the truth rather than a fix. The app has everything it needs for the
+ * other route: `getUserMedia` and `MediaRecorder` are ordinary web APIs and both are in
+ * Electron, and the provider in Settings → Assistant can read audio (see `transcribeAudio` in
+ * `addon/ai.mjs`). So the mic records a short clip, the server writes it out, and the words
+ * land in the box exactly where the browser's recogniser puts them.
+ *
+ * The recording ends by itself after `VOICE_MS`, or on the next press of the same button.
+ */
+const VOICE_MS = 8000;
+let voiceSession = null;
+
+function hearVoice() {
+  // **A second press ends the first recording.** Pressing the mic again while it is listening
+  // is how you say "that is the question" without waiting the whole window out.
+  if (voiceSession) {
+    voiceSession.stop();
+    return voiceSession.promise;
+  }
+  let stopNow = () => {};
+  const promise = (async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      throw new Error("this build has no microphone access");
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const wanted = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg"]
+      .find((type) => typeof MediaRecorder.isTypeSupported !== "function" || MediaRecorder.isTypeSupported(type));
+    const recorder = new MediaRecorder(stream, wanted ? { mimeType: wanted } : undefined);
+    const chunks = [];
+    recorder.ondataavailable = (event) => { if (event.data?.size) chunks.push(event.data); };
+    const ended = new Promise((resolve) => { recorder.onstop = resolve; });
+    let timer = 0;
+    stopNow = () => {
+      clearTimeout(timer);
+      try { recorder.stop(); } catch { /* it was already stopping */ }
+      for (const track of stream.getTracks()) track.stop();
+    };
+    recorder.start();
+    timer = setTimeout(stopNow, VOICE_MS);
+    await ended;
+    const blob = new Blob(chunks, { type: recorder.mimeType || wanted || "audio/webm" });
+    if (!blob.size) throw new Error("nothing was recorded");
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+      reader.onerror = () => reject(new Error("the recording could not be read"));
+      reader.readAsDataURL(blob);
+    });
+    const answer = await post("/ai/transcribe", { mime: blob.type, data });
+    if (!answer?.ok) throw new Error(answer?.text || "the assistant could not read that");
+    return String(answer.text || "").trim();
+  })();
+  voiceSession = { stop: () => stopNow(), promise };
+  promise.finally(() => { if (voiceSession?.promise === promise) voiceSession = null; }).catch(() => {});
+  return promise;
 }
 
 function startVoice(input) {
   const say = (text) => { if (input) input.placeholder = text; };
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    say("Voice isn't available in this build — type instead.");
+    // The desktop shell's route — record, then let the app's own provider read it (see
+    // `hearVoice`). The placeholder says what the button is doing, the way the recogniser's
+    // own listening state used to.
+    say("Listening… press the mic again to stop.");
+    hearVoice()
+      .then((said) => {
+        say("Say what you want to watch.");
+        if (!said) return;
+        input.value = said;
+        aiIntent(said);
+      })
+      .catch((err) => say(`${err?.message || err} — type instead.`));
     return;
   }
   const rec = new SR();
@@ -10117,16 +10288,26 @@ function startVoice(input) {
 }
 
 /**
- * **Voice, into any box.** The same recogniser the Ask box uses, pointed at one field: what
- * you say lands in the input and the press you would have made is made for you, so a box is
- * usable without a keyboard. Settings → Assistant is the switch, and the caller draws no
- * button when it is off.
+ * **Voice, into any box.** `startVoice`'s recogniser pointed at one field: what you say lands in
+ * the input and the press you would have made is made for you, so a box is usable without a
+ * keyboard. **No box draws it at the moment** — the Ask Assistant box's microphone was removed
+ * at the owner's ask (*"to voice button hata do box me se"*), and the Speak pad and the search
+ * box use `startVoice`, which also runs what was typed. It is kept for the next box that wants
+ * a microphone of its own.
  */
 function voiceInto(input, then) {
   if (!input) return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    notify("Voice", "Voice isn't available in this build — type instead.");
+    // The desktop shell's route (see `hearVoice`): a recorded clip, read by the provider.
+    notify("Voice", "Listening… press the mic again to stop.");
+    hearVoice()
+      .then((said) => {
+        if (!said) { notify("Voice", "Nothing was heard — type instead."); return; }
+        input.value = said;
+        then?.();
+      })
+      .catch((err) => notify("Voice", `${err?.message || err} — type instead.`));
     return;
   }
   const rec = new SR();
@@ -11193,20 +11374,18 @@ function paneAi() {
       pushSettings({ ai: { enabled: state.ai.enabled } });
       render();
     }),
-    // **Speak up — two microphones, two rooms.** One listens while you are browsing the
-    // app (the search box and the voice button read it), and one only inside the Ask Assistant
-    // box. They are separate because the two are used differently: talking to the app is
-    // a shortcut, talking to the assistant is a conversation.
+    // **One switch, because there is one voice control.** There were two — a microphone while
+    // browsing and one inside the Ask Assistant box — and both boxes lost theirs when the owner
+    // asked for the voice button out of the box (*"to voice button hata do box me se"*). What is
+    // left is the **Ask Assistant pad** beside the Movies / Shows switch, which opens the box with
+    // the assistant's own tags and questions in it, so the setting that stands is that button's
+    // own. No box listens any more, and no switch here says it does.
     el("div", { class: "group-head" },
-      el("span", { class: "option-title", text: "Speak up" }),
-      el("span", { class: "option-desc", text: "Voice input, one switch per place it listens." }),
+      el("span", { class: "option-title", text: "Ask Assistant" }),
+      el("span", { class: "option-desc", text: "The pad that opens the assistant from Home." }),
     ),
-    toggleRow(state.speak?.browse !== false, "Speak up while browsing", "Show the microphone in the app's search and Ask boxes.", (e) => {
+    toggleRow(state.speak?.browse !== false, "Ask Assistant button on Home", "Show the Ask Assistant button beside the Movies / Shows switch. Turning it off leaves the box itself — it opens from any title page.", (e) => {
       speakSet("browse", e.target.checked);
-      render();
-    }),
-    toggleRow(state.speak?.ask !== false, "Speak up in the Ask Assistant box", "Listen only inside the Ask Assistant box, and nowhere else.", (e) => {
-      speakSet("ask", e.target.checked);
       render();
     }),
     state.ai.enabled ? [
@@ -11838,11 +12017,127 @@ function dropdown(options, initial, onPick, caption = "") {
 }
 
 /** One source section (Add-ons or Plugins), with server-side inspection. */
+/* ------------------------------------------------------- boxes without keyboards */
+
+/**
+ * **An address box a remote control can actually fill.** Reported from a television: a URL pasted
+ * with the remote's own keyboard never appeared in the box. The box is a plain `<input>`, so the
+ * two things behind that report are what these four functions answer:
+ *
+ *   - **a redraw replaces the box.** These panes re-read the server and redraw, and a box rebuilt
+ *     empty is a box that forgot what was just put in it — so what is typed in them is kept by id
+ *     (`keepDraft`) and put back when the box comes back.
+ *   - **a remote has no `Ctrl+V`.** Every one of them now has a **Paste** button beside it, which
+ *     reads the clipboard the two ways a page can (the async API, then the old `execCommand`).
+ */
+const drafts = new Map();
+
+/** The box, with whatever was last typed in it put back. */
+function keepDraft(input, id = input?.id || "") {
+  if (!input || !id) return input;
+  if (drafts.has(id)) input.value = drafts.get(id);
+  input.addEventListener("input", () => drafts.set(id, input.value));
+  return input;
+}
+
+/** Forget a box's draft — what it held has been sent. */
+function clearDraft(id) {
+  drafts.delete(id);
+}
+
+/** Where a Paste reports itself: the pane's own status line, or a line under the box. */
+function pasteNote(input, setNote) {
+  if (typeof setNote === "function") return setNote;
+  return (text, ok) => {
+    const form = input.closest(".source-form") || input.parentElement;
+    if (!form) return;
+    let note = form.nextElementSibling;
+    if (!note || !note.classList?.contains("paste-note")) {
+      note = el("p", { class: "option-desc paste-note" });
+      form.after(note);
+    }
+    note.className = `option-desc paste-note${ok ? " ok" : text ? " bad" : ""}`;
+    note.textContent = text || "";
+    setTimeout(() => {
+      if (note.isConnected) {
+        note.textContent = "";
+        note.className = "option-desc paste-note";
+      }
+    }, 6000);
+  };
+}
+
+/**
+ * What the clipboard holds, asked the three ways there are, in the order that works.
+ *
+ * **The desktop shell first.** Electron's renderer refuses `navigator.clipboard.readText()` unless
+ * the app grants it, and `execCommand("paste")` is refused in a modern renderer — so on Windows,
+ * macOS and Linux the answer comes from the main process through `preload.cjs`, which is the only
+ * reader that always has the real clipboard. In a browser the page's own API is used, and the old
+ * command is the last try.
+ */
+async function readClipboard() {
+  try {
+    const bridge = window.autocat?.clipboard;
+    if (typeof bridge === "function") {
+      const text = await bridge();
+      if (text) return String(text);
+    }
+  } catch {
+    /* not the desktop shell, or it refused */
+  }
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) return String(text);
+  } catch {
+    /* this runtime refused the page the clipboard */
+  }
+  try {
+    // **The old road.** The WebView of an older box answers only `execCommand`, and it needs an
+    // editable element to paste into — one is made for the moment and thrown away.
+    const probe = document.createElement("textarea");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+    document.body.appendChild(probe);
+    probe.focus();
+    const ok = document.execCommand("paste");
+    const text = probe.value;
+    probe.remove();
+    if (ok && text) return String(text);
+  } catch {
+    /* nothing else to try */
+  }
+  return "";
+}
+
+/** The **Paste** button an address box wears beside it. */
+function pasteButton(input, setNote = null) {
+  const note = pasteNote(input, setNote);
+  return el("button", {
+    class: "btn subtle focusable paste-btn",
+    type: "button",
+    text: "Paste",
+    title: "Put what is on the clipboard into this box",
+    onclick: async () => {
+      const value = String(await readClipboard()).trim();
+      if (!value) {
+        note("The clipboard could not be read. Type the address, or paste it with the remote's own keyboard.", false);
+        return;
+      }
+      input.value = value;
+      if (input.id) drafts.set(input.id, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+      note("Pasted.", true);
+    },
+  });
+}
+
 function sourceSection(title, hint, types, list) {
   // **One kind of source, so no picker to pick it.** The dropdown held a single entry and asked
   // a question with one answer; it is gone, and the type is the only one there is.
   const picker = types.length > 1 ? dropdown(types, types[0][0]) : null;
-  const urlInput = el("input", { class: "text-input focusable", type: "text", placeholder: "https://…" });
+  const urlInput = keepDraft(el("input", { class: "text-input focusable", type: "text", id: "addon-url", placeholder: "https://…" }));
   const add = el("button", {
     class: "btn primary focusable",
     type: "button",
@@ -11855,6 +12150,7 @@ function sourceSection(title, hint, types, list) {
       // until something happened to read it, which is the row that never moved.
       state.sources.push({ type: picker ? picker.value() : types[0][0], url, status: { ok: false, text: "Reading the manifest…" } });
       urlInput.value = "";
+      clearDraft("addon-url");
       saveSources();
       render();
       await inspectSource(state.sources.length - 1, { quiet: true });
@@ -11868,7 +12164,7 @@ function sourceSection(title, hint, types, list) {
   // then the rows it adds, reading as one more row of that list.
   return [
     el("p", { class: "option-desc", text: hint }),
-    el("div", { class: "provider source-add" }, el("div", { class: "source-form" }, picker ? picker.node : null, urlInput, add)),
+    el("div", { class: "provider source-add" }, el("div", { class: "source-form" }, picker ? picker.node : null, urlInput, pasteButton(urlInput), add)),
     el("div", { class: "h-divider", "aria-hidden": "true" }),
     // **The plate is named by the section it belongs to** (`Stremio add-ons`), like `Accounts`
     // names the account list in the pane beside this one.
@@ -12335,7 +12631,7 @@ function paneProvider(kind) {
     render();
   };
 
-  const urlInput = el("input", { class: "text-input focusable", type: "text", id: `${kind}-repo`, maxlength: "400", placeholder: spec.address });
+  const urlInput = keepDraft(el("input", { class: "text-input focusable", type: "text", id: `${kind}-repo`, maxlength: "400", placeholder: spec.address }));
   const add = el("button", {
     class: "btn primary focusable",
     type: "button",
@@ -12345,6 +12641,7 @@ function paneProvider(kind) {
       const url = urlInput.value.trim();
       if (!url) return;
       urlInput.value = "";
+      clearDraft(urlInput.id);
       call({ action: "add", url });
     },
   });
@@ -12411,7 +12708,7 @@ function paneProvider(kind) {
   return [
     el("p", { class: "option-desc", text: spec.intro }),
     el("div", { class: "provider source-add" },
-      el("div", { class: "source-form" }, urlInput, add),
+      el("div", { class: "source-form" }, urlInput, pasteButton(urlInput, say), add),
       el("p", { class: "option-desc", text: data.hint || "" }),
       note,
     ),
@@ -13256,6 +13553,66 @@ function horizontalWheel() {
 }
 
 
+/**
+ * **A D-pad is spatial; a list is not.**
+ *
+ * The walk that moves the cursor was document order: left and right took the next focusable *in
+ * the markup*, wherever it happened to be drawn. On a desktop nothing noticed, because the mouse
+ * did the navigating — but a television has only the D-pad, and it answered a press to the right
+ * with a row below, or with the search icon, and gave Settings no left and right at all.
+ *
+ * So a press is answered by geometry, in the three ways a D-pad's four keys actually mean:
+ *
+ *   `firstContent`  nothing is focused yet — start on the content, not on the top bar
+ *   `nearestBeside` left/right: the nearest thing on that side **on your own line**, if there is one
+ *   the caller's own search for up/down, unchanged: the nearest thing above or below
+ *
+ * and every one of them ends in `land`, which is what makes the cursor visible on a television.
+ */
+function firstContent(list) {
+  // The top bar is 96 pixels of the app's own; below it is what a viewer is looking at.
+  return list.find((node) => node.getBoundingClientRect().top > 96) || list[0] || null;
+}
+
+/**
+ * **The nearest thing beside it.** Two things whose boxes cross the same horizontal band are on
+ * one line — a shelf of cards, a column of doors — and for those the distance along the line is
+ * the whole answer, so "right" walks a shelf and "left" from a pane crosses back to the doors.
+ * Anything on another line pays for being off it, which is what stops a press to the right from
+ * jumping into the row below.
+ */
+function nearestBeside(list, from, right) {
+  if (!from) return null;
+  let best = null;
+  let bestScore = Infinity;
+  for (const node of list) {
+    const r = node.getBoundingClientRect();
+    if (!r.width && !r.height) continue;
+    // How far past the edge it is, in the direction asked for; behind it does not count.
+    const edge = right ? r.left - from.right : from.left - r.right;
+    if (edge < 8) continue;
+    const overlap = Math.min(from.bottom, r.bottom) - Math.max(from.top, r.top);
+    const cross = overlap > 6 ? 0 : Math.abs(r.top - from.top) + 24;
+    const score = edge + cross * 2;
+    if (score < bestScore) {
+      bestScore = score;
+      best = node;
+    }
+  }
+  return best;
+}
+
+/**
+ * **Focus it, and on a television bring it into view.** A ring under the fold is the same as no
+ * ring, and a remote cannot scroll to find out where the cursor went. `scrollIntoView` is instant
+ * on purpose: a smooth scroll is a stutter on a TV box, and the viewer has already pressed again.
+ */
+function land(node, tv = document.body.classList.contains("tv")) {
+  if (!node) return;
+  node.focus();
+  if (tv) node.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
 function setupInput() {
   // **Back goes back**, the way a browser's Back does — to the screen you were on,
   // not to Home. It used to jump straight to `#/` from anywhere, which is why
@@ -13301,15 +13658,19 @@ function setupInput() {
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       if (!list.length) return;
       e.preventDefault();
-      i = i === -1 ? 0 : i + (e.key === "ArrowRight" ? 1 : -1);
-      list[Math.max(0, Math.min(list.length - 1, i))].focus();
+      // **Spatial, not document order** — see `nearestBeside`. This is the press that Settings
+      // was missing: the doors are a column, the pane is beside it, and "right" is the way in.
+      if (i === -1) return land(firstContent(list));
+      land(nearestBeside(list, cur.getBoundingClientRect(), e.key === "ArrowRight"));
       return;
     }
 
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       if (!list.length) return;
       e.preventDefault();
-      if (i === -1) return list[0].focus();
+      // Nothing is focused yet: a television has no cursor to start from, and the first press
+      // used to land on the top bar's own icons rather than on the content.
+      if (i === -1) return land(firstContent(list));
       const from = cur.getBoundingClientRect();
       let best = null;
       let bestScore = Infinity;
@@ -13325,7 +13686,7 @@ function setupInput() {
           best = node;
         }
       }
-      if (best) best.focus();
+      land(best);
       return;
     }
 
@@ -15107,7 +15468,16 @@ async function playTorrent(node, video, magnet, opts, seq) {
         say(`The server's swarm could not be started — ${started.error || "no reason given"}. Trying this window instead.`);
       }
       const hash = started?.infoHash || opts.infoHash || "";
-      const until = Date.now() + 120000;
+      // **A swarm with no peers is given fifteen seconds, not two minutes.** The wait was two
+      // minutes *per source*, and a title whose list is mostly swarms spent them one after the
+      // other, which is what "many sources will not play" looked like on screen: a player that
+      // sits on "Looking for peers…" while playable files waited lower down the list. A swarm
+      // that is there answers with peers inside a second or two; one that is not there never
+      // answers, and waiting longer only delays the next source.
+      const SWARM_BUDGET_MS = 50_000;
+      const NO_PEER_MS = 15_000;
+      const until = Date.now() + SWARM_BUDGET_MS;
+      let noPeersAt = 0;
       let ready = null;
       while (Date.now() < until) {
         if (seq !== playerSeq) return;
@@ -15117,6 +15487,17 @@ async function playTorrent(node, video, magnet, opts, seq) {
         if (status.state === "error") { say(`The swarm gave up — ${status.error}`); break; }
         if (status.peers) note.textContent = `${status.peers} peers · ${Math.round((status.progress || 0) * 100)}% · ${Math.round((status.downloadSpeed || 0) / 1e5) / 10} MB/s`;
         else note.textContent = "Looking for peers…";
+        // Fifteen seconds with no peer at all is a swarm that is not there. The in-page engine
+        // gets its own turn below, and the watch there hands the player on.
+        if (status.peers) {
+          noPeersAt = 0;
+        } else {
+          if (!noPeersAt) noPeersAt = Date.now();
+          if (Date.now() - noPeersAt > NO_PEER_MS) {
+            say("No peers are answering this swarm — trying the next source.");
+            break;
+          }
+        }
         if (status.state === "ready") { ready = status; break; }
         await new Promise((r) => setTimeout(r, 1000));
       }
@@ -15169,9 +15550,28 @@ async function playTorrent(node, video, magnet, opts, seq) {
       }
     }, 1000);
     let started = false;
+    // **A swarm that never answers is a failed source, not a film that never starts.**
+    //
+    // The readout above says "Looking for peers…" and, with no peers at all, it says it
+    // forever: there was no way out of a magnet whose swarm is not there, so a title whose list
+    // was mostly swarms sat on a black rectangle while playable files waited below it in the
+    // Sources drawer — the reported "many sources will not play". The watch ends that: a quarter
+    // of a minute with no peers, no metadata and no progress, and the player is handed the next
+    // source (and the walk order puts the files before the swarms, see `source-order.mjs`).
+    const STALL_MS = 20_000;
+    let handedOver = false;
+    const watchdog = setTimeout(() => {
+      if (!alive() || started || handedOver) return;
+      if (torrent.numPeers || torrent.progress > 0) return;
+      handedOver = true;
+      say("No peers answered this swarm — moving to the next source.");
+      try { client.destroy(); } catch { /* already gone */ }
+      if (opts.onStall) opts.onStall();
+    }, STALL_MS);
     const start = () => {
       if (started || !alive()) return;
       started = true;
+      clearTimeout(watchdog);
       const file = fileForTorrent(torrent, opts.fileIdx);
       if (!file) {
         note.textContent = "This torrent holds nothing to play.";
@@ -15189,6 +15589,9 @@ async function playTorrent(node, video, magnet, opts, seq) {
     torrent.on("metadata", start);
   } catch (err) {
     note.textContent = `Could not start the torrent — ${err.message}`;
+    // A torrent that cannot even be started is the same failed source as one that never
+    // answers: the player moves on rather than ending the night here.
+    if (opts.onStall) opts.onStall();
   }
 }
 
@@ -16464,13 +16867,30 @@ async function openPlayer(url, title, opts = {}) {
    * costs itself and nothing more — the player moves to the next one, up to a handful of
    * tries, and says which one it is on.
    */
-  const sourcePool = (Array.isArray(opts?.streams) ? opts.streams : []).filter(
+  // **The walk starts with what can play, not with what an add-on listed first.** The pool is
+  // re-ordered — direct files, then swarms that exist, then the swarms that cannot answer — so
+  // a title answered by a hundred and eighty-six torrents and three files does not spend every
+  // try on the torrents (see `source-order.mjs`). The Sources drawer still lists the add-ons'
+  // own order: this is the player's walk, not the list you read.
+  const { orderSources } = await import("./source-order.mjs");
+  const sourcePool = orderSources((Array.isArray(opts?.streams) ? opts.streams : []).filter(
     (s) => s && !isExternalStream(s) && (s.url || s.torrent),
-  );
+  ));
   const sourceTarget = (s) => (s?.torrent ? s.magnet : s?.url) || "";
   const triedSources = new Set();
   /** How many sources the player tries on its own before it tells you it cannot. */
-  const AUTO_SOURCE_TRIES = 6;
+  // **More than six, when one add-on answers alone.** Six was the number for a list where every
+  // row was a file; a list that is mostly swarms needs more tries before the three files at the
+  // end of it are reached, and every try is bounded by the element's own error event.
+  const AUTO_SOURCE_TRIES = 12;
+  /**
+   * **Why the last source that failed failed.** The walk is silent on purpose — a good list
+   * opens the first row — but when every try is spent, the one thing worth reading in the
+   * player's note is which failure it kept hitting: `HTTP 403` is a missing referer, a
+   * `MEDIA_ERR_SRC_NOT_SUPPORTED` is a file the element cannot decode, and
+   * `manifestLoadError` on a host that answers the site and nobody else is the proxy's job.
+   */
+  let whyLast = "";
 
   /**
    * **The next source, tried by the player.** Returns false when there is nothing left to
@@ -16484,8 +16904,9 @@ async function openPlayer(url, title, opts = {}) {
     console.log("[player] that source would not open — trying the next one", sourceTarget(next));
     attach(next);
     // Set **after** the call: `attach` clears the failure line as it starts, and the note
-    // belongs to the source being opened, not to the one being left.
-    sayError(`Source ${triedSources.size} of ${sourcePool.length} did not open — trying the next…`);
+    // belongs to the source being opened, not to the one being left. `whyLast` is still the
+    // reason the source we just left gave (it is only overwritten by a new failure).
+    sayError(`Source ${triedSources.size} of ${sourcePool.length} did not open${whyLast ? ` (${whyLast})` : ""} — trying the next…`);
     return true;
   };
 
@@ -16557,6 +16978,16 @@ async function openPlayer(url, title, opts = {}) {
         infoHash: s.infoHash || "",
         streamName: s.title || s.name || "",
         title,
+        // **A torrent that never answers hands the player on.** See the watch in
+        // `playTorrent`: without it, a swarm that is not there held the player for good and
+        // the files below it in the list were never reached.
+        onStall: () => {
+          if (seq !== playerSeq) return;
+          whyLast = "the swarm had no peers";
+          if (!nextSource()) {
+            sayError(`Could not play this stream — none of the ${triedSources.size} sources tried would open. The last one: ${whyLast}`);
+          }
+        },
       }, seq);
       return;
     }
@@ -16581,7 +17012,11 @@ async function openPlayer(url, title, opts = {}) {
       // proxy's have failed (or the address cannot be tried at all) — so the walk down the
       // list happens here, before the player admits defeat.
       if (throughProxy || isUnplayableUrl(target)) {
-        if (!nextSource()) sayError("Could not play this stream — no source of this title would open.");
+        if (!nextSource()) {
+          sayError(whyLast
+            ? `Could not play this stream — none of the ${triedSources.size} sources tried would open. The last one: ${whyLast}`
+            : "Could not play this stream — no source of this title would open.");
+        }
         return;
       }
       throughProxy = true;
@@ -16605,7 +17040,14 @@ async function openPlayer(url, title, opts = {}) {
           }
           // A fatal manifest or segment error is the same failure as the element's own: the
           // host would not serve it to a player.
-          if (Hls.Events.ERROR) playerHls.on(Hls.Events.ERROR, (_event, data) => { if (data?.fatal) retryThroughProxy(); });
+          // **A fatal error is recorded before it is answered** — the retry through the proxy
+          // is the same source's second chance, and if that fails too the reason that survives
+          // is the one worth reporting (see `whyLast`).
+          if (Hls.Events.ERROR) playerHls.on(Hls.Events.ERROR, (_event, data) => {
+            if (!data?.fatal) return;
+            whyLast = `HLS ${data.details || "error"}${data.response?.code ? ` (HTTP ${data.response.code})` : ""}`;
+            retryThroughProxy();
+          });
           playerHls.loadSource(playUrl);
           playerHls.attachMedia(video);
         } else {
@@ -16619,7 +17061,11 @@ async function openPlayer(url, title, opts = {}) {
       }
       // The element itself reports a file it cannot open (`MEDIA_ERR_SRC_NOT_SUPPORTED`, or a
       // network error), which is the other half of the same problem.
-      video.addEventListener("error", retryThroughProxy, { once: true });
+      video.addEventListener("error", () => {
+        const media = video.error;
+        whyLast = `media error ${media?.code ?? "?"}${media?.message ? ` — ${media.message}` : ""}`;
+        retryThroughProxy();
+      }, { once: true });
       if (seq !== playerSeq) return;
       await video.play().catch(() => {
         /* autoplay refused: the controls are right there */
@@ -16632,6 +17078,7 @@ async function openPlayer(url, title, opts = {}) {
         retryThroughProxy();
         return;
       }
+      whyLast = err?.message || String(err);
       if (!nextSource()) sayError(`Could not play this stream — ${err.message}`);
     }
   };
@@ -16764,20 +17211,38 @@ async function openSources(meta) {
   // sources first when nothing here can hold a swarm, torrents first when something can. The
   // torrents stay in the list either way — they are one press away in the drawer.
   const torrentsWork = Boolean(debridActive()) || Boolean(state.options?.torrent?.ready);
-  const pool = torrentsWork ? found : [...found.filter((s) => !s.torrent), ...found.filter((s) => s.torrent)];
-  const best = ceiling
-    ? [...pool].sort((a, b) => {
-        const ha = heightOf(a);
-        const hb = heightOf(b);
-        const fitA = ha && ha <= ceiling ? ha : 0;
-        const fitB = hb && hb <= ceiling ? hb : 0;
-        if (fitA !== fitB) return fitB - fitA;
-        // Nothing at or below the ceiling: the smallest stream is the nearest fit, and
-        // a stream that does not state a height sorts after the ones that do.
-        if (!fitA && !fitB) return (ha || Infinity) - (hb || Infinity);
-        return 0;
-      })[0]
-    : pool[0];
+  const direct = found.filter((s) => !s.torrent);
+  const swarms = found.filter((s) => s.torrent);
+  // **The height is chosen inside a group that can play, never across the groups.**
+  //
+  // The order above puts the files first when nothing here can hold a swarm — and the Quality
+  // ceiling then undid it: the pick sorted the *whole* pool by height, so a 2160p magnet won the
+  // first try over every file below it. Measured on a list of two dead addresses and one dead
+  // swarm with a 2160p label: the player opened the **magnet** and sat on it, with the two
+  // addresses it could have answered for never tried. The ceiling is a ceiling *within* what can
+  // play: the files are preferred, and only a title with no file at all falls back to a swarm
+  // (where a debrid account or the server's engine is the thing that makes one playable).
+  const fitSort = (list) =>
+    ceiling
+      ? [...list].sort((a, b) => {
+          const ha = heightOf(a);
+          const hb = heightOf(b);
+          const fitA = ha && ha <= ceiling ? ha : 0;
+          const fitB = hb && hb <= ceiling ? hb : 0;
+          if (fitA !== fitB) return fitB - fitA;
+          // Nothing at or below the ceiling: the smallest stream is the nearest fit, and
+          // a stream that does not state a height sorts after the ones that do.
+          if (!fitA && !fitB) return (ha || Infinity) - (hb || Infinity);
+          return 0;
+        })
+      : list;
+  // **Only a debrid account buys the swarms the first try.** The engine being "ready" is not the
+  // same promise: the server can hold a swarm, and a swarm with no peers still never answers —
+  // which is the state the report came from (a title whose list was 186 torrents and a handful
+  // of files opened a magnet and sat on it). A debrid account changes that: it resolves the
+  // magnet into a direct link, so there the torrents really are the best of the list. Without
+  // one, the files go first and a swarm is only tried when the list holds nothing else.
+  const best = debridActive() ? fitSort(found)[0] : fitSort(direct)[0] || fitSort(swarms)[0];
   // The add-on lines ride along into the player, so its Sources drawer can say which
   // of the add-ons you pasted answered for this title — and which stayed quiet.
   const bestSrc = best.torrent ? best.magnet : best.url;
@@ -16880,7 +17345,7 @@ function serverPanel(err, retry) {
       return "";
     }
   })();
-  const input = el("input", {
+  const input = keepDraft(el("input", {
     class: "text-input focusable",
     id: "server-host",
     type: "url",
@@ -16888,7 +17353,19 @@ function serverPanel(err, retry) {
     placeholder: "https://your-server.example.com",
     value: held || window.AUTOCAT_HOST || "",
     "aria-label": "Catalog server address",
-  });
+  }));
+  // **The address the app is already carrying is one press away.** This screen is for a build
+  // pointed at somebody else's server; when the app runs its own (the APK does), the way back to it
+  // should not be an address to remember and type with a remote.
+  const carried = String(window.AUTOCAT_IN_APP || "");
+  const useCarried = () => {
+    try {
+      localStorage.removeItem("autocat.api");
+    } catch {
+      /* private mode — the reload simply keeps the build-time host */
+    }
+    location.reload();
+  };
   const save = () => {
     const host = String(input.value || "").trim().replace(/\/+$/, "");
     try {
@@ -16910,18 +17387,54 @@ function serverPanel(err, retry) {
       class: "view-hint",
       text: "Every card, cover and row is read from the catalog server. Give its address — an https host, or the LAN address of the machine running serve.mjs.",
     }),
+    carried
+      ? el("p", {
+          class: "view-hint",
+          text: `This app runs a catalog server of its own (${carried}) — the cards are read from it when it is up, and only then from an address typed here.`,
+        })
+      : null,
     el(
       "div",
       { class: "server-row" },
       input,
+      pasteButton(input),
       el("button", { class: "btn primary focusable", type: "button", text: "Save and reload", onclick: save }),
+      carried ? el("button", { class: "btn focusable", type: "button", text: "Use this app's own server", onclick: useCarried }) : null,
       retry ? el("button", { class: "btn focusable", type: "button", text: "Try again", onclick: () => bootRetry() }) : null,
     ),
   );
 }
 
 /** Whether this build is the packaged app (the APK), where the server starts with it. */
-const packagedApp = () => typeof window.Capacitor !== "undefined";
+const packagedApp = () =>
+  typeof window.Capacitor !== "undefined" || (location.protocol === "https:" && location.hostname === "localhost");
+
+/**
+ * **A television is a different instrument, and the app says so on `<body>`.**
+ *
+ * What differs is a television's to answer, not the app's:
+ *
+ *   - **Nothing is clicked.** A D-pad moves a cursor, so the app has to draw where that cursor is —
+ *     the ring goes on `:focus`, not only on `:focus-visible` — and has to keep it on screen. A ring
+ *     below the fold is the same as no ring.
+ *   - **The viewport is small.** A 1080p Android TV WebView reports about 960x540 CSS pixels, so a
+ *     layout tuned for a desktop held three cards to a row.
+ *   - **There is no keyboard.** Pasting an address has to be a button, not a chord.
+ *
+ * It is `tv` in three ways, in this order: `?tv=1`/`?tv=0` says so outright (which is how it is
+ * tested), the app's packaged shell says so, and a device with **no pointer at all** — no touch, no
+ * mouse — is a remote control. That last test is what keeps a phone out of it.
+ */
+function tvMode() {
+  const forced = new URLSearchParams(location.search).get("tv");
+  const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  const on = forced === "1" ? true : forced === "0" ? false : packagedApp() && !coarse;
+  document.body.classList.toggle("tv", on);
+  return on;
+}
+
+// Read once, at load: the class has to be on `<body>` before the first screen is drawn.
+const TV = tvMode();
 
 /**
  * **The in-app server comes up with the app, not before it.**
@@ -16944,6 +17457,47 @@ async function waitForCollections(read, tries = 12, gap = 700) {
   return null;
 }
 
+/**
+ * **Every address this app could be pointed at, without repeats.**
+ *
+ * The address the page loaded with first (`?api=…`, or what `ui/config.js` resolved), then the host
+ * a build was pointed at, then the one saved on the device from the server screen, and last the
+ * server the app itself carries. `window.AUTOCAT_IN_APP` is what makes that last one usable: it is
+ * written by `ui/config.js`, which is also the file `cap sync` copies into the APK.
+ */
+function serverCandidates() {
+  const saved = (() => {
+    try {
+      return localStorage.getItem("autocat.api") || "";
+    } catch {
+      return "";
+    }
+  })();
+  return [...new Set([API, window.AUTOCAT_HOST || "", saved, window.AUTOCAT_IN_APP || ""].filter(Boolean))];
+}
+
+/**
+ * **Ask each address in turn and keep the one that answers.** Returns the cards, or `null` when none
+ * of them did — and puts the page's own address back, so a failed walk does not leave the app
+ * pointed at whatever was tried last.
+ *
+ * **The server inside the app gets the most patience.** It starts with the app, on the device's own
+ * thread, and a cold television box takes seconds to put it on the port: six hundred milliseconds
+ * of waiting for a viewer's own server is how a working app still asked for an address.
+ */
+async function tryServers(read) {
+  const started = API;
+  for (const base of serverCandidates()) {
+    if (base === API) continue; // the caller has already tried this one
+    API = base;
+    const inApp = base === window.AUTOCAT_IN_APP;
+    const got = await waitForCollections(read, inApp ? 22 : 6, 700);
+    if (got) return got;
+  }
+  API = started;
+  return null;
+}
+
 /** The same boot read, without the splash: used by the watchdog's button. */
 async function bootRetry() {
   const main = document.getElementById("main");
@@ -16953,6 +17507,10 @@ async function bootRetry() {
   } catch {
     /* the panel below says it for us */
   }
+  // **Trying again means trying the app's own server too.** This is the button on the screen that
+  // says the server is not there; for the address to still be the one thing a television cannot
+  // answer by itself would make the button useless.
+  if (!state.collections) state.collections = await tryServers(() => get(`/collections.json?_=${Date.now()}`, { timeoutMs: 15000 }));
   await render().catch(() => {});
 }
 
@@ -16973,13 +17531,18 @@ async function boot() {
   try {
     state.collections = await readCollections();
   } catch (err) {
-    // **The packaged app is given a moment.** Its own server starts with it (see
-    // `waitForCollections`), and a read that arrives a beat too early is not a missing server.
-    state.collections = packagedApp() ? await waitForCollections(readCollections) : null;
+    // **Every address worth trying is tried before anybody is asked for one.** The app carries its
+    // own catalog server (see `waitForCollections` — on a television it starts with the app and is
+    // a beat behind the first read), and a build that landed here holding an address the app could
+    // answer itself used to sit on a "server url box" instead of on its cards. `tryServers` walks
+    // the addresses in order and keeps the first that answers.
+    const main = document.getElementById("main");
+    main.replaceChildren(el("p", { class: "empty", text: "Starting the catalog server…" }));
+    state.collections = await tryServers(readCollections);
     if (!state.collections) {
       // **The way in, not just the failure.** The address is typed on this screen and
       // remembered (`serverPanel`), so a build that cannot reach anything is not a dead end.
-      document.getElementById("main").replaceChildren(serverPanel(err, true));
+      main.replaceChildren(serverPanel(err, true));
       return;
     }
   }

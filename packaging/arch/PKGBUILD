@@ -1,0 +1,82 @@
+# Maintainer: AutoCAT
+#
+# **Arch's own compile.** There is no Arch artifact in the release workflow (the AppImage and
+# the .deb are built on an Ubuntu runner), and on Arch the honest answer is a package built on
+# the machine: `makepkg` runs the app's own build — `npm run pack`, which is
+# `desktop:server` followed by `electron-builder --dir` — and installs the unpacked app to
+# `/opt/AutoCAT` with a `/usr/bin/autocat` wrapper, the way AUR packages for Electron apps do.
+#
+#   cd packaging/arch
+#   makepkg -si
+#
+# Building inside the repository instead of from a clone (no `makepkg` source download):
+#
+#   makepkg -p packaging/arch/PKGBUILD --noextract -si     # with the checkout as the "source"
+#
+# The AppImage and the .deb from the release workflow are the quicker path for anyone who does
+# not want npm and Electron's ~100 MB binary fetched on their machine; this package is for the
+# machine that wants a real package manager entry (`pacman -Q autocat`, `pacman -R autocat`).
+pkgname=autocat
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="AutoCAT — collection covers and catalog rows for Movies, Shows and Live TV"
+arch=('x86_64' 'aarch64')
+url="https://github.com/rajroxy/Nuvio-collection"
+license=('custom')
+# Electron's own shared-library needs, plus a theme for the icon and the card art's fonts.
+depends=('gtk3' 'nss' 'libxss' 'libxtst' 'alsa-lib' 'hicolor-icon-theme')
+makedepends=('nodejs' 'npm')
+# Electron ships prebuilt binaries: nothing here is built from source but the app's own bundle,
+# and stripping the Electron binary breaks it.
+options=('!strip' '!debug')
+source=("autocat::git+https://github.com/rajroxy/Nuvio-collection.git")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/autocat"
+
+  # The app's own dependencies (`desktop/`), then the bundle: `pack` runs `desktop:server`
+  # first, so the server inside the installed copy is built from these sources, and the card
+  # art and the interface are packed with it. Electron's postinstall fetches its binary, which
+  # is why this is a build step and not a source one.
+  (cd desktop && npm install --no-audit --no-fund)
+  (cd desktop && npm run pack)
+}
+
+package() {
+  cd "$srcdir/autocat"
+
+  # `linux-unpacked` on x86_64, `linux-arm64-unpacked` on aarch64 — `pack` names it for the host.
+  local unpacked
+  unpacked=$(find desktop/dist -maxdepth 1 -type d -name 'linux*-unpacked' | head -1)
+  if [[ -z "$unpacked" ]]; then
+    echo "electron-builder produced no linux-unpacked directory" >&2
+    return 1
+  fi
+
+  install -d "$pkgdir/opt/AutoCAT" "$pkgdir/usr/bin" \
+    "$pkgdir/usr/share/applications" "$pkgdir/usr/share/icons/hicolor/512x512/apps"
+  cp -a "$unpacked"/. "$pkgdir/opt/AutoCAT/"
+
+  # The app's own icon, and the menu entry that points at the wrapper.
+  install -Dm644 desktop/build/icon.png \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/autocat.png"
+
+  cat > "$pkgdir/usr/bin/autocat" <<'EOF'
+#!/bin/sh
+exec /opt/AutoCAT/AutoCAT "$@"
+EOF
+  chmod 755 "$pkgdir/usr/bin/autocat"
+
+  cat > "$pkgdir/usr/share/applications/autocat.desktop" <<'EOF'
+[Desktop Entry]
+Name=AutoCAT
+Comment=Collection covers and catalog rows for Movies, Shows and Live TV
+Exec=autocat
+Terminal=false
+Type=Application
+Icon=autocat
+Categories=AudioVideo;
+StartupWMClass=AutoCAT
+EOF
+}

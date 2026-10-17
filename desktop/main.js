@@ -8,28 +8,31 @@
 // program files are not writable.
 //
 // Requires Electron >= 28 (ESM entry point). Run with:  npm start
-import { app, BrowserWindow, dialog, shell } from "electron";
-import { existsSync, mkdirSync } from "node:fs";
+//
+// **Pointing the installed app at a checkout.** `AUTOCAT_DEV_DIR=<checkout>` makes this app boot
+// the checkout's server and read its interface and card art, while leaving everything that makes
+// it the installed app alone (its own Electron, its own window, the user's data directory, the
+// real sign-in origin) — so a change can be seen by pressing `Ctrl+R` instead of by packaging the
+// app again. See `desktop/dev-paths.mjs` for the three cases.
+import { app, BrowserWindow, clipboard, dialog, ipcMain, session, shell } from "electron";
+import { mkdirSync, watch } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { appPaths } from "./dev-paths.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** The first of these that exists, or the last one — which is then the hopeful default. */
-function firstExisting(paths) {
-  for (const candidate of paths) if (existsSync(candidate)) return candidate;
-  return paths[paths.length - 1];
-}
-
 /**
- * **The server this app runs.** An installed app carries its own copy (electron-builder packs
- * `desktop/server/`); a checkout runs the repository's own `serve.mjs`, so editing the server
- * and pressing `npm start` still shows the change.
+ * **The server, the interface and the card art this launch reads.** An installed app carries its
+ * own copies (electron-builder packs `desktop/server/`); a checkout runs the repository's own
+ * `serve.mjs`, so editing the server and pressing `npm start` still shows the change; and
+ * `AUTOCAT_DEV_DIR` hands an installed app a checkout's copies instead of its own.
  */
-function serverEntry() {
-  if (!app.isPackaged) return path.join(__dirname, "..", "serve.mjs");
-  return firstExisting([path.join(__dirname, "server", "serve.mjs"), path.join(__dirname, "..", "serve.mjs")]);
-}
+const PATHS = appPaths({
+  isPackaged: app.isPackaged,
+  appDir: __dirname,
+  devDir: process.env.AUTOCAT_DEV_DIR,
+});
 
 /**
  * **Where the app remembers things.** In a checkout every state file is written beside its own
@@ -59,13 +62,6 @@ function pointStateAtDataDir(dir) {
   }
 }
 
-/** Where the packed interface and card art are, in an installed app. */
-function packedPaths() {
-  return {
-    ui: firstExisting([path.join(__dirname, "ui"), path.join(__dirname, "desktop", "ui")]),
-    covers: firstExisting([path.join(__dirname, "server", "covers"), path.join(__dirname, "covers")]),
-  };
-}
 
 // Chromium refuses to start with its sandbox when Electron runs as root (common
 // in containers and some Linux setups) and exits before any window appears.
@@ -94,18 +90,37 @@ let retried = false;
  */
 const DESKTOP_PORT = Number(process.env.AUTOCAT_DESKTOP_PORT) || 4173;
 
+/**
+ * **The clipboard, from the process that owns it.** `desktop/preload.cjs` asks for this, and the
+ * page's own Paste button asks the preload — so a pasted add-on / repository address works the same
+ * on Windows, macOS and Linux, whatever the renderer's clipboard permissions are.
+ */
+ipcMain.handle("autocat:clipboard", () => {
+  try {
+    return clipboard.readText() || "";
+  } catch {
+    return "";
+  }
+});
+
 async function createWindow() {
   // A second window reuses the first server rather than leaving an orphan process behind.
   if (!server) {
-    // An installed app: the interface and the artwork are inside the app, and everything the
-    // app writes goes to the user's own data directory.
-    if (app.isPackaged) {
-      const packed = packedPaths();
-      if (!process.env.AUTOCAT_UI_DIR) process.env.AUTOCAT_UI_DIR = packed.ui;
-      if (!process.env.AUTOCAT_COVERS_DIR) process.env.AUTOCAT_COVERS_DIR = packed.covers;
-      pointStateAtDataDir(app.getPath("userData"));
+    if (PATHS.dev) {
+      // **The checkout the app was pointed at.** The interface and the card art come from there,
+      // and so does the server below; the app's own state stays wherever this launch keeps it
+      // (the data directory when installed, beside the modules in a checkout).
+      if (PATHS.ui) process.env.AUTOCAT_UI_DIR = PATHS.ui;
+      if (PATHS.covers) process.env.AUTOCAT_COVERS_DIR = PATHS.covers;
+      console.log(`AutoCAT — running the checkout at ${PATHS.root}\n          interface: ${PATHS.ui}\n          server:    ${PATHS.server}`);
+    } else if (app.isPackaged) {
+      // An installed app: the interface and the artwork are inside the app, and everything the
+      // app writes goes to the user's own data directory.
+      if (PATHS.ui && !process.env.AUTOCAT_UI_DIR) process.env.AUTOCAT_UI_DIR = PATHS.ui;
+      if (PATHS.covers && !process.env.AUTOCAT_COVERS_DIR) process.env.AUTOCAT_COVERS_DIR = PATHS.covers;
     }
-    const { startServer } = await import(pathToFileURL(serverEntry()).href);
+    if (app.isPackaged) pointStateAtDataDir(app.getPath("userData"));
+    const { startServer } = await import(pathToFileURL(PATHS.server).href);
     try {
       server = await startServer({ port: DESKTOP_PORT, host: "127.0.0.1" });
     } catch (err) {
@@ -138,6 +153,20 @@ async function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  // **The microphone is the only thing this shell grants, and only to itself.** The Ask box's
+  // voice button records a clip and has the app's own AI provider read it (`/ai/transcribe`),
+  // so `media` has to be allowed — Chromium asks the shell first, and a refused request is a
+  // mic button that does nothing. Everything else (notifications, geolocation, camera, MIDI,
+  // the lot) stays refused: nothing in this app asks for it.
+  try {
+    session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
+      const from = String(contents?.getURL?.() || "");
+      callback(permission === "media" && from.startsWith(origin));
+    });
+  } catch (err) {
+    console.warn(`AutoCAT — could not register the microphone permission handler: ${err?.message || err}`);
+  }
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("closed", () => {
@@ -173,6 +202,13 @@ async function createWindow() {
 
   if (process.env.AUTOCAT_DEVTOOLS === "1") mainWindow.webContents.openDevTools({ mode: "detach" });
 
+  // **A checkout reloads itself.** With `AUTOCAT_DEV_DIR` set, the window reloads a moment after
+  // any file under the checkout's interface changes, so saving a stylesheet or a page is enough —
+  // no `Ctrl+R`, no rebuild. Server modules are deliberately not watched: node caches the import
+  // graph, so a new `serve.mjs` needs the app restarted and reloading the window would only look
+  // like a fix that did nothing.
+  if (PATHS.dev && PATHS.ui) watchCheckout(PATHS.ui);
+
   // Any external link opens in the system browser, never inside the app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -180,6 +216,32 @@ async function createWindow() {
   });
 
   console.log(`AutoCAT — window opened on ${home}`);
+}
+
+/**
+ * Reload the window when the checkout it was pointed at changes.
+ *
+ * One-shot edits arrive in bursts (a formatter, an editor's temp file), so the reload waits for a
+ * quiet moment, and a watcher that cannot start on this platform or filesystem is not an error:
+ * the app simply keeps `Ctrl+R` as the way to see a change.
+ */
+function watchCheckout(dir) {
+  let timer = null;
+  const reload = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log("[dev] the checkout changed — reloading the window");
+        mainWindow.webContents.reload();
+      }
+    }, 250);
+  };
+  try {
+    watch(dir, { recursive: true }, reload);
+    console.log(`AutoCAT — watching ${dir} (save a file and the window reloads)`);
+  } catch (err) {
+    console.warn(`AutoCAT — could not watch ${dir} (${err?.message || err}); press Ctrl+R to see a change.`);
+  }
 }
 
 app.whenReady().then(createWindow);

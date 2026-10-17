@@ -32,7 +32,7 @@ import {
 } from "../scripts/collections.mjs";
 import { genres as tmdbGenres, get, hasKey, toMeta, tmdbPath, setKey, resolveGenre, IMG } from "./tmdb.mjs";
 import { cleanScope, currentScope, rescope, withScope } from "./scope.mjs";
-import { askAI, askAbout, askTags, askTitle, verifyAI, aiModels, aiProviderName, aiState } from "./ai.mjs";
+import { askAI, askAbout, askTags, askTitle, verifyAI, aiModels, aiProviderName, aiState, transcribeAudio } from "./ai.mjs";
 import {
   STATES,
   STATE_LABEL,
@@ -3500,6 +3500,20 @@ function watchersFor(media, id, { profile = "", as = "" } = {}) {
   // The AI provider state (never the keys) and its two live calls.
   if (pathname === "/ai.json") {
     json(res, 200, aiState());
+    return true;
+  }
+
+  // **Voice, turned into words.** The microphone records a clip in the page (`MediaRecorder`
+  // — the desktop shell has no `SpeechRecognition`, see `transcribeAudio`), and the provider
+  // in Settings → Assistant reads it here. The body is a short clip, so this one route takes a
+  // larger body than the 64 KB every other POST uses.
+  if (pathname === "/ai/transcribe" && req.method === "POST") {
+    try {
+      const body = await readBody(req, 12 * 1024 * 1024);
+      json(res, 200, await transcribeAudio({ mime: body.mime, base64: body.data || body.base64, provider: body.provider }));
+    } catch (err) {
+      json(res, 200, { ok: false, text: String(err?.message || err) });
+    }
     return true;
   }
 

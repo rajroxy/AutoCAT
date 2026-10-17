@@ -209,6 +209,31 @@ const codeHasContent = (code) => {
 };
 
 /**
+ * **Every country in the world, as a row named for its continent** — `Asia - India`,
+ * `Asia - Japan`, `Europe - France` — in the continent order `CONTINENTS` is written in.
+ *
+ * `countriesFor` publishes the countries whose catalogue clears the fifty-title floor, and the
+ * owner asked for the card to hold the rest too (*"include all countries in world in continental
+ * & countries card"*): a small catalogue is a small row, not a missing one, and the whole point
+ * of a *Countries* card is that the list is the world. So this walks `CONTINENTS` itself — the
+ * seven continents and every code under them — rather than the floor-filtered list, and names
+ * each row for the continent it came from, which is the label the owner asked for.
+ *
+ * The named removals still apply to a row that is *offered elsewhere* (the search chips and the
+ * cross-country pool read `countryHasContent`, untouched): this is the card that says what the
+ * world is made of, and it says all of it.
+ */
+const continentalCountryRows = () => {
+  const named = new Map(COUNTRIES.map(([name, code]) => [code, name]));
+  return Object.entries(CONTINENTS).flatMap(([continentName, codes]) =>
+    codes
+      .map((code) => [continentName, named.get(code), code])
+      .filter(([, name]) => Boolean(name))
+      .map(([continentName, name, code]) => country(`${continentName} - ${name}`, code)),
+  );
+};
+
+/**
  * Every continent, each with the countries of it that clear the floor.
  *
  * The continents themselves are not dropped — a continent is a large enough query on its
@@ -1525,35 +1550,28 @@ const decadeGenres = (type, list) =>
  *
  * **Read from today every time the card is reopened**, so next March the card is that year's
  * four seasons without anything being edited, and the rows are named for the season alone —
- * *Summer* is summer, not summer of one year. **Both sides carry the five rows** — a film has no
+ * *Summer* is summer, not summer of one year. **Both sides carry the same four rows** — a film has no
  * season, so the card was shows-only for a round, until the owner asked for it on the film tab too
  * (*"movie tab me seasons card do aur contents bhi"*), and the row reads whichever date field the
  * media type has. None of them is capped, because a season is a window rather than a fixed list.
  */
-// **Five, because the year has five here.** Spring, Summer, **Rainy** (the monsoon), Autumn and
-// Winter — the owner's *"season me rainy aur fall bhi to aata hai"*, with Autumn in place of Fall
-// (*"remove fall"*).
+// **Four, in the order the owner names them.** The card has been through three shapes: five rows
+// (Spring, Summer, **Rainy**, Autumn, Winter), then the same five read from Summer. The owner's
+// last word on it is plain — *"pehle summer phir fall phir winter phir spring"* — so the monsoonal
+// **Rainy** row is gone and **Autumn is called Fall**: the rows are **Summer → Fall → Winter →
+// Spring**, which is one full turn of the year.
 //
-// **One month belongs to one season, and the five run in order.** The windows used to be three
-// months each and they overlapped — Summer June–August, the rains July–September, Autumn
-// August–October — so an August show was in **three rows at once**: measured on the screen,
-// *Spider-Man: Brand New Day* opened both Summer and Rainy, and *Lanterns* sat in Summer, Rainy and
-// Autumn. The owner's word on it is *"seasons me order t sahi karo"*, so the year is split into
-// five consecutive runs, one season each: **Spring March–April, Summer May–June, Rainy (the
-// monsoon) July–September, Autumn October–November, Winter December–February**. Spring is the
-// row that opens the card and Winter the one that closes it, which is the order the year runs them.
-// **And the card opens on Summer.** The owner's word: *"summer se na start hoga and jaise
-// season hote hai"* — the rows are the seasons in the order they come, starting where the
-// year's own cycle is read here: **Summer → Rainy → Autumn → Winter → Spring**, and then
-// round again. Nothing else moves: one month belongs to one season, the five runs are
-// consecutive and together they are the whole year (May–June, July–September, October–
-// November, December–February, March–April).
+// **One month belongs to one season, and the four run consecutively.** The windows used to overlap
+// — Summer June–August, the rains July–September, Autumn August–October — and an August show was
+// in three rows at once (measured on the screen: *Spider-Man: Brand New Day* opened both Summer and
+// Rainy). They are the meteorological quarters now, so together they are the whole year exactly
+// once: **Summer June–August, Fall September–November, Winter December–February, Spring March–
+// May**. Winter is still the run that crosses the new year, which its own window already handles.
 const SEASONS = [
-  { name: "Summer", first: 5, last: 6 },
-  { name: "Rainy", first: 7, last: 9 },
-  { name: "Autumn", first: 10, last: 11 },
+  { name: "Summer", first: 6, last: 8 },
+  { name: "Fall", first: 9, last: 11 },
   { name: "Winter", first: 12, last: 2 },
-  { name: "Spring", first: 3, last: 4 },
+  { name: "Spring", first: 3, last: 5 },
 ];
 
 /** `YYYY-MM-DD` for the first of a numbered month. */
@@ -2117,14 +2135,28 @@ const buildCollections = (code = "") => {
     // idea. Every continent row stays, every country row stays, and they keep the order the two
     // cards were in: the continents first (the wide query), then the countries. The entries are
     // the same (`continent`, `country`), so every link and every published id still resolves.
+    // **The country rows are labelled with their continent, and every country is in them.**
+    //
+    // The owner read the card and asked for two things: the rows should say which part of the
+    // world they are (*"continent and countries tags labels like Asia - India, Asia - Japan"*)
+    // and the card should hold **all** of the world's countries, not only the ones whose
+    // catalogue clears the fifty-title floor (*"include all countries in world"*). Both are the
+    // row *name*, and a row's name is also its id (`catalogEntries` → `slug(entry.name)`), so the
+    // links the app builds and the ids the server answers with stay one thing.
+    //
+    // **The order is the continent rows' own order**, because the continent is the outer list:
+    // Asia's countries, then Europe's, then North America's, and so on down `CONTINENTS` — the
+    // same order the continent tags above them are published in.
     catalogs: {
       movie: [
         ...continentsWithContent().map(([name, codes]) => continent(name, codes)),
-        ...countriesFor("movie").map(([name, code]) => country(name, code)),
+        ...continentalCountryRows(),
       ],
+      // The show side carries the same list: a country row is one read of that country's
+      // catalogue, and the Shows tab reads the same countries the Movies tab does.
       show: [
         ...continentsWithContent().map(([name, codes]) => continent(name, codes)),
-        ...countriesFor("show").map(([name, code]) => country(name, code)),
+        ...continentalCountryRows(),
       ],
     },
   },

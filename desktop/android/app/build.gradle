@@ -10,6 +10,17 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // **One Node runtime, not three.** The runtime this app embeds (nodejs-mobile, through
+        // `@capawesome/capacitor-nodejs`) ships a `libnode.so` per ABI and they are enormous:
+        // 96 MB (armeabi-v7a), 101 MB (arm64-v8a), 104 MB (x86_64) in v18.20.4-capawesome.3 — and
+        // an APK stores a native library uncompressed, so a build with no `abiFilters` packs about
+        // 300 MB of runtime before a single card or cover is added. That is the reported "303 MB and
+        // installing takes time".
+        //
+        // **arm64-v8a is every Android TV box that matters**: Nvidia Shield, Chromecast with Google
+        // TV, Fire TV Stick 4K, Mi Box S, the TCL/Hisense/Philips sets. Add `'armeabi-v7a'` for an
+        // older 32-bit box (it costs another 96 MB), and `'x86_64'` only for an emulator.
+        ndk { abiFilters 'arm64-v8a' }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -20,6 +31,12 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // **A release build that can be installed.** A sideloaded app has no store to sign it
+            // and `app-release-unsigned.apk` cannot be installed at all, so the release build is
+            // signed with the debug key AGP already keeps in the user's own `~/.android` — which
+            // is also what lets it update an installed debug build in place. The key is never in
+            // this repository; point `signingConfigs` at your own keystore to distribute it.
+            signingConfig signingConfigs.debug
         }
     }
 }
