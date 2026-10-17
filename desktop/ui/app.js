@@ -5193,6 +5193,9 @@ function renderExplore(key, id) {
   const loaded = [];
   const seenIds = new Set();
   let letterFilter = null;
+  // Whether the row has been read to its end for the chosen letter (see `sweepLetter`): the bar
+  // only says "all" once it has.
+  let letterReadOut = false;
   const letterOf = (name) => String(name || "").trim().charAt(0).toUpperCase();
   const passes = (m) => !letterFilter || letterOf(m.name) === letterFilter;
 
@@ -5320,7 +5323,9 @@ function renderExplore(key, id) {
       if (letter && !railIndex.has(letter)) railIndex.set(letter, m);
     }
     alphaRail.replaceChildren(
-      ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((letter) => {
+      // The letters live in the rail's **inner panel**: the rail is a zero-height sticky shell
+      // (see `.alpha-rail` in style.css), and this element draws the box around them.
+      el("div", { class: "alpha-rail-inner" }, ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((letter) => {
         const has = railIndex.has(letter);
         const chosen = letterFilter === letter;
         const what = chosen
@@ -5340,7 +5345,7 @@ function renderExplore(key, id) {
             onclick: () => pickLetter(letter),
           },
         );
-      }),
+      })),
     );
   };
 
@@ -5381,9 +5386,9 @@ function renderExplore(key, id) {
    */
   const pickLetter = async (letter) => {
     letterFilter = letterFilter === letter ? null : letter;
-    // Choosing another letter, or clearing this one, calls the pump off (see `startLetterPump`).
-    pumpLetter = null;
-    pumpToken += 1;
+    // Choosing another letter, or clearing this one, calls the sweep off (see `sweepLetter`).
+    sweepToken += 1;
+    letterReadOut = false;
     paintGrid();
     updateFilterBar();
     refreshRail();
@@ -5400,11 +5405,9 @@ function renderExplore(key, id) {
     // trip, so a letter far down a big catalog meant a long chain of requests; the
     // server now hands back a `count`-sized window, and the grid is repainted once
     // at the end rather than after every page.
-    await fillLetter(letterFilter);
-    // **The letter finishes itself.** The first batches are on screen; the pump then reads the rest
-    // of the row in the background until its end, so the count climbs on its own (South Korea's D was
-    // 4, then 24, and the screen said "still reading" — it now keeps going to the row's end).
-    startLetterPump(letterFilter);
+    // **The first batch is on screen; the sweep reads the rest of the row.** It keeps adding that
+    // letter's titles — and updating the count — until the catalog itself runs out.
+    sweepLetter(letterFilter);
   };
 
   /**
@@ -5471,38 +5474,69 @@ function renderExplore(key, id) {
    * the grid); the rest of the row is only *read through* to find its titles, which is why the count
    * grows while everything on screen still starts with the chosen letter.
    */
-  // **One pump per letter, and it runs itself out.** Picking a letter starts this; it keeps reading
-  // the row — a few windows per round, painting as it goes — until the catalog's own end. Every new
-  // pick (or clearing the letter) bumps the token, which is how the old pump is called off.
-  let pumpLetter = null;
-  let pumpToken = 0;
-  let pumpRunning = false;
-  const startLetterPump = (letter) => {
-    // **One loop, always the newest letter.** A scroll asks for this on every event and a pick asks
-    // for it too; rather than stacking loops, the running one re-reads `pumpLetter`/`pumpToken` each
-    // round, so a new pick simply redirects it and an old letter stops it.
-    pumpLetter = letter;
-    pumpToken += 1;
-    if (pumpRunning) return;
-    pumpRunning = true;
+  /**
+   * **A letter is read straight through the row, on its own cursor.**
+   *
+   * The letter used to be filled by asking the *grid's* own reader for more, which meant its progress
+   * depended on that reader's state — a batch asked for while another read was in flight went missing,
+   * a window repeated, and the letter sat at four titles claiming to be still reading. This reads the
+   * catalog itself, from the row's first window to its last, with a cursor of its own (`at`), so
+   * nothing else on the page can slow it down or confuse it: every window is asked for exactly once,
+   * in order, and the titles that start with the letter join the grid as they arrive.
+   *
+   * It stops at the row's real end (an empty window), when the reader picks another letter, or when the
+   * row has been walked once — and it is the same read the grid would have made, so nothing is fetched
+   * twice that a scroll would have fetched anyway.
+   */
+  let sweepToken = 0;
+  let sweeping = false;
+  const sweepLetter = (letter) => {
+    if (sweeping || !letter || letterFilter !== letter) return;
+    const token = (sweepToken += 1);
+    sweeping = true;
     (async () => {
       try {
-        for (;;) {
-          if (done || !pumpLetter || letterFilter !== pumpLetter) return;
-          const token = pumpToken;
-          const before = pages;
-          await fillLetter(pumpLetter, { follow: false, pages: 3 });
-          if (token !== pumpToken) continue;
-          if (pages === before) return;
+        let at = 0;
+        for (let window = 0; window < 400; window += 1) {
+          if (token !== sweepToken || letterFilter !== letter) return;
+          let metas;
+          try {
+            ({ metas } = await fetchCatalog(cat, at, 250, true));
+          } catch {
+            return; // a read that failed is not the end of the row — it simply stops here
+          }
+          if (!metas?.length) {
+            letterReadOut = true;
+            updateFilterBar();
+            break;
+          }
+          let added = 0;
+          for (const m of metas) {
+            const id = `${m.type || apiType()}:${m.id}`;
+            if (seenIds.has(id)) continue;
+            seenIds.add(id);
+            loaded.push(m);
+            added += 1;
+          }
+          at += metas.length;
+          paintGrid();
+          refreshRail();
+          updateFilterBar();
+          // A window that added nothing new twice running is a row that repeats itself: stop.
+          if (!added && window > 1) {
+            letterReadOut = true;
+            updateFilterBar();
+            break;
+          }
         }
       } finally {
-        pumpRunning = false;
+        sweeping = false;
       }
     })();
   };
   const autoFillLetter = () => {
     if (done || !letterFilter) return;
-    startLetterPump(letterFilter);
+    sweepLetter(letterFilter);
   };
   refreshRail();
 

@@ -2377,17 +2377,30 @@ textarea:focus-visible {
    them, and it is `sticky` so it travels down under the header as the row grows.
    It used to be `position: fixed` at the middle of the viewport, which floated it
    over the sample row at the top of the page instead of beside the posters. */
-.explore-body { display: flex; align-items: stretch; gap: 14px; }
+/* `flex-start`, not `stretch`: a short grid must not be stretched to the rail's height. */
+.explore-body { display: flex; align-items: flex-start; gap: 14px; }
 .explore-grid { flex: 1 1 auto; min-width: 0; }
 .alpha-rail {
   position: sticky;
-  /* Level with the middle of the screen, not pinned under the header, and it
-     travels from the catalog row down — `.explore-body` wraps the grid itself,
-     so the sample shuffle row above it is never part of the rail. */
+  /* **Centred on the screen without holding a page open.** The rail is a column in
+     the grid's row, so anything it measures — its letters *and* the margin that used
+     to lift it to the middle — became the height of that row: one card and a
+     seventeen-hundred-pixel scrollbar under it. It is now a **zero-height shell**
+     that sticks at the middle of the viewport and lets its panel overflow, so the
+     row is exactly as tall as the grid and the letters ride beside it.
+     (The old rule was a spacer: `margin-top: var(--rail-half)` handed back half the
+     rail's height so the lift could not reach over the header. A zero-height box
+     needs no such account — the panel is drawn centred on the sticky line instead.) */
   top: 50vh;
-  transform: translateY(-50%);
+  height: 0;
+  margin: 0;
   align-self: flex-start;
   flex: none;
+  overflow: visible;
+  transform: none;
+  z-index: 5;
+}
+.alpha-rail-inner {
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -2398,10 +2411,11 @@ textarea:focus-visible {
   border-radius: 12px;
   background: rgba(10, 11, 15, 0.92);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+  transform: translateY(-50%);
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.alpha-rail::-webkit-scrollbar { width: 0; height: 0; }
+.alpha-rail-inner::-webkit-scrollbar { width: 0; height: 0; }
 /* One row per letter, same height for every one of them, so the column reads as a
    list and not as letters floating at different heights. */
 .alpha {
@@ -3210,8 +3224,6 @@ html:fullscreen, body:fullscreen { overflow: hidden; height: 100%; }
    rail's *drawn* top lands on the grid's own top edge, its middle falls on the
    middle of the screen as the row scrolls, and nothing above it is covered. The
    rail's height is fixed (26 letters, then its padding), so the half is exact. */
-.alpha-rail { --rail-half: 217px; margin-top: var(--rail-half); }
-@media (max-height: 640px) { .alpha-rail { --rail-half: 178px; } }
 
 /* ------------------------------------------------------ the Live TV banner */
 
