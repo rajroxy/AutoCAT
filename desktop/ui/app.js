@@ -4985,27 +4985,16 @@ function cardTopPicksRow(card, catalogs) {
  * row. The banner's own card (Now Playing / Airing Today / On the Air) keeps its rows too: its tags live
  * on the banner, and its page is the only place those rows are read in full.
  *
- * **Seasons and Continental & Countries keep theirs as well, and for a reason of their own.** Their
- * *rows are the card*: the seasons are four, and their order is the year's (*"pehle summer phir fall
- * phir winter phir spring season card me"*), and the country rows are the world's, each named for its
- * continent and read in the continent order (*"continent and countries tags labels like Asia - India,
- * Asia - Japan … include all countries in world"*). One drawn-at-random picks row — "Top picks from
- * Spring", "Top picks from Europe - Norway" — showed **one** of them per open and read as the card
- * having neither the order nor the countries in it. A card whose point is its own list of rows draws
- * them all; the picks row is for the browsing cards, where the rows are one wide query each and the
- * tags already name them.
+ * **Seasons and Continental & Countries draw no rows either.** Their rows are the tags, and the
+ * owner was plain about it: no catalog rows on that card, of any country — press a tag and land on
+ * its Explore page, with the one **Top picks** row under the tags exactly like every other browsing
+ * card (*"ther should be no catalog rows … only direct click on tag and go to explore page, only top
+ * picks row like i had in other card as well"*). The full list of countries is still the tag line —
+ * every country in the world, labelled `Continent - Country` — it is simply a row of chips now, not a
+ * page of strips.
  */
-const ROWS_KEPT_KEYS = new Set(["watchlist", "for-you", "custom", "updates", "on-the-board", "seasons", "continental"]);
+const ROWS_KEPT_KEYS = new Set(["watchlist", "for-you", "custom", "updates", "on-the-board"]);
 
-/**
- * **A card that keeps its rows and still gets a picks row.** Seasons and Continental & Countries are
- * list-cards — their rows *are* the card — so they draw them all; but they are browsing cards too, and
- * the owner asked why the one row every other card opens with was missing from them
- * (*"why there isnt that top picks from row in continent & countries card like other cards"*). It is
- * drawn first, above the list, and it changes on every open exactly like it does elsewhere
- * (`topPickDraw` + a cache-busted read).
- */
-const PICKS_BESIDE_ROWS = new Set(["seasons", "continental"]);
 const ROWS_KEPT_KINDS = new Set(["watchlist", "custom", "recommend", "lineup"]);
 const keepsRows = (card) =>
   Boolean(card.hidden) ||
@@ -5091,12 +5080,6 @@ async function renderCard(key) {
     // **Your own cards keep their rows** (see `keepsRows`); a browsing card shows one row of top picks
     // from one of its tags, and the tag moves on every open (see `cardTopPicksRow`).
     if (keepsRows(c)) {
-      // **The two list-cards get the picks row back, above their rows.** Seasons and Continental &
-      // Countries kept their own rows, and only those — the owner's *"why there isnt that top picks
-      // from row in continent & countries card like other cards"*. So they now draw the same
-      // drawn-at-random picks row every browsing card draws, and then their own list under it: the
-      // picks answer a different question each open, the list below stays the card.
-      if (PICKS_BESIDE_ROWS.has(String(c.key))) wrapper.append(cardTopPicksRow(c, catalogs));
       for (const cat of catalogs) {
         // A row marked `divider` gets a horizontal rule above it (the Watchlist's
         // Watching → Plan to Watch boundary).
