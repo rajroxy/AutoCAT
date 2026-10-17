@@ -223,13 +223,95 @@ const codeHasContent = (code) => {
  * cross-country pool read `countryHasContent`, untouched): this is the card that says what the
  * world is made of, and it says all of it.
  */
+const CONTINENT_ORDER = Object.keys(CONTINENTS);
+
+/**
+ * **Which continent every country on the list belongs to.**
+ *
+ * `CONTINENTS` above is a browsing list — the seven labels with the handful of countries each
+ * that carry a catalogue worth a wide query — and it is what the search filter and the
+ * cross-country pool read. It is **not** the world: sixty-six codes against the 251 in
+ * `COUNTRIES`. The card the owner asked for is the world (*"include all countries in world in
+ * continental & countries card"*, *"europe - netherlands"*), so the label comes from here
+ * instead, keyed by code, and every code on `COUNTRIES` is in it.
+ *
+ * The labels are the same ones the filter uses, so a row's name and the filter's chip stay the
+ * same words. The historical states and territories keep the continent they were filed under (the
+ * Soviet Union in Europe, Zaire in Africa, Tahiti's islands in Oceania) — the card says where a
+ * place is, not whether it still exists.
+ */
+const CONTINENT_OF = {
+  Asia: [
+    "JP", "KR", "CN", "IN", "TH", "ID", "PH", "TW", "HK", "MY", "SG", "VN", "PK", "LK", "BD",
+    "AF", "AM", "AZ", "BT", "BN", "KH", "GE", "KZ", "KG", "LA", "MO", "MV", "MN", "MM", "NP",
+    "KP", "TJ", "TM", "UZ", "BU", "TP", "TL", "CC", "CX",
+  ],
+  Europe: [
+    "GB", "FR", "ES", "DE", "IT", "RU", "NL", "SE", "NO", "DK", "PL", "IE", "PT", "GR", "UA",
+    "CZ", "HU", "RO", "FI", "CH", "BE", "AT", "BG", "RS", "HR", "IS", "SK", "SI", "LT", "LV",
+    "EE", "BA", "AL", "MK", "MT", "LU", "CY", "MD", "ME", "AD", "BY", "LI", "MC", "SM", "VA",
+    "XK", "GI", "FO", "SJ", "XC", "XG", "YU", "SU", "CS", "XI",
+  ],
+  "North America": ["US", "CA", "MX", "BM", "GL", "PM"],
+  "Latin America": [
+    "BR", "AR", "CO", "CL", "PE", "VE", "UY", "EC", "BO", "PY", "CR", "PA", "DO", "PR", "GT",
+    "CU", "HN", "NI", "SV", "BZ", "JM", "HT", "TT", "BS", "BB", "GD", "DM", "LC", "VC", "KN",
+    "AG", "AI", "AW", "GF", "GP", "MQ", "FK", "GY", "SR",
+    "VG", "KY", "MS", "TC", "AN", "VI",
+  ],
+  Africa: [
+    "NG", "ZA", "EG", "KE", "MA", "GH", "TN", "DZ", "SN", "AO", "BF", "BI", "BJ", "BW", "CV",
+    "CM", "CF", "TD", "KM", "CD", "CG", "CI", "DJ", "ER", "ET", "GA", "GM", "GN", "GW", "GQ",
+    "LS", "LR", "LY", "MG", "MW", "ML", "MR", "MU", "YT", "MZ", "NA", "NE", "RE", "SH", "ST",
+    "SC", "SL", "SO", "SS", "SD", "SZ", "TZ", "TG", "ZM", "ZW", "ZR", "EH", "IO",
+    "RW", "UG",
+  ],
+  "Middle East": ["AE", "SA", "IL", "TR", "QA", "KW", "BH", "OM", "JO", "LB", "IQ", "IR", "SY", "YE", "PS"],
+  Oceania: ["AU", "NZ", "FJ", "PF", "NC", "PG", "SB", "VU", "WS", "TO", "TV", "KI", "NR", "FM", "MH", "PW", "CK", "NU", "NF", "TK", "PN", "AS", "GU", "MP", "WF", "UM"],
+  // The places with no country on them at all. They are rows like any other, and their rows are
+  // empty — the owner's *"even if they have no or less titles"* covers exactly this.
+  Antarctica: ["AQ", "BV", "HM", "TF", "GS"],
+};
+
+/** code → continent label, built once from the map above. */
+const CONTINENT_BY_CODE = new Map(
+  Object.entries(CONTINENT_OF).flatMap(([label, codes]) => codes.map((code) => [code, label])),
+);
+
+/**
+ * **One row per country in the world, named for its continent** — `Asia - India`,
+ * `Middle East - Turkey`, `Europe - Netherlands`.
+ *
+ * The card is the list of countries, so this walks `COUNTRIES` itself (every code the app knows,
+ * 251 of them) and labels each with its continent. A country with three titles and a country with
+ * thirty thousand get the same kind of row: a small catalogue is a small row, not a missing one.
+ * Which continent comes first is the order the seven labels have always been read in, and inside a
+ * continent the countries keep `COUNTRIES`' own order — the well-covered ones first.
+ *
+ * **No continent rows.** The owner asked for the seven wide rows to go (*"remove individual
+ * continent like asia, europe"*): the card is `Continent - Country` labels all the way down, and
+ * the continent is still the first word of every one of them.
+ */
 const continentalCountryRows = () => {
   const named = new Map(COUNTRIES.map(([name, code]) => [code, name]));
-  return Object.entries(CONTINENTS).flatMap(([continentName, codes]) =>
-    codes
-      .map((code) => [continentName, named.get(code), code])
-      .filter(([, name]) => Boolean(name))
-      .map(([continentName, name, code]) => country(`${continentName} - ${name}`, code)),
+  const rank = new Map(COUNTRIES.map(([, code], index) => [code, index]));
+  const labels = [...CONTINENT_ORDER];
+  const grouped = new Map(labels.map((label) => [label, []]));
+  for (const code of named.keys()) {
+    // A code the map has never heard of still gets a row — last, under a label that says so — so
+    // adding a country to `COUNTRIES` can never silence it on the card.
+    const label = CONTINENT_BY_CODE.get(code) || "More countries";
+    if (!grouped.has(label)) {
+      grouped.set(label, []);
+      labels.push(label);
+    }
+    grouped.get(label).push(code);
+  }
+  return labels.flatMap((label) =>
+    grouped
+      .get(label)
+      .sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0))
+      .map((code) => country(`${label} - ${named.get(code)}`, code)),
   );
 };
 
@@ -2129,35 +2211,27 @@ const buildCollections = (code = "") => {
     key: "continental",
     lines: ["Continental &", "Countries"],
     scene: "continental",
-    // **Continental and Countries are one card, and no row was dropped for it.** The two cards
-    // were one browse read twice -- six continent rows, then a row per country that holds its
-    // own catalogue -- so the owner asked for them as one card rather than two halves of one
-    // idea. Every continent row stays, every country row stays, and they keep the order the two
-    // cards were in: the continents first (the wide query), then the countries. The entries are
-    // the same (`continent`, `country`), so every link and every published id still resolves.
-    // **The country rows are labelled with their continent, and every country is in them.**
+    // **The card is one row per country, labelled with its continent — no continent rows.**
     //
-    // The owner read the card and asked for two things: the rows should say which part of the
-    // world they are (*"continent and countries tags labels like Asia - India, Asia - Japan"*)
-    // and the card should hold **all** of the world's countries, not only the ones whose
-    // catalogue clears the fifty-title floor (*"include all countries in world"*). Both are the
-    // row *name*, and a row's name is also its id (`catalogEntries` → `slug(entry.name)`), so the
-    // links the app builds and the ids the server answers with stay one thing.
+    // The two cards were one browse read twice (six continent rows, then a row per country that
+    // holds its own catalogue), so the owner asked for them as one card. It then held the seven
+    // wide continent rows *and* the country rows; the owner has now asked for the wide ones out
+    // (*"remove individual continent like asia, europe"*), so the card is labels all the way down:
+    // `Asia - India`, `Europe - Netherlands`, `Middle East - Turkey`.
     //
-    // **The order is the continent rows' own order**, because the continent is the outer list:
-    // Asia's countries, then Europe's, then North America's, and so on down `CONTINENTS` — the
-    // same order the continent tags above them are published in.
+    // **Every country in the world is in it**, not only the ones whose catalogue clears the
+    // fifty-title floor (*"include all countries in world"*, *"even if they have no or less
+    // titles"*) — `continentalCountryRows` walks `COUNTRIES` itself, all 251 codes, and labels
+    // each from `CONTINENT_OF`. A row's name is also its id (`catalogEntries` → `slug(entry.name)`),
+    // so the links the app builds and the ids the server answers with stay one thing.
+    //
+    // **The order is the continents' own order** — Asia's countries, then Europe's, then North
+    // America's, and so on — which is the order the continent chips and the search filter read in.
     catalogs: {
-      movie: [
-        ...continentsWithContent().map(([name, codes]) => continent(name, codes)),
-        ...continentalCountryRows(),
-      ],
-      // The show side carries the same list: a country row is one read of that country's
-      // catalogue, and the Shows tab reads the same countries the Movies tab does.
-      show: [
-        ...continentsWithContent().map(([name, codes]) => continent(name, codes)),
-        ...continentalCountryRows(),
-      ],
+      // One list, both tabs: a country row is one read of that country's catalogue, and the
+      // Shows tab reads the same 251 countries the Movies tab does.
+      movie: continentalCountryRows(),
+      show: continentalCountryRows(),
     },
   },
   // (Countries is not a card of its own any more: its rows are in the Continental card, which

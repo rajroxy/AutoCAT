@@ -4996,6 +4996,16 @@ function cardTopPicksRow(card, catalogs) {
  * tags already name them.
  */
 const ROWS_KEPT_KEYS = new Set(["watchlist", "for-you", "custom", "updates", "on-the-board", "seasons", "continental"]);
+
+/**
+ * **A card that keeps its rows and still gets a picks row.** Seasons and Continental & Countries are
+ * list-cards — their rows *are* the card — so they draw them all; but they are browsing cards too, and
+ * the owner asked why the one row every other card opens with was missing from them
+ * (*"why there isnt that top picks from row in continent & countries card like other cards"*). It is
+ * drawn first, above the list, and it changes on every open exactly like it does elsewhere
+ * (`topPickDraw` + a cache-busted read).
+ */
+const PICKS_BESIDE_ROWS = new Set(["seasons", "continental"]);
 const ROWS_KEPT_KINDS = new Set(["watchlist", "custom", "recommend", "lineup"]);
 const keepsRows = (card) =>
   Boolean(card.hidden) ||
@@ -5081,6 +5091,12 @@ async function renderCard(key) {
     // **Your own cards keep their rows** (see `keepsRows`); a browsing card shows one row of top picks
     // from one of its tags, and the tag moves on every open (see `cardTopPicksRow`).
     if (keepsRows(c)) {
+      // **The two list-cards get the picks row back, above their rows.** Seasons and Continental &
+      // Countries kept their own rows, and only those — the owner's *"why there isnt that top picks
+      // from row in continent & countries card like other cards"*. So they now draw the same
+      // drawn-at-random picks row every browsing card draws, and then their own list under it: the
+      // picks answer a different question each open, the list below stays the card.
+      if (PICKS_BESIDE_ROWS.has(String(c.key))) wrapper.append(cardTopPicksRow(c, catalogs));
       for (const cat of catalogs) {
         // A row marked `divider` gets a horizontal rule above it (the Watchlist's
         // Watching → Plan to Watch boundary).
